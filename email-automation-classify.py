@@ -9,7 +9,7 @@ from extract_msg.exceptions import InvalidFileFormatError
 dir_path = r'E:\onedrive\Documentos\Roberto'
 
 # Load the existing Excel file as a DataFrame
-excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation\email-archive\email-archive.xlsx'
+excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation-files\email-archive.xlsx'
 try:
     df_existing = pd.read_excel(excel_path)
 except FileNotFoundError:
@@ -105,7 +105,7 @@ df_all.drop(["Date Existing", "Date New"], axis=1, inplace=True)
 df_all.drop_duplicates(subset=["Subject", "Path"], keep="first", inplace=True)
 
 # Export the updated database to an Excel file
-excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation\email-archive\email-archive-updated.xlsx'
+excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation-files\email-archive-updated.xlsx'
 df_all.to_excel(excel_path, index=False)
 
 # Apply the column widths to the final Excel file
