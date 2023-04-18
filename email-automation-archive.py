@@ -9,7 +9,7 @@ import string
 from pathlib import Path
 
 # Load the Excel file
-excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation\email-archive\email-archive.xlsx'
+excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation-files\email-archive\email-archive.xlsx'
 df = pd.read_excel(excel_path)
 
 # Function to search for an email in the Excel file
