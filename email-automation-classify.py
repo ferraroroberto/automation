@@ -41,20 +41,21 @@ for subdir, dirs, files in os.walk(dir_path):
             if not df_existing[(df_existing["Subject"] == file) & (df_existing["Path"] == subdir)].empty:
                 continue
 
-            # Remove leading number sequence and dash from file name
-            file_name = re.sub(r"^\d+\s*-\s*", "", file)
-
-            # Remove "re" or "rv" prefix and any leading/trailing whitespace or ".msg" suffix from email subject
-            subject = re.sub(r"^\s*(re|rv|fw[d]*)\s*:?\s*|\s*\.msg$", "", file_name, flags=re.IGNORECASE)
-
-            # Extract sender and recipient information from the .msg file, with error control
+            # Extract subject, sender and recipient information from the .msg file, with error control
             try:
                 with extract_msg.Message(file_path) as msg:
+                    subject = msg.subject
                     sender = msg.sender
                     recipients = msg.to
             except InvalidFileFormatError:
-                print(f"InvalidFileFormatError: Skipping file {file_path}")
-                continue
+                    print(f"InvalidFileFormatError: Skipping file {file_path}")
+                    continue
+
+            # Remove leading number sequence and dash from file name, not necessary anymore if I use the subject
+            file_name = re.sub(r"^\d+\s*-\s*", "", subject)
+
+            # Remove "re" or "rv" prefix and any leading/trailing whitespace or ".msg" suffix from email subject
+            subject = re.sub(r"^\s*(re|rv|fw[d]*)\s*:?\s*|\s*\.msg$", "", file_name, flags=re.IGNORECASE)
 
             # Add the modified subject, path, sender, recipients, and other information to the list
             file_list.append((subject.strip(), subdir, sender, recipients, None, pd.Timestamp.now()))
