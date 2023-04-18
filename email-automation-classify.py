@@ -37,6 +37,11 @@ for subdir, dirs, files in os.walk(dir_path):
             # Get the full path to the file
             file_path = os.path.join(subdir, file)
 
+            # Check if the file path is too long (for example, more than 260 characters)
+            if len(file_path) > 260:
+                print(f"Skipping file with long path: {file_path}")
+                continue
+
             # Check if the file is already in the existing DataFrame
             if not df_existing[(df_existing["Subject"] == file) & (df_existing["Path"] == subdir)].empty:
                 continue

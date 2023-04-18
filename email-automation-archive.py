@@ -181,8 +181,8 @@ if folder_path:
     # Save email as .msg file
     save_email_as_msg(email, folder_path, correlative_number)
 
-    # Archive the email
-    archive_email(email)
+    # Archive the email (optional) uncomment the following line
+    # archive_email(email)
 
 else:
     messagebox.showinfo("No folder chosen", "No folder chosen. Archive manually")
