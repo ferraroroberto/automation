@@ -4,6 +4,9 @@ import re
 import win32com.client # requires 'pip install pywin32'
 import tkinter as tk
 from tkinter import messagebox
+import os
+import string
+from pathlib import Path
 
 # Load the Excel file
 excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation\email-archive\email-archive.xlsx'
@@ -57,6 +60,75 @@ def show_choice_popup(options):
     window.mainloop()
     return selected_option.get()
 
+# Function to get the next correlative number in the folder
+def get_next_correlative_number(folder_path):
+    files = os.listdir(folder_path)
+    correlative_numbers = [int(re.findall(r'\d+', f)[0]) for f in files if re.findall(r'\d+', f)]
+
+    if correlative_numbers:
+        next_number = max(correlative_numbers) + 1
+    else:
+        next_number = 1
+
+    return f"{next_number:03d}"
+
+import string
+
+# Function to sanitize the email subject
+def sanitize_subject(subject):
+    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+    sanitized_subject = ''.join(c for c in subject if c in valid_chars)
+    return sanitized_subject.strip()
+
+# Function to save email attachments
+def save_attachments(email, folder_path, correlative_number):
+    for attachment in email.Attachments:
+        try:
+            content_id = attachment.PropertyAccessor.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x3712001E")
+        except Exception:
+            content_id = None
+
+        # Check if the attachment has a ContentId, which is common for embedded images
+        if content_id:
+            continue
+
+        file_path = os.path.join(folder_path, f"{correlative_number} - {attachment.FileName}")
+        attachment.SaveAsFile(file_path)
+
+# Function to save the email as a .msg file
+def save_email_as_msg(email, folder_path, correlative_number):
+    sanitized_subject = sanitize_subject(email.Subject)
+    file_name = f"{correlative_number} - {sanitized_subject}.msg"
+    file_path = os.path.join(folder_path, file_name)
+    email.SaveAs(file_path)
+
+# Function to archive the email
+# Function to archive the email
+def archive_email(email):
+    # Get the Gmail account
+    outlook = email.Application.GetNamespace("MAPI")
+    accounts = outlook.Accounts
+    gmail_account = None
+
+    for account in accounts:
+        if "gmail" in account.SmtpAddress.lower():
+            gmail_account = account
+            break
+
+    if not gmail_account:
+        print("No Gmail account found.")
+        return
+
+    # Get the "All Mail" folder, which is the archive folder for Gmail
+    all_mail_folder = gmail_account.DeliveryStore.GetRootFolder().Folders["[Gmail]"].Folders["Archivo"]
+
+    if not all_mail_folder:
+        print("No Gmail 'All Mail' folder found.")
+        return
+
+    # Move the email to the Gmail "All Mail" folder
+    email.Move(all_mail_folder)
+
 #execution
 email = get_selected_email()
 
@@ -93,7 +165,24 @@ if email:
             choice = show_choice_popup(options)
 
             if choice in [0, 1, 2]:
-                chosen_folder = top_matches.iloc[choice]['Path']
-                messagebox.showinfo("Chosen folder", f"Chosen folder: {chosen_folder}")
+                folder_path = top_matches.iloc[choice]['Path']
             else:
-                messagebox.showinfo("No folder chosen", "No folder chosen.")
+                folder_path = ''
+
+if folder_path:
+
+    # Calculate the next correlative number
+    correlative_number = get_next_correlative_number(folder_path)
+    print('correlative number = ' , correlative_number)
+
+    # Save attachments
+    save_attachments(email, folder_path, correlative_number)
+
+    # Save email as .msg file
+    save_email_as_msg(email, folder_path, correlative_number)
+
+    # Archive the email
+    archive_email(email)
+
+else:
+    messagebox.showinfo("No folder chosen", "No folder chosen. Archive manually")
