@@ -1,7 +1,7 @@
-from fuzzywuzzy import fuzz #requires 'pip install fuzzywuzzy python-Levenshtein'
-import pandas as pd #requires 'pip install pandas openpyxl fsspec'
+from fuzzywuzzy import fuzz
+import pandas as pd
 import re
-import win32com.client # requires 'pip install pywin32'
+import win32com.client
 import tkinter as tk
 from tkinter import messagebox
 import os

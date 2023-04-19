@@ -1,8 +1,8 @@
 import os
-import pandas as pd #requires 'pip install pandas fsspec'
+import pandas as pd
 import re
-import openpyxl #requires 'pip install openpyxl'
-import extract_msg #requires 'pip install extract_msg'
+import openpyxl
+import extract_msg
 from extract_msg.exceptions import InvalidFileFormatError
 
 # Function to read the parameters from the txt file
