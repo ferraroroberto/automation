@@ -29,10 +29,51 @@ def search_email_subject(subject):
     return filtered_df
 
 # Function to find the top 3 most likely subjects and corresponding folders
-def find_top_matches(subject):
+def find_top_matches(subject, sender, recipients):
+    # Calculate the similarity score for the email subjects using fuzz.token_set_ratio
     df['Subject_Score'] = df['Subject'].apply(lambda x: fuzz.token_set_ratio(subject, x))
-    top_matches = df.nlargest(3, 'Subject_Score')
+
+    # Calculate the similarity score for the sender and recipients, considering the role switch
+    # We calculate the similarity score for sender and recipient pairs and take the maximum score
+    df['Send_Recv_Score'] = df.apply(
+        lambda x: max(fuzz.token_set_ratio(sender, x['Sender']) + fuzz.token_set_ratio(recipients, x['Recipients']),
+                      fuzz.token_set_ratio(sender, x['Recipients']) + fuzz.token_set_ratio(recipients, x['Sender'])),
+        axis=1)
+
+    # Calculate the total score by giving equal weight to the subject similarity and the sender/receiver similarity
+    df['Total_Score'] = df['Subject_Score'] * 0.5 + df['Send_Recv_Score'] * 0.5
+
+    # Get the top 3 matches based on the total score
+    top_matches = df.nlargest(3, 'Total_Score')
+
     return top_matches
+
+# Function to show a popup confirmation before archiving
+def show_yes_no_popup(prompt):
+    def on_yes():
+        nonlocal user_choice
+        user_choice.set(True)
+        window.destroy()
+
+    def on_no():
+        nonlocal user_choice
+        user_choice.set(False)
+        window.destroy()
+
+    window = tk.Tk()
+    window.title("Confirm if you want to proceed")
+
+    tk.Label(window, text=prompt).pack()
+
+    yes_button = tk.Button(window, text="Yes, archive", command=on_yes)
+    yes_button.pack()
+
+    no_button = tk.Button(window, text="No", command=on_no)
+    no_button.pack()
+
+    user_choice = tk.BooleanVar()
+    window.mainloop()
+    return user_choice.get()
 
 # Function to get the selected email from Outlook
 def get_selected_email():
@@ -169,16 +210,55 @@ if email:
 
     match = search_email(subject, sender, recipients)
     if not match.empty:
-        folder_path = match.iloc[0]['Path']
         print(f"Perfect match by subject, sender, recipient found. The folder path is: {folder_path}")
-    else:
 
+        # Show a Yes/No popup asking if the user wants to proceed with the perfect match
+        prompt = f"Perfect match by subject, sender, recipient found. The folder path is: {match.iloc[0]['Path']}. Do you want to proceed?"
+        proceed = show_yes_no_popup(prompt)
+
+        if proceed:
+            folder_path = match.iloc[0]['Path']
+            print(f"Proceeding with perfect match. The folder path is: {folder_path}")
+        else:
+            folder_path = None
+            print("User chose not to proceed with the perfect match.")
+    else:
         match = search_email_subject(subject)
         if not match.empty:
             folder_path = match.iloc[0]['Path']
             print(f"Match by subject found. The folder path is: {folder_path}")
+
+            # Show a Yes/No popup asking if the user wants to proceed with the perfect match
+            prompt = f"Perfect match by subject. The folder path is: {match.iloc[0]['Path']}. Do you want to proceed?"
+            proceed = show_yes_no_popup(prompt)
+
+            if proceed:
+                folder_path = match.iloc[0]['Path']
+                print(f"Proceeding with perfect match. The folder path is: {folder_path}")
+            else:
+                folder_path = None
+                print("User chose not to proceed with the perfect match, checking top matches.")
+
+                top_matches = find_top_matches(subject, sender, recipients)
+
+                # print the three top options
+                print("Top 3 matches:")
+                for idx, row in top_matches.iterrows():
+                    print(f"{idx + 1}: {row['Subject']} (Folder: {row['Path']})")
+
+                # Get the user's choice from the popup
+                options = [f"{idx + 1}: {row['Subject']} (Folder: {row['Path']})" for idx, row in
+                           top_matches.iterrows()]
+                prompt = "Enter the number of the chosen option (1/2/3) or leave it empty:"
+                choice = show_input_popup(prompt, options)
+
+                if choice in [0, 1, 2]:
+                    folder_path = top_matches.iloc[choice]['Path']
+                else:
+                    folder_path = ''
+
         else:
-            top_matches = find_top_matches(subject)
+            top_matches = find_top_matches(subject,sender,recipients)
 
             # print the three top options
             print("Top 3 matches:")
