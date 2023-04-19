@@ -1,15 +1,31 @@
 import os
-import pandas as pd #requires 'pip install pandas'
+import pandas as pd #requires 'pip install pandas fsspec'
 import re
 import openpyxl #requires 'pip install openpyxl'
 import extract_msg #requires 'pip install extract_msg'
 from extract_msg.exceptions import InvalidFileFormatError
 
+# Function to read the parameters from the txt file
+def read_params_from_txt_file(file_path):
+    params = {}
+    with open(file_path, 'r') as f:
+        for line in f:
+            if line.strip():
+                key, value = line.strip().split(" = ", 1)
+                params[key.strip()] = value.strip()
+    return params
+
+# Main execution
+
+# Load the parameters from the text file
+params_file_path = r"C:\Mis Datos en Local\temporal\python\email-automation-classify-params.txt"
+params = read_params_from_txt_file(params_file_path)
+
 # Set the directory you want to search in
-dir_path = r'E:\onedrive\Documentos\Roberto'
+dir_path = params['dir_path']
 
 # Load the existing Excel file as a DataFrame
-excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation-files\email-archive.xlsx'
+excel_path = params['excel_path']
 try:
     df_existing = pd.read_excel(excel_path)
 except FileNotFoundError:
@@ -104,8 +120,18 @@ df_all.drop(["Date Existing", "Date New"], axis=1, inplace=True)
 # Remove duplicate email subjects and paths
 df_all.drop_duplicates(subset=["Subject", "Path"], keep="first", inplace=True)
 
+# Rename the previous Excel file with an "-old" suffix
+old_excel_path = os.path.splitext(excel_path)[0] + '-old' + os.path.splitext(excel_path)[1]
+
+# If the "old" Excel file already exists, delete it
+if os.path.exists(old_excel_path):
+    os.remove(old_excel_path)
+
+# If the previous Excel file exists, rename it to the "old" Excel file
+if os.path.exists(excel_path):
+    os.rename(excel_path, old_excel_path)
+
 # Export the updated database to an Excel file
-excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation-files\email-archive-updated.xlsx'
 df_all.to_excel(excel_path, index=False)
 
 # Apply the column widths to the final Excel file
