@@ -76,6 +76,9 @@ for subdir, dirs, files in os.walk(dir_path):
             except AttributeError:
                     print(f"AttributeError: Skipping file {file_path}")
                     continue
+            except NotImplementedError:
+                    print(f"NotImplementedError: Skipping file {file_path}")
+                    continue
 
             # Remove leading number sequence and dash from file name, not necessary anymore if I use the subject
             file_name = re.sub(r"^\d+\s*-\s*", "", subject)
