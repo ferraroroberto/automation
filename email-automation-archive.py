@@ -1,5 +1,5 @@
 from fuzzywuzzy import fuzz #requires 'pip install fuzzywuzzy python-Levenshtein'
-import pandas as pd #requires 'pip install pandas openpyxl'
+import pandas as pd #requires 'pip install pandas openpyxl fsspec'
 import re
 import win32com.client # requires 'pip install pywin32'
 import tkinter as tk
@@ -8,9 +8,15 @@ import os
 import string
 from pathlib import Path
 
-# Load the Excel file
-excel_path = r'E:\onedrive\Documentos\Roberto\projects\automation\email-automation-files\email-archive\email-archive.xlsx'
-df = pd.read_excel(excel_path)
+# Function to read the parameters from the txt file
+def read_params_from_txt_file(file_path):
+    params = {}
+    with open(file_path, 'r') as f:
+        for line in f:
+            if line.strip():
+                key, value = line.strip().split(" = ", 1)
+                params[key.strip()] = value.strip()
+    return params
 
 # Function to search for an email in the Excel file
 def search_email(subject, sender, recipients):
@@ -103,7 +109,6 @@ def save_email_as_msg(email, folder_path, correlative_number):
     email.SaveAs(file_path)
 
 # Function to archive the email
-# Function to archive the email
 def archive_email(email):
     # Get the Gmail account
     outlook = email.Application.GetNamespace("MAPI")
@@ -129,7 +134,17 @@ def archive_email(email):
     # Move the email to the Gmail "All Mail" folder
     email.Move(all_mail_folder)
 
-#execution
+# Main execution
+
+# Load the parameters from the text file
+params_file_path = r"C:\Mis Datos en Local\temporal\python\email-automation-archive-params.txt"
+params = read_params_from_txt_file(params_file_path)
+
+# Load the Excel file
+excel_path = params['excel_path']
+df = pd.read_excel(excel_path)
+
+# Evaluate the email and decide
 email = get_selected_email()
 
 if email:
