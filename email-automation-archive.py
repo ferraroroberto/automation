@@ -271,11 +271,17 @@ if email:
                 # Get the user's choice from the popup
                 options = [f"{idx + 1}: {row['Subject']} (Folder: {row['Path']})" for idx, row in
                            top_matches.iterrows()]
-                prompt = "Enter the number of the chosen option (1/2/3) or leave it empty:"
+                prompt = "Enter the number of the chosen option (1/2/3) or 'o' to open the first folder or leave it empty to manual archive"
                 choice = show_input_popup(prompt, options)
 
-                if choice in [0, 1, 2]:
-                    folder_path = top_matches.iloc[choice]['Path']
+                if choice in ['1', '2', '3']:
+                    choice_int = int(choice) - 1
+                    folder_path = top_matches.iloc[choice_int]['Path']
+                elif choice == 'o':
+                    folder_path = top_matches.iloc[0]['Path']
+                    open_folder(folder_path)
+                    print("Folder opened - archive manually")
+                    exit()
                 else:
                     folder_path = ''
 
@@ -288,14 +294,19 @@ if email:
                 print(f"{idx+1}: {row['Subject']} (Folder: {row['Path']})")
 
             # Get the user's choice from the popup
-            options = [f"{idx + 1}: {row['Subject']} (Folder: {row['Path']})" for idx, row in top_matches.iterrows()]
-            prompt = "Enter the number of the chosen option (1/2/3) or leave it empty:"
+            options = [f"{idx + 1}: {row['Subject']} (Folder: {row['Path']})" for idx, row in
+                       top_matches.iterrows()]
+            prompt = "Enter the number of the chosen option (1/2/3) or 'o' to open the first folder or leave it empty to manual archive"
             choice = show_input_popup(prompt, options)
 
-            # get the choice and convert it as integer to pass as an index, subtracting 1
             if choice in ['1', '2', '3']:
                 choice_int = int(choice) - 1
                 folder_path = top_matches.iloc[choice_int]['Path']
+            elif choice == 'o':
+                folder_path = top_matches.iloc[0]['Path']
+                open_folder(folder_path)
+                print("Folder opened - archive manually")
+                exit()
             else:
                 folder_path = ''
 
