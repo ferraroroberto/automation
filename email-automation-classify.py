@@ -4,6 +4,7 @@ import re
 import openpyxl
 import extract_msg
 from extract_msg.exceptions import InvalidFileFormatError
+from extract_msg.exceptions import UnrecognizedMSGTypeError
 
 # Function to read the parameters from the txt file
 def read_params_from_txt_file(file_path):
@@ -79,6 +80,9 @@ for subdir, dirs, files in os.walk(dir_path):
             except NotImplementedError:
                     print(f"NotImplementedError: Skipping file {file_path}")
                     continue
+            except UnrecognizedMSGTypeError:
+                print(f"UnrecognizedMSGTypeError: Skipping file {file_path}")
+                continue
 
             # Remove leading number sequence and dash from file name, not necessary anymore if I use the subject
             file_name = re.sub(r"^\d+\s*-\s*", "", subject)
