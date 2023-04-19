@@ -270,7 +270,7 @@ if email:
             prompt = "Enter the number of the chosen option (1/2/3) or leave it empty:"
             choice = show_input_popup(prompt, options)
 
-            # get the choice and convert it as integer to pass as an index
+            # get the choice and convert it as integer to pass as an index, subtracting 1
             if choice in ['1', '2', '3']:
                 choice_int = int(choice) - 1
                 folder_path = top_matches.iloc[choice_int]['Path']
