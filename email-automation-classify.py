@@ -32,6 +32,8 @@ except FileNotFoundError:
     df_existing = pd.DataFrame(columns=["Subject", "Path", "Sender", "Recipients", "Archive", "Date"])
 
 # Get the column widths from the existing Excel file
+# Initialize column_widths as an empty list
+column_widths = []
 if os.path.exists(excel_path):
     wb_existing = openpyxl.load_workbook(excel_path)
     ws_existing = wb_existing.active
