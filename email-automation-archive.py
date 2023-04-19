@@ -46,25 +46,35 @@ def get_selected_email():
 
     return selection.Item(1)
 
-# Function to create a popup window with radio buttons
-def show_choice_popup(options):
+# Function to create a popup window with an input entry
+def show_input_popup(prompt, options):
     def on_submit():
-        nonlocal selected_option
-        selected_option.set(var.get())
+        nonlocal user_input
+        user_input.set(input_entry.get())
         window.destroy()
 
     window = tk.Tk()
-    window.title("Choose a folder")
+    window.title("Choose an option")
 
-    var = tk.IntVar()
-    for i, option in enumerate(options):
-        tk.Radiobutton(window, text=option, variable=var, value=i).pack(anchor=tk.W)
+    tk.Label(window, text=prompt, anchor=tk.W).pack(anchor=tk.W)
 
-    tk.Button(window, text="Submit", command=on_submit).pack()
+    # Display the folder options
+    for option in options:
+        folder_path = option.split("(Folder: ")[1].rstrip(")")
+        tk.Label(window, text=folder_path, anchor=tk.W).pack(anchor=tk.W)
 
-    selected_option = tk.IntVar(value=-1)
+    input_entry = tk.Entry(window)
+    input_entry.pack()
+
+    # Set focus to the input entry
+    input_entry.focus_set()
+
+    submit_button = tk.Button(window, text="Submit", command=on_submit)
+    submit_button.pack()
+
+    user_input = tk.StringVar()
     window.mainloop()
-    return selected_option.get()
+    return user_input.get()
 
 # Function to get the next correlative number in the folder
 def get_next_correlative_number(folder_path):
@@ -175,9 +185,10 @@ if email:
             for idx, row in top_matches.iterrows():
                 print(f"{idx+1}: {row['Subject']} (Folder: {row['Path']})")
 
-            # popup with the top options
+            # Get the user's choice from the popup
             options = [f"{idx + 1}: {row['Subject']} (Folder: {row['Path']})" for idx, row in top_matches.iterrows()]
-            choice = show_choice_popup(options)
+            prompt = "Enter the number of the chosen option (1/2/3) or leave it empty:"
+            choice = show_input_popup(prompt, options)
 
             if choice in [0, 1, 2]:
                 folder_path = top_matches.iloc[choice]['Path']
@@ -200,4 +211,4 @@ if folder_path:
     # archive_email(email)
 
 else:
-    messagebox.showinfo("No folder chosen", "No folder chosen. Archive manually")
+    print('No folder chosen. Archive manually')
