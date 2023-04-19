@@ -48,16 +48,25 @@ def find_top_matches(subject, sender, recipients):
 
     return top_matches
 
+# Function to open the folder in Windows Explorer
+def open_folder(folder_path):
+    os.startfile(folder_path)
+
 # Function to show a popup confirmation before archiving
 def show_yes_no_popup(prompt):
     def on_yes():
         nonlocal user_choice
-        user_choice.set(True)
+        user_choice.set("yes")
         window.destroy()
 
     def on_no():
         nonlocal user_choice
-        user_choice.set(False)
+        user_choice.set("no")
+        window.destroy()
+
+    def on_open_folder():
+        nonlocal user_choice
+        user_choice.set("open_folder")
         window.destroy()
 
     window = tk.Tk()
@@ -71,7 +80,10 @@ def show_yes_no_popup(prompt):
     no_button = tk.Button(window, text="No", command=on_no)
     no_button.pack()
 
-    user_choice = tk.BooleanVar()
+    open_folder_button = tk.Button(window, text="Open Folder", command=on_open_folder)
+    open_folder_button.pack()
+
+    user_choice = tk.StringVar()
     window.mainloop()
     return user_choice.get()
 
@@ -216,9 +228,14 @@ if email:
         prompt = f"Perfect match by subject, sender, recipient found. The folder path is: {match.iloc[0]['Path']}. Do you want to proceed?"
         proceed = show_yes_no_popup(prompt)
 
-        if proceed:
+        if proceed == "yes":
             folder_path = match.iloc[0]['Path']
             print(f"Proceeding with perfect match. The folder path is: {folder_path}")
+        elif proceed == "open_folder":
+            folder_path = match.iloc[0]['Path']
+            open_folder(folder_path)
+            print("Folder opened - archive manually")
+            exit()
         else:
             folder_path = None
             print("User chose not to proceed with the perfect match.")
@@ -229,15 +246,20 @@ if email:
             print(f"Match by subject found. The folder path is: {folder_path}")
 
             # Show a Yes/No popup asking if the user wants to proceed with the perfect match
-            prompt = f"Perfect match by subject. The folder path is: {match.iloc[0]['Path']}. Do you want to proceed?"
+            prompt = f"Subject match. The folder path is: {match.iloc[0]['Path']}. Do you want to proceed?"
             proceed = show_yes_no_popup(prompt)
 
-            if proceed:
+            if proceed == "yes":
                 folder_path = match.iloc[0]['Path']
                 print(f"Proceeding with perfect match. The folder path is: {folder_path}")
+            elif proceed == "open_folder":
+                folder_path = match.iloc[0]['Path']
+                open_folder(folder_path)
+                print("Folder opened - archive manually")
+                exit()
             else:
                 folder_path = None
-                print("User chose not to proceed with the perfect match, checking top matches.")
+                print("User chose not to proceed with the subject match, checking top matches.")
 
                 top_matches = find_top_matches(subject, sender, recipients)
 
