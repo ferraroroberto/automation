@@ -55,8 +55,8 @@ for subdir, dirs, files in os.walk(dir_path):
             # Get the full path to the file
             file_path = os.path.join(subdir, file)
 
-            # Check if the file path is too long (for example, more than 260 characters)
-            if len(file_path) > 260:
+            # Check if the file path is too long (for example, more than 250 characters)
+            if len(file_path) > 250:
                 print(f"Skipping file with long path: {file_path}")
                 continue
 
@@ -64,10 +64,10 @@ for subdir, dirs, files in os.walk(dir_path):
             if not df_existing[(df_existing["Subject"] == file) & (df_existing["Path"] == subdir)].empty:
                 continue
 
-            # Extract subject, sender and recipient information from the .msg file, with error control
+            # Extract subject, sender and recipient information from the .msg file, with error control, and empty subject control
             try:
                 with extract_msg.Message(file_path) as msg:
-                    subject = msg.subject
+                    subject = msg.subject if msg.subject else ''
                     sender = msg.sender
                     recipients = msg.to
             except InvalidFileFormatError:
