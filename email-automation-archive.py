@@ -1,22 +1,14 @@
+# requirements: public
 from fuzzywuzzy import fuzz
 import pandas as pd
 import re
 import win32com.client
 import tkinter as tk
-from tkinter import messagebox
 import os
 import string
-from pathlib import Path
 
-# Function to read the parameters from the txt file
-def read_params_from_txt_file(file_path):
-    params = {}
-    with open(file_path, 'r') as f:
-        for line in f:
-            if line.strip():
-                key, value = line.strip().split(" = ", 1)
-                params[key.strip()] = value.strip()
-    return params
+# requirements: custom function to read the parameters from a text file
+from utils import read_params_from_txt_file
 
 # Function to search for an email in the Excel file
 def search_email(subject, sender, recipients):
@@ -44,7 +36,10 @@ def find_top_matches(subject, sender, recipients):
     df['Total_Score'] = df['Subject_Score'] * 0.5 + df['Send_Recv_Score'] * 0.5
 
     # Get the top 3 matches based on the total score
-    top_matches = df.nlargest(3, 'Total_Score')
+    top_matches = df.nlargest(20, 'Total_Score')
+
+    # Remove duplicates folder paths and keep the top 3 unique items
+    top_matches = top_matches.drop_duplicates(subset='Path', keep='first').head(3)
 
     return top_matches
 
@@ -140,8 +135,6 @@ def get_next_correlative_number(folder_path):
         next_number = 1
 
     return f"{next_number:03d}"
-
-import string
 
 # Function to sanitize the email subject
 def sanitize_subject(subject):
