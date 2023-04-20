@@ -9,7 +9,7 @@ from datetime import datetime
 
 # requirements: custom functions
 from utils import read_params_from_txt_file
-from utils import get_active_explorer_path
+from utils import get_first_explorer_folder_path
 
 # Function to get the selected email from Outlook
 def get_selected_email():
@@ -114,7 +114,7 @@ params_file_path = r"C:\Mis Datos en Local\temporal\python\email-automation-arch
 params = read_params_from_txt_file(params_file_path)
 
 # Get the active Windows Explorer instance's folder path
-folder_path = get_active_explorer_path()
+folder_path = get_first_explorer_folder_path()
 if folder_path is None:
     print("No Windows Explorer instance found.")
 
