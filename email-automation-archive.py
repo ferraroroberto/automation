@@ -7,7 +7,7 @@ import tkinter as tk
 import os
 import string
 
-# requirements: custom function to read the parameters from a text file
+# requirements: custom functions
 from utils import read_params_from_txt_file
 
 # Function to search for an email in the Excel file

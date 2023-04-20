@@ -1,3 +1,4 @@
+# requirements: public
 import win32gui
 
 # Function to read the parameters from the txt file
