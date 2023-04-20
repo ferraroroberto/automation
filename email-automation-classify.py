@@ -1,3 +1,4 @@
+# requirements: public
 import os
 import pandas as pd
 import re
@@ -6,15 +7,8 @@ import extract_msg
 from extract_msg.exceptions import InvalidFileFormatError
 from extract_msg.exceptions import UnrecognizedMSGTypeError
 
-# Function to read the parameters from the txt file
-def read_params_from_txt_file(file_path):
-    params = {}
-    with open(file_path, 'r') as f:
-        for line in f:
-            if line.strip():
-                key, value = line.strip().split(" = ", 1)
-                params[key.strip()] = value.strip()
-    return params
+# requirements: custom function to read the parameters from a text file
+from utils import read_params_from_txt_file
 
 # Main execution
 
@@ -56,8 +50,8 @@ for subdir, dirs, files in os.walk(dir_path):
             # Get the full path to the file
             file_path = os.path.join(subdir, file)
 
-            # Check if the file path is too long (for example, more than 250 characters)
-            if len(file_path) > 250:
+            # Check if the file path is too long (for example, more than 260 characters)
+            if len(file_path) > 260:
                 print(f"Skipping file with long path: {file_path}")
                 continue
 
