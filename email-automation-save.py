@@ -11,22 +11,7 @@ from urllib.parse import unquote
 
 # requirements: custom function to read the parameters from a text file
 from utils import read_params_from_txt_file
-
-# Function to get the active Windows Explorer instance's folder path
-def get_active_explorer_path():
-    shell_windows = win32com.client.Dispatch("Shell.Application").Windows()
-    explorer_windows = [w for w in shell_windows if w.LocationURL.startswith("file:///")]
-
-    if not explorer_windows:
-        print("No Windows Explorer instance found.")
-        return None
-
-    active_explorer = max(explorer_windows, key=lambda w: w.HWND)
-    window_handle = active_explorer.HWND
-    window_title = win32gui.GetWindowText(window_handle)
-    folder_path = unquote(active_explorer.LocationURL.replace("file:///", "").replace("/", "\\"))
-    print(f"Window handle: {window_handle}, Window title: {window_title}, Folder path: {folder_path}")  # Debugging output
-    return folder_path
+from utils import get_active_explorer_path
 
 # Function to get the selected email from Outlook
 def get_selected_email():
