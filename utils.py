@@ -21,7 +21,7 @@ def get_active_explorer_path():
     explorer_handle = None
     for hwnd in windows:
         window_text = win32gui.GetWindowText(hwnd)
-        if ":\\" in window_text or window_text.startswith("\\\\S555"):
+        if (":\\" in window_text or window_text.startswith("\\\\S555")) and not window_text.endswith(".exe") and not window_text.endswith(".py"):
             explorer_handle = hwnd
             break
 
