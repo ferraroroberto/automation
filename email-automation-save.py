@@ -4,12 +4,10 @@ import openpyxl
 import pandas as pd
 import re
 import string
-import win32gui
 import win32com.client
 from datetime import datetime
-from urllib.parse import unquote
 
-# requirements: custom function to read the parameters from a text file
+# requirements: custom functions
 from utils import read_params_from_txt_file
 from utils import get_active_explorer_path
 

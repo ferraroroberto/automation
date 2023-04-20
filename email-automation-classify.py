@@ -7,7 +7,7 @@ import extract_msg
 from extract_msg.exceptions import InvalidFileFormatError
 from extract_msg.exceptions import UnrecognizedMSGTypeError
 
-# requirements: custom function to read the parameters from a text file
+# requirements: custom functions
 from utils import read_params_from_txt_file
 
 # Main execution
