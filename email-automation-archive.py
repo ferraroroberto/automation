@@ -1,6 +1,5 @@
 # requirements: public
 from fuzzywuzzy import fuzz
-import pandas as pd
 import re
 import win32com.client
 import tkinter as tk
@@ -33,11 +32,14 @@ def find_top_matches(subject, sender, recipients):
                       fuzz.token_set_ratio(sender, x['Recipients']) + fuzz.token_set_ratio(recipients, x['Sender'])),
         axis=1)
 
-    # Calculate the total score by giving equal weight to the subject similarity and the sender/receiver similarity
-    df['Total_Score'] = df['Subject_Score'] * 0.5 + df['Send_Recv_Score'] * 0.5
+    # Check for a match between the email subject and the folder name
+    df['Folder_Name_Score'] = df['Path'].apply(lambda x: fuzz.token_set_ratio(subject, os.path.basename(x)))
 
-    # Get the top 3 matches based on the total score
-    top_matches = df.nlargest(20, 'Total_Score')
+    # Calculate the total score by giving equal weight to the subject similarity, the sender/receiver similarity, and folder name similarity
+    df['Total_Score'] = df['Subject_Score'] * 0.4 + df['Send_Recv_Score'] * 0.4 + df['Folder_Name_Score'] * 0.2
+
+    # Get the top matches based on the total score
+    top_matches = df.nlargest(50, 'Total_Score')
 
     # Remove duplicates folder paths and keep the top 3 unique items
     top_matches = top_matches.drop_duplicates(subset='Path', keep='first').head(3)
@@ -68,16 +70,36 @@ def show_yes_no_popup(prompt):
     window = tk.Tk()
     window.title("Confirm if you want to proceed")
 
-    tk.Label(window, text=prompt).pack()
+    # Set the window style to look like a native Windows dialog
+    window.attributes('-toolwindow', True)
+    window.lift()
+    window.focus_force()
+    window.resizable(False, False)
+    window.config(padx=10, pady=10)
 
-    yes_button = tk.Button(window, text="Yes, archive", command=on_yes)
-    yes_button.pack()
+    # Center the window
+    window_width = 900
+    window_height = 100
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width / 2) - (window_width / 2)
+    y = (screen_height / 2) - (window_height / 2)
+    window.geometry(f"{window_width}x{window_height}+{int(x)}+{int(y)}")
 
-    no_button = tk.Button(window, text="No", command=on_no)
-    no_button.pack()
+    tk.Label(window, text=prompt).pack(pady=10)
 
-    open_folder_button = tk.Button(window, text="Open Folder", command=on_open_folder)
-    open_folder_button.pack()
+    # Create a new frame for the buttons
+    button_frame = tk.Frame(window)
+    button_frame.pack(pady=10)
+
+    yes_button = tk.Button(button_frame, text="Yes, archive", command=on_yes)
+    yes_button.pack(side=tk.LEFT, padx=(0, 5))
+
+    no_button = tk.Button(button_frame, text="No", command=on_no)
+    no_button.pack(side=tk.LEFT, padx=(5, 5))
+
+    open_folder_button = tk.Button(button_frame, text="Open Folder", command=on_open_folder)
+    open_folder_button.pack(side=tk.LEFT, padx=(5, 0))
 
     user_choice = tk.StringVar()
     window.mainloop()
@@ -105,7 +127,23 @@ def show_input_popup(prompt, options):
     window = tk.Tk()
     window.title("Choose an option")
 
-    tk.Label(window, text=prompt, anchor=tk.W).pack(anchor=tk.W)
+    # Set the window style to look like a native Windows dialog
+    window.attributes('-toolwindow', True)
+    window.lift()
+    window.focus_force()
+    window.resizable(False, False)
+    window.config(padx=10, pady=10)
+
+    # Center the window
+    window_width = 900
+    window_height = 200
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width / 2) - (window_width / 2)
+    y = (screen_height / 2) - (window_height / 2)
+    window.geometry(f"{window_width}x{window_height}+{int(x)}+{int(y)}")
+
+    tk.Label(window, text=prompt, anchor=tk.W).pack(anchor=tk.W, pady=(0, 10))
 
     # Display the folder options
     for option in options:
@@ -113,13 +151,13 @@ def show_input_popup(prompt, options):
         tk.Label(window, text=folder_path, anchor=tk.W).pack(anchor=tk.W)
 
     input_entry = tk.Entry(window)
-    input_entry.pack()
+    input_entry.pack(pady=(15, 10))
 
     # Set focus to the input entry
     input_entry.focus_set()
 
     submit_button = tk.Button(window, text="Submit", command=on_submit)
-    submit_button.pack()
+    submit_button.pack(pady=(10, 15))
 
     user_input = tk.StringVar()
     window.mainloop()
