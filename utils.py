@@ -1,7 +1,16 @@
 # requirements: public
 import win32com.client
 import win32gui
-from urllib.parse import unquote
+from urllib.parse import unquote_plus
+import pandas as pd
+import pickle
+from pathlib import Path
+from datetime import datetime
+import sys
+import io
+
+# Changes the default encoding for the console to UTF-8, which should resolve the issue for the windows encoding with accents
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 # Function to read the parameters from the txt file
 def read_params_from_txt_file(file_path):
@@ -28,7 +37,6 @@ def get_first_explorer_hwnd():
 
     return None
 
-
 def get_explorer_path_from_hwnd(target_hwnd):
     # Get all instances of Shell Windows
     shell_windows = win32com.client.Dispatch("Shell.Application").Windows()
@@ -44,12 +52,11 @@ def get_explorer_path_from_hwnd(target_hwnd):
     for window in explorer_windows:
         hwnd = window.HWND
         if hwnd == target_hwnd:
-            folder_path = unquote(window.LocationURL.replace("file:///", "").replace("/", "\\"))
+            folder_path = unquote_plus(window.LocationURL, encoding='utf-8').replace("file:///", "").replace("/", "\\")
             return folder_path
 
     print("No matching Windows Explorer instance found.")
     return None
-
 
 def get_first_explorer_folder_path():
     # Get the HWND of the first Windows Explorer instance with a path in its title
@@ -69,3 +76,33 @@ def get_first_explorer_folder_path():
         return folder_path
 
     return None
+
+# Function to open an excel file or a pickle, if found. If not found, creates the pickle
+def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, usecols=None, engine=None):
+    excel_file = Path(excel_file_path)
+    pickle_file = Path(pickle_file_path)
+
+    start_time = datetime.now()
+    print(f"Starting data loading process at {start_time}")
+    if pickle_file.exists() and pickle_file.stat().st_mtime > excel_file.stat().st_mtime:
+        print(f"Loading data from pickle file {pickle_file}")
+        with open(pickle_file, 'rb') as f:
+            df = pickle.load(f)
+    else:
+        print(f"Loading data from Excel file and creating a pickle file {excel_file}")
+        df = pd.read_excel(excel_file, sheet_name=sheet_name, usecols=usecols, engine=engine)
+        with open(pickle_file, 'wb') as f:
+            pickle.dump(df, f)
+
+    end_time = datetime.now()
+    print(f"Data loading process finished at {end_time}")
+
+    duration = end_time - start_time
+    print(f"Total duration of the data loading: {duration}")
+
+    # If no sheet_name is specified and df is a dictionary, return the first DataFrame
+    if sheet_name is None and isinstance(df, dict):
+        first_sheet = list(df.values())[0]
+        return first_sheet
+
+    return df
