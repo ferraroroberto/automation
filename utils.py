@@ -1,26 +1,34 @@
 # requirements: public
 import win32com.client
 import win32gui
-from urllib.parse import unquote_plus
+from urllib.parse import unquote, urlsplit
 import pandas as pd
 import pickle
 from pathlib import Path
 from datetime import datetime
-import sys
-import io
 
-# Changes the default encoding for the console to UTF-8, which should resolve the issue for the windows encoding with accents
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+# Custom function to replace special characters
+def replace_special_chars(path):
+    special_char_mapping = {
+        '%E1': 'á',
+        '%E9': 'é',
+        '%ED': 'í',
+        '%F3': 'ó',
+        '%FA': 'ú',
+        '%C1': 'Á',
+        '%C9': 'É',
+        '%CD': 'Í',
+        '%D3': 'Ó',
+        '%DA': 'Ú',
+        '%F1': 'ñ',
+        '%D1': 'Ñ',
+        '%20': ' '
+    }
 
-# Function to read the parameters from the txt file
-def read_params_from_txt_file(file_path):
-    params = {}
-    with open(file_path, 'r') as f:
-        for line in f:
-            if line.strip():
-                key, value = line.strip().split(" = ", 1)
-                params[key.strip()] = value.strip()
-    return params
+    for key, value in special_char_mapping.items():
+        path = path.replace(key, value)
+
+    return path
 
 # Function to get the path of the foreground windows explorer
 def get_first_explorer_hwnd():
@@ -52,7 +60,12 @@ def get_explorer_path_from_hwnd(target_hwnd):
     for window in explorer_windows:
         hwnd = window.HWND
         if hwnd == target_hwnd:
-            folder_path = unquote_plus(window.LocationURL, encoding='utf-8').replace("file:///", "").replace("/", "\\")
+            print(window.LocationURL)
+            url_parts = urlsplit(window.LocationURL)
+            folder_path = url_parts.path
+            folder_path = folder_path[1:] if folder_path.startswith('/') else folder_path
+            folder_path = folder_path.replace('/', '\\')
+            folder_path = replace_special_chars(folder_path)
             return folder_path
 
     print("No matching Windows Explorer instance found.")
@@ -76,6 +89,16 @@ def get_first_explorer_folder_path():
         return folder_path
 
     return None
+
+# Function to read the parameters from the txt file
+def read_params_from_txt_file(file_path):
+    params = {}
+    with open(file_path, 'r') as f:
+        for line in f:
+            if line.strip():
+                key, value = line.strip().split(" = ", 1)
+                params[key.strip()] = value.strip()
+    return params
 
 # Function to open an excel file or a pickle, if found. If not found, creates the pickle
 def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, usecols=None, engine=None):
