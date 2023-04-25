@@ -9,6 +9,7 @@ import string
 
 # requirements: custom functions
 from utils import read_params_from_txt_file
+from utils import read_excel_or_pickle
 
 # Function to search for an email in the Excel file
 def search_email(subject, sender, recipients):
@@ -196,9 +197,11 @@ def archive_email(email):
 params_file_path = r"C:\Mis Datos en Local\temporal\python\email-automation-archive-params.txt"
 params = read_params_from_txt_file(params_file_path)
 
-# Load the Excel file
+# Load the existing Excel file as a DataFrame
 excel_path = params['excel_path']
-df = pd.read_excel(excel_path)
+pickle_path = params['pickle_path']
+
+df = read_excel_or_pickle(excel_path,pickle_path)
 
 # Evaluate the email and decide
 email = get_selected_email()

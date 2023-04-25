@@ -9,6 +9,7 @@ from extract_msg.exceptions import UnrecognizedMSGTypeError
 
 # requirements: custom functions
 from utils import read_params_from_txt_file
+from utils import read_excel_or_pickle
 
 # Main execution
 
@@ -21,8 +22,9 @@ dir_path = params['dir_path']
 
 # Load the existing Excel file as a DataFrame
 excel_path = params['excel_path']
+pickle_path = params['pickle_path']
 try:
-    df_existing = pd.read_excel(excel_path)
+    df_existing = read_excel_or_pickle(excel_path,pickle_path)
 except FileNotFoundError:
     df_existing = pd.DataFrame(columns=["Subject", "Path", "Sender", "Recipients", "Archive", "Date"])
 

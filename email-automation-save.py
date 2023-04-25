@@ -110,7 +110,7 @@ def archive_email(email):
 # Main execution
 
 # Load the parameters from the text file
-params_file_path = r"C:\Mis Datos en Local\temporal\python\email-automation-archive-params.txt"
+params_file_path = r"C:\Mis Datos en Local\temporal\python\email-automation-save-params.txt"
 params = read_params_from_txt_file(params_file_path)
 
 # Get the active Windows Explorer instance's folder path
