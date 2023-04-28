@@ -250,7 +250,9 @@ if email:
     subject = re.sub(r"^\s*(re|rv|fw[d]*)\s*:?\s*|\s*\.msg$", "", email.Subject, flags=re.IGNORECASE)
 
     sender = email.SenderEmailAddress
-    recipients = ';'.join([r.Address for r in email.Recipients])
+
+    # try to get the PrimarySmtpAddress from the Exchange user only if it exists, otherwise, it will use the original address
+    recipients = ';'.join([r.Address if r.Type != 0 else (r.AddressEntry.GetExchangeUser().PrimarySmtpAddress if r.AddressEntry.GetExchangeUser() else r.Address) for r in email.Recipients])
 
     print('subject = ' + subject + ' sender = ' + sender + ' - recipients = ' + recipients)
 
@@ -259,7 +261,7 @@ if email:
         print(f"Perfect match by subject, sender, recipient found. The folder path is: {folder_path}")
 
         # Show a Yes/No popup asking if the user wants to proceed with the perfect match
-        prompt = f"Perfect match by subject, sender, recipient found. The folder path is: {match.iloc[0]['Path']}. Do you want to proceed?"
+        prompt = f"Perfect match by subject, sender, recipient found. The folder path is:\n\n {match.iloc[0]['Path']}\n\n Do you want to proceed?"
         proceed = show_yes_no_popup(prompt)
 
         if proceed == "yes":
@@ -280,12 +282,12 @@ if email:
             print(f"Match by subject found. The folder path is: {folder_path}")
 
             # Show a Yes/No popup asking if the user wants to proceed with the perfect match
-            prompt = f"Subject match. The folder path is: {match.iloc[0]['Path']}. Do you want to proceed?"
+            prompt = f"Subject match. The folder path is:\n\n {match.iloc[0]['Path']}\n\n Do you want to proceed?"
             proceed = show_yes_no_popup(prompt)
 
             if proceed == "yes":
                 folder_path = match.iloc[0]['Path']
-                print(f"Proceeding with perfect match. The folder path is: {folder_path}")
+                print(f"Proceeding with perfect match. The folder path is:\n {folder_path}")
             elif proceed == "open_folder":
                 folder_path = match.iloc[0]['Path']
                 open_folder(folder_path)
