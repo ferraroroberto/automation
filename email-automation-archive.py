@@ -78,8 +78,8 @@ def show_yes_no_popup(prompt):
     window.config(padx=10, pady=10)
 
     # Center the window
-    window_width = 900
-    window_height = 100
+    window_width = 1200
+    window_height = 200
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
     x = (screen_width / 2) - (window_width / 2)
@@ -117,6 +117,18 @@ def get_selected_email():
 
     return selection.Item(1)
 
+# Function get the SMTP email address from Outlook client
+def get_smtp_email_address(recipient_name):
+    outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+    recipient = outlook.CreateRecipient(recipient_name)
+    recipient.Resolve()
+    exchange_user = recipient.AddressEntry.GetExchangeUser()
+
+    if exchange_user is not None:
+        return exchange_user.PrimarySmtpAddress
+    else:
+        return None
+
 # Function to create a popup window with an input entry
 def show_input_popup(prompt, options):
     def on_submit():
@@ -135,7 +147,7 @@ def show_input_popup(prompt, options):
     window.config(padx=10, pady=10)
 
     # Center the window
-    window_width = 900
+    window_width = 1200
     window_height = 200
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
