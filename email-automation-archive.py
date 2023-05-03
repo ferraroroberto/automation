@@ -136,6 +136,21 @@ def show_input_popup(prompt, options):
         user_input.set(input_entry.get())
         window.destroy()
 
+    # Validate user input, integer or integer with preceeding 'o'. Both cases must be in the index of the options
+    def validate_input(user_choice, num_options):
+        if user_choice.isdigit():
+            choice_num = int(user_choice)
+            if 1 <= choice_num <= num_options:
+                return True
+        elif user_choice.startswith('o'):
+            try:
+                choice_num = int(user_choice[1:])
+                if 1 <= choice_num <= num_options:
+                    return True
+            except ValueError:
+                pass
+        return False
+
     window = tk.Tk()
     window.title("Choose an option")
 
@@ -173,6 +188,12 @@ def show_input_popup(prompt, options):
 
     user_input = tk.StringVar()
     window.mainloop()
+
+    # Validate the user input and set it to empty if it's invalid
+    if not validate_input(user_input.get(), len(options)):
+        print(f"Skipping option {user_input.get()} because it does not exist")
+        user_input.set("")
+
     return user_input.get()
 
 # Function to get the next correlative number in the folder
@@ -325,11 +346,15 @@ if email:
                 if choice in ['1', '2', '3']:
                     choice_int = int(choice) - 1
                     folder_path = top_matches.iloc[choice_int]['Path']
-                elif choice == 'o':
-                    folder_path = top_matches.iloc[0]['Path']
-                    open_folder(folder_path)
-                    print("Folder opened - archive manually")
-                    exit()
+                elif choice.startswith('o'):
+                    try:
+                        choice_int = int(choice[1:]) - 1
+                        folder_path = top_matches.iloc[choice_int]['Path']
+                        open_folder(folder_path)
+                        print("Folder opened - archive manually")
+                        exit()
+                    except (ValueError, IndexError):
+                        print("Invalid option. Please enter a valid choice.")
                 else:
                     folder_path = ''
 
@@ -350,11 +375,15 @@ if email:
             if choice in ['1', '2', '3']:
                 choice_int = int(choice) - 1
                 folder_path = top_matches.iloc[choice_int]['Path']
-            elif choice == 'o':
-                folder_path = top_matches.iloc[0]['Path']
-                open_folder(folder_path)
-                print("Folder opened - archive manually")
-                exit()
+            elif choice.startswith('o'):
+                try:
+                    choice_int = int(choice[1:]) - 1
+                    folder_path = top_matches.iloc[choice_int]['Path']
+                    open_folder(folder_path)
+                    print("Folder opened - archive manually")
+                    exit()
+                except (ValueError, IndexError):
+                    print("Invalid option. Please enter a valid choice.")
             else:
                 folder_path = ''
 
