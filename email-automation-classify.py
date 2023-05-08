@@ -10,6 +10,8 @@ from extract_msg.exceptions import UnrecognizedMSGTypeError
 # requirements: custom functions
 from utils import read_params_from_txt_file
 from utils import read_excel_or_pickle
+from utils import get_column_widths
+from utils import apply_column_widths
 
 # Main execution
 
@@ -28,13 +30,8 @@ try:
 except FileNotFoundError:
     df_existing = pd.DataFrame(columns=["Subject", "Path", "Sender", "Recipients", "Archive", "Date"])
 
-# Get the column widths from the existing Excel file
-# Initialize column_widths as an empty list
-column_widths = []
-if os.path.exists(excel_path):
-    wb_existing = openpyxl.load_workbook(excel_path)
-    ws_existing = wb_existing.active
-    column_widths = [ws_existing.column_dimensions[openpyxl.utils.get_column_letter(i+1)].width for i in range(len(df_existing.columns))]
+# Before processing the Excel file reads the column widths
+column_widths = get_column_widths(excel_path)
 
 # Create a list to store the file names and paths
 file_list = []
@@ -142,10 +139,5 @@ if os.path.exists(excel_path):
 # Export the updated database to an Excel file
 df_all.to_excel(excel_path, index=False)
 
-# Apply the column widths to the final Excel file
-if column_widths:
-    wb_final = openpyxl.load_workbook(excel_path)
-    ws_final = wb_final.active
-    for i, width in enumerate(column_widths):
-        ws_final.column_dimensions[openpyxl.utils.get_column_letter(i+1)].width = width
-    wb_final.save(excel_path)
+# After processing the Excel file recovers the column widths)
+apply_column_widths(excel_path, column_widths)
