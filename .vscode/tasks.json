@@ -1,0 +1,41 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+    {
+    "label": "Push to GitHub with Commit",
+    "type": "shell",
+    "command": "git add . && git commit -m \"${input:commitMessage}\" && git push origin master",
+    "problemMatcher": []
+    },
+    {
+    "label": "Push to GitLab with Commit",
+    "type": "shell",
+    "command": "git add . && git commit -m \"${input:commitMessage}\" && git push gitlab master",
+    "problemMatcher": []
+    },
+    {
+    "label": "Push to GitHub (Existing Commits)",
+    "type": "shell",
+    "command": "git push origin ${input:branchName}",
+    "problemMatcher": []
+    },
+    {
+    "label": "Push to GitLab (Existing Commits)",
+    "type": "shell",
+    "command": "git push gitlab ${input:branchName}",
+    "problemMatcher": []
+    }
+    ],
+    "inputs": [
+    {
+    "id": "branchName",
+    "type": "promptString",
+    "description": "Branch name"
+    },
+    {
+    "id": "commitMessage",
+    "type": "promptString",
+    "description": "Commit message"
+    }
+    ]
+    }
