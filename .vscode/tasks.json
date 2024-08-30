@@ -16,13 +16,13 @@
     {
     "label": "Push to GitHub (Existing Commits)",
     "type": "shell",
-    "command": "git push origin ${input:branchName}",
+    "command": "git push origin master",
     "problemMatcher": []
     },
     {
     "label": "Push to GitLab (Existing Commits)",
     "type": "shell",
-    "command": "git push gitlab ${input:branchName}",
+    "command": "git push gitlab master",
     "problemMatcher": []
     }
     ],
