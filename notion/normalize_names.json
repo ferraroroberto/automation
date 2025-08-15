@@ -1,0 +1,12 @@
+{
+  "notion_api_key": "${NOTION_API_TOKEN}",
+  "database_id": "your_database_id_here",
+  "use_spacy": false,
+  "proper_name_whitelist": [
+    "Satya Nadella",
+    "Marie Kondo",
+    "Elon Musk",
+    "Tim Cook",
+    "Sundar Pichai"
+  ]
+}

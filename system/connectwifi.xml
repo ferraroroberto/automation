@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+  <name>REDWIFI_dGYG</name>
+  <SSIDConfig>
+    <SSID>
+      <hex>524544574946495F64475947</hex>
+      <name>REDWIFI_dGYG</name>
+    </SSID>
+  </SSIDConfig>
+  <connectionType>ESS</connectionType>
+  <connectionMode>auto</connectionMode>
+  <MSM>
+    <security>
+      <authEncryption>
+        <authentication>WPA2PSK</authentication>
+        <encryption>AES</encryption>
+        <useOneX>false</useOneX>
+      </authEncryption>
+      <sharedKey>
+        <keyType>passPhrase</keyType>
+        <protected>false</protected>
+        <keyMaterial>HfUC6XyRXxb7b4NF</keyMaterial>
+      </sharedKey>
+    </security>
+  </MSM>
+  <MacRandomization xmlns="http://www.microsoft.com/networking/WLAN/profile/v3">
+    <enableRandomization>false</enableRandomization>
+  </MacRandomization>
+</WLANProfile>

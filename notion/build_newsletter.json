@@ -1,0 +1,5 @@
+{
+  "notion_api_key": "${NOTION_API_TOKEN}",
+  "articles_database_id": "67fbcee66711465c852ebf97303787a3",
+  "newsletter_database_id": "71fed31953b84183a9e77c48493bf9f4"
+}
