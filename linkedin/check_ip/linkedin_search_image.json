@@ -1,0 +1,29 @@
+{
+  "api_keys": {
+    "imgur_client_id": "${IMGUR_CLIENT_ID}",
+    "imgur_access_token": "${IMGUR_ACCESS_TOKEN}",
+    "serpapi_key": "${SERPAPI_KEY}"
+  },
+  "folders": {
+    "images_folder": "C:\\Users\\rober\\iCloudDrive\\6LVTQB9699~com~seriflabs~affinitydesigner\\Roberto\\check IP\\roberto_images",
+    "metadata_folder": "C:\\Users\\rober\\iCloudDrive\\6LVTQB9699~com~seriflabs~affinitydesigner\\Roberto\\check IP\\roberto_metadata"
+  },
+  "file_names": {
+    "metadata_file": "metadata.xlsx",
+    "results_file": "search_results_database.xlsx",
+    "api_history_file": "api_history_database.xlsx"
+  },
+  "processing_thresholds": {
+    "linkedin_high_threshold": 30,
+    "high_linkedin_days": 6,
+    "standard_days": 180
+  },
+  "search_settings": {
+    "do_exact_search": true,
+    "do_similar_search": false
+  },
+  "allowed_extensions": [".jpg", ".jpeg", ".png", ".gif", ".bmp"],
+  "api_endpoints": {
+    "search_endpoint": "https://serpapi.com/search?engine=google_lens"
+  }
+}

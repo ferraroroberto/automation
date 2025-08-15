@@ -1,0 +1,191 @@
+# Automation Project Requirements
+# Comprehensive dependencies for all automation modules
+
+# =============================================================================
+# AUDIO PROCESSING MODULES
+# =============================================================================
+
+# OpenAI Whisper for speech-to-text transcription
+# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py
+openai-whisper>=0.0.1
+
+# Audio recording and playback
+# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py
+sounddevice>=0.4.0
+
+# Audio file manipulation and processing
+# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py
+scipy>=1.10.0
+
+# Audio format conversion (OGG to MP3)
+# Source: audio/convert_ogg_mp3.py
+pydub>=0.25.1
+
+# =============================================================================
+# IMAGE PROCESSING MODULES
+# =============================================================================
+
+# Core image manipulation (PIL/Pillow)
+# Source: image/instagram_formatter.py, image/photos_archive.py, image/png_to_jpg_converter.py
+Pillow>=9.0.0
+
+# HEIF image format support
+# Source: image/photos_archive.py
+pillow-heif>=0.13.0
+
+# Media information extraction
+# Source: image/photos_archive.py
+pymediainfo>=6.0.0
+
+# =============================================================================
+# VIDEO PROCESSING MODULES
+# =============================================================================
+
+# Computer vision and video processing
+# Source: video/screen_recorder.py
+opencv-python>=4.8.0
+
+# Screen capture and recording
+# Source: video/screen_recorder.py, image/screenshot.py
+mss>=9.0.0
+
+# Mouse and keyboard automation
+# Source: video/screen_recorder.py
+pyautogui>=0.9.54
+
+# Monitor information
+# Source: video/screen_recorder.py
+screeninfo>=0.8.1
+
+# =============================================================================
+# PDF AND DOCUMENT PROCESSING
+# =============================================================================
+
+# PDF text extraction
+# Source: text/convert_pdf_to_txt.py
+PyPDF2>=3.0.0
+
+# Excel file handling
+# Source: notion/notion_databases_dump.py, email/email-automation-save.py, email/utils.py
+openpyxl>=3.1.0
+
+# =============================================================================
+# DATA PROCESSING AND ANALYSIS
+# =============================================================================
+
+# Data manipulation and analysis
+# Source: notion/notion_databases_dump.py, email/email-automation-save.py, image/photos_archive.py
+pandas>=2.0.0
+
+# Numerical operations
+# Source: audio/transcribe_voice_core.py, linkedin/check_ip/storage.py
+numpy>=1.20.0
+
+# =============================================================================
+# NOTION API INTEGRATION
+# =============================================================================
+
+# Official Notion API client
+# Source: notion/notion_databases_dump.py, notion/notion_databases_clean.py
+notion-client>=2.0.0
+
+# =============================================================================
+# WINDOWS API AND SYSTEM INTEGRATION
+# =============================================================================
+
+# Windows COM interfaces (Outlook automation)
+# Source: email/email-automation-save.py, email/utils.py, linkedin/open_profiles/utils.py
+pywin32>=306
+
+# Windows GUI automation (included in pywin32)
+# Source: email/window.py, linkedin/open_profiles/utils.py
+# Note: win32gui functionality is provided by pywin32 package above
+
+# Process and system utilities
+# Source: system/venv_manager.py
+psutil>=5.9.0
+
+# =============================================================================
+# USER INTERFACE AND AUTOMATION
+# =============================================================================
+
+# Keyboard and mouse monitoring
+# Source: audio/transcribe_voice_core.py, email/window.py
+pynput>=1.7.0
+
+# Clipboard operations
+# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py, text/clean_sensitive_data.py
+pyperclip>=1.8.0
+
+# Simple GUI dialogs
+# Source: linkedin/open_profiles/linkedin_open.py
+easygui>=0.98.3
+
+# =============================================================================
+# NETWORKING AND WEB
+# =============================================================================
+
+# HTTP library for API requests
+# Source: Various modules for web interactions
+requests>=2.31.0
+
+# =============================================================================
+# UTILITY AND HELPER MODULES
+# =============================================================================
+
+# Environment variable management
+# Source: Various configuration modules
+python-dotenv>=1.0.0
+
+# JSON schema validation
+# Source: Various configuration and data validation modules
+jsonschema>=4.17.0
+
+# Archive extraction support
+# Source: Various file processing modules
+py7zr>=0.20.0
+rarfile>=4.0
+
+# =============================================================================
+# DEVELOPMENT AND TESTING (OPTIONAL)
+# =============================================================================
+
+# Type checking support
+# Source: Various modules use typing hints
+typing-extensions>=4.0.0
+
+# =============================================================================
+# SYSTEM REQUIREMENTS
+# =============================================================================
+
+# FFmpeg must be installed separately for audio/video processing
+# Windows: Use Chocolatey (choco install ffmpeg) or download from https://ffmpeg.org/
+# Linux: sudo apt-get install ffmpeg
+# macOS: brew install ffmpeg
+
+# =============================================================================
+# STANDARD LIBRARY MODULES (NO INSTALLATION NEEDED)
+# =============================================================================
+
+# The following modules are part of Python's standard library:
+# - tkinter (GUI framework)
+# - argparse (Command line parsing)
+# - pathlib (Path manipulation)
+# - concurrent.futures (Parallel processing)
+# - subprocess (Process management)
+# - os, sys, re, json, datetime, threading, queue
+# - tempfile, shutil, logging, hashlib
+# - urllib.parse, webbrowser, ctypes, platform
+
+# =============================================================================
+# INSTALLATION NOTES
+# =============================================================================
+
+# Install all dependencies:
+# pip install -r requirements.txt
+
+# For development environment:
+# pip install -r requirements.txt[dev]
+
+# Note: Some modules may require system-level dependencies (FFmpeg, WinRAR, etc.)
+# See individual module documentation for specific requirements.

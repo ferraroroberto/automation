@@ -1,0 +1,11 @@
+{
+    "file_path": "E:\\onedrive\\Documentos\\Roberto\\projects\\automation\\notion-automation-files\\database-dump-connections_clean.xlsx",
+    "verbose": false,
+    "default_chunk_size": 10,
+    "filter_options": {
+        "alert_choices": ["True", "False", "Any"],
+        "star_choices": ["True", "False", "Any"],
+        "circle_choices": ["Any", "Top5", "Key50", "Vital100", "None"],
+        "topic_choices": ["all", "innovation", "personal development", "leadership and management", "LinkedIn", "visual illustration"]
+    }
+} 

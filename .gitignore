@@ -1,0 +1,21 @@
+# ignore temporary and virtual environment
+.venv
+
+# configuration files with user sensitive information
+.env
+
+# logs
+*.log
+
+# local variables
+notion/notion_articles_sync_last_time.txt
+
+# cache
+__pycache__
+
+# workspaces
+*.code-workspace
+
+# temporary files
+system/foldersearcher/folder_structure.txt
+

@@ -1,0 +1,73 @@
+{
+  "notion": {
+    "api_token": "${NOTION_API_TOKEN}",
+    "api_base": "https://api.notion.com/v1",
+    "version": "2022-06-28",
+    "source_database": "67fbcee66711465c852ebf97303787a3",
+    "target_database": "163c4531dea649a7b2eaaf37dd95c68c"
+  },
+  "sync": {
+    "polling_interval_seconds": 300,
+    "batch_size": 100,
+    "max_retries": 3,
+    "backoff_seconds": 2.0
+  },
+  "threading": {
+    "max_workers": 5,
+    "requests_per_second": 3.0,
+    "burst_size": 10,
+    "parallel_fetching": true,
+    "parallel_operations": true,
+    "operation_batch_size": 10
+  },
+  "field_mapping": {
+    "source_to_target": {
+      "article": "article",
+      "summary": "summary",
+      "topic": "topic",
+      "link": "link",
+      "niche": "niche",
+      "post": "post",
+      "author export": "author or source",
+      "news export": "newsletter",
+      "rowid": "source rowid",
+      "created": "created"
+    },
+    "target_to_source": {
+      "article": "article",
+      "summary": "summary",
+      "topic": "topic",
+      "link": "link",
+      "niche": "niche",
+      "post": "post",
+      "author or source": "author export",
+      "newsletter": "news export",
+      "source rowid": "rowid",
+      "created": "created"
+    }
+  },
+  "database_info": {
+    "source": {
+      "name": "articles",
+      "description": "Main articles database - source of truth"
+    },
+    "target": {
+      "name": "articles database",
+      "description": "Archive database for synced articles"
+    }
+  },
+  "sync_rules": {
+    "exclude_archive_field": "exclude archive",
+    "target_rowid_field": "target rowid",
+    "source_rowid_field": "rowid",
+    "skip_if_exclude_archive": true,
+    "cascade_deletions": true,
+    "bidirectional_tracking": true
+  },
+  "logging": {
+    "default_level": "INFO",
+    "show_emojis": true,
+    "include_timestamps": true
+  },
+  "_comment": "This configuration file uses environment variables only for the API token. All other configuration is defined here with sensible defaults."
+}
