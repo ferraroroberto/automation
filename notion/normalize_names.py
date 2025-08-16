@@ -4,6 +4,10 @@ Notion Article Name Normalizer
 
 Automatically normalizes article names in a Notion database to sentence case
 while preserving proper names, acronyms, and special tokens.
+
+Note: ALL CAPS words with 2+ characters are preserved as-is (assumed to be
+acronyms, emphasis, or intentionally capitalized terms). This means "TEST ALL CAPS"
+will remain "TEST ALL CAPS" rather than becoming "Test all caps".
 """
 
 import argparse
@@ -13,7 +17,6 @@ import os
 import re
 import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 import requests
@@ -22,14 +25,6 @@ from dotenv import load_dotenv
 # Load environment variables from root .env file
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-logger = logging.getLogger(__name__)
-
 
 class NotionNameNormalizer:
     """Main class for normalizing Notion article names."""
@@ -37,12 +32,21 @@ class NotionNameNormalizer:
     def __init__(self, config_path: str):
         """Initialize with configuration file path."""
         self.config = self._load_config(config_path)
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Authorization': f"Bearer {self.config['notion_api_key']}",
+        
+        # Get config values
+        self.notion_api_key = os.getenv('NOTION_API_TOKEN') or self.config.get('notion_api_key')
+        self.database_id = self.config.get('database_id')
+        
+        # Validate required config values
+        if not all([self.notion_api_key, self.database_id]):
+            raise ValueError("Missing required configuration values")
+        
+        # Set up Notion API headers
+        self.headers = {
+            'Authorization': f'Bearer {self.notion_api_key}',
             'Notion-Version': '2022-06-28',
             'Content-Type': 'application/json'
-        })
+        }
         
         # Optional spaCy support
         self.spacy_nlp = None
@@ -50,73 +54,61 @@ class NotionNameNormalizer:
             try:
                 import spacy
                 self.spacy_nlp = spacy.load("en_core_web_sm")
-                logger.info("spaCy loaded successfully for entity detection")
+                logging.info("🧠 spaCy loaded successfully for entity detection")
             except ImportError:
-                logger.warning("spaCy requested but not available, falling back to heuristics")
+                logging.warning("⚠️  spaCy requested but not available, falling back to heuristics")
+        
+        logging.info("✅ Name normalizer initialized")
+        logging.info(f"📊 Database ID: {self.database_id}")
     
     def _load_config(self, config_path: str) -> Dict:
-        """Load and validate configuration file."""
+        """Load and parse the JSON configuration file."""
         try:
             with open(config_path, 'r') as f:
-                config = json.load(f)
+                return json.load(f)
         except FileNotFoundError:
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in configuration file: {e}")
-        
-        # Process environment variables in config
-        config = self._process_environment_variables(config)
-        
-        # Validate required keys
-        required_keys = ['notion_api_key', 'database_id']
-        missing_keys = [key for key in required_keys if key not in config]
-        if missing_keys:
-            raise ValueError(f"Missing required configuration keys: {missing_keys}")
-        
-        logger.info(f"Configuration loaded from: {config_path}")
-        return config
-    
-    def _process_environment_variables(self, config: Dict) -> Dict:
-        """Process environment variables in configuration values.
-        
-        Supports ${ENV_VAR_NAME} syntax for environment variable substitution.
-        """
-        def replace_env_vars(obj: Any) -> Any:
-            """Recursively replace environment variables in configuration values."""
-            if isinstance(obj, dict):
-                return {k: replace_env_vars(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [replace_env_vars(item) for item in obj]
-            elif isinstance(obj, str) and obj.startswith('${') and obj.endswith('}'):
-                env_var = obj[2:-1]
-                value = os.getenv(env_var)
-                if value is None:
-                    logger.error(f"Environment variable not found: {env_var}")
-                    sys.exit(1)
-                return value
-            return obj
-        
-        return replace_env_vars(config)
+            # Try looking in the same directory as this script
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            fallback_path = os.path.join(script_dir, os.path.basename(config_path))
+            try:
+                with open(fallback_path, 'r') as f:
+                    logging.info(f"📁 Loaded config from fallback path: {fallback_path}")
+                    return json.load(f)
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Configuration file not found at {config_path} or {fallback_path}")
+            except json.JSONDecodeError:
+                raise ValueError(f"Invalid JSON in fallback configuration file: {fallback_path}")
+        except json.JSONDecodeError:
+            raise ValueError(f"Invalid JSON in configuration file: {config_path}")
     
     def _query_notion_database(self, days: int) -> List[Dict]:
-        """Query Notion database for pages edited in the last N days."""
-        database_id = self.config['database_id']
+        """Query Notion database for articles created in the last N days."""
         pages = []
         
         # Calculate the date filter
         filter_date = datetime.utcnow() - timedelta(days=days)
         filter_date_str = filter_date.isoformat() + 'Z'
         
-        logger.info(f"Querying database {database_id} for pages edited since {filter_date_str}")
+        logging.info(f"🔍 Querying database {self.database_id} for articles created in the last {days} days (since {filter_date_str})")
         
-        # Build the filter for last_edited_time
+        # Build the filter for created_time and sort by created_time descending
         filter_body = {
             "filter": {
-                "property": "last_edited_time",
-                "last_edited_time": {
-                    "past_n_days": days
+                "and": [
+                    {
+                        "property": "created",
+                        "created_time": {
+                            "after": filter_date_str
+                        }
+                    }
+                ]
+            },
+            "sorts": [
+                {
+                    "property": "created",
+                    "direction": "descending"
                 }
-            }
+            ]
         }
         
         start_cursor = None
@@ -128,8 +120,9 @@ class NotionNameNormalizer:
                 filter_body["start_cursor"] = start_cursor
             
             try:
-                response = self.session.post(
-                    f"https://api.notion.com/v1/databases/{database_id}/query",
+                response = requests.post(
+                    f"https://api.notion.com/v1/databases/{self.database_id}/query",
+                    headers=self.headers,
                     json=filter_body
                 )
                 response.raise_for_status()
@@ -142,7 +135,7 @@ class NotionNameNormalizer:
                 
                 pages.extend(results)
                 page_count += len(results)
-                logger.debug(f"Retrieved {len(results)} pages (total: {page_count})")
+                logging.debug(f"📥 Retrieved {len(results)} pages (total: {page_count})")
                 
                 # Check if there are more pages
                 if not data.get('has_more', False):
@@ -151,13 +144,13 @@ class NotionNameNormalizer:
                 start_cursor = data.get('next_cursor')
                 
             except requests.exceptions.RequestException as e:
-                logger.error(f"Notion API error: {e}")
+                logging.error(f"❌ Notion API error: {e}")
                 if hasattr(e, 'response') and e.response is not None:
-                    logger.error(f"Status code: {e.response.status_code}")
-                    logger.error(f"Response: {e.response.text[:200]}...")
+                    logging.error(f"📊 Status code: {e.response.status_code}")
+                    logging.error(f"📄 Response: {e.response.text[:200]}...")
                 raise
         
-        logger.info(f"Total pages retrieved: {len(pages)}")
+        logging.info(f"📊 Total pages retrieved: {len(pages)}")
         return pages
     
     def _extract_page_info(self, page: Dict) -> Optional[Tuple[str, str, str]]:
@@ -165,23 +158,23 @@ class NotionNameNormalizer:
         page_id = page.get('id', '')
         last_edited_time = page.get('last_edited_time', '')
         
-        # Extract name from title property
+        # Extract name from article title property
         properties = page.get('properties', {})
-        name_property = properties.get('Name', {})
+        name_property = properties.get('article', {})
         
         if not name_property or name_property.get('type') != 'title':
-            logger.warning(f"Page {page_id} missing or invalid Name property")
+            logging.warning(f"⚠️  Page {page_id} missing or invalid article property")
             return None
         
         title_content = name_property.get('title', [])
         if not title_content:
-            logger.warning(f"Page {page_id} has empty Name property")
+            logging.warning(f"⚠️  Page {page_id} has empty article property")
             return None
         
         # Extract plain text from rich text
         name_text = ''.join([segment.get('plain_text', '') for segment in title_content])
         if not name_text.strip():
-            logger.warning(f"Page {page_id} has empty Name text")
+            logging.warning(f"⚠️  Page {page_id} has empty article text")
             return None
         
         return page_id, last_edited_time, name_text.strip()
@@ -191,97 +184,151 @@ class NotionNameNormalizer:
         if not original_name:
             return original_name
         
-        # Store original for comparison
+        # Store original tokens for comparison during restoration
         original_tokens = original_name.split()
         
-        # Step 1: Convert to lowercase
+        # Step 1: Convert entire string to lowercase as base for normalization
         normalized = original_name.lower()
         
-        # Step 2: Capitalize first character (sentence case)
+        # Step 2: Apply sentence case - capitalize first character only
         if normalized:
             normalized = normalized[0].upper() + normalized[1:]
         
-        # Step 3: Restore proper names and special tokens
+        # Step 3: Restore proper names, acronyms, and special tokens from original
         normalized_tokens = normalized.split()
         
         for i, (orig_token, norm_token) in enumerate(zip(original_tokens, normalized_tokens)):
+            # Check if this token needs special capitalization restored
             restored_token = self._restore_token_capitalization(orig_token, norm_token)
             if restored_token != norm_token:
                 normalized_tokens[i] = restored_token
-                logger.debug(f"Restored token: '{norm_token}' -> '{restored_token}'")
+                logging.debug(f"🔄 Restored token: '{norm_token}' -> '{restored_token}'")
         
-        # Step 4: Reconstruct and clean up whitespace
+        # Step 4: Reconstruct string and normalize whitespace
         result = ' '.join(normalized_tokens)
         result = re.sub(r'\s+', ' ', result).strip()
         
         return result
     
     def _restore_token_capitalization(self, original_token: str, normalized_token: str) -> str:
-        """Restore proper capitalization for a specific token."""
-        # Check if token should remain ALL CAPS (length >= 2)
+        """Restore proper capitalization for a specific token based on preservation rules."""
+        # Rule 1: Preserve ALL CAPS words (2+ chars) - assumed to be acronyms/emphasis
+        # This prevents "TEST ALL CAPS" from becoming "Test all caps"
         if len(original_token) >= 2 and original_token.isupper():
             return original_token
         
-        # Check if token contains special characters (periods, ampersands, hyphens)
+        # Rule 2: Preserve tokens with special punctuation (e.g., "U.S.A.", "A&B")
         if re.search(r'[.&-]', original_token):
             return original_token
         
-        # Check against proper name whitelist
+        # Rule 3: Check against user-defined proper name whitelist from config
         whitelist = self.config.get('proper_name_whitelist', [])
         for proper_name in whitelist:
             if self._is_token_match(original_token, proper_name):
                 return proper_name
         
-        # Use spaCy for entity detection if available
+        # Rule 4: Use spaCy NLP to detect person names if available
         if self.spacy_nlp:
             if self._is_person_entity(original_token):
                 return original_token
         
+        # If no preservation rules apply, use the normalized (sentence case) version
         return normalized_token
     
     def _is_token_match(self, token: str, proper_name: str) -> bool:
         """Check if a token matches a proper name (case-insensitive word boundary match)."""
-        # Simple word boundary matching
+        # Convert both to lowercase for case-insensitive comparison
         token_lower = token.lower()
         proper_lower = proper_name.lower()
         
-        # Exact match
+        # Check for exact match first (most common case)
         if token_lower == proper_lower:
             return True
         
-        # Check if token is part of the proper name
+        # Check if token is a component of a multi-word proper name
+        # e.g., "John" matches "John Smith" in the whitelist
         if token_lower in proper_lower.split():
             return True
         
         return False
     
     def _is_person_entity(self, token: str) -> bool:
-        """Check if a token is recognized as a person entity by spaCy."""
+        """Check if a token is recognized as a person entity by spaCy NLP."""
+        # Early return if spaCy is not available
         if not self.spacy_nlp:
             return False
         
+        # Process token through spaCy NLP pipeline
         doc = self.spacy_nlp(token)
+        
+        # Check if any detected entity is labeled as a person
         for ent in doc.ents:
             if ent.label_ == 'PERSON':
                 return True
+        
         return False
     
+    def _update_page_property(self, page_id: str, property_name: str, new_value: str) -> bool:
+        """Update a specific property of a Notion page."""
+        try:
+            # Prepare the update payload for the title property
+            update_data = {
+                "properties": {
+                    property_name: {
+                        "title": [
+                            {
+                                "type": "text",
+                                "text": {
+                                    "content": new_value
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+            
+            response = requests.patch(
+                f"https://api.notion.com/v1/pages/{page_id}",
+                headers=self.headers,
+                json=update_data
+            )
+            response.raise_for_status()
+            
+            logging.debug(f"✅ Successfully updated page {page_id[:8]}...{page_id[-2:]}")
+            return True
+            
+        except requests.exceptions.RequestException as e:
+            logging.error(f"❌ Failed to update page {page_id[:8]}...{page_id[-2:]}: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logging.error(f"📊 Status code: {e.response.status_code}")
+                logging.error(f"📄 Response: {e.response.text[:200]}...")
+            return False
+        except Exception as e:
+            logging.error(f"❌ Unexpected error updating page {page_id[:8]}...{page_id[-2:]}: {e}")
+            return False
+    
     def process_database(self, days: int) -> List[Dict]:
-        """Main method to process the database and return normalized results."""
-        # Query Notion database
+        """Main method to process the database and update normalized results."""
+        # Query Notion database for pages created in the specified time period
         pages = self._query_notion_database(days)
         
+        # Initialize counters and results collection
         results = []
         processed_count = 0
+        updated_count = 0
+        unchanged_count = 0
         
         for page in pages:
+            # Extract essential page information (ID, timestamp, article name)
             page_info = self._extract_page_info(page)
             if not page_info:
                 continue
             
             page_id, last_edited_time, original_name = page_info
+            # Apply normalization rules to the article name
             normalized_name = self._normalize_name(original_name)
             
+            # Store results for reporting
             result = {
                 'page_id': page_id,
                 'last_edited_time': last_edited_time,
@@ -292,34 +339,38 @@ class NotionNameNormalizer:
             results.append(result)
             processed_count += 1
             
-            # Log at DEBUG level for sample items
+            # Determine if normalization actually changed the name
+            if original_name != normalized_name:
+                # Attempt to update the Notion page with normalized name
+                if self._update_page_property(page_id, 'article', normalized_name):
+                    updated_count += 1
+                    logging.info(f'📝 Article: "{original_name}" normalized to "{normalized_name}"')
+                else:
+                    logging.error(f'❌ Article: "{original_name}" failed to update to "{normalized_name}"')
+            else:
+                # Name was already in expected format (e.g., ALL CAPS preserved)
+                unchanged_count += 1
+                logging.info(f'✅ Article: "{original_name}" did not change, was already normalized')
+            
+            # Log first few normalizations at DEBUG level for troubleshooting
             if processed_count <= 3:
-                logger.debug(f"Sample normalization: '{original_name}' -> '{normalized_name}'")
+                logging.debug(f"🔍 Sample normalization: '{original_name}' -> '{normalized_name}'")
         
-        logger.info(f"Successfully processed {processed_count} pages")
+        # Log final processing summary
+        logging.info(f"✅ Successfully processed {processed_count} pages")
+        logging.info(f"📝 Updated {updated_count} pages with normalized names")
+        logging.info(f"✅ Left unchanged {unchanged_count} pages (already normalized)")
         return results
     
-    def save_results(self, results: List[Dict], output_path: str):
-        """Save results to JSON output file."""
-        try:
-            with open(output_path, 'w') as f:
-                json.dump(results, f, indent=2, ensure_ascii=False)
-            logger.info(f"Results saved to: {output_path}")
-        except Exception as e:
-            logger.error(f"Failed to save results: {e}")
-            raise
-    
-    def print_summary(self, results: List[Dict]):
-        """Print summary to stdout."""
-        print(f"\nMatched pages: {len(results)}")
-        
-        for result in results:
-            page_id = result['page_id'][:8] + '...' + result['page_id'][-2:]  # Truncate for display
-            last_edited = result['last_edited_time'][:19].replace('T', ' ')  # Format timestamp
-            original = result['original_name']
-            normalized = result['normalized_name']
-            
-            print(f"{page_id} | {last_edited} | {original} -> {normalized}")
+
+def setup_logging(debug: bool = False):
+    """Set up logging configuration."""
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
 
 
 def main():
@@ -330,13 +381,14 @@ def main():
     parser.add_argument(
         '--days', 
         type=int, 
-        default=7,
-        help='Number of days to look back for edited pages (default: 7)'
+        default=1,
+        help='Number of days to look back for created articles (default: 1)'
     )
     parser.add_argument(
         '--config', 
         type=str,
-        help='Path to configuration file (default: same basename as script)'
+        default="normalize_names.json",
+        help='Path to JSON config file (default: "normalize_names.json")'
     )
     parser.add_argument(
         '--debug', 
@@ -346,38 +398,21 @@ def main():
     
     args = parser.parse_args()
     
-    # Set logging level
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-        logger.debug("Debug logging enabled")
-    
-    # Determine config file path
-    if args.config:
-        config_path = args.config
-    else:
-        # Use same basename as script
-        script_path = Path(__file__)
-        config_path = script_path.with_suffix('.json')
-    
-    # Determine output file path
-    script_path = Path(__file__)
-    output_path = script_path.with_suffix('_output.json')
+    # Set up logging
+    setup_logging(args.debug)
     
     try:
         # Initialize normalizer
-        normalizer = NotionNameNormalizer(str(config_path))
+        normalizer = NotionNameNormalizer(args.config)
         
-        # Process database
+        # Process database and update properties
         results = normalizer.process_database(args.days)
         
-        # Save results
-        normalizer.save_results(results, str(output_path))
-        
-        # Print summary
-        normalizer.print_summary(results)
         
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logging.error(f"❌ Fatal error: {e}")
+        if args.debug:
+            logging.exception("Full traceback:")
         sys.exit(1)
 
 
