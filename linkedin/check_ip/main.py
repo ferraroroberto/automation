@@ -368,7 +368,7 @@ class LinkedInImageSearchApp:
         logger.info(f"📊 SUMMARY: Using two processing thresholds - {self.config['high_linkedin_days']} days for high-LinkedIn images (≥{self.config['linkedin_high_threshold']}), {self.config['standard_days']} days for others")
         logger.info(f"✅ Process completed.")
         logger.info(f"💾 Excel files saved in: {self.config['metadata_folder']}")
-        logger.info(f"🖼️ Images folder: {images_folder}")
+        logger.info(f"🖼️  Images folder: {images_folder}")
 
 
 def main():
