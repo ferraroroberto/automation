@@ -208,12 +208,17 @@ class NotionNameNormalizer:
                     # Check if we have enough tokens remaining and they match
                     if (i + proper_length <= len(normalized_tokens) and 
                         [word.lower() for word in normalized_tokens[i:i + proper_length]] == proper_words):
-                        # Found a multi-word proper name, add it and skip ahead
-                        result_tokens.extend(proper_name.split())
-                        i += proper_length
-                        multi_word_found = True
-                        logging.debug(f"🔄 Restored multi-word proper name: {' '.join(normalized_tokens[i:i+proper_length])} -> {proper_name}")
-                        break
+                        # Additional validation: ensure this is actually a proper name match
+                        # and not just common words that happen to appear together
+                        if self._is_valid_multi_word_match(normalized_tokens[i:i + proper_length], proper_name):
+                            # Found a multi-word proper name, add it and skip ahead
+                            result_tokens.extend(proper_name.split())
+                            i += proper_length
+                            multi_word_found = True
+                            logging.debug(f"🔄 Restored multi-word proper name: {' '.join(normalized_tokens[i:i+proper_length])} -> {proper_name}")
+                            break
+                        else:
+                            logging.debug(f"⚠️  Rejected multi-word match: {' '.join(normalized_tokens[i:i+proper_length])} -> {proper_name} (context doesn't suggest proper name)")
             
             if not multi_word_found:
                 # Process as single token - check whitelist and apply preservation rules
@@ -278,13 +283,18 @@ class NotionNameNormalizer:
         if re.search(r'[.&-]', original_token):
             return original_token
         
-        # Rule 3: Check against user-defined proper name whitelist from config
+        # Rule 3: Preserve the pronoun "I" - always capitalize it
+        if original_token.lower() == 'i':
+            logging.debug(f"🔤 Preserving pronoun 'I' capitalization")
+            return 'I'
+        
+        # Rule 4: Check against user-defined proper name whitelist from config
         whitelist = self.config.get('proper_name_whitelist', [])
         for proper_name in whitelist:
             if self._is_token_match(original_token, proper_name):
                 return proper_name
         
-        # Rule 4: Use spaCy NLP to detect person names if available
+        # Rule 5: Use spaCy NLP to detect person names if available
         if self.spacy_nlp:
             if self._is_person_entity(original_token):
                 return original_token
@@ -303,9 +313,17 @@ class NotionNameNormalizer:
             return True
         
         # Check if token is a component of a multi-word proper name
-        # e.g., "John" matches "John Smith" in the whitelist
-        if token_lower in proper_lower.split():
-            return True
+        # BUT only if the token is actually part of the proper name, not just a common word
+        # This prevents "law" from matching "Moore's Law" when we're processing "The law of reversed effort"
+        if ' ' in proper_name:  # Only for multi-word names
+            proper_words = proper_lower.split()
+            # Only match if the token is a distinctive part of the proper name
+            # Avoid matching common words like "law", "future", "work", etc.
+            if token_lower in proper_words:
+                # Additional check: don't substitute common words that appear in many proper names
+                common_words = {'law', 'future', 'work', 'institute', 'company', 'corporation', 'inc', 'ltd', 'llc', 'urban', 'meyer', 'cook', 'jobs', 'gates', 'musk'}
+                if token_lower not in common_words:
+                    return True
         
         return False
     
@@ -324,6 +342,49 @@ class NotionNameNormalizer:
                 return True
         
         return False
+    
+    def _is_valid_multi_word_match(self, tokens: List[str], proper_name: str) -> bool:
+        """Validate if a multi-word match is actually a proper name and not just common words."""
+        # Convert to lowercase for comparison
+        token_text = ' '.join([t.lower() for t in tokens])
+        proper_lower = proper_name.lower()
+        
+        # If it's an exact match, it's valid
+        if token_text == proper_lower:
+            return True
+        
+        # Check if the tokens contain distinctive words that make it a proper name
+        # Common words that appear in many contexts should not trigger substitution
+        common_words = {
+            'law', 'future', 'work', 'institute', 'company', 'corporation', 
+            'inc', 'ltd', 'llc', 'the', 'and', 'of', 'for', 'in', 'on', 'at'
+        }
+        
+        # Count how many distinctive (non-common) words are in the match
+        distinctive_words = [word for word in tokens if word.lower() not in common_words]
+        
+        # Require at least 2 distinctive words or the match to be very specific
+        if len(distinctive_words) >= 2:
+            return True
+        
+        # Special cases: allow specific proper names even if they contain common words
+        # but only if they're distinctive enough
+        if proper_name in ["Moore's Law", "Parkinson's Law", "Future Today Institute"]:
+            # These are very specific and should only match when the context is right
+            # Check if the surrounding context suggests this is actually the proper name
+            return self._context_suggests_proper_name(tokens, proper_name)
+        
+        return False
+    
+    def _context_suggests_proper_name(self, tokens: List[str], proper_name: str) -> bool:
+        """Check if the surrounding context suggests this is actually a proper name reference."""
+        # For now, be conservative and only allow exact matches for these special cases
+        # This prevents "The law of reversed effort" from becoming "The Moore's Law of reversed effort"
+        token_text = ' '.join([t.lower() for t in tokens])
+        proper_lower = proper_name.lower()
+        
+        # Only allow substitution if it's an exact match
+        return token_text == proper_lower
     
     def _update_page_property(self, page_id: str, property_name: str, new_value: str) -> bool:
         """Update a specific property of a Notion page."""
