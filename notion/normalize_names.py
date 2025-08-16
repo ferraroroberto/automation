@@ -537,11 +537,11 @@ def main():
     args = parser.parse_args()
     
     try:
+        # Set up logging first (user must explicitly use --debug if they want detailed output)
+        setup_logging(args.debug)
+        
         # Test mode: normalize a specific string
         if args.test:
-            # Set up logging (user must explicitly use --debug if they want detailed output)
-            setup_logging(args.debug)
-            
             # Initialize normalizer
             normalizer = NotionNameNormalizer(args.config)
             
@@ -551,9 +551,6 @@ def main():
             print(f"Normalized: {normalized}")
             print(f"Changed: {'Yes' if args.test != normalized else 'No'}")
             return
-        
-        # Set up logging for normal mode
-        setup_logging(args.debug)
         
         # Initialize normalizer
         normalizer = NotionNameNormalizer(args.config)
