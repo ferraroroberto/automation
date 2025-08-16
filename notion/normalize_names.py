@@ -37,6 +37,10 @@ class NotionNameNormalizer:
         self.notion_api_key = os.getenv('NOTION_API_TOKEN') or self.config.get('notion_api_key')
         self.database_id = self.config.get('database_id')
         
+        # Load special cases and common words from config
+        self.special_cases = set(self.config.get('special_cases', []))
+        self.common_words = set(self.config.get('common_words', []))
+        
         # Validate required config values
         if not all([self.notion_api_key, self.database_id]):
             raise ValueError("Missing required configuration values")
@@ -60,6 +64,8 @@ class NotionNameNormalizer:
         
         logging.info("✅ Name normalizer initialized")
         logging.info(f"📊 Database ID: {self.database_id}")
+        logging.info(f"🔤 Special cases loaded: {len(self.special_cases)}")
+        logging.info(f"📝 Common words loaded: {len(self.common_words)}")
     
     def _load_config(self, config_path: str) -> Dict:
         """Load and parse the JSON configuration file."""
@@ -321,8 +327,7 @@ class NotionNameNormalizer:
             # Avoid matching common words like "law", "future", "work", etc.
             if token_lower in proper_words:
                 # Additional check: don't substitute common words that appear in many proper names
-                common_words = {'law', 'future', 'work', 'institute', 'company', 'corporation', 'inc', 'ltd', 'llc', 'urban', 'meyer', 'cook', 'jobs', 'gates', 'musk'}
-                if token_lower not in common_words:
+                if token_lower not in self.common_words:
                     return True
         
         return False
@@ -355,13 +360,9 @@ class NotionNameNormalizer:
         
         # Check if the tokens contain distinctive words that make it a proper name
         # Common words that appear in many contexts should not trigger substitution
-        common_words = {
-            'law', 'future', 'work', 'institute', 'company', 'corporation', 
-            'inc', 'ltd', 'llc', 'the', 'and', 'of', 'for', 'in', 'on', 'at'
-        }
         
         # Count how many distinctive (non-common) words are in the match
-        distinctive_words = [word for word in tokens if word.lower() not in common_words]
+        distinctive_words = [word for word in tokens if word.lower() not in self.common_words]
         
         # Require at least 2 distinctive words or the match to be very specific
         if len(distinctive_words) >= 2:
@@ -369,7 +370,7 @@ class NotionNameNormalizer:
         
         # Special cases: allow specific proper names even if they contain common words
         # but only if they're distinctive enough
-        if proper_name in ["Moore's Law", "Parkinson's Law", "Future Today Institute"]:
+        if proper_name in self.special_cases:
             # These are very specific and should only match when the context is right
             # Check if the surrounding context suggests this is actually the proper name
             return self._context_suggests_proper_name(tokens, proper_name)

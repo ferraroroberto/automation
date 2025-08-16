@@ -213,6 +213,7 @@
     "NVC",
     "o1",
     "o3",
+    "OK",
     "OKR",
     "OnlyFans",
     "OpenAI",
@@ -320,5 +321,15 @@
     "Zhang Ruimin",
     "Zoom",
     "Zuckerberg"
+  ],
+  "special_cases": [
+    "Moore's Law",
+    "Parkinson's Law", 
+    "Future Today Institute"
+  ],
+  "common_words": [
+    "law", "future", "work", "institute", "company", "corporation", 
+    "inc", "ltd", "llc", "the", "and", "of", "for", "in", "on", "at",
+    "urban", "meyer", "cook", "jobs", "gates", "musk", "house"
   ]
 }
