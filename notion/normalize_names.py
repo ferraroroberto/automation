@@ -187,28 +187,85 @@ class NotionNameNormalizer:
         # Store original tokens for comparison during restoration
         original_tokens = original_name.split()
         
-        # Step 1: Convert entire string to lowercase as base for normalization
-        normalized = original_name.lower()
+        # Step 1: Apply sentence case - capitalize first character only
+        normalized = self._apply_sentence_case(original_name)
         
-        # Step 2: Apply sentence case - capitalize first character only
-        if normalized:
-            normalized = normalized[0].upper() + normalized[1:]
-        
-        # Step 3: Restore proper names, acronyms, and special tokens from original
+        # Step 2: Process tokens to restore proper names from whitelist and handle sentence boundaries
         normalized_tokens = normalized.split()
+        result_tokens = []
+        i = 0
         
-        for i, (orig_token, norm_token) in enumerate(zip(original_tokens, normalized_tokens)):
-            # Check if this token needs special capitalization restored
-            restored_token = self._restore_token_capitalization(orig_token, norm_token)
-            if restored_token != norm_token:
-                normalized_tokens[i] = restored_token
-                logging.debug(f"🔄 Restored token: '{norm_token}' -> '{restored_token}'")
+        while i < len(normalized_tokens):
+            # Check if we can form a multi-word proper name starting at position i
+            multi_word_found = False
+            whitelist = self.config.get('proper_name_whitelist', [])
+            
+            for proper_name in whitelist:
+                if ' ' in proper_name:  # Only multi-word names
+                    proper_words = proper_name.lower().split()
+                    proper_length = len(proper_words)
+                    
+                    # Check if we have enough tokens remaining and they match
+                    if (i + proper_length <= len(normalized_tokens) and 
+                        [word.lower() for word in normalized_tokens[i:i + proper_length]] == proper_words):
+                        # Found a multi-word proper name, add it and skip ahead
+                        result_tokens.extend(proper_name.split())
+                        i += proper_length
+                        multi_word_found = True
+                        logging.debug(f"🔄 Restored multi-word proper name: {' '.join(normalized_tokens[i:i+proper_length])} -> {proper_name}")
+                        break
+            
+            if not multi_word_found:
+                # Process as single token - check whitelist and apply preservation rules
+                orig_token = original_tokens[i]
+                norm_token = normalized_tokens[i]
+                
+                # Check if this token should be capitalized due to sentence boundaries
+                # Only capitalize if it's the first token or follows sentence-ending punctuation
+                should_capitalize = self._should_capitalize_token(i, normalized_tokens, original_tokens)
+                
+                if should_capitalize and norm_token and norm_token[0].isalpha():
+                    norm_token = norm_token[0].upper() + norm_token[1:]
+                else:
+                    # Ensure non-sentence-starting tokens are lowercase
+                    if norm_token and norm_token[0].isalpha():
+                        norm_token = norm_token[0].lower() + norm_token[1:]
+                
+                restored_token = self._restore_token_capitalization(orig_token, norm_token)
+                result_tokens.append(restored_token)
+                i += 1
         
-        # Step 4: Reconstruct string and normalize whitespace
-        result = ' '.join(normalized_tokens)
+        # Step 3: Reconstruct string and normalize whitespace
+        result = ' '.join(result_tokens)
         result = re.sub(r'\s+', ' ', result).strip()
         
         return result
+    
+    def _should_capitalize_token(self, token_index: int, normalized_tokens: List[str], original_tokens: List[str]) -> bool:
+        """Determine if a token should be capitalized based on sentence boundaries."""
+        if token_index == 0:
+            return True  # Always capitalize first token
+        
+        # Check if previous token ends with sentence-ending punctuation
+        prev_token = normalized_tokens[token_index - 1]
+        if re.search(r'[.!?]$', prev_token):
+            return True
+        
+        return False
+    
+    def _apply_sentence_case(self, text: str) -> str:
+        """Apply sentence case: capitalize first letter and after sentence boundaries."""
+        if not text:
+            return text
+        
+        # Only capitalize the first letter of the entire text
+        # Words after proper names should remain lowercase
+        if text and text[0].isalpha():
+            text = text[0].upper() + text[1:]
+        
+        return text
+    
+
     
     def _restore_token_capitalization(self, original_token: str, normalized_token: str) -> str:
         """Restore proper capitalization for a specific token based on preservation rules."""
