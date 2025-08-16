@@ -514,8 +514,8 @@ def main():
     parser.add_argument(
         '--days', 
         type=int, 
-        default=1,
-        help='Number of days to look back for created articles (default: 1)'
+        default=14,
+        help='Number of days to look back for created articles (default: 14)'
     )
     parser.add_argument(
         '--config', 
