@@ -305,6 +305,15 @@ class NotionNameNormalizer:
             if self._is_person_entity(original_token):
                 return original_token
         
+        # Rule 6: Preserve original capitalization for tokens that contain punctuation
+        # This prevents "Karpathy:" from becoming "karpathy:" when the original had "Karpathy:"
+        if re.search(r'[^\w\s]', original_token):
+            # Extract the alphabetic part and preserve its original capitalization
+            alpha_part = re.sub(r'[^\w]', '', original_token)
+            if alpha_part and alpha_part[0].isupper():
+                # If the alphabetic part was originally capitalized, preserve it
+                return original_token
+        
         # If no preservation rules apply, use the normalized (sentence case) version
         return normalized_token
     
@@ -321,6 +330,7 @@ class NotionNameNormalizer:
         # Check if token is a component of a multi-word proper name
         # BUT only if the token is actually part of the proper name, not just a common word
         # This prevents "law" from matching "Moore's Law" when we're processing "The law of reversed effort"
+        # AND prevents "Karpathy" from matching "Andrej Karpathy" when processing "Karpathy: software is changing"
         if ' ' in proper_name:  # Only for multi-word names
             proper_words = proper_lower.split()
             # Only match if the token is a distinctive part of the proper name
@@ -328,7 +338,11 @@ class NotionNameNormalizer:
             if token_lower in proper_words:
                 # Additional check: don't substitute common words that appear in many proper names
                 if token_lower not in self.common_words:
-                    return True
+                    # CRITICAL FIX: Don't replace individual tokens from multi-word proper names
+                    # when they appear in isolation, as they might be in a different context
+                    # This prevents "Karpathy" from being replaced when it's just a surname
+                    # in a different context like "Karpathy: software is changing"
+                    return False
         
         return False
     
