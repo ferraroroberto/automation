@@ -53,11 +53,24 @@ class NotionNewsletterBuilder:
     
     def _load_config(self, config_path: str) -> Dict:
         """Load and parse the JSON configuration file."""
+        # First try the provided path
         try:
             with open(config_path, 'r') as f:
                 config = json.load(f)
+                return config
         except FileNotFoundError:
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+            # If not found, try looking in the same directory as this script
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            fallback_path = os.path.join(script_dir, os.path.basename(config_path))
+            try:
+                with open(fallback_path, 'r') as f:
+                    config = json.load(f)
+                    logging.info(f"Loaded config from fallback path: {fallback_path}")
+                    return config
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Configuration file not found at {config_path} or {fallback_path}")
+            except json.JSONDecodeError:
+                raise ValueError(f"Invalid JSON in fallback configuration file: {fallback_path}")
         except json.JSONDecodeError:
             raise ValueError(f"Invalid JSON in configuration file: {config_path}")
         
