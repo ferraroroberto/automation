@@ -5,9 +5,9 @@ Notion Article Name Normalizer
 Automatically normalizes article names in a Notion database to sentence case
 while preserving proper names, acronyms, and special tokens.
 
-Note: ALL CAPS words with 2+ characters are preserved as-is (assumed to be
-acronyms, emphasis, or intentionally capitalized terms). This means "TEST ALL CAPS"
-will remain "TEST ALL CAPS" rather than becoming "Test all caps".
+Usage:
+    python normalize_names.py --days 14 --config normalize_names.json
+    python normalize_names.py --test "TEST ALL CAPS"  # Test mode
 """
 
 import argparse
@@ -27,32 +27,42 @@ load_dotenv()
 
 
 class NotionNameNormalizer:
-    """Main class for normalizing Notion article names."""
+    """
+    Main class for normalizing Notion article names.
+    
+    Preserves ALL CAPS words (2+ chars) as acronyms/emphasis.
+    Example: "TEST ALL CAPS" remains "TEST ALL CAPS"
+    """
     
     def __init__(self, config_path: str):
-        """Initialize with configuration file path."""
+        """
+        Initialize normalizer with configuration file path.
+        
+        Args:
+            config_path: Path to JSON configuration file
+        """
         self.config = self._load_config(config_path)
         
-        # Get config values
+        # Extract required configuration values
         self.notion_api_key = os.getenv('NOTION_API_TOKEN') or self.config.get('notion_api_key')
         self.database_id = self.config.get('database_id')
         
-        # Load special cases and common words from config
+        # Load special cases and common words from configuration
         self.special_cases = set(self.config.get('special_cases', []))
         self.common_words = set(self.config.get('common_words', []))
         
-        # Validate required config values
+        # Validate that all required configuration is present
         if not all([self.notion_api_key, self.database_id]):
-            raise ValueError("Missing required configuration values")
+            raise ValueError("Missing required configuration values: notion_api_key and database_id")
         
-        # Set up Notion API headers
+        # Set up Notion API request headers
         self.headers = {
             'Authorization': f'Bearer {self.notion_api_key}',
             'Notion-Version': '2022-06-28',
             'Content-Type': 'application/json'
         }
         
-        # Optional spaCy support
+        # Initialize optional spaCy NLP support for entity detection
         self.spacy_nlp = None
         if self.config.get('use_spacy', False):
             try:
@@ -62,18 +72,31 @@ class NotionNameNormalizer:
             except ImportError:
                 logging.warning("⚠️  spaCy requested but not available, falling back to heuristics")
         
+        # Log successful initialization with key details
         logging.info("✅ Name normalizer initialized")
         logging.info(f"📊 Database ID: {self.database_id}")
         logging.info(f"🔤 Special cases loaded: {len(self.special_cases)}")
         logging.info(f"📝 Common words loaded: {len(self.common_words)}")
     
     def _load_config(self, config_path: str) -> Dict:
-        """Load and parse the JSON configuration file."""
+        """
+        Load and parse the JSON configuration file.
+        
+        Args:
+            config_path: Path to configuration file
+            
+        Returns:
+            Dictionary containing configuration data
+            
+        Raises:
+            FileNotFoundError: If config file not found
+            ValueError: If JSON is invalid
+        """
         try:
             with open(config_path, 'r') as f:
                 return json.load(f)
         except FileNotFoundError:
-            # Try looking in the same directory as this script
+            # Fallback: try looking in the same directory as this script
             script_dir = os.path.dirname(os.path.abspath(__file__))
             fallback_path = os.path.join(script_dir, os.path.basename(config_path))
             try:
@@ -88,16 +111,27 @@ class NotionNameNormalizer:
             raise ValueError(f"Invalid JSON in configuration file: {config_path}")
     
     def _query_notion_database(self, days: int) -> List[Dict]:
-        """Query Notion database for articles created in the last N days."""
+        """
+        Query Notion database for articles created in the last N days.
+        
+        Args:
+            days: Number of days to look back
+            
+        Returns:
+            List of page objects from Notion API
+            
+        Raises:
+            requests.exceptions.RequestException: If API request fails
+        """
         pages = []
         
-        # Calculate the date filter
+        # Calculate the cutoff date for filtering articles
         filter_date = datetime.utcnow() - timedelta(days=days)
         filter_date_str = filter_date.isoformat() + 'Z'
         
         logging.info(f"🔍 Querying database {self.database_id} for articles created in the last {days} days (since {filter_date_str})")
         
-        # Build the filter for created_time and sort by created_time descending
+        # Build filter for created_time with descending sort by creation date
         filter_body = {
             "filter": {
                 "and": [
@@ -117,15 +151,17 @@ class NotionNameNormalizer:
             ]
         }
         
+        # Handle pagination through all results
         start_cursor = None
         page_count = 0
         
         while True:
-            # Add pagination cursor if we have one
+            # Add pagination cursor if we have one from previous request
             if start_cursor:
                 filter_body["start_cursor"] = start_cursor
             
             try:
+                # Make API request to Notion database
                 response = requests.post(
                     f"https://api.notion.com/v1/databases/{self.database_id}/query",
                     headers=self.headers,
@@ -133,20 +169,23 @@ class NotionNameNormalizer:
                 )
                 response.raise_for_status()
                 
+                # Process response data
                 data = response.json()
                 results = data.get('results', [])
                 
                 if not results:
-                    break
+                    break  # No more results to process
                 
+                # Accumulate pages and update counters
                 pages.extend(results)
                 page_count += len(results)
                 logging.debug(f"📥 Retrieved {len(results)} pages (total: {page_count})")
                 
-                # Check if there are more pages
+                # Check if there are more pages to fetch
                 if not data.get('has_more', False):
                     break
                 
+                # Get cursor for next page
                 start_cursor = data.get('next_cursor')
                 
             except requests.exceptions.RequestException as e:
@@ -160,24 +199,34 @@ class NotionNameNormalizer:
         return pages
     
     def _extract_page_info(self, page: Dict) -> Optional[Tuple[str, str, str]]:
-        """Extract page ID, last edited time, and name from a Notion page."""
+        """
+        Extract essential information from a Notion page object.
+        
+        Args:
+            page: Notion page object from API
+            
+        Returns:
+            Tuple of (page_id, last_edited_time, article_name) or None if invalid
+        """
         page_id = page.get('id', '')
         last_edited_time = page.get('last_edited_time', '')
         
-        # Extract name from article title property
+        # Extract article name from the 'article' property (title type)
         properties = page.get('properties', {})
         name_property = properties.get('article', {})
         
+        # Validate that article property exists and is of correct type
         if not name_property or name_property.get('type') != 'title':
             logging.warning(f"⚠️  Page {page_id} missing or invalid article property")
             return None
         
+        # Extract plain text content from rich text array
         title_content = name_property.get('title', [])
         if not title_content:
             logging.warning(f"⚠️  Page {page_id} has empty article property")
             return None
         
-        # Extract plain text from rich text
+        # Concatenate all text segments and clean up whitespace
         name_text = ''.join([segment.get('plain_text', '') for segment in title_content])
         if not name_text.strip():
             logging.warning(f"⚠️  Page {page_id} has empty article text")
@@ -186,38 +235,47 @@ class NotionNameNormalizer:
         return page_id, last_edited_time, name_text.strip()
     
     def _normalize_name(self, original_name: str) -> str:
-        """Normalize the name to sentence case while preserving proper names and special tokens."""
+        """
+        Normalize article name to sentence case while preserving proper names and special tokens.
+        
+        Args:
+            original_name: Original article name to normalize
+            
+        Returns:
+            Normalized name in sentence case
+        """
         if not original_name:
             return original_name
         
-        # Store original tokens for comparison during restoration
+        # Store original tokens for comparison during restoration process
         original_tokens = original_name.split()
         
-        # Step 1: Apply sentence case - capitalize first character only
+        # Step 1: Apply basic sentence case - capitalize first character only
         normalized = self._apply_sentence_case(original_name)
         
-        # Step 2: Process tokens to restore proper names from whitelist and handle sentence boundaries
+        # Step 2: Process tokens to restore proper names and handle sentence boundaries
         normalized_tokens = normalized.split()
         result_tokens = []
         i = 0
         
         while i < len(normalized_tokens):
-            # Check if we can form a multi-word proper name starting at position i
+            # Check if we can form a multi-word proper name starting at current position
             multi_word_found = False
             whitelist = self.config.get('proper_name_whitelist', [])
             
+            # Look for multi-word proper names in the whitelist
             for proper_name in whitelist:
-                if ' ' in proper_name:  # Only multi-word names
+                if ' ' in proper_name:  # Only process multi-word names
                     proper_words = proper_name.lower().split()
                     proper_length = len(proper_words)
                     
-                    # Check if we have enough tokens remaining and they match
+                    # Check if we have enough remaining tokens and they match the proper name
                     if (i + proper_length <= len(normalized_tokens) and 
                         [word.lower() for word in normalized_tokens[i:i + proper_length]] == proper_words):
                         # Additional validation: ensure this is actually a proper name match
                         # and not just common words that happen to appear together
                         if self._is_valid_multi_word_match(normalized_tokens[i:i + proper_length], proper_name):
-                            # Found a multi-word proper name, add it and skip ahead
+                            # Found valid multi-word proper name, add it and skip ahead
                             result_tokens.extend(proper_name.split())
                             i += proper_length
                             multi_word_found = True
@@ -242,6 +300,7 @@ class NotionNameNormalizer:
                     if norm_token and norm_token[0].isalpha():
                         norm_token = norm_token[0].lower() + norm_token[1:]
                 
+                # Apply token-specific capitalization restoration rules
                 restored_token = self._restore_token_capitalization(orig_token, norm_token)
                 result_tokens.append(restored_token)
                 i += 1
@@ -253,9 +312,19 @@ class NotionNameNormalizer:
         return result
     
     def _should_capitalize_token(self, token_index: int, normalized_tokens: List[str], original_tokens: List[str]) -> bool:
-        """Determine if a token should be capitalized based on sentence boundaries."""
+        """
+        Determine if a token should be capitalized based on sentence boundaries.
+        
+        Args:
+            token_index: Position of token in the sentence
+            normalized_tokens: List of normalized tokens
+            original_tokens: List of original tokens
+            
+        Returns:
+            True if token should be capitalized, False otherwise
+        """
         if token_index == 0:
-            return True  # Always capitalize first token
+            return True  # Always capitalize first token of sentence
         
         # Check if previous token ends with sentence-ending punctuation
         prev_token = normalized_tokens[token_index - 1]
@@ -265,7 +334,15 @@ class NotionNameNormalizer:
         return False
     
     def _apply_sentence_case(self, text: str) -> str:
-        """Apply sentence case: capitalize first letter and after sentence boundaries."""
+        """
+        Apply basic sentence case: capitalize first letter only.
+        
+        Args:
+            text: Text to apply sentence case to
+            
+        Returns:
+            Text with first letter capitalized
+        """
         if not text:
             return text
         
@@ -276,10 +353,17 @@ class NotionNameNormalizer:
         
         return text
     
-
-    
     def _restore_token_capitalization(self, original_token: str, normalized_token: str) -> str:
-        """Restore proper capitalization for a specific token based on preservation rules."""
+        """
+        Restore proper capitalization for a specific token based on preservation rules.
+        
+        Args:
+            original_token: Original token with original capitalization
+            normalized_token: Token in normalized (sentence case) form
+            
+        Returns:
+            Token with appropriate capitalization applied
+        """
         # Rule 1: Preserve ALL CAPS words (2+ chars) - assumed to be acronyms/emphasis
         # This prevents "TEST ALL CAPS" from becoming "Test all caps"
         if len(original_token) >= 2 and original_token.isupper():
@@ -318,7 +402,16 @@ class NotionNameNormalizer:
         return normalized_token
     
     def _is_token_match(self, token: str, proper_name: str) -> bool:
-        """Check if a token matches a proper name (case-insensitive word boundary match)."""
+        """
+        Check if a token matches a proper name (case-insensitive word boundary match).
+        
+        Args:
+            token: Token to check
+            proper_name: Proper name to match against
+            
+        Returns:
+            True if token matches the proper name, False otherwise
+        """
         # Convert both to lowercase for case-insensitive comparison
         token_lower = token.lower()
         proper_lower = proper_name.lower()
@@ -347,7 +440,15 @@ class NotionNameNormalizer:
         return False
     
     def _is_person_entity(self, token: str) -> bool:
-        """Check if a token is recognized as a person entity by spaCy NLP."""
+        """
+        Check if a token is recognized as a person entity by spaCy NLP.
+        
+        Args:
+            token: Token to check for person entity
+            
+        Returns:
+            True if token is recognized as a person, False otherwise
+        """
         # Early return if spaCy is not available
         if not self.spacy_nlp:
             return False
@@ -363,7 +464,16 @@ class NotionNameNormalizer:
         return False
     
     def _is_valid_multi_word_match(self, tokens: List[str], proper_name: str) -> bool:
-        """Validate if a multi-word match is actually a proper name and not just common words."""
+        """
+        Validate if a multi-word match is actually a proper name and not just common words.
+        
+        Args:
+            tokens: List of tokens that potentially match the proper name
+            proper_name: Proper name to validate against
+            
+        Returns:
+            True if the match is valid, False otherwise
+        """
         # Convert to lowercase for comparison
         token_text = ' '.join([t.lower() for t in tokens])
         proper_lower = proper_name.lower()
@@ -392,7 +502,16 @@ class NotionNameNormalizer:
         return False
     
     def _context_suggests_proper_name(self, tokens: List[str], proper_name: str) -> bool:
-        """Check if the surrounding context suggests this is actually a proper name reference."""
+        """
+        Check if the surrounding context suggests this is actually a proper name reference.
+        
+        Args:
+            tokens: List of tokens to check context for
+            proper_name: Proper name to validate context against
+            
+        Returns:
+            True if context suggests this is a proper name, False otherwise
+        """
         # For now, be conservative and only allow exact matches for these special cases
         # This prevents "The law of reversed effort" from becoming "The Moore's Law of reversed effort"
         token_text = ' '.join([t.lower() for t in tokens])
@@ -402,7 +521,17 @@ class NotionNameNormalizer:
         return token_text == proper_lower
     
     def _update_page_property(self, page_id: str, property_name: str, new_value: str) -> bool:
-        """Update a specific property of a Notion page."""
+        """
+        Update a specific property of a Notion page via API.
+        
+        Args:
+            page_id: Notion page ID to update
+            property_name: Name of the property to update
+            new_value: New value for the property
+            
+        Returns:
+            True if update successful, False otherwise
+        """
         try:
             # Prepare the update payload for the title property
             update_data = {
@@ -420,6 +549,7 @@ class NotionNameNormalizer:
                 }
             }
             
+            # Make PATCH request to update the page
             response = requests.patch(
                 f"https://api.notion.com/v1/pages/{page_id}",
                 headers=self.headers,
@@ -441,7 +571,15 @@ class NotionNameNormalizer:
             return False
     
     def process_database(self, days: int) -> List[Dict]:
-        """Main method to process the database and update normalized results."""
+        """
+        Main method to process the database and update normalized results.
+        
+        Args:
+            days: Number of days to look back for articles
+            
+        Returns:
+            List of processing results with original and normalized names
+        """
         # Query Notion database for pages created in the specified time period
         pages = self._query_notion_database(days)
         
@@ -461,7 +599,7 @@ class NotionNameNormalizer:
             # Apply normalization rules to the article name
             normalized_name = self._normalize_name(original_name)
             
-            # Store results for reporting
+            # Store results for reporting and analysis
             result = {
                 'page_id': page_id,
                 'last_edited_time': last_edited_time,
@@ -489,15 +627,20 @@ class NotionNameNormalizer:
             if processed_count <= 3:
                 logging.debug(f"🔍 Sample normalization: '{original_name}' -> '{normalized_name}'")
         
-        # Log final processing summary
+        # Log final processing summary with counts
         logging.info(f"✅ Successfully processed {processed_count} pages")
         logging.info(f"📝 Updated {updated_count} pages with normalized names")
         logging.info(f"✅ Left unchanged {unchanged_count} pages (already normalized)")
         return results
-    
+
 
 def setup_logging(debug: bool = False):
-    """Set up logging configuration."""
+    """
+    Set up logging configuration with appropriate level and format.
+    
+    Args:
+        debug: If True, enable DEBUG level logging
+    """
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
         level=level,
@@ -507,7 +650,15 @@ def setup_logging(debug: bool = False):
 
 
 def main():
-    """Main entry point."""
+    """
+    Main entry point with command line argument parsing.
+    
+    Supports:
+    - --days: Number of days to look back (default: 14)
+    - --config: Path to config file (default: normalize_names.json)
+    - --debug: Enable debug logging
+    - --test: Test mode with specific string
+    """
     parser = argparse.ArgumentParser(
         description="Normalize Notion article names to sentence case while preserving proper names"
     )
@@ -540,9 +691,9 @@ def main():
         # Set up logging first (user must explicitly use --debug if they want detailed output)
         setup_logging(args.debug)
         
-        # Test mode: normalize a specific string
+        # Test mode: normalize a specific string without database processing
         if args.test:
-            # Initialize normalizer
+            # Initialize normalizer for testing
             normalizer = NotionNameNormalizer(args.config)
             
             logging.info(f"🧪 Test mode: normalizing string: '{args.test}'")
@@ -552,12 +703,14 @@ def main():
             print(f"Changed: {'Yes' if args.test != normalized else 'No'}")
             return
         
-        # Initialize normalizer
+        # Initialize normalizer for database processing
         normalizer = NotionNameNormalizer(args.config)
         
-        # Process database and update properties
+        # Process database and update article properties
         results = normalizer.process_database(args.days)
         
+        # Log successful completion
+        logging.info("✅ Script completed successfully")
         
     except Exception as e:
         logging.error(f"❌ Fatal error: {e}")
