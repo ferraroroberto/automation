@@ -6,7 +6,7 @@ This script fetches articles from a Notion database based on a newsletter number
 groups them by topic, and outputs HTML lists ready for Substack.
 
 Usage:
-    python build_newsletter.py --newsletter "057" --config "build_newsletter.json"
+    python build_newsletter.py --newsletter "057"
     python build_newsletter.py --newsletter "001" --debug
 """
 
@@ -15,11 +15,12 @@ import json
 import logging
 import os
 import sys
-from typing import Dict, List, Optional, Tuple, Any
+import webbrowser
+from typing import Dict, List, Optional, Tuple
 import requests
 from dotenv import load_dotenv
 
-# Load environment variables from root .env file
+# Load environment variables
 load_dotenv()
 
 
@@ -29,13 +30,15 @@ class NotionNewsletterBuilder:
     def __init__(self, config_path: str):
         """Initialize the builder with configuration."""
         self.config = self._load_config(config_path)
-        self.notion_api_key = self.config.get('notion_api_key')
+        
+        # Get config values
+        self.notion_api_key = os.getenv('NOTION_API_TOKEN') or self.config.get('notion_api_key')
         self.articles_db_id = self.config.get('articles_database_id')
         self.newsletter_db_id = self.config.get('newsletter_database_id')
         
         # Validate required config values
         if not all([self.notion_api_key, self.articles_db_id, self.newsletter_db_id]):
-            raise ValueError("Missing required configuration values. Check your JSON config file.")
+            raise ValueError("Missing required configuration values")
         
         # Set up Notion API headers
         self.headers = {
@@ -46,59 +49,34 @@ class NotionNewsletterBuilder:
         
         # Define the three topic categories
         self.topics = [
-            'Management & Leadership',
-            'Personal Development', 
-            'Innovation'
+            'personal development',
+            'innovation',
+            'leadership and management'
         ]
+        
+        logging.info("✅ Newsletter builder initialized")
+        logging.info(f"📊 Articles database: {self.articles_db_id}")
+        logging.info(f"📊 Newsletter database: {self.newsletter_db_id}")
     
     def _load_config(self, config_path: str) -> Dict:
         """Load and parse the JSON configuration file."""
-        # First try the provided path
         try:
             with open(config_path, 'r') as f:
-                config = json.load(f)
-                return config
+                return json.load(f)
         except FileNotFoundError:
-            # If not found, try looking in the same directory as this script
+            # Try looking in the same directory as this script
             script_dir = os.path.dirname(os.path.abspath(__file__))
             fallback_path = os.path.join(script_dir, os.path.basename(config_path))
             try:
                 with open(fallback_path, 'r') as f:
-                    config = json.load(f)
-                    logging.info(f"Loaded config from fallback path: {fallback_path}")
-                    return config
+                    logging.info(f"📁 Loaded config from fallback path: {fallback_path}")
+                    return json.load(f)
             except FileNotFoundError:
                 raise FileNotFoundError(f"Configuration file not found at {config_path} or {fallback_path}")
             except json.JSONDecodeError:
                 raise ValueError(f"Invalid JSON in fallback configuration file: {fallback_path}")
         except json.JSONDecodeError:
             raise ValueError(f"Invalid JSON in configuration file: {config_path}")
-        
-        # Process environment variables in config
-        config = self._process_environment_variables(config)
-        return config
-    
-    def _process_environment_variables(self, config: Dict) -> Dict:
-        """Process environment variables in configuration values.
-        
-        Supports ${ENV_VAR_NAME} syntax for environment variable substitution.
-        """
-        def replace_env_vars(obj: Any) -> Any:
-            """Recursively replace environment variables in configuration values."""
-            if isinstance(obj, dict):
-                return {k: replace_env_vars(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [replace_env_vars(item) for item in obj]
-            elif isinstance(obj, str) and obj.startswith('${') and obj.endswith('}'):
-                env_var = obj[2:-1]
-                value = os.getenv(env_var)
-                if value is None:
-                    logging.error(f"Environment variable not found: {env_var}")
-                    sys.exit(1)
-                return value
-            return obj
-        
-        return replace_env_vars(config)
     
     def _query_notion_database(self, database_id: str, filter_data: Optional[Dict] = None) -> List[Dict]:
         """Query a Notion database with optional filtering."""
@@ -127,18 +105,17 @@ class NotionNewsletterBuilder:
                 start_cursor = data.get('next_cursor')
                 
             except requests.exceptions.RequestException as e:
-                logging.error(f"Failed to query Notion database: {e}")
+                logging.error(f"❌ Failed to query Notion database: {e}")
                 raise
         
         return all_results
     
     def find_newsletter_by_title(self, newsletter_title: str) -> Optional[Dict]:
-        """Find a newsletter record by its title."""
-        logging.info(f"Searching for newsletter with title: {newsletter_title}")
+        """Find a newsletter record by its number."""
+        logging.info(f"🔍 Searching for newsletter: {newsletter_title}")
         
-        # Filter to find newsletter with matching title
         filter_data = {
-            "property": "Title",
+            "property": "number",
             "title": {
                 "equals": newsletter_title
             }
@@ -147,94 +124,115 @@ class NotionNewsletterBuilder:
         results = self._query_notion_database(self.newsletter_db_id, filter_data)
         
         if not results:
-            logging.error(f"No newsletter found with title: {newsletter_title}")
+            logging.error(f"❌ No newsletter found with number: {newsletter_title}")
             return None
         
-        newsletter = results[0]
-        logging.info(f"Found newsletter: {newsletter.get('id')}")
-        return newsletter
+        logging.info(f"✅ Found newsletter: {newsletter_title}")
+        return results[0]
     
     def get_related_articles(self, newsletter_id: str) -> List[Dict]:
         """Get all articles related to a specific newsletter."""
-        logging.info(f"Fetching articles related to newsletter: {newsletter_id}")
+        logging.info(f"📥 Fetching articles for newsletter: {newsletter_id}")
         
-        # Filter articles by relation to the newsletter
         filter_data = {
-            "property": "Newsletter",
+            "property": "news",
             "relation": {
                 "contains": newsletter_id
             }
         }
         
         results = self._query_notion_database(self.articles_db_id, filter_data)
-        logging.info(f"Found {len(results)} related articles")
+        logging.info(f"📊 Found {len(results)} articles")
         return results
     
-    def extract_article_data(self, article: Dict) -> Optional[Tuple[str, str, str]]:
-        """Extract name, URL, and topic from an article record."""
+    def extract_article_data(self, article: Dict) -> Optional[Tuple[str, str, str, bool, List[str]]]:
+        """Extract name, URL, topic, star, and niche from an article record."""
         try:
-            # Extract article name from title property
-            title_prop = article.get('properties', {}).get('Name', {})
+            properties = article.get('properties', {})
+            
+            # Extract title
+            title_prop = properties.get('article', {})
             if title_prop.get('type') == 'title':
                 title_content = title_prop.get('title', [])
-                if title_content:
-                    name = title_content[0].get('plain_text', '').strip()
-                else:
-                    logging.warning(f"Article {article.get('id')} has empty title")
+                if not title_content:
                     return None
+                name = title_content[0].get('plain_text', '').strip()
             else:
-                logging.warning(f"Article {article.get('id')} has invalid title property")
                 return None
             
-            # Extract URL from url property
-            url_prop = article.get('properties', {}).get('URL', {})
+            # Extract URL
+            url_prop = properties.get('link', {})
             if url_prop.get('type') == 'url':
                 url = url_prop.get('url', '').strip()
                 if not url:
-                    logging.warning(f"Article '{name}' has empty URL")
                     return None
             else:
-                logging.warning(f"Article '{name}' has invalid URL property")
                 return None
             
-            # Extract topic from select property
-            topic_prop = article.get('properties', {}).get('Topic', {})
+            # Extract topic
+            topic_prop = properties.get('topic', {})
             if topic_prop.get('type') == 'select':
                 topic_obj = topic_prop.get('select')
-                if topic_obj:
-                    topic = topic_obj.get('name', '').strip()
-                else:
-                    logging.warning(f"Article '{name}' has no topic selected")
+                if not topic_obj:
                     return None
+                topic = topic_obj.get('name', '').strip()
             else:
-                logging.warning(f"Article '{name}' has invalid topic property")
                 return None
             
-            return name, url, topic
+            # Extract star (checkbox)
+            star_prop = properties.get('star', {})
+            star = False
+            if star_prop.get('type') == 'checkbox':
+                star = star_prop.get('checkbox', False)
+            
+            # Extract niche (multi_select)
+            niche_prop = properties.get('niche', {})
+            niche = []
+            if niche_prop.get('type') == 'multi_select':
+                niche_objs = niche_prop.get('multi_select', [])
+                niche = [obj.get('name', '').strip() for obj in niche_objs if obj.get('name')]
+            
+            return name, url, topic, star, niche
             
         except Exception as e:
-            logging.error(f"Error extracting data from article {article.get('id')}: {e}")
+            logging.error(f"❌ Error extracting data from article: {e}")
             return None
     
     def group_articles_by_topic(self, articles: List[Dict]) -> Dict[str, List[Tuple[str, str]]]:
-        """Group articles by topic, returning only the three specified topics."""
+        """Group articles by topic and sort them according to specified criteria."""
         grouped = {topic: [] for topic in self.topics}
         
         for article in articles:
             article_data = self.extract_article_data(article)
             if article_data:
-                name, url, topic = article_data
-                
+                name, url, topic, star, niche = article_data
                 if topic in self.topics:
-                    grouped[topic].append((name, url))
-                    logging.debug(f"Added article '{name}' to topic '{topic}'")
-                else:
-                    logging.warning(f"Article '{name}' has unknown topic: {topic} (skipping)")
+                    grouped[topic].append((name, url, star, niche))
+        
+        # Sort articles within each topic group
+        for topic in self.topics:
+            # Sort by: 1) star (descending), 2) niche (ascending), 3) article title (ascending)
+            grouped[topic].sort(key=lambda x: (
+                -x[2],  # star (descending, so negative for reverse sort)
+                sorted(x[3])[0] if x[3] else '',  # niche (ascending, first niche value)
+                x[0].lower()  # article title (ascending, case-insensitive)
+            ))
+            
+            # Log the sorted order for this topic
+            if grouped[topic]:
+                logging.info(f"📋 Topic '{topic}' sorted order:")
+                for i, (name, url, star, niche) in enumerate(grouped[topic], 1):
+                    niche_str = ', '.join(sorted(niche)) if niche else 'none'
+                    star_str = '⭐' if star else '⚪'
+                    logging.info(f"  {i}. {star_str} {name} (niche: {niche_str})")
+            
+            # Remove star and niche from the final output, keeping only name and url
+            grouped[topic] = [(name, url) for name, url, star, niche in grouped[topic]]
         
         # Log grouping results
         for topic in self.topics:
             count = len(grouped[topic])
-            logging.info(f"Topic '{topic}': {count} articles")
+            logging.info(f"📋 Topic '{topic}': {count} articles")
         
         return grouped
     
@@ -245,8 +243,9 @@ class NotionNewsletterBuilder:
         for topic in self.topics:
             articles = grouped_articles[topic]
             
-            # Add topic header
-            output.append(topic)
+            # Add topic header with capitalized first letter
+            capitalized_topic = topic[0].upper() + topic[1:]
+            output.append(f'<h2>{capitalized_topic}</h2>')
             
             # Generate HTML list
             if articles:
@@ -262,28 +261,44 @@ class NotionNewsletterBuilder:
         
         return '\n'.join(output)
     
-    def build_newsletter(self, newsletter_title: str) -> str:
-        """Main method to build a complete newsletter."""
-        logging.info(f"Building newsletter: {newsletter_title}")
+    def generate_complete_html(self, grouped_articles: Dict[str, List[Tuple[str, str]]]) -> str:
+        """Generate complete HTML document with proper structure."""
+        html_content = self.generate_html_lists(grouped_articles)
         
-        # Step 1: Find the newsletter record
+        html_document = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newsletter Content</title>
+</head>
+<body>
+{html_content}
+</body>
+</html>"""
+        
+        return html_document
+    
+    def build_newsletter(self, newsletter_title: str) -> Tuple[str, Dict[str, List[Tuple[str, str]]]]:
+        """Main method to build a complete newsletter."""
+        logging.info(f"🚀 Building newsletter: {newsletter_title}")
+        
+        # Find the newsletter record
         newsletter = self.find_newsletter_by_title(newsletter_title)
         if not newsletter:
             raise ValueError(f"Newsletter '{newsletter_title}' not found")
         
-        # Step 2: Get related articles
+        # Get related articles
         articles = self.get_related_articles(newsletter['id'])
         if not articles:
             raise ValueError(f"No articles found for newsletter '{newsletter_title}'")
         
-        # Step 3: Group articles by topic
+        # Group articles by topic and generate HTML
         grouped_articles = self.group_articles_by_topic(articles)
-        
-        # Step 4: Generate HTML output
         html_output = self.generate_html_lists(grouped_articles)
         
-        logging.info("Newsletter build completed successfully")
-        return html_output
+        logging.info("✅ Newsletter build completed successfully")
+        return html_output, grouped_articles
 
 
 def setup_logging(debug: bool = False):
@@ -305,15 +320,14 @@ def main():
 Examples:
   python build_newsletter.py --newsletter "057"
   python build_newsletter.py --newsletter "001" --debug
-  python build_newsletter.py --config "custom_config.json"
         """
     )
     
     parser.add_argument(
         '--newsletter',
         type=str,
-        default="001",
-        help='Newsletter number/title to fetch (default: "001")'
+        default="N100",
+        help='Newsletter number/title to fetch (default: "N100")'
     )
     
     parser.add_argument(
@@ -339,16 +353,28 @@ Examples:
         builder = NotionNewsletterBuilder(args.config)
         
         # Build the newsletter
-        html_output = builder.build_newsletter(args.newsletter)
+        html_output, grouped_articles = builder.build_newsletter(args.newsletter)
         
-        # Output the result
-        print(html_output)
+        # Generate complete HTML document
+        complete_html = builder.generate_complete_html(grouped_articles)
+        
+        # Save to HTML file in the same directory as this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        html_filename = os.path.join(script_dir, "build_newsletter.html")
+        with open(html_filename, 'w', encoding='utf-8') as f:
+            f.write(complete_html)
+        
+        logging.info(f"💾 HTML file saved to: {html_filename}")
+        
+        # Open the HTML file with default browser
+        webbrowser.open(f'file://{html_filename}')
+        logging.info(f"🌐 Opened HTML file with default browser: {html_filename}")
         
     except (ValueError, FileNotFoundError, requests.exceptions.RequestException) as e:
-        logging.error(f"Failed to build newsletter: {e}")
+        logging.error(f"❌ Failed to build newsletter: {e}")
         sys.exit(1)
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        logging.error(f"❌ Unexpected error: {e}")
         if args.debug:
             logging.exception("Full traceback:")
         sys.exit(1)
