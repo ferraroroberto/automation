@@ -528,13 +528,33 @@ def main():
         action='store_true',
         help='Enable debug logging'
     )
+    parser.add_argument(
+        '--test',
+        type=str,
+        help='Test mode: normalize a specific string without processing the database'
+    )
     
     args = parser.parse_args()
     
-    # Set up logging
-    setup_logging(args.debug)
-    
     try:
+        # Test mode: normalize a specific string
+        if args.test:
+            # Set up logging (user must explicitly use --debug if they want detailed output)
+            setup_logging(args.debug)
+            
+            # Initialize normalizer
+            normalizer = NotionNameNormalizer(args.config)
+            
+            logging.info(f"🧪 Test mode: normalizing string: '{args.test}'")
+            normalized = normalizer._normalize_name(args.test)
+            print(f"\nOriginal: {args.test}")
+            print(f"Normalized: {normalized}")
+            print(f"Changed: {'Yes' if args.test != normalized else 'No'}")
+            return
+        
+        # Set up logging for normal mode
+        setup_logging(args.debug)
+        
         # Initialize normalizer
         normalizer = NotionNameNormalizer(args.config)
         
