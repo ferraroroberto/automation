@@ -3,6 +3,9 @@
 
 # configuration files with user sensitive information
 .env
+google/config.json
+google/client_secret.json
+google/token.json
 
 # logs
 *.log
@@ -18,4 +21,3 @@ __pycache__
 
 # temporary files
 system/foldersearcher/folder_structure.txt
-

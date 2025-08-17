@@ -1,0 +1,29 @@
+{
+    "auth": {
+      "credentials_file": "credentials.json",
+      "token_file": "token.json"
+    },
+    "children": [
+      {
+        "name": "Child Name 1",
+        "birth_date": "YYYY-MM-DD"
+      },
+      {
+        "name": "Child Name 2", 
+        "birth_date": "YYYY-MM-DD"
+      }
+    ],
+    "email": {
+      "recipients": [
+        "recipient1@example.com",
+        "recipient2@example.com",
+        "recipient3@example.com"
+      ]
+    },
+    "settings": {
+      "timezone": "Your/Timezone",
+      "max_photos_per_album": 500,
+      "retry_attempts": 3,
+      "retry_delay_seconds": 5
+    }
+  }
