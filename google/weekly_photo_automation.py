@@ -58,14 +58,20 @@ class WeeklyPhotoAutomation:
         """
         logger.debug("📂 Loading configuration file")
         
-        config_full_path = Path(config_path)
+        # Get the script directory and resolve config path relative to it
+        script_dir = Path(__file__).parent
+        if Path(config_path).is_absolute():
+            config_full_path = Path(config_path)
+        else:
+            config_full_path = script_dir / config_path
+            
         if not config_full_path.exists():
-            logger.error(f"❌ Error: Configuration file not found at {config_path}")
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+            logger.error(f"❌ Error: Configuration file not found at {config_full_path}")
+            raise FileNotFoundError(f"Configuration file not found: {config_full_path}")
         
         try:
-            with open(config_full_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+            with open(config_full_path, 'r', encoding='utf-8') as e:
+                config = json.load(e)
             logger.info("✅ Configuration loaded successfully")
             return config
         except json.JSONDecodeError as e:
@@ -79,15 +85,35 @@ class WeeklyPhotoAutomation:
         SCOPES = [
             'https://www.googleapis.com/auth/photoslibrary',
             'https://www.googleapis.com/auth/photoslibrary.sharing',
+            'https://www.googleapis.com/auth/photoslibrary.readonly',
             'https://www.googleapis.com/auth/gmail.send'
         ]
         
         creds = None
+        
+        # Get the script directory and resolve paths relative to it
+        script_dir = Path(__file__).parent
+        
+        # Handle token file path
         token_path = Path(self.config['auth']['token_file'])
+        if not token_path.is_absolute():
+            token_path = script_dir / token_path
+            
+        # Handle credentials file path
+        credentials_path = Path(self.config['auth']['credentials_file'])
+        if not credentials_path.is_absolute():
+            credentials_path = script_dir / credentials_path
         
         # Load existing token
         if token_path.exists():
             creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+            # Refresh credentials to ensure they're valid
+            try:
+                creds.refresh(Request())
+                logger.info("🔄 Credentials refreshed successfully")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to refresh credentials: {e}")
+                creds = None
             
         # If there are no (valid) credentials, let the user log in
         if not creds or not creds.valid:
@@ -97,9 +123,17 @@ class WeeklyPhotoAutomation:
             else:
                 logger.info("🔑 Requesting new authentication")
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    self.config['auth']['credentials_file'], SCOPES
+                    str(credentials_path), SCOPES
                 )
-                creds = flow.run_local_server(port=0)
+                creds = flow.run_local_server(
+                    port=0,
+                    access_type="offline",  # get a refresh token
+                    prompt="consent",  # force the consent screen, don't reuse old grant
+                    include_granted_scopes=False  # don't merge with an older, narrower grant
+                )
+                # force a fresh access token right now
+                creds.refresh(Request())
+                logger.info(f"Granted scopes from token: {creds.scopes}")
                 
             # Save credentials for next run
             with open(token_path, 'w') as token:
@@ -138,6 +172,8 @@ class WeeklyPhotoAutomation:
             raise Exception(f"Could not build Gmail API service: {e}")
             
         logger.info("✅ Authentication successful")
+        logger.info(f"🔑 Granted scopes: {creds.scopes}")
+
         
     def calculate_week_range(self) -> Tuple[datetime, datetime]:
         """
