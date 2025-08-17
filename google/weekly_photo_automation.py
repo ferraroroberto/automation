@@ -88,9 +88,9 @@ class WeeklyPhotoAutomation:
         # Load existing token
         if token_path.exists():
             creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-            
-        # If there are no (valid) credentials, let the user log in
-        if not creds or not creds.valid:
+
+        # If credentials are missing, invalid, or lack required scopes, get new ones
+        if not creds or not creds.valid or not creds.has_scopes(SCOPES):
             if creds and creds.expired and creds.refresh_token:
                 logger.info("🔄 Refreshing expired credentials")
                 creds.refresh(Request())
@@ -100,7 +100,7 @@ class WeeklyPhotoAutomation:
                     self.config['auth']['credentials_file'], SCOPES
                 )
                 creds = flow.run_local_server(port=0)
-                
+
             # Save credentials for next run
             with open(token_path, 'w') as token:
                 token.write(creds.to_json())
