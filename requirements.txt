@@ -90,6 +90,21 @@ numpy>=1.20.0
 notion-client>=2.0.0
 
 # =============================================================================
+# GOOGLE API INTEGRATION
+# =============================================================================
+
+# Google Photos and Gmail API authentication and services
+# Source: google/photo_weekly_album.py
+google-auth==2.23.4  # Authentication for Google services
+google-auth-oauthlib==1.1.0  # OAuth2 flow for Google APIs
+google-auth-httplib2==0.1.1  # HTTP transport for Google auth
+google-api-python-client==2.108.0  # Google API client library
+
+# Timezone handling for Google API operations
+# Source: google/photo_weekly_album.py
+pytz==2023.3.post1  # Timezone calculations
+
+# =============================================================================
 # WINDOWS API AND SYSTEM INTEGRATION
 # =============================================================================
 
