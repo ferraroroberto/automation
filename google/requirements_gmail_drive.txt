@@ -1,0 +1,8 @@
+# Google API Libraries
+google-auth==2.23.4  # Authentication for Google services
+google-auth-oauthlib==1.1.0  # OAuth2 flow for Google APIs
+google-auth-httplib2==0.1.1  # HTTP transport for Google auth
+google-api-python-client==2.108.0  # Google API client library
+
+# Timezone support
+pytz==2023.3.post1  # Timezone calculations
