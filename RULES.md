@@ -287,3 +287,32 @@ The PULL_REQUEST.md must include commands for:
 - Create virtual environment (.venv)
 - Activate virtual environment
 - Install ad-hoc requirements
+
+## 🤖 Python Virtual Environment for LLM Agents
+
+- Always use the local virtual environment located in `.venv`.
+- Do **not** rely on the global `python` or `pip` commands.
+- Instead, explicitly call the interpreter and pip inside `.venv`:
+
+  - **Linux / macOS**:
+    ```bash
+    ./.venv/bin/python script.py
+    ./.venv/bin/pip install -r requirements.txt
+    ```
+
+  - **Windows (PowerShell)**:
+    ```powershell
+    .\.venv\Scripts\python.exe script.py
+    .\.venv\Scripts\pip.exe install -r requirements.txt
+    ```
+
+- When writing instructions, code, or automation (CI/CD, agents, Copilot, Cursor, etc.),  
+  always assume `.venv` is the canonical Python environment for this repository.
+
+- Never activate the virtual environment manually with `source` or `Activate.ps1`.  
+  Instead, directly call the correct Python executable inside `.venv`.
+
+- If you need to run tools (e.g., pytest, black, isort, etc.), call them via the venv's Python:
+  ```bash
+  ./.venv/bin/python -m pytest
+  ./.venv/bin/python -m black .
