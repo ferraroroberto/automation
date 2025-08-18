@@ -516,8 +516,8 @@ def main():
     parser.add_argument(
         '--config',
         type=str,
-        default='config.json',
-        help='Path to configuration file (default: config.json)'
+        default='config_weekly_photo.json',
+        help='Path to configuration file (default: config_weekly_photo.json)'
     )
     parser.add_argument(
         '--dry-run',
