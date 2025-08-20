@@ -17,7 +17,7 @@ REM Set the path to the virtual environment
 set "VENV_DIR=E:\automation\automation\.venv"
 
 REM Set the path to the notion scripts
-set "SCRIPT_DIR=E:\automation\automation\home\notion"
+set "SCRIPT_DIR=E:\automation\automation\notion"
 
 REM Set the path to the journal output folder
 set "JOURNAL_OUTPUT=E:\automation\notion-automation-files\journal-output"
