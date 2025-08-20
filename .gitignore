@@ -11,7 +11,7 @@ google/token*.json
 *.log
 
 # local variables
-notion/notion_articles_sync_last_time.txt
+notion/articles_sync/notion_articles_sync_last_time.txt
 
 # cache
 __pycache__
@@ -21,4 +21,3 @@ __pycache__
 
 # temporary files
 system/foldersearcher/folder_structure.txt
-
