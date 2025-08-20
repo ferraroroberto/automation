@@ -171,6 +171,20 @@ def test_authentication():
         except Exception as e:
             print(f"   ❌ Gmail API: {e}")
         
+        # Test Google Drive API
+        try:
+            drive_service = build('drive', 'v3', credentials=creds)
+            about = drive_service.about().get(fields='user,storageQuota').execute()
+            user_info = about.get('user', {})
+            storage_info = about.get('storageQuota', {})
+            print(f"   ✅ Drive API: Authentication successful (User: {user_info.get('displayName', 'N/A')})")
+            if storage_info:
+                total = storage_info.get('limit', 'N/A')
+                used = storage_info.get('usage', 'N/A')
+                print(f"      💾 Storage: {used} / {total} bytes")
+        except Exception as e:
+            print(f"   ❌ Drive API: {e}")
+        
         return True
         
     except Exception as e:
@@ -209,6 +223,7 @@ def provide_solutions():
     print("   4. Ensure the Google Cloud project 'automation-469306' has the required APIs enabled:")
     print("      - Google Photos Library API")
     print("      - Gmail API")
+    print("      - Google Drive API")
     print("   5. Check that your OAuth consent screen includes the required scopes")
 
 def main():

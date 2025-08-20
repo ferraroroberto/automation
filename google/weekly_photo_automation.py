@@ -83,10 +83,29 @@ class WeeklyPhotoAutomation:
         logger.info("🔐 Authenticating with Google services")
         
         SCOPES = [
+            # Photos Library API - Core scopes
             'https://www.googleapis.com/auth/photoslibrary',
-            'https://www.googleapis.com/auth/photoslibrary.sharing',
             'https://www.googleapis.com/auth/photoslibrary.readonly',
-            'https://www.googleapis.com/auth/gmail.send'
+            'https://www.googleapis.com/auth/photoslibrary.appendonly',
+            'https://www.googleapis.com/auth/photoslibrary.sharing',
+            'https://www.googleapis.com/auth/photoslibrary.edit.appcreateddata',
+            'https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata',
+            
+            # Gmail API - All scopes you've added
+            'https://www.googleapis.com/auth/gmail.send',
+            'https://www.googleapis.com/auth/gmail.compose',
+            'https://www.googleapis.com/auth/gmail.modify',
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/gmail.metadata',
+            'https://www.googleapis.com/auth/gmail.insert',
+            'https://www.googleapis.com/auth/gmail.labels',
+            'https://www.googleapis.com/auth/gmail.settings.basic',
+            'https://www.googleapis.com/auth/gmail.settings.sharing',
+            'https://www.googleapis.com/auth/gmail.addons.current.action.compose',
+            'https://www.googleapis.com/auth/gmail.addons.current.message.action',
+            'https://www.googleapis.com/auth/gmail.addons.current.message.metadata',
+            'https://www.googleapis.com/auth/gmail.addons.current.message.readonly',
+            'https://mail.google.com/'  # Full Gmail access
         ]
         
         creds = None
@@ -287,7 +306,7 @@ class WeeklyPhotoAutomation:
             Album information or None if creation failed
         """
         if not photos:
-            logger.warning(f"⚠️ No photos to add to album: {album_title}")
+            logger.warning(f"⚠️  No photos to add to album: {album_title}")
             return None
             
         logger.info(f"📁 Creating album: {album_title}")
@@ -456,7 +475,7 @@ class WeeklyPhotoAutomation:
             photos = self.get_photos_for_week(start_date, end_date)
             
             if not photos:
-                logger.warning("⚠️ No photos found for this week")
+                logger.warning("⚠️  No photos found for this week")
                 return
                 
             album_links = {}
@@ -497,8 +516,8 @@ def main():
     parser.add_argument(
         '--config',
         type=str,
-        default='config.json',
-        help='Path to configuration file (default: config.json)'
+        default='config_weekly_photo.json',
+        help='Path to configuration file (default: config_weekly_photo.json)'
     )
     parser.add_argument(
         '--dry-run',
