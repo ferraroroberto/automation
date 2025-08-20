@@ -210,6 +210,61 @@ def validate_input_parameters(params, required_keys):
 4. **Security updates**: Regularly update dependencies for security patches
 5. **Virtual environments**: Use virtual environments for isolation
 
+## 📋 Planning Before Code Changes
+
+### Mandatory Planning Phase
+
+**Before making any code changes, you MUST outline a detailed plan that includes:**
+
+1. **Change Summary**: Clear description of what needs to be accomplished
+2. **Files to Modify**: Specific list of files that will be changed, including:
+   - Full file paths
+   - Type of modification (create, modify, delete)
+   - Brief description of what will change in each file
+3. **Dependencies**: Any new packages, imports, or external resources needed
+4. **Testing Strategy**: How the changes will be validated
+5. **Risk Assessment**: Potential impacts on existing functionality
+
+### Scope Limitation Rule
+
+**ONLY implement what is explicitly requested:**
+
+- **No unnecessary improvements**: Do not add features, optimizations, or enhancements unless specifically asked
+- **No excessive debugging**: Do not add debug logs, error handling, or validation beyond what's requested
+- **Ask before expanding**: If you believe additional changes would be beneficial, present them as suggestions and wait for approval
+- **Stick to the brief**: Implement exactly what was requested, nothing more, nothing less
+
+### Plan Validation Process
+
+**The user must validate the plan before any code changes proceed:**
+
+- Present the complete plan in a structured format
+- Wait for explicit user approval before implementing changes
+- If the plan is rejected or needs modification, update and re-present
+- Only proceed with implementation after plan approval
+
+### Plan Documentation Format
+
+```markdown
+## 📋 Implementation Plan
+
+### 🎯 Objective
+[Clear description of what needs to be accomplished]
+
+### 📁 Files to Modify
+- `path/to/file1.py` - [Type: create/modify/delete] - [Description of change]
+- `path/to/file2.py` - [Type: create/modify/delete] - [Description of change]
+
+### 🔗 Dependencies
+- [List any new packages or imports needed]
+
+### 🧪 Testing Strategy
+- [How changes will be validated]
+
+### ⚠️ Risk Assessment
+- [Potential impacts on existing functionality]
+```
+
 ## 🔧 Code Maintenance & Pull Request Process
 
 ### Pull Request Documentation Requirements
@@ -232,3 +287,32 @@ The PULL_REQUEST.md must include commands for:
 - Create virtual environment (.venv)
 - Activate virtual environment
 - Install ad-hoc requirements
+
+## 🤖 Python Virtual Environment for LLM Agents
+
+- Always use the local virtual environment located in `.venv`.
+- Do **not** rely on the global `python` or `pip` commands.
+- Instead, explicitly call the interpreter and pip inside `.venv`:
+
+  - **Linux / macOS**:
+    ```bash
+    ./.venv/bin/python script.py
+    ./.venv/bin/pip install -r requirements.txt
+    ```
+
+  - **Windows (PowerShell)**:
+    ```powershell
+    .\.venv\Scripts\python.exe script.py
+    .\.venv\Scripts\pip.exe install -r requirements.txt
+    ```
+
+- When writing instructions, code, or automation (CI/CD, agents, Copilot, Cursor, etc.),  
+  always assume `.venv` is the canonical Python environment for this repository.
+
+- Never activate the virtual environment manually with `source` or `Activate.ps1`.  
+  Instead, directly call the correct Python executable inside `.venv`.
+
+- If you need to run tools (e.g., pytest, black, isort, etc.), call them via the venv's Python:
+  ```bash
+  ./.venv/bin/python -m pytest
+  ./.venv/bin/python -m black .

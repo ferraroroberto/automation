@@ -1,0 +1,29 @@
+  {
+    "auth": {
+      "credentials_file": "client_secret.json",
+      "token_file": "token.json"
+    },
+    "children": [
+      {
+        "name": "Valentina",
+        "birth_date": "2015-07-03"
+      },
+      {
+        "name": "Luca", 
+        "birth_date": "2018-02-16"
+      }
+    ],
+    "email": {
+      "recipients": [
+        "anaaguileramariscal@gmail.com",
+        "anacoronelaguilera@gmail.com",
+        "paola_filacurt@yahoo.it"
+      ]
+    },
+    "settings": {
+      "timezone": "Europe/Madrid",
+      "max_photos_per_album": 1000,
+      "retry_attempts": 3,
+      "retry_delay_seconds": 5
+    }
+  }

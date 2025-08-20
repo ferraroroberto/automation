@@ -12,6 +12,38 @@ This automation tool:
 
 The script intelligently handles week boundaries - if run on any day, it will always process the most recent complete Saturday-Friday week.
 
+## ⚠️ Important: Google Photos Sharing API Limitation
+
+### The Issue
+The Google Photos API has a restriction on the album sharing functionality (`albums.share()` method). Even with the correct OAuth scopes (`photoslibrary.sharing`), the API returns a 403 Forbidden error when attempting to programmatically share albums. This is a known limitation where Google requires app verification for sharing capabilities, which is typically only granted to published/verified applications, not personal automation scripts.
+
+### What Works ✅
+- Creating albums
+- Adding photos to albums
+- Searching and listing photos
+- Sending email notifications with album links
+- All Gmail API functions
+
+### What Doesn't Work ❌
+- Programmatically sharing albums via API (`albums.share()` returns 403)
+- Generating public shareable links automatically
+
+### The Solution
+The automation works with a semi-manual approach:
+1. **Automated**: Creates weekly albums with photos
+2. **Automated**: Sends emails to recipients with album links
+3. **Manual**: Recipients request access via the link, and you approve it in Google Photos (takes 30 seconds)
+
+Alternatively, after albums are created, you can manually share them in the Google Photos app with your family group.
+
+### Technical Details
+- **Error**: `403 Forbidden` on `albums.share()` API call
+- **Cause**: Google's API restrictions on sharing for unverified apps
+- **Scopes affected**: `https://www.googleapis.com/auth/photoslibrary.sharing`
+- **Not fixable by**: Adding more scopes, changing authentication, or modifying code
+
+This is a Google-imposed limitation, not a bug in the code. The automation still saves significant time by handling album creation, organization, and email notifications automatically.
+
 ## 📋 Prerequisites
 
 Before using this automation, you need:
