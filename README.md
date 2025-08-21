@@ -19,6 +19,12 @@ automation/
 ├── 📁 text/            # Text processing and PDF conversion tools
 ├── 📁 video/           # Screen recording and video processing tools
 └── 📁 config/          # Configuration files and environment variables
+
+## 📚 **Reference Documents**
+
+- **`RULES.md`** - Project coding standards and organizational principles
+- **`PULL_REQUEST_TEMPLATE.md`** - Template for creating pull requests
+- **`CLI_REFERENCE.md`** - Comprehensive guide for building command line interfaces
 ```
 
 ## 🔧 Core Modules
