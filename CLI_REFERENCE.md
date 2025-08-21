@@ -44,15 +44,22 @@ register_command('api', ApiCommand)
 #!/usr/bin/env python3
 import sys
 import argparse
+import logging
 from .commands import get_command, COMMANDS
+from .config import CLIConfig
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class CLI:
     def __init__(self):
+        self.config = CLIConfig()
         self.parser = self._build_parser()
     
     def _build_parser(self):
         parser = argparse.ArgumentParser(description="Application CLI")
         parser.add_argument('--verbose', '-v', action='store_true')
+        parser.add_argument('--debug', action='store_true', help='Enable debug mode')
         
         subparsers = parser.add_subparsers(dest='command')
         for cmd_name, cmd_class in COMMANDS.items():
@@ -68,13 +75,16 @@ class CLI:
                 return 1
             
             command_class = get_command(parsed_args.command)
-            command = command_class()
+            command = command_class(self.config, logger)
             return command.execute(parsed_args)
             
         except KeyboardInterrupt:
+            logger.info("⏹️ Operation cancelled by user")
             return 130
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"❌ Unexpected error: {e}")
+            if parsed_args.debug:
+                raise
             return 1
 
 def main():
@@ -87,8 +97,13 @@ def main():
 # cli/commands/base.py
 from abc import ABC, abstractmethod
 import argparse
+import logging
 
 class BaseCommand(ABC):
+    def __init__(self, config, logger):
+        self.config = config
+        self.logger = logger
+    
     @classmethod
     @abstractmethod
     def add_parser(cls, subparsers):
@@ -106,8 +121,11 @@ class BaseCommand(ABC):
 ```python
 # cli/commands/process.py
 import argparse
+import logging
 from pathlib import Path
 from .base import BaseCommand
+
+logger = logging.getLogger(__name__)
 
 class ProcessCommand(BaseCommand):
     @classmethod
@@ -120,7 +138,7 @@ class ProcessCommand(BaseCommand):
     
     def validate_args(self, args):
         if not Path(args.input).exists():
-            print(f"Input file not found: {args.input}")
+            self.logger.error(f"❌ Input file not found: {args.input}")
             return False
         return True
     
@@ -129,12 +147,12 @@ class ProcessCommand(BaseCommand):
             return 1
         
         try:
-            print(f"Processing {args.input} -> {args.output}")
+            self.logger.info(f"🔍 Processing {args.input} -> {args.output}")
             # Your processing logic here
-            print("✅ Success!")
+            self.logger.info("✅ Processing completed successfully")
             return 0
         except Exception as e:
-            print(f"❌ Error: {e}")
+            self.logger.error(f"❌ Processing error: {e}")
             return 1
 ```
 
@@ -166,7 +184,8 @@ class CLIConfig:
         try:
             with open(self.config_path, 'r') as f:
                 return json.load(f)
-        except:
+        except Exception as e:
+            print(f"Warning: Could not load config from {self.config_path}: {e}")
             return self._get_default_config()
     
     def _get_default_config(self):
@@ -223,7 +242,10 @@ class OutputFormatter:
 # cli/utils/module_discovery.py
 import importlib
 import inspect
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 class ModuleDiscoverer:
     def __init__(self, project_root):
@@ -248,20 +270,24 @@ class ModuleDiscoverer:
             spec.loader.exec_module(module)
             self._analyze_module(module_name, module)
         except Exception as e:
-            print(f"Warning: Could not load {file_path}: {e}")
+            logger.warning(f"⚠️ Could not load {file_path}: {e}")
     
     def _analyze_module(self, module_name, module):
         for name, obj in inspect.getmembers(module):
             if (inspect.isfunction(obj) or inspect.isclass(obj)) and \
                (hasattr(obj, 'cli_help') or hasattr(obj, 'cli_args')):
                 self.discovered_modules[f"{module_name}.{name}"] = obj
+                logger.debug(f"🔍 Discovered CLI-compatible module: {module_name}.{name}")
 ```
 
 ### **Function Wrapper**
 ```python
 # cli/commands/wrapper.py
 import argparse
+import logging
 from .base import BaseCommand
+
+logger = logging.getLogger(__name__)
 
 class FunctionWrapperCommand(BaseCommand):
     def __init__(self, func, func_config):
@@ -296,10 +322,18 @@ class FunctionWrapperCommand(BaseCommand):
                         if hasattr(args, param_name):
                             kwargs[param_name] = getattr(args, param_name)
                     
+                    self.logger.info(f"🚀 Executing function: {func.__name__}")
                     result = self.func(**kwargs)
-                    return 0 if result else 1
+                    
+                    if result:
+                        self.logger.info("✅ Function executed successfully")
+                        return 0
+                    else:
+                        self.logger.error("❌ Function execution failed")
+                        return 1
+                        
                 except Exception as e:
-                    print(f"Error: {e}")
+                    self.logger.error(f"❌ Function execution error: {e}")
                     return 1
         
         return DynamicCommand
@@ -311,8 +345,12 @@ class FunctionWrapperCommand(BaseCommand):
 ```python
 # tests/test_cli.py
 import pytest
+import logging
 from unittest.mock import Mock, patch
 from cli.main import CLI
+
+# Configure logging for tests
+logging.basicConfig(level=logging.DEBUG)
 
 class TestCLI:
     def setup_method(self):
@@ -344,7 +382,7 @@ class TestCLI:
 ### **✅ Do's**
 - **Modular design**: Separate commands into individual modules
 - **Consistent interface**: Use consistent argument patterns
-- **Error handling**: Implement graceful error handling
+- **Error handling**: Implement graceful error handling with logging
 - **Configuration**: Use external configuration files
 - **Documentation**: Provide comprehensive help and examples
 - **Testing**: Include tests for CLI functionality
@@ -358,10 +396,10 @@ class TestCLI:
 
 ### **🔧 Implementation Checklist**
 - [ ] Create modular command structure
-- [ ] Implement base command class
+- [ ] Implement base command class with logging
 - [ ] Add argument validation
 - [ ] Include help text and examples
-- [ ] Implement error handling
+- [ ] Implement error handling with proper logging
 - [ ] Create configuration management
 - [ ] Add unit tests
 - [ ] Document usage examples
@@ -372,28 +410,34 @@ class TestCLI:
 #!/usr/bin/env python3
 import argparse
 import sys
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(description="Your CLI Description")
     parser.add_argument('--input', '-i', required=True, help='Input file')
     parser.add_argument('--output', '-o', required=True, help='Output file')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     
     args = parser.parse_args()
     
     try:
-        print(f"Processing {args.input} -> {args.output}")
+        logger.info(f"🔍 Processing {args.input} -> {args.output}")
         # Your logic here
-        print("✅ Success!")
+        logger.info("✅ Success!")
         return 0
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"❌ Error: {e}")
         return 1
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     sys.exit(main())
 ```
 
 ---
 
-**Remember**: Focus on modular design, consistent interfaces, and comprehensive error handling for maintainable CLIs.
+**Remember**: Follow the project's logging standards with emojis and ensure all commands use proper logging instead of print statements.
