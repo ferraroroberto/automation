@@ -48,7 +48,6 @@ import logging
 from .commands import get_command, COMMANDS
 from .config import CLIConfig
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 class CLI:
@@ -159,52 +158,11 @@ class ProcessCommand(BaseCommand):
 ## ⚙️ **Configuration & Utilities**
 
 ### **Configuration Management**
-```python
-# cli/config.py
-import json
-import os
-from pathlib import Path
-
-class CLIConfig:
-    def __init__(self, config_path=None):
-        self.config_path = config_path or self._find_config()
-        self.config = self._load_config()
-    
-    def _find_config(self):
-        search_paths = ['cli_config.json', 'config/cli_config.json']
-        for path in search_paths:
-            if Path(path).exists():
-                return path
-        return None
-    
-    def _load_config(self):
-        if not self.config_path:
-            return self._get_default_config()
-        
-        try:
-            with open(self.config_path, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Warning: Could not load config from {self.config_path}: {e}")
-            return self._get_default_config()
-    
-    def _get_default_config(self):
-        return {
-            'logging': {'level': 'INFO'},
-            'output': {'default_format': 'json', 'colorize': True},
-            'processing': {'default_batch_size': 1000, 'timeout': 300}
-        }
-    
-    def get(self, key, default=None):
-        keys = key.split('.')
-        value = self.config
-        for k in keys:
-            if isinstance(value, dict) and k in value:
-                value = value[k]
-            else:
-                return default
-        return value
-```
+Create a `CLIConfig` class that:
+- Loads JSON configuration files from common locations
+- Provides default values for all settings
+- Supports dot-notation access (e.g., `config.get('logging.level')`)
+- Handles missing config files gracefully
 
 ### **Output Formatting**
 ```python
