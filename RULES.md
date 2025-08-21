@@ -271,6 +271,18 @@ def validate_input_parameters(params, required_keys):
 
 When creating a pull request, **always** include a `PULL_REQUEST.md` file in the root of your changes. Use the `PULL_REQUEST_TEMPLATE.md` in the project root as a reference.
 
+### CLI Development Reference
+
+When implementing command line interfaces or CLI functionality, refer to the `CLI_REFERENCE.md` in the project root for comprehensive guidelines on:
+- CLI architecture patterns and best practices
+- Command structure and registration
+- Configuration management
+- Output formatting and user experience
+- Integration with existing modules
+- Testing and validation approaches
+
+This reference document provides templates and examples for building robust, maintainable CLIs that integrate seamlessly with the project's existing architecture.
+
 ### Required Documentation Sections
 
 Your PULL_REQUEST.md must include:
