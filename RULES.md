@@ -269,11 +269,11 @@ def validate_input_parameters(params, required_keys):
 
 ### Pull Request Documentation Requirements
 
-When creating a pull request, **always** include a `PULL_REQUEST.md` file in the root of your changes. Use the `PULL_REQUEST_TEMPLATE.md` in the project root as a reference.
+When creating a pull request, **always** include a `PULL_REQUEST.md` file in the root of your changes. Use the `RULES_PR.md` in the project root as a reference.
 
 ### CLI Development Reference
 
-When implementing command line interfaces or CLI functionality, refer to the `CLI_REFERENCE.md` in the project root for comprehensive guidelines on:
+When implementing command line interfaces or CLI functionality, refer to the `RULES_CLI.md` in the project root for comprehensive guidelines on:
 - CLI architecture patterns and best practices
 - Command structure and registration
 - Configuration management
