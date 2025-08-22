@@ -18,6 +18,26 @@ cli/
     └── validators.py    # Input validation
 ```
 
+### **NAIB Project Structure Reorganization**
+```
+project_root/
+├── launch.py                    # 🚀 Main application launcher
+├── cli/                        # 🖥️ Command Line Interface
+│   ├── main.py                 # Main CLI interface
+│   ├── config.py               # CLI configuration
+│   └── launchers/              # Various launcher scripts
+├── process/                     # 📁 Processing domain
+│   ├── social_media_pipeline.py # Moved from init.py
+│   ├── data_processor.py       # Domain-specific modules
+│   └── README.md               # Domain documentation
+├── api_clients/                # 📁 API integration domain
+│   ├── client1.py              # API client modules
+│   └── README.md               # Domain documentation
+├── config/                     # ⚙️ Configuration files
+├── docs/                       # 📚 Documentation
+└── requirements.txt            # 📦 Dependencies
+```
+
 ### **Command Registration**
 ```python
 # commands/__init__.py
@@ -296,6 +316,278 @@ class FunctionWrapperCommand(BaseCommand):
         
         return DynamicCommand
 ```
+
+## 🏗️ **NAIB Project Structure Reorganization**
+
+### **Mission & Purpose**
+The NAIB (Project Structure Reorganization) approach transforms disorganized codebases into clean, logical, and maintainable structures following modern software engineering best practices.
+
+### **Analysis Phase**
+
+#### **1. Current Structure Assessment**
+- Examine root directory for misplaced files (e.g., `init.py`, `main.py`)
+- Identify logical groupings and dependencies between modules
+- Note entry points and orchestrators
+- Map the dependency hierarchy
+
+#### **2. Architecture Pattern Recognition**
+- Identify main application domains (data processing, API clients, integrations)
+- Recognize orchestration patterns (pipelines, workflows, main functions)
+- Understand dependency relationships
+- Identify entry points and launchers
+
+#### **3. Problem Identification**
+- Find misnamed files that don't reflect their purpose
+- Identify files that belong in specific domain folders
+- Look for entry points that could be better organized
+- Recognize separation of concerns opportunities
+
+### **Reorganization Strategy**
+
+#### **File Relocation Rules**
+```python
+# Example transformations
+init.py → process/social_media_pipeline.py
+main.py → cli/main.py (if CLI interface)
+config.py → config/config.py (if configuration)
+orchestrator.py → process/pipeline.py
+```
+
+#### **Naming Convention Updates**
+- Use descriptive names indicating functionality
+- Follow consistent patterns within each domain
+- Update documentation to reflect new names
+- Maintain backward compatibility where possible
+
+#### **Entry Point Restructuring**
+- Create main launcher (`launch.py`) in root directory
+- Move old entry points to appropriate domain folders
+- Ensure CLI can access all functionality
+- Update import paths and references
+
+### **Implementation Steps**
+
+#### **Step 1: Create New Structure**
+```bash
+# Create domain folders
+mkdir -p process api_clients config docs cli/launchers
+
+# Move and rename files
+mv init.py process/social_media_pipeline.py
+mv main.py cli/main.py
+mv config.py config/config.py
+```
+
+#### **Step 2: Update References**
+```python
+# Update import statements
+# Before: from init import process_data
+# After: from process.social_media_pipeline import process_data
+
+# Update sys.path modifications if needed
+import sys
+sys.path.append(str(Path(__file__).parent / "process"))
+```
+
+#### **Step 3: Create New Entry Points**
+```python
+# launch.py - Main application launcher
+#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+# Add domain paths to Python path
+project_root = Path(__file__).parent
+sys.path.extend([
+    str(project_root / "process"),
+    str(project_root / "api_clients"),
+    str(project_root / "config")
+])
+
+from cli.main import main
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+#### **Step 4: Update Documentation**
+- Main README reflecting new structure
+- Folder-specific READMEs explaining organization
+- Usage instructions for new entry points
+- Migration guide for existing users
+
+### **CLI Integration with NAIB**
+
+#### **Domain-Aware Command Discovery**
+```python
+# cli/utils/naib_discovery.py
+import importlib
+from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
+
+class NAIBModuleDiscoverer:
+    def __init__(self, project_root):
+        self.project_root = Path(project_root)
+        self.domain_modules = {}
+    
+    def discover_domain_modules(self):
+        """Discover modules organized by NAIB domain structure"""
+        domains = ['process', 'api_clients', 'config']
+        
+        for domain in domains:
+            domain_path = self.project_root / domain
+            if domain_path.exists():
+                self.domain_modules[domain] = self._discover_domain(domain_path)
+        
+        return self.domain_modules
+    
+    def _discover_domain(self, domain_path):
+        """Discover all modules within a specific domain"""
+        modules = {}
+        for py_file in domain_path.glob("*.py"):
+            if py_file.name.startswith("__"):
+                continue
+            
+            module_name = f"{domain_path.name}.{py_file.stem}"
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                modules[py_file.stem] = module
+                logger.debug(f"🔍 Discovered {module_name}")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not load {py_file}: {e}")
+        
+        return modules
+```
+
+#### **NAIB-Aware CLI Commands**
+```python
+# cli/commands/naib.py
+import argparse
+import logging
+from pathlib import Path
+from .base import BaseCommand
+
+logger = logging.getLogger(__name__)
+
+class NAIBCommand(BaseCommand):
+    @classmethod
+    def add_parser(cls, subparsers):
+        parser = subparsers.add_parser('naib', help='NAIB project structure management')
+        subparsers_naib = parser.add_subparsers(dest='naib_action')
+        
+        # Analyze current structure
+        analyze_parser = subparsers_naib.add_parser('analyze', help='Analyze current project structure')
+        analyze_parser.add_argument('--output', '-o', help='Output analysis to file')
+        
+        # Reorganize structure
+        reorganize_parser = subparsers_naib.add_parser('reorganize', help='Reorganize project structure')
+        reorganize_parser.add_argument('--dry-run', action='store_true', help='Show changes without applying')
+        reorganize_parser.add_argument('--backup', action='store_true', help='Create backup before changes')
+        
+        # Validate structure
+        validate_parser = subparsers_naib.add_parser('validate', help='Validate current structure')
+    
+    def execute(self, args):
+        if args.naib_action == 'analyze':
+            return self._analyze_structure(args)
+        elif args.naib_action == 'reorganize':
+            return self._reorganize_structure(args)
+        elif args.naib_action == 'validate':
+            return self._validate_structure(args)
+        else:
+            self.logger.error("❌ No NAIB action specified")
+            return 1
+    
+    def _analyze_structure(self, args):
+        """Analyze current project structure and identify issues"""
+        try:
+            self.logger.info("🔍 Analyzing project structure...")
+            
+            # Implementation for structure analysis
+            analysis_result = self._perform_structure_analysis()
+            
+            if args.output:
+                self._save_analysis(analysis_result, args.output)
+            else:
+                self._display_analysis(analysis_result)
+            
+            return 0
+        except Exception as e:
+            self.logger.error(f"❌ Analysis failed: {e}")
+            return 1
+    
+    def _reorganize_structure(self, args):
+        """Reorganize project structure according to NAIB principles"""
+        try:
+            if args.backup:
+                self.logger.info("💾 Creating backup...")
+                self._create_backup()
+            
+            if args.dry_run:
+                self.logger.info("🔍 Dry run - showing planned changes...")
+                changes = self._plan_reorganization()
+                self._display_planned_changes(changes)
+            else:
+                self.logger.info("🚀 Reorganizing project structure...")
+                self._execute_reorganization()
+                self.logger.info("✅ Reorganization completed successfully")
+            
+            return 0
+        except Exception as e:
+            self.logger.error(f"❌ Reorganization failed: {e}")
+            return 1
+    
+    def _validate_structure(self, args):
+        """Validate current structure against NAIB principles"""
+        try:
+            self.logger.info("✅ Validating project structure...")
+            validation_result = self._validate_naib_structure()
+            
+            if validation_result['is_valid']:
+                self.logger.info("✅ Structure is valid according to NAIB principles")
+            else:
+                self.logger.warning("⚠️ Structure has issues:")
+                for issue in validation_result['issues']:
+                    self.logger.warning(f"  - {issue}")
+            
+            return 0 if validation_result['is_valid'] else 1
+        except Exception as e:
+            self.logger.error(f"❌ Validation failed: {e}")
+            return 1
+```
+
+### **NAIB Best Practices**
+
+#### **✅ Do's**
+- **Domain separation**: Group related functionality in domain-specific folders
+- **Clear naming**: Use descriptive names that reflect actual purpose
+- **Entry point consolidation**: Create single main launcher in root
+- **Documentation**: Maintain README files in each domain folder
+- **Backward compatibility**: Maintain import paths where possible
+- **Incremental migration**: Reorganize in phases to avoid breaking changes
+
+#### **❌ Don'ts**
+- **Mixed concerns**: Don't mix different domains in single files
+- **Unclear naming**: Avoid generic names like `init.py` or `main.py`
+- **Root clutter**: Don't leave orchestration files in root directory
+- **Broken imports**: Don't move files without updating all references
+- **Big bang changes**: Avoid reorganizing everything at once
+
+#### **🔧 NAIB Implementation Checklist**
+- [ ] Analyze current project structure
+- [ ] Identify logical domains and groupings
+- [ ] Plan file relocations and renames
+- [ ] Create new folder structure
+- [ ] Move files to appropriate domains
+- [ ] Update all import statements
+- [ ] Create new entry points
+- [ ] Update documentation
+- [ ] Test all functionality
+- [ ] Validate new structure
 
 ## 🧪 **Testing**
 
