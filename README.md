@@ -23,8 +23,8 @@ automation/
 ## 📚 **Reference Documents**
 
 - **`RULES.md`** - Project coding standards and organizational principles
-- **`PULL_REQUEST_TEMPLATE.md`** - Template for creating pull requests
-- **`CLI_REFERENCE.md`** - Comprehensive guide for building command line interfaces
+- **`RULES_PR.md`** - Template for creating pull requests
+- **`RULES_CLI.md`** - Comprehensive guide for building command line interfaces
 ```
 
 ## 🔧 Core Modules
