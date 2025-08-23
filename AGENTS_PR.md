@@ -14,9 +14,9 @@ Clear explanation of what this PR accomplishes and why it's needed.
 - Git installed
 - Access to the repository
 
-### **Environment Setup Commands**
+### **Environment Setup Commands** {#environment-setup}
 
-See [the authoritative policy](AGENTS.md#venv-policy) for the authoritative policy. Use the `.venv` interpreter directly (no activation).
+See [AGENTS.md](AGENTS.md#virtual-environment-policy) for the authoritative policy. Use the `.venv` interpreter directly (no activation).
 
 **Windows PowerShell:**
 ```powershell

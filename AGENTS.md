@@ -90,7 +90,8 @@ Before any code changes, provide and get approval for a short plan:
 ### Scope Limitation Rule
 - No extra features or “nice‑to‑haves” unless explicitly approved.
 
-## 🤖 Virtual Environment Policy {#venv-policy}
+## 🤖 Virtual Environment Policy
+
 Always use the local `.venv` without activation. Call the interpreter directly.
 
 **Linux/macOS:**
@@ -123,6 +124,6 @@ Use the same pattern for tools (black, isort, etc.): `./.venv/bin/python -m blac
 - Minimal dependencies; pin versions; keep security patches up to date.
 
 ## 🔗 See Also
-- [CLI reference](AGENTS_CLI.md#cli-architecture)
-- [Structure guide](AGENTS_STRUCTURE.md#reorg-checklist)
-- [PR template](AGENTS_PR.md#environment-setup)
+- [AGENTS_CLI.md](AGENTS_CLI.md#cli-architecture)
+- [AGENTS_STRUCTURE.md](AGENTS_STRUCTURE.md#reorg-checklist)
+- [AGENTS_PR.md](AGENTS_PR.md#environment-setup)
