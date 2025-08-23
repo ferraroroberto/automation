@@ -103,7 +103,7 @@ Always use the local `.venv` without activation. Call the interpreter directly.
     ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pytest
-```
+    ```
 
 Use the same pattern for tools (black, isort, etc.): `./.venv/bin/python -m black .`
 
