@@ -16,7 +16,7 @@ Clear explanation of what this PR accomplishes and why it's needed.
 
 ### **Environment Setup Commands**
 
-See `AGENTS.md#venv-policy` for the authoritative policy. Use the `.venv` interpreter directly (no activation).
+See [the authoritative policy](AGENTS.md#venv-policy) for the authoritative policy. Use the `.venv` interpreter directly (no activation).
 
 **Windows PowerShell:**
 ```powershell

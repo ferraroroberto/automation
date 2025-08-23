@@ -123,6 +123,6 @@ Use the same pattern for tools (black, isort, etc.): `./.venv/bin/python -m blac
 - Minimal dependencies; pin versions; keep security patches up to date.
 
 ## 🔗 See Also
-- CLI reference: `AGENTS_CLI.md#cli-architecture`
-- Structure guide: `AGENTS_STRUCTURE.md#reorg-checklist`
-- PR template: `AGENTS_PR.md#environment-setup`
+- [CLI reference](AGENTS_CLI.md#cli-architecture)
+- [Structure guide](AGENTS_STRUCTURE.md#reorg-checklist)
+- [PR template](AGENTS_PR.md#environment-setup)
