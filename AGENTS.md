@@ -111,8 +111,12 @@ Use the same pattern for tools (black, isort, etc.): `./.venv/bin/python -m blac
 - Default environment: **Windows 10+ with PowerShell**.
 - When executing commands with tools, **use PowerShell syntax**, not Unix/bash-only constructs.
 - Prefer Windows path formats and quoting (e.g., `".\\venv\\Scripts\\python.exe"`).
+- Use PowerShell-style file paths for Git and all CLI commands. Example: `git add .\\automation\\AGENTS.md` (not `git add automation/AGENTS.md`).
 - Provide Windows examples first. Unix/macOS equivalents live in `AGENTS_PR.md` and are reference-only.
 - Combine with the `.venv` policy above (no activation; call the interpreter directly).
+
+## 📄 GIT commits and push rules
+- Do not automatically create commits or push. Wait for explicit instruction from the user. On task completion, ask: "shall I create a commit message, stage, commit and push"?
 
 ## 🔒 Security & Dependencies
 - Never commit secrets; use env/.env.
