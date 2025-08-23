@@ -16,6 +16,8 @@ Clear explanation of what this PR accomplishes and why it's needed.
 
 ### **Environment Setup Commands**
 
+See `AGENTS.md#venv-policy` for the authoritative policy. Use the `.venv` interpreter directly (no activation).
+
 **Windows PowerShell:**
 ```powershell
 # 1. Clone repo and checkout specific branch into new folder
@@ -27,11 +29,8 @@ cd [folder-name]
 # 3. Create virtual environment
 python -m venv .venv
 
-# 4. Activate virtual environment
-.venv\Scripts\Activate.ps1
-
-# 5. Install ad-hoc requirements
-pip install -r requirements.txt
+# 4. Install requirements with venv interpreter
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 **Unix/Linux/macOS:**
@@ -45,11 +44,8 @@ cd [folder-name]
 # 3. Create virtual environment
 python3 -m venv .venv
 
-# 4. Activate virtual environment
-source .venv/bin/activate
-
-# 5. Install ad-hoc requirements
-pip install -r requirements.txt
+# 4. Install requirements with venv interpreter
+./.venv/bin/python -m pip install -r requirements.txt
 ```
 
 ### **Test Execution**
@@ -88,8 +84,7 @@ Any other information reviewers should know.
 git clone -b feature/notion-rules https://github.com/ferraroroberto/automation.git test-notion-rules
 cd test-notion-rules
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 **Unix/Linux/macOS:**
@@ -97,8 +92,7 @@ pip install -r requirements.txt
 git clone -b feature/notion-rules https://github.com/ferraroroberto/automation.git test-notion-rules
 cd test-notion-rules
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+./.venv/bin/python -m pip install -r requirements.txt
 ```
 
 ### **Quality Checklist:**
