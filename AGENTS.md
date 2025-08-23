@@ -93,17 +93,17 @@ Before any code changes, provide and get approval for a short plan:
 ## 🤖 Virtual Environment Policy {#venv-policy}
 Always use the local `.venv` without activation. Call the interpreter directly.
 
-- Linux/macOS:
-    ```bash
+**Linux/macOS:**
+```bash
 ./.venv/bin/python -m pip install -r requirements.txt
 ./.venv/bin/python -m pytest
-    ```
+```
 
-- Windows (PowerShell):
-    ```powershell
+**Windows (PowerShell):**
+```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pytest
-    ```
+```
 
 Use the same pattern for tools (black, isort, etc.): `./.venv/bin/python -m black .`
 
