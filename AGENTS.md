@@ -107,6 +107,13 @@ Always use the local `.venv` without activation. Call the interpreter directly.
 
 Use the same pattern for tools (black, isort, etc.): `./.venv/bin/python -m black .`
 
+## 🖥️ Platform & Shell Assumptions {#platform-shell}
+- Default environment: **Windows 10+ with PowerShell**.
+- When executing commands with tools, **use PowerShell syntax**, not Unix/bash-only constructs.
+- Prefer Windows path formats and quoting (e.g., `".\\venv\\Scripts\\python.exe"`).
+- Provide Windows examples first. Unix/macOS equivalents live in `AGENTS_PR.md` and are reference-only.
+- Combine with the `.venv` policy above (no activation; call the interpreter directly).
+
 ## 🔒 Security & Dependencies
 - Never commit secrets; use env/.env.
 - Minimal dependencies; pin versions; keep security patches up to date.
