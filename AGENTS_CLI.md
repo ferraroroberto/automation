@@ -2,7 +2,7 @@
 
 *Comprehensive guide for building robust command line interfaces with multiple dependencies and commands.*
 
-See `AGENTS.md#tldr` for core standards and `AGENTS_STRUCTURE.md#reorg-checklist` for structure guidance.
+See [core standards](AGENTS.md#tldr) for core standards and [structure guidance](AGENTS_STRUCTURE.md#reorg-checklist) for structure guidance.
 
 ## 🏗️ **Architecture Patterns**
 
@@ -306,9 +306,9 @@ class FunctionWrapperCommand(BaseCommand):
                     return 1
         
         return DynamicCommand
-```
 
-> For project structure reorganization guidance, see `AGENTS_STRUCTURE.md#reorg-checklist`.
+
+For project structure reorganization guidance, see the [Project Structure Guide](AGENTS_STRUCTURE.md#reorg-checklist).
 
 ### **Project Structure Best Practices**
 

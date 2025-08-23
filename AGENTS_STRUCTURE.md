@@ -1,6 +1,6 @@
 # 📐 Agents: General-Purpose Structure Guide
 
-Purpose: universal principles to analyze, reorganize, and validate project structure. Keep repos consistent and maintainable. Cross‑reference: see `AGENTS.md#planning-workflow` for the planning gate and `AGENTS_CLI.md` for CLI patterns.
+Purpose: universal principles to analyze, reorganize, and validate project structure. Keep repos consistent and maintainable. Cross‑reference: see [the planning gate](AGENTS.md#planning-workflow) for the planning gate and [CLI patterns](AGENTS_CLI.md) for CLI patterns.
 
 ## 🧭 When to use this
 - Repo feels cluttered or mixed-concern.
@@ -47,6 +47,6 @@ def load_module_from(path: Path):
 Provide a `structure` command in your CLI to analyze/validate structure. Keep it minimal; link to this doc for rules.
 
 ## 🔗 See Also
-- Core standards: `AGENTS.md#tldr`
-- CLI patterns: `AGENTS_CLI.md#cli-architecture`
+- [Core standards](AGENTS.md#tldr)
+- [CLI patterns](AGENTS_CLI.md#cli-architecture)
 
