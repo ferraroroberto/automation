@@ -9,6 +9,7 @@ Automatically tests conversion by processing all Word documents found in the pro
 
 import argparse
 import glob
+import re
 import logging
 import os
 import shutil
@@ -102,30 +103,48 @@ class WordToMarkdownConverter:
         if not text:
             return ""
         
-        # Check for heading styles
-        style_name = paragraph.style.name.lower()
-        if 'heading' in style_name:
-            # Extract heading level from style name
-            if 'heading 1' in style_name or 'title' in style_name:
+        # Check for heading styles (standard "Heading N" and "Title")
+        style_name = paragraph.style.name.lower().strip().replace('\xa0', ' ')
+
+        logger.debug(
+            f"🧪 Paragraph text preview='{text[:60]}' | p_style='{paragraph.style.name}'"
+        )
+
+        # Determine heading level from paragraph style
+        heading_level: Optional[int] = None
+        heading_pattern = re.compile(r"heading\s*([1-6])", re.IGNORECASE)
+        match = heading_pattern.search(style_name)
+        if match:
+            heading_level = int(match.group(1))
+
+        has_title = 'title' in style_name
+        logger.debug(
+            f"🔎 style_name='{style_name}' | heading_level={heading_level} | has_title={has_title}"
+        )
+
+        if heading_level is not None or has_title:
+            level = heading_level if heading_level is not None else 1
+            logger.debug(f"🏷️ Rendering as H{level}")
+            if level == 1:
                 return f"# {text}\n\n"
-            elif 'heading 2' in style_name:
+            if level == 2:
                 return f"## {text}\n\n"
-            elif 'heading 3' in style_name:
+            if level == 3:
                 return f"### {text}\n\n"
-            elif 'heading 4' in style_name:
+            if level == 4:
                 return f"#### {text}\n\n"
-            elif 'heading 5' in style_name:
+            if level == 5:
                 return f"##### {text}\n\n"
-            elif 'heading 6' in style_name:
+            if level == 6:
                 return f"###### {text}\n\n"
-            else:
-                return f"# {text}\n\n"
         
         # Check for list styles
         if paragraph.style.name.lower().startswith('list'):
+            logger.debug("• Rendering as list item")
             return f"- {text}\n"
         
         # Regular paragraph
+        logger.debug("📝 Rendering as paragraph")
         return f"{text}\n\n"
     
     def _table_to_markdown(self, table: Table) -> str:
@@ -363,11 +382,19 @@ def main():
         action="store_true", 
         help="Launch the Tkinter GUI interface"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging"
+    )
     
     args = parser.parse_args()
     
     # Initialize converter
     converter = WordToMarkdownConverter()
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logger.debug("🔧 Debug logging enabled")
     
     if args.gui:
         if not TKINTER_AVAILABLE:
