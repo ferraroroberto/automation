@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import re
 import json
 import logging
 import os
@@ -326,8 +327,7 @@ Examples:
     parser.add_argument(
         '--newsletter',
         type=str,
-        default="N100",
-        help='Newsletter number/title to fetch (default: "N100")'
+        help='Newsletter number (Nxxx). If omitted, you will be prompted.'
     )
     
     parser.add_argument(
@@ -349,11 +349,30 @@ Examples:
     setup_logging(args.debug)
     
     try:
+        # Determine newsletter number: CLI arg or prompt via input()
+        newsletter_number = args.newsletter
+        if not newsletter_number:
+            try:
+                newsletter_number = input("Enter newsletter number (Nxxx): ")
+            except (EOFError, KeyboardInterrupt):
+                logging.error("❌ Newsletter number input cancelled")
+                sys.exit(2)
+
+        if not newsletter_number:
+            logging.error("❌ Newsletter number is required and must be in the format Nxxx (e.g., N057)")
+            sys.exit(2)
+
+        newsletter_number = newsletter_number.strip().upper()
+
+        if not re.fullmatch(r'N\d{3}', newsletter_number):
+            logging.error("❌ Newsletter number must be in the format Nxxx (e.g., N057)")
+            sys.exit(2)
+
         # Initialize the newsletter builder
         builder = NotionNewsletterBuilder(args.config)
         
         # Build the newsletter
-        html_output, grouped_articles = builder.build_newsletter(args.newsletter)
+        html_output, grouped_articles = builder.build_newsletter(newsletter_number)
         
         # Generate complete HTML document
         complete_html = builder.generate_complete_html(grouped_articles)
