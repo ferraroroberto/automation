@@ -7,6 +7,9 @@ google/config.json
 google/client_secret.json
 google/token*.json
 
+# application settings
+text_expander_config.json
+
 # logs
 *.log
 
