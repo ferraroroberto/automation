@@ -1,0 +1,18 @@
+{
+  "abbreviations": {
+    "/sig": "Best regards,\nJohn Doe\nSoftware Developer",
+    "/email": "john.doe@company.com",
+    "/addr": "123 Main Street, City, State 12345",
+    "/phone": "+1-555-0123",
+    "/date": "2024-01-15",
+    "/greet": "Hello,\n\nI hope this email finds you well.",
+    "/closing": "Thank you for your time.\n\nBest regards,"
+  },
+  "settings": {
+    "trigger_key": "/",
+    "auto_start": true,
+    "show_notifications": true,
+    "max_abbreviation_length": 50,
+    "replacement_delay_ms": 100
+  }
+}

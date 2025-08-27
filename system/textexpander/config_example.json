@@ -1,0 +1,18 @@
+{
+  "abbreviations": {
+    "/sig": "Best regards,\nYour Name\nYour Position",
+    "/email": "your.email@company.com",
+    "/addr": "Your Address, City, State ZIP",
+    "/phone": "Your Phone Number",
+    "/date": "Current Date",
+    "/greet": "Hello,\n\nI hope this email finds you well.",
+    "/closing": "Thank you for your time.\n\nBest regards,"
+  },
+  "settings": {
+    "trigger_key": "/",
+    "auto_start": true,
+    "show_notifications": true,
+    "max_abbreviation_length": 50,
+    "replacement_delay_ms": 100
+  }
+}
