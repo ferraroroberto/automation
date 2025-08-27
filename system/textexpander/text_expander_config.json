@@ -2,7 +2,9 @@
   "abbreviations": {
     "/prx": "$env:NO_PROXY  = \"github.com,.github.com,api.github.com,githubusercontent.com,.githubusercontent.com\"{ENTER}$env:no_proxy  = $env:NO_PROXY{ENTER}",
     "/agents": "***\n\nfollow the coding guidelines you will find in the AGENTS.md document in the project root folder",
-    "/multi": "echo hello{ENTER}dir{ENTER}echo works{ENTER}"
+    "/multi": "echo hello{ENTER}dir{ENTER}echo works{ENTER}",
+    "/pushmain": "git push origin main{ENTER}",
+    "/pushfeature": "git push origin feature{ENTER}"
   },
   "settings": {
     "trigger_key": "/",
