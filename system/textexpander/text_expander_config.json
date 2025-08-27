@@ -1,12 +1,7 @@
 {
   "abbreviations": {
-    "/sig": "Best regards,\nJohn Doe\nSoftware Developer",
-    "/email": "john.doe@company.com",
-    "/addr": "123 Main Street, City, State 12345",
-    "/phone": "+1-555-0123",
-    "/date": "2024-01-15",
-    "/greet": "Hello,\n\nI hope this email finds you well.",
-    "/closing": "Thank you for your time.\n\nBest regards,"
+    "/prx": "$env:NO_PROXY  = \"github.com,.github.com,api.github.com,githubusercontent.com,.githubusercontent.com\"\n$env:no_proxy  = $env:NO_PROXY",
+    "/agents": "***\n\nfollow the coding guidelines you will find in the AGENTS.md document in the project root folder"
   },
   "settings": {
     "trigger_key": "/",
