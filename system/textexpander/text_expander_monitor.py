@@ -239,54 +239,46 @@ class KeyboardMonitor:
             logger.error(f"❌ Error checking for abbreviation: {e}")
 
     def _perform_expansion(self, expansion: str, chars_to_remove: int) -> None:
-        """Perform the text expansion by simulating backspace and paste.
-
-        Args:
-            expansion: The text to paste.
-            chars_to_remove: Number of characters to remove with backspace.
-        """
+        """Perform the text expansion by simulating backspace and paste, supporting {ENTER} placeholder for simulated Enter keypresses."""
         controller = None
         try:
             logger.debug(f"🔄 Performing expansion: removing {chars_to_remove} chars, pasting {len(expansion)} chars")
-
-            # Small delay to ensure the application has processed the keystrokes
             time.sleep(0.05)
-
-            # Create controller instance
             controller = keyboard.Controller()
-
-            # Simulate backspace presses to remove the abbreviation
+            # Remove abbreviation
             for _ in range(chars_to_remove):
                 controller.press(keyboard.Key.backspace)
                 controller.release(keyboard.Key.backspace)
-                time.sleep(0.01)  # Small delay between backspaces
-
-            # Copy expansion to clipboard
+                time.sleep(0.01)
+            # Save clipboard
             original_clipboard = pyperclip.paste()
-            pyperclip.copy(expansion)
-
-            # Simulate Ctrl+V to paste
-            controller.press(keyboard.Key.ctrl)
-            controller.press('v')
-            controller.release('v')
-            controller.release(keyboard.Key.ctrl)
-
-            # Restore original clipboard content
-            time.sleep(0.1)  # Allow paste operation to complete
+            # Split expansion by {ENTER} placeholder
+            segments = expansion.split('{ENTER}')
+            for i, segment in enumerate(segments):
+                # Paste segment
+                pyperclip.copy(segment)
+                controller.press(keyboard.Key.ctrl)
+                controller.press('v')
+                controller.release('v')
+                controller.release(keyboard.Key.ctrl)
+                time.sleep(0.05)
+                # Simulate Enter after each segment except last
+                if i < len(segments) - 1:
+                    controller.press(keyboard.Key.enter)
+                    controller.release(keyboard.Key.enter)
+                    time.sleep(0.05)
+            # Restore clipboard
+            time.sleep(0.1)
             pyperclip.copy(original_clipboard)
-
             logger.info("✅ Text expansion completed successfully")
-            # Notify callback if provided
             if self.on_expansion_triggered:
                 try:
                     self.on_expansion_triggered(expansion)
                 except Exception as e:
                     logger.error(f"❌ Error in expansion callback: {e}")
-
         except Exception as e:
             logger.error(f"❌ Failed to perform text expansion: {e}")
         finally:
-            # Clean up controller
             if controller:
                 controller = None
 

@@ -79,6 +79,14 @@ class TextExpanderGUI:
                               font=("Arial", 14, "bold"))
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
 
+        # --- USAGE TIP ---
+        tip_text = (
+            "Tip: Use {ENTER} in your abbreviation expansion to simulate pressing Enter. "
+            "This is useful for multi-line commands in shells or editors."
+        )
+        tip_label = ttk.Label(main_frame, text=tip_text, foreground="#0077cc", font=("Arial", 10, "italic"))
+        tip_label.grid(row=1, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
+
         # Left panel - Abbreviations list
         left_frame = ttk.LabelFrame(main_frame, text="Abbreviations", padding="5")
         left_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
