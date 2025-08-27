@@ -1,0 +1,13 @@
+# Text Expander Module Requirements
+# Additional dependencies for text expansion functionality
+
+# System tray icon support
+pystray>=0.19.4
+
+# Alternative global keyboard monitoring
+keyboard>=0.13.5
+
+# Windows notifications (optional)
+win10toast>=0.9
+
+# Note: Core dependencies (pynput, pyperclip, tkinter) are already in main requirements.txt
