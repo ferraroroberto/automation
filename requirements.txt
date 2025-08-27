@@ -136,6 +136,11 @@ pyperclip>=1.8.0
 # Source: linkedin/open_profiles/linkedin_open.py
 easygui>=0.98.3
 
+# Text Expander functionality
+pystray>=0.19.4
+keyboard>=0.13.5
+win10toast>=0.9
+
 # =============================================================================
 # NETWORKING AND WEB
 # =============================================================================
