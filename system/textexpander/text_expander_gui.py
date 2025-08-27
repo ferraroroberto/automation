@@ -9,6 +9,10 @@ from tkinter import ttk, messagebox, scrolledtext
 import logging
 from typing import Optional, Dict, List, Tuple
 from pathlib import Path
+import threading
+import win32gui
+import win32con
+import win32api
 
 from text_expander_core import TextExpanderCore, ConfigError
 
@@ -32,12 +36,16 @@ class TextExpanderGUI:
         self.add_button: Optional[ttk.Button] = None
         self.update_button: Optional[ttk.Button] = None
         self.delete_button: Optional[ttk.Button] = None
+        self.launch_button: Optional[ttk.Button] = None
+        self.last_active_hwnd = None
 
         logger.info("🖥️ Initializing Text Expander GUI")
 
     def show(self) -> None:
         """Show the GUI window."""
         try:
+            # Record last active window before showing GUI
+            self.last_active_hwnd = win32gui.GetForegroundWindow()
             self.root = tk.Tk()
             self.root.title("Text Expander - Manage Abbreviations")
             self.root.geometry("600x500")
@@ -79,13 +87,17 @@ class TextExpanderGUI:
                               font=("Arial", 14, "bold"))
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
 
-        # --- USAGE TIP ---
-        tip_text = (
+        # --- USAGE TIP & HELP ---
+        help_text = (
             "Tip: Use {ENTER} in your abbreviation expansion to simulate pressing Enter. "
-            "This is useful for multi-line commands in shells or editors."
+            "This allows you to execute multi-line commands or scripts in shells and editors. "
+            "For example, an expansion like 'echo Hello{ENTER}echo World' will paste 'echo Hello', "
+            "simulate Enter, then paste 'echo World', and simulate Enter again. This is especially useful "
+            "for PowerShell, CMD, or any environment where you want each line executed as a command. "
+            "You can use multiple {ENTER} placeholders for more lines."
         )
-        tip_label = ttk.Label(main_frame, text=tip_text, foreground="#0077cc", font=("Arial", 10, "italic"))
-        tip_label.grid(row=1, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
+        help_label = ttk.Label(main_frame, text=help_text, foreground="#0077cc", font=("Arial", 10, "italic"), wraplength=580, justify=tk.LEFT)
+        help_label.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
 
         # Left panel - Abbreviations list
         left_frame = ttk.LabelFrame(main_frame, text="Abbreviations", padding="5")
@@ -124,7 +136,7 @@ class TextExpanderGUI:
 
         # Buttons frame
         buttons_frame = ttk.Frame(main_frame)
-        buttons_frame.grid(row=2, column=0, columnspan=3, pady=(20, 0))
+        buttons_frame.grid(row=3, column=0, columnspan=3, pady=(20, 0))
 
         self.add_button = ttk.Button(buttons_frame, text="Add New", command=self._add_abbreviation)
         self.add_button.grid(row=0, column=0, padx=(0, 10))
@@ -136,6 +148,10 @@ class TextExpanderGUI:
         self.delete_button.grid(row=0, column=2, padx=(0, 10))
 
         ttk.Button(buttons_frame, text="Refresh", command=self._load_abbreviations).grid(row=0, column=3)
+
+        # --- LAUNCH BUTTON ---
+        self.launch_button = ttk.Button(buttons_frame, text="Paste Abbreviation", command=self._launch_abbreviation, state=tk.DISABLED)
+        self.launch_button.grid(row=0, column=4, padx=(10, 0))
 
     def _bind_events(self) -> None:
         """Bind event handlers to widgets."""
@@ -200,6 +216,9 @@ class TextExpanderGUI:
             if self.update_button and self.delete_button:
                 self.update_button.config(state=tk.NORMAL)
                 self.delete_button.config(state=tk.NORMAL)
+            # Enable launch button
+            if hasattr(self, 'launch_button') and self.launch_button:
+                self.launch_button.config(state=tk.NORMAL)
 
             logger.debug(f"🔍 Selected abbreviation: {abbreviation}")
 
@@ -224,9 +243,13 @@ class TextExpanderGUI:
             if exists:
                 self.update_button.config(state=tk.NORMAL)
                 self.delete_button.config(state=tk.NORMAL)
+                if hasattr(self, 'launch_button') and self.launch_button:
+                    self.launch_button.config(state=tk.NORMAL)
             else:
                 self.update_button.config(state=tk.DISABLED)
                 self.delete_button.config(state=tk.DISABLED)
+                if hasattr(self, 'launch_button') and self.launch_button:
+                    self.launch_button.config(state=tk.DISABLED)
 
         except Exception as e:
             logger.error(f"❌ Error handling abbreviation entry change: {e}")
@@ -339,8 +362,46 @@ class TextExpanderGUI:
                 self.update_button.config(state=tk.DISABLED)
                 self.delete_button.config(state=tk.DISABLED)
 
+            if hasattr(self, 'launch_button') and self.launch_button:
+                self.launch_button.config(state=tk.DISABLED)
+
         except Exception as e:
             logger.error(f"❌ Failed to clear form: {e}")
+
+    def _launch_abbreviation(self) -> None:
+        """Expand and paste the selected abbreviation into the last active window, simulating {ENTER} as needed."""
+        try:
+            if not self.abbreviation_list:
+                return
+            selection = self.abbreviation_list.curselection()
+            if not selection:
+                messagebox.showwarning("No Selection", "Please select an abbreviation to launch.")
+                return
+            index = selection[0]
+            abbreviation = self.abbreviation_list.get(index)
+            expansion = self.core.get_all_abbreviations().get(abbreviation, "")
+            if not expansion:
+                messagebox.showwarning("No Expansion", "No expansion found for the selected abbreviation.")
+                return
+            def do_expansion():
+                import time
+                from pynput.keyboard import Key, Controller
+                keyboard = Controller()
+                # Simulate ALT+TAB to switch to previous window
+                keyboard.press(Key.alt)
+                keyboard.press(Key.tab)
+                keyboard.release(Key.tab)
+                time.sleep(0.1)
+                keyboard.release(Key.alt)
+                time.sleep(0.3)  # Wait for window switch
+                from text_expander_monitor import KeyboardMonitor
+                monitor = KeyboardMonitor(self.core)
+                monitor._perform_expansion(expansion, 0)
+                logger.info(f"🚀 Launched abbreviation '{abbreviation}' from GUI")
+            threading.Thread(target=do_expansion, daemon=True).start()
+        except Exception as e:
+            logger.error(f"❌ Failed to launch abbreviation: {e}")
+            messagebox.showerror("Launch Error", f"Failed to launch abbreviation: {e}")
 
     def close(self) -> None:
         """Close the GUI window."""
