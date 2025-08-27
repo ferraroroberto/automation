@@ -1,7 +1,8 @@
 {
   "abbreviations": {
-    "/prx": "$env:NO_PROXY  = \"github.com,.github.com,api.github.com,githubusercontent.com,.githubusercontent.com\"\n$env:no_proxy  = $env:NO_PROXY",
-    "/agents": "***\n\nfollow the coding guidelines you will find in the AGENTS.md document in the project root folder"
+    "/prx": "$env:NO_PROXY  = \"github.com,.github.com,api.github.com,githubusercontent.com,.githubusercontent.com\"{ENTER}$env:no_proxy  = $env:NO_PROXY{ENTER}",
+    "/agents": "***\n\nfollow the coding guidelines you will find in the AGENTS.md document in the project root folder",
+    "/multi": "echo hello{ENTER}dir{ENTER}echo works{ENTER}"
   },
   "settings": {
     "trigger_key": "/",
