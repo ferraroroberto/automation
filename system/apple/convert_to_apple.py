@@ -140,15 +140,56 @@ class AppleContactConverter:
         
         return '\n'.join(converted_lines)
     
+    def _format_phone_number(self, phone_number: str) -> str:
+        """Format phone number according to country code rules.
+
+        Args:
+            phone_number: Raw phone number
+
+        Returns:
+            Formatted phone number
+        """
+        # Remove any whitespace
+        phone_number = phone_number.strip()
+
+        # Rule 1: If starts with 0039, replace with +39
+        if phone_number.startswith("0039"):
+            return "+39" + phone_number[4:]
+
+        # Rule 2: If starts with +34, keep as is (Spain)
+        if phone_number.startswith("+34"):
+            return phone_number
+
+        # Rule 3: If starts with 0034, replace with +34 (Spain)
+        if phone_number.startswith("0034"):
+            return "+34" + phone_number[4:]
+
+        # Rule 4: If starts with other 00XX, convert to +XX
+        if phone_number.startswith("00"):
+            return "+" + phone_number[2:]
+
+        # Rule 5: If no country code, add +39
+        if not phone_number.startswith("+"):
+            return "+39" + phone_number
+
+        # If already has other + prefix, keep as is
+        return phone_number
+
     def _format_phone_line(self, line: str) -> str:
         """Format phone line for Apple compatibility.
-        
+
         Args:
             line: Original phone line
-            
+
         Returns:
             Formatted phone line
         """
+        # Extract phone number and format it
+        if ":" in line:
+            prefix, phone_number = line.split(":", 1)
+            formatted_number = self._format_phone_number(phone_number)
+            line = f"{prefix}:{formatted_number}"
+
         # Ensure proper TYPE formatting
         if "TYPE=" in line and ";" in line:
             # Already properly formatted
@@ -160,7 +201,7 @@ class AppleContactConverter:
                 phone_type = parts[1].upper()
                 phone_number = parts[-1].split(":")[-1]
                 return f"TEL;TYPE={phone_type}:{phone_number}"
-        
+
         return line
     
     def _format_email_line(self, line: str) -> str:
