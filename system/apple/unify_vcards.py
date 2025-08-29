@@ -18,6 +18,8 @@ from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 import datetime
+import tkinter as tk
+from tkinter import filedialog
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -380,19 +382,61 @@ class DuplicateDetector:
         if contact1.has_shared_phone(contact2):
             return "Shared phone number"
 
-        # Check for similar names
-        if contact1.has_similar_name(contact2, self.name_similarity_threshold):
-            return "Similar name"
-
-        # Check for names that are substrings of each other
+        # Check for common words in names (case insensitive)
         name1 = contact1.get_display_name().lower()
         name2 = contact2.get_display_name().lower()
 
-        if (len(name1) > 4 and len(name2) > 4 and
-            (name1 in name2 or name2 in name1)):
-            return "Name substring match"
+        # Split names into words and filter out non-name words
+        words1 = self._filter_name_words(name1.split())
+        words2 = self._filter_name_words(name2.split())
+
+        common_words = words1.intersection(words2)
+
+        if common_words:
+            return f"Common name words: {', '.join(sorted(common_words))}"
 
         return None
+
+    def _filter_name_words(self, words: List[str]) -> Set[str]:
+        """Filter out non-name words from a list of words.
+
+        Args:
+            words: List of words from a name
+
+        Returns:
+            Set of filtered words that are likely to be name components
+        """
+        # Words to exclude (phone types, locations, etc.)
+        exclude_words = {
+            'cell', 'cellular', 'mobile', 'phone', 'tel', 'telephone',
+            'home', 'work', 'office', 'main', 'fax', 'pager',
+            'casa', 'house', 'apartment', 'apt', 'suite', 'room',
+            'street', 'st', 'avenue', 'ave', 'road', 'rd', 'drive', 'dr',
+            'boulevard', 'blvd', 'lane', 'ln', 'way', 'place', 'pl',
+            'city', 'town', 'village', 'county', 'state', 'country',
+            'email', 'mail', 'internet', 'web',
+            'organization', 'org', 'company', 'corp', 'inc', 'ltd',
+            'department', 'dept', 'division', 'div', 'group', 'team',
+            'title', 'position', 'job', 'role',
+            'contact', 'person', 'individual', 'user',
+            'and', 'or', 'the', 'a', 'an', 'of', 'for', 'to', 'from', 'by', 'with', 'in', 'on', 'at'
+        }
+
+        filtered_words = set()
+        for word in words:
+            word = word.strip()
+            # Skip very short words (likely not meaningful name components)
+            if len(word) <= 2:
+                continue
+            # Skip excluded words
+            if word.lower() in exclude_words:
+                continue
+            # Skip words that are clearly not names (numbers, special chars)
+            if not word.replace('-', '').replace("'", '').isalpha():
+                continue
+            filtered_words.add(word.lower())
+
+        return filtered_words
 
 
 class ContactMerger:
@@ -843,27 +887,64 @@ class InteractiveUnifier:
 
         logger.info(f"📊 Processing {len(contacts)} contacts")
 
-        # Find duplicates
-        duplicates = self.detector.find_duplicates(contacts)
-
-        if not duplicates:
-            logger.info("✅ No duplicates found - all contacts are unique")
-            return
-
         # Interactive unification process
         final_contacts = []
         processed_ids = set()
+        total_processed = 0
 
-        logger.info("🎯 Starting interactive unification process...")
-        logger.info(f"Found {len(duplicates)} potential duplicate pairs to review")
+        # Continue finding and processing duplicates until no more found
+        iteration = 0
+        max_iterations = 10  # Prevent infinite loops
 
-        for i, (contact1, contact2, reason) in enumerate(duplicates, 1):
-            # Skip if either contact already processed
-            if contact1.vcard_id in processed_ids or contact2.vcard_id in processed_ids:
-                continue
+        while iteration < max_iterations:
+            iteration += 1
+            logger.info(f"🔄 Iteration {iteration}: Finding duplicates...")
 
-            self._process_duplicate_pair(i, len(duplicates), contact1, contact2, reason,
-                                       final_contacts, processed_ids)
+            # Find duplicates among remaining contacts
+            remaining_contacts = [c for c in contacts if c.vcard_id not in processed_ids]
+            duplicates = self.detector.find_duplicates(remaining_contacts)
+
+            if not duplicates:
+                logger.info("✅ No more duplicates found")
+                break
+
+            logger.info(f"Found {len(duplicates)} potential duplicate pairs to review")
+
+            processed_in_this_iteration = False
+
+            pairs_processed_this_iteration = 0
+
+            for i, (contact1, contact2, reason) in enumerate(duplicates, 1):
+                # Skip if either contact already processed
+                if contact1.vcard_id in processed_ids or contact2.vcard_id in processed_ids:
+                    logger.debug(f"⏭️  Skipping pair ({contact1.vcard_id}, {contact2.vcard_id}) - already processed")
+                    continue
+
+                # Additional safety check: ensure contacts still exist in remaining_contacts
+                contact1_exists = any(c.vcard_id == contact1.vcard_id for c in remaining_contacts)
+                contact2_exists = any(c.vcard_id == contact2.vcard_id for c in remaining_contacts)
+
+                if not (contact1_exists and contact2_exists):
+                    logger.debug(f"⏭️  Skipping pair ({contact1.vcard_id}, {contact2.vcard_id}) - contacts no longer in remaining list")
+                    continue
+
+                result = self._process_duplicate_pair(i, len(duplicates), contact1, contact2, reason,
+                                                   final_contacts, processed_ids)
+                if result:  # Contact was processed (merged or handled)
+                    processed_in_this_iteration = True
+                    pairs_processed_this_iteration += 1
+
+            logger.info(f"📊 Iteration {iteration}: Processed {pairs_processed_this_iteration} pairs")
+
+            # If no contacts were processed in this iteration, break to avoid infinite loop
+            if not processed_in_this_iteration:
+                logger.info("ℹ️  No new contacts processed in this iteration")
+                break
+
+            # Additional safety: if we've processed all original contacts, break
+            if len(processed_ids) >= len(contacts):
+                logger.info("ℹ️  All contacts have been processed")
+                break
 
         # Add remaining unprocessed contacts
         for contact in contacts:
@@ -883,7 +964,7 @@ class InteractiveUnifier:
 
     def _process_duplicate_pair(self, index: int, total: int, contact1: Contact,
                               contact2: Contact, reason: str, final_contacts: List[Contact],
-                              processed_ids: Set[int]):
+                              processed_ids: Set[int]) -> bool:
         """Process a single duplicate pair interactively.
 
         Args:
@@ -894,6 +975,9 @@ class InteractiveUnifier:
             reason: Reason they are considered duplicates
             final_contacts: List to add final contacts to
             processed_ids: Set of already processed contact IDs
+
+        Returns:
+            True if contacts were processed (merged, kept, or cancelled), False if skipped
         """
         print(f"\n{'='*60}")
         print(f"🔍 DUPLICATE PAIR {index}/{total}")
@@ -925,29 +1009,29 @@ class InteractiveUnifier:
 
                 if choice == "1":
                     self._handle_merge(contact1, contact2, final_contacts, processed_ids)
-                    break
+                    return True
                 elif choice == "2":
                     final_contacts.append(contact1)
                     final_contacts.append(contact2)
                     self.report.add_kept_contact(contact1)
                     self.report.add_kept_contact(contact2)
                     processed_ids.update([contact1.vcard_id, contact2.vcard_id])
-                    break
+                    return True
                 elif choice == "3":
                     final_contacts.append(contact2)
                     self.report.add_cancelled_contact(contact1)
                     self.report.add_kept_contact(contact2)
                     processed_ids.update([contact1.vcard_id, contact2.vcard_id])
-                    break
+                    return True
                 elif choice == "4":
                     final_contacts.append(contact1)
                     self.report.add_kept_contact(contact1)
                     self.report.add_cancelled_contact(contact2)
                     processed_ids.update([contact1.vcard_id, contact2.vcard_id])
-                    break
+                    return True
                 elif choice == "5":
                     # Don't add either contact yet, let them be processed later if found in other pairs
-                    break
+                    return False
                 else:
                     print("❌ Invalid choice. Please enter 1-5.")
             except KeyboardInterrupt:
@@ -955,6 +1039,7 @@ class InteractiveUnifier:
                 raise
             except Exception as e:
                 print(f"❌ Error: {e}")
+                return False
 
     def _display_contact_details(self, contact: Contact, label: str):
         """Display contact details in a formatted way.
@@ -1119,21 +1204,48 @@ class InteractiveUnifier:
         return str1[:min_len]
 
 
+def select_input_file():
+    """Show a file dialog to select the input vCard file.
+
+    Returns:
+        Path to the selected file, or None if cancelled
+    """
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+
+    # Configure the file dialog
+    file_path = filedialog.askopenfilename(
+        title="Select vCard file to unify",
+        filetypes=[
+            ("vCard files", "*.vcf"),
+            ("All files", "*.*")
+        ],
+        initialdir=os.getcwd()
+    )
+
+    root.destroy()
+    return file_path if file_path else None
+
+
 def main():
     """Main function to run the vCard unification tool."""
     import sys
 
+    # Get input file from command line or file dialog
     if len(sys.argv) < 2:
-        print("Usage: python unify_vcards.py <input_vcard_file> [output_file] [report_file]")
-        print("\nExample:")
-        print("  python unify_vcards.py contacts.vcf")
-        print("  python unify_vcards.py contacts.vcf unified.vcf report.md")
-        sys.exit(1)
+        print("📂 No input file specified, opening file selector...")
+        input_file = select_input_file()
+        if not input_file:
+            print("❌ No file selected. Exiting.")
+            sys.exit(1)
+    else:
+        input_file = sys.argv[1]
 
-    input_file = sys.argv[1]
+    # Get output files from command line arguments
     output_file = sys.argv[2] if len(sys.argv) > 2 else ""
     report_file = sys.argv[3] if len(sys.argv) > 3 else ""
 
+    # Validate input file exists
     if not os.path.exists(input_file):
         print(f"❌ Input file not found: {input_file}")
         sys.exit(1)
