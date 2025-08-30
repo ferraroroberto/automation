@@ -309,8 +309,22 @@
     "Future Today Institute"
   ],
   "common_words": [
-    "law", "future", "work", "institute", "company", "corporation", 
+    "law", "future", "work", "institute", "company", "corporation",
     "inc", "ltd", "llc", "the", "and", "of", "for", "in", "on", "at",
     "urban", "meyer", "cook", "jobs", "gates", "musk", "house"
+  ],
+  "common_words_with_punct": [
+    "a", "an", "the", "and", "or", "but", "nor", "for", "so", "yet",
+    "at", "by", "for", "in", "of", "on", "to", "with", "as", "if",
+    "then", "than", "that", "this", "these", "those", "i", "me", "my",
+    "myself", "we", "our", "ours", "you", "your", "yours", "he", "him",
+    "his", "she", "her", "hers", "it", "its", "they", "them", "their",
+    "theirs", "what", "which", "who", "whom", "whose", "when", "where",
+    "why", "how", "all", "any", "both", "each", "few", "more", "most",
+    "other", "some", "such", "no", "nor", "not", "only", "own", "same",
+    "so", "than", "too", "very", "can", "will", "just", "don", "does",
+    "did", "has", "have", "had", "is", "am", "are", "was", "were",
+    "be", "been", "being", "have", "has", "had", "do", "does", "did",
+    "will", "would", "could", "should", "may", "might", "must"
   ]
 }
