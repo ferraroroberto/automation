@@ -7,6 +7,7 @@ while preserving proper names, acronyms, and special tokens.
 
 Usage:
     python normalize_names.py --days 14 --config normalize_names.json
+    python normalize_names.py --days 7 --dry-run  # Preview changes without updating
     python normalize_names.py --test "TEST ALL CAPS"  # Test mode
 """
 
@@ -42,28 +43,34 @@ class NotionNameNormalizer:
             config_path: Path to JSON configuration file
         """
         self.config = self._load_config(config_path)
-        
-        # Extract required configuration values
+        self._setup_api_credentials()
+        self._load_word_lists()
+        self._initialize_spacy()
+        self._log_initialization()
+    
+    def _setup_api_credentials(self):
+        """Setup API credentials and headers."""
         self.notion_api_key = os.getenv('NOTION_API_TOKEN') or self.config.get('notion_api_key')
         self.database_id = self.config.get('database_id')
         
-        # Load special cases and common words from configuration
-        self.special_cases = set(self.config.get('special_cases', []))
-        self.common_words = set(self.config.get('common_words', []))
-        self.common_words_with_punct = set(self.config.get('common_words_with_punct', []))
-        
-        # Validate that all required configuration is present
         if not all([self.notion_api_key, self.database_id]):
             raise ValueError("Missing required configuration values: notion_api_key and database_id")
         
-        # Set up Notion API request headers
         self.headers = {
             'Authorization': f'Bearer {self.notion_api_key}',
             'Notion-Version': '2022-06-28',
             'Content-Type': 'application/json'
         }
-        
-        # Initialize optional spaCy NLP support for entity detection
+    
+    def _load_word_lists(self):
+        """Load word lists from configuration."""
+        self.proper_names = set(self.config.get('proper_name_whitelist', []))
+        self.special_cases = set(self.config.get('special_cases', []))
+        self.common_words = set(self.config.get('common_words', []))
+        self.common_words_with_punct = set(self.config.get('common_words_with_punct', []))
+    
+    def _initialize_spacy(self):
+        """Initialize optional spaCy NLP support."""
         self.spacy_nlp = None
         if self.config.get('use_spacy', False):
             try:
@@ -72,98 +79,54 @@ class NotionNameNormalizer:
                 logging.info("🧠 spaCy loaded successfully for entity detection")
             except ImportError:
                 logging.warning("⚠️  spaCy requested but not available, falling back to heuristics")
-        
-        # Log successful initialization with key details
+    
+    def _log_initialization(self):
+        """Log initialization summary."""
         logging.info("✅ Name normalizer initialized")
         logging.info(f"📊 Database ID: {self.database_id}")
-        logging.info(f"🔤 Special cases loaded: {len(self.special_cases)}")
-        logging.info(f"📝 Common words loaded: {len(self.common_words)}")
-        logging.info(f"❓ Common words with punctuation loaded: {len(self.common_words_with_punct)}")
+        logging.info(f"🔤 Special cases: {len(self.special_cases)}, Common words: {len(self.common_words)}")
     
     def _load_config(self, config_path: str) -> Dict:
-        """
-        Load and parse the JSON configuration file.
+        """Load and parse the JSON configuration file."""
+        paths_to_try = [
+            config_path,
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), os.path.basename(config_path))
+        ]
         
-        Args:
-            config_path: Path to configuration file
-            
-        Returns:
-            Dictionary containing configuration data
-            
-        Raises:
-            FileNotFoundError: If config file not found
-            ValueError: If JSON is invalid
-        """
-        try:
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            # Fallback: try looking in the same directory as this script
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            fallback_path = os.path.join(script_dir, os.path.basename(config_path))
+        for path in paths_to_try:
             try:
-                with open(fallback_path, 'r') as f:
-                    logging.info(f"📁 Loaded config from fallback path: {fallback_path}")
-                    return json.load(f)
+                with open(path, 'r') as f:
+                    config = json.load(f)
+                if path != config_path:
+                    logging.info(f"📁 Loaded config from fallback path: {path}")
+                return config
             except FileNotFoundError:
-                raise FileNotFoundError(f"Configuration file not found at {config_path} or {fallback_path}")
+                continue
             except json.JSONDecodeError:
-                raise ValueError(f"Invalid JSON in fallback configuration file: {fallback_path}")
-        except json.JSONDecodeError:
-            raise ValueError(f"Invalid JSON in configuration file: {config_path}")
+                raise ValueError(f"Invalid JSON in configuration file: {path}")
+        
+        raise FileNotFoundError(f"Configuration file not found at {' or '.join(paths_to_try)}")
     
     def _query_notion_database(self, days: int) -> List[Dict]:
-        """
-        Query Notion database for articles created in the last N days.
-        
-        Args:
-            days: Number of days to look back
-            
-        Returns:
-            List of page objects from Notion API
-            
-        Raises:
-            requests.exceptions.RequestException: If API request fails
-        """
-        pages = []
-        
-        # Calculate the cutoff date for filtering articles
+        """Query Notion database for articles created in the last N days."""
         filter_date = datetime.utcnow() - timedelta(days=days)
         filter_date_str = filter_date.isoformat() + 'Z'
         
-        logging.info(f"🔍 Querying database {self.database_id} for articles created in the last {days} days (since {filter_date_str})")
+        logging.info(f"🔍 Querying database for articles from last {days} days (since {filter_date_str})")
         
-        # Build filter for created_time with descending sort by creation date
         filter_body = {
-            "filter": {
-                "and": [
-                    {
-                        "property": "created",
-                        "created_time": {
-                            "after": filter_date_str
-                        }
-                    }
-                ]
-            },
-            "sorts": [
-                {
-                    "property": "created",
-                    "direction": "descending"
-                }
-            ]
+            "filter": {"and": [{"property": "created", "created_time": {"after": filter_date_str}}]},
+            "sorts": [{"property": "created", "direction": "descending"}]
         }
         
-        # Handle pagination through all results
+        pages = []
         start_cursor = None
-        page_count = 0
         
         while True:
-            # Add pagination cursor if we have one from previous request
             if start_cursor:
                 filter_body["start_cursor"] = start_cursor
             
             try:
-                # Make API request to Notion database
                 response = requests.post(
                     f"https://api.notion.com/v1/databases/{self.database_id}/query",
                     headers=self.headers,
@@ -171,45 +134,31 @@ class NotionNameNormalizer:
                 )
                 response.raise_for_status()
                 
-                # Process response data
                 data = response.json()
                 results = data.get('results', [])
                 
                 if not results:
-                    break  # No more results to process
+                    break
                 
-                # Accumulate pages and update counters
                 pages.extend(results)
-                page_count += len(results)
-                logging.debug(f"📥 Retrieved {len(results)} pages (total: {page_count})")
+                logging.debug(f"📥 Retrieved {len(results)} pages (total: {len(pages)})")
                 
-                # Check if there are more pages to fetch
                 if not data.get('has_more', False):
                     break
                 
-                # Get cursor for next page
                 start_cursor = data.get('next_cursor')
                 
             except requests.exceptions.RequestException as e:
                 logging.error(f"❌ Notion API error: {e}")
-                if hasattr(e, 'response') and e.response is not None:
-                    logging.error(f"📊 Status code: {e.response.status_code}")
-                    logging.error(f"📄 Response: {e.response.text[:200]}...")
+                if hasattr(e, 'response') and e.response:
+                    logging.error(f"📊 Status: {e.response.status_code}, Response: {e.response.text[:200]}...")
                 raise
         
         logging.info(f"📊 Total pages retrieved: {len(pages)}")
         return pages
     
     def _extract_page_info(self, page: Dict) -> Optional[Tuple[str, str, str]]:
-        """
-        Extract essential information from a Notion page object.
-        
-        Args:
-            page: Notion page object from API
-            
-        Returns:
-            Tuple of (page_id, last_edited_time, article_name) or None if invalid
-        """
+        """Extract essential information from a Notion page object."""
         page_id = page.get('id', '')
         last_edited_time = page.get('last_edited_time', '')
         
@@ -217,24 +166,21 @@ class NotionNameNormalizer:
         properties = page.get('properties', {})
         name_property = properties.get('article', {})
         
-        # Validate that article property exists and is of correct type
         if not name_property or name_property.get('type') != 'title':
             logging.warning(f"⚠️  Page {page_id} missing or invalid article property")
             return None
         
-        # Extract plain text content from rich text array
         title_content = name_property.get('title', [])
         if not title_content:
             logging.warning(f"⚠️  Page {page_id} has empty article property")
             return None
         
-        # Concatenate all text segments and clean up whitespace
-        name_text = ''.join([segment.get('plain_text', '') for segment in title_content])
-        if not name_text.strip():
+        name_text = ''.join([segment.get('plain_text', '') for segment in title_content]).strip()
+        if not name_text:
             logging.warning(f"⚠️  Page {page_id} has empty article text")
             return None
         
-        return page_id, last_edited_time, name_text.strip()
+        return page_id, last_edited_time, name_text
     
     def _normalize_name(self, original_name: str) -> str:
         """
@@ -249,204 +195,161 @@ class NotionNameNormalizer:
         if not original_name:
             return original_name
         
-        # Store original tokens for comparison during restoration process
-        original_tokens = original_name.split()
-        
-        # Step 1: Apply basic sentence case - capitalize first character only
+        # Apply basic sentence case and process tokens
         normalized = self._apply_sentence_case(original_name)
-        
-        # Step 2: Process tokens to restore proper names and handle sentence boundaries
+        original_tokens = original_name.split()
         normalized_tokens = normalized.split()
+        
         result_tokens = []
         i = 0
         
         while i < len(normalized_tokens):
-            # Check if we can form a multi-word proper name starting at current position
-            multi_word_found = False
-            whitelist = self.config.get('proper_name_whitelist', [])
+            # Try to match multi-word proper names first
+            matched_length = self._find_multi_word_match(normalized_tokens, i)
             
-            # Look for multi-word proper names in the whitelist
-            for proper_name in whitelist:
-                if ' ' in proper_name:  # Only process multi-word names
-                    proper_words = proper_name.lower().split()
-                    proper_length = len(proper_words)
-                    
-                    # Check if we have enough remaining tokens and they match the proper name
-                    if (i + proper_length <= len(normalized_tokens) and 
-                        [word.lower() for word in normalized_tokens[i:i + proper_length]] == proper_words):
-                        # Additional validation: ensure this is actually a proper name match
-                        # and not just common words that happen to appear together
-                        if self._is_valid_multi_word_match(normalized_tokens[i:i + proper_length], proper_name):
-                            # Found valid multi-word proper name, add it and skip ahead
-                            result_tokens.extend(proper_name.split())
-                            i += proper_length
-                            multi_word_found = True
-                            logging.debug(f"🔄 Restored multi-word proper name: {' '.join(normalized_tokens[i:i+proper_length])} -> {proper_name}")
-                            break
-                        else:
-                            logging.debug(f"⚠️  Rejected multi-word match: {' '.join(normalized_tokens[i:i+proper_length])} -> {proper_name} (context doesn't suggest proper name)")
-            
-            if not multi_word_found:
-                # Process as single token - check whitelist and apply preservation rules
+            if matched_length > 1:
+                # Found multi-word proper name - add it and skip ahead
+                proper_name = self._get_proper_name_for_tokens(normalized_tokens[i:i + matched_length])
+                result_tokens.extend(proper_name.split())
+                i += matched_length
+            else:
+                # Process single token
                 orig_token = original_tokens[i]
                 norm_token = normalized_tokens[i]
                 
-                # Check if this token should be capitalized due to sentence boundaries
-                # Only capitalize if it's the first token or follows sentence-ending punctuation
-                should_capitalize = self._should_capitalize_token(i, normalized_tokens, original_tokens)
-                
-                if should_capitalize and norm_token and norm_token[0].isalpha():
-                    norm_token = norm_token[0].upper() + norm_token[1:]
+                # Apply capitalization rules
+                if self._should_capitalize_token(i, normalized_tokens):
+                    norm_token = self._capitalize_first_letter(norm_token)
                 else:
-                    # Ensure non-sentence-starting tokens are lowercase
-                    if norm_token and norm_token[0].isalpha():
-                        norm_token = norm_token[0].lower() + norm_token[1:]
+                    norm_token = self._lowercase_first_letter(norm_token)
                 
-                # Apply token-specific capitalization restoration rules
+                # Restore proper capitalization for special cases
                 restored_token = self._restore_token_capitalization(orig_token, norm_token)
                 result_tokens.append(restored_token)
                 i += 1
         
-        # Step 3: Reconstruct string and normalize whitespace
-        result = ' '.join(result_tokens)
-        result = re.sub(r'\s+', ' ', result).strip()
-        
-        return result
+        return re.sub(r'\s+', ' ', ' '.join(result_tokens)).strip()
     
-    def _should_capitalize_token(self, token_index: int, normalized_tokens: List[str], original_tokens: List[str]) -> bool:
-        """
-        Determine if a token should be capitalized based on sentence boundaries.
-        
-        Args:
-            token_index: Position of token in the sentence
-            normalized_tokens: List of normalized tokens
-            original_tokens: List of original tokens
+    def _find_multi_word_match(self, tokens: List[str], start_index: int) -> int:
+        """Find the length of a multi-word proper name match starting at the given index."""
+        for proper_name in self.proper_names:
+            if ' ' not in proper_name:  # Skip single-word names
+                continue
+                
+            proper_words = proper_name.lower().split()
+            proper_length = len(proper_words)
             
-        Returns:
-            True if token should be capitalized, False otherwise
-        """
+            if (start_index + proper_length <= len(tokens) and 
+                [word.lower() for word in tokens[start_index:start_index + proper_length]] == proper_words):
+                if self._is_valid_multi_word_match(tokens[start_index:start_index + proper_length], proper_name):
+                    return proper_length
+        return 1  # No multi-word match found
+    
+    def _get_proper_name_for_tokens(self, tokens: List[str]) -> str:
+        """Get the proper capitalization for a sequence of tokens."""
+        token_text = ' '.join([t.lower() for t in tokens])
+        for proper_name in self.proper_names:
+            if proper_name.lower() == token_text:
+                return proper_name
+        return ' '.join(tokens)  # Fallback
+    
+    def _should_capitalize_token(self, token_index: int, normalized_tokens: List[str]) -> bool:
+        """Determine if a token should be capitalized based on sentence boundaries."""
         if token_index == 0:
-            return True  # Always capitalize first token of sentence
-        
-        # Check if previous token ends with sentence-ending punctuation
-        prev_token = normalized_tokens[token_index - 1]
-        if re.search(r'[.!?]$', prev_token):
             return True
         
-        return False
+        prev_token = normalized_tokens[token_index - 1]
+        return bool(re.search(r'[.!?]$', prev_token))
+    
+    def _capitalize_first_letter(self, token: str) -> str:
+        """Capitalize the first letter of a token if it's alphabetic."""
+        return token[0].upper() + token[1:] if token and token[0].isalpha() else token
+    
+    def _lowercase_first_letter(self, token: str) -> str:
+        """Lowercase the first letter of a token if it's alphabetic."""
+        return token[0].lower() + token[1:] if token and token[0].isalpha() else token
     
     def _apply_sentence_case(self, text: str) -> str:
-        """
-        Apply basic sentence case: capitalize first letter only.
-        
-        Args:
-            text: Text to apply sentence case to
-            
-        Returns:
-            Text with first letter capitalized
-        """
-        if not text:
+        """Apply basic sentence case: capitalize first letter only."""
+        if not text or not text[0].isalpha():
             return text
-        
-        # Only capitalize the first letter of the entire text
-        # Words after proper names should remain lowercase
-        if text and text[0].isalpha():
-            text = text[0].upper() + text[1:]
-        
-        return text
+        return text[0].upper() + text[1:].lower()
     
     def _restore_token_capitalization(self, original_token: str, normalized_token: str) -> str:
         """
         Restore proper capitalization for a specific token based on preservation rules.
-        
-        Args:
-            original_token: Original token with original capitalization
-            normalized_token: Token in normalized (sentence case) form
-            
-        Returns:
-            Token with appropriate capitalization applied
         """
         # Rule 1: Preserve ALL CAPS words (2+ chars) - assumed to be acronyms/emphasis
-        # This prevents "TEST ALL CAPS" from becoming "Test all caps"
         if len(original_token) >= 2 and original_token.isupper():
             return original_token
         
-        # Rule 2: Preserve tokens with special punctuation (e.g., "U.S.A.", "A&B")
-        if re.search(r'[.&-]', original_token):
-            return original_token
-        
-        # Rule 3: Preserve the pronoun "I" - always capitalize it
+        # Rule 2: Preserve the pronoun "I"
         if original_token.lower() == 'i':
-            logging.debug(f"🔤 Preserving pronoun 'I' capitalization")
             return 'I'
         
-        # Rule 4: Check against user-defined proper name whitelist from config
-        whitelist = self.config.get('proper_name_whitelist', [])
-        for proper_name in whitelist:
-            if self._is_token_match(original_token, proper_name):
-                return proper_name
+        # Rule 3: Check against proper name whitelist
+        if self._is_proper_name(original_token):
+            return self._get_proper_name_capitalization(original_token)
         
-        # Rule 5: Use spaCy NLP to detect person names if available
-        if self.spacy_nlp:
-            if self._is_person_entity(original_token):
-                return original_token
+        # Rule 4: Use spaCy NLP to detect person names if available
+        if self.spacy_nlp and self._is_person_entity(original_token):
+            return original_token
         
-        # Rule 6: Handle tokens that contain punctuation (improved logic)
-        # This prevents "Karpathy:" from becoming "karpathy:" but still applies sentence case rules
+        # Rule 5: Handle tokens with punctuation
         if re.search(r'[^\w\s]', original_token):
-            # Extract the alphabetic part
-            alpha_part = re.sub(r'[^\w]', '', original_token)
-            if alpha_part:
-                # Check if this is a common word that should be lowercased
-                alpha_lower = alpha_part.lower()
-                if alpha_lower in self.common_words_with_punct:
-                    # For common words with punctuation, apply lowercase
-                    return self._reconstruct_with_punctuation(alpha_lower, original_token)
-                elif len(alpha_part) >= 3 and alpha_part.isupper():
-                    # Preserve ALL CAPS words (3+ chars) as acronyms
-                    return original_token
-                elif len(alpha_part) >= 2 and alpha_part[0].isupper() and alpha_part[1:].islower():
-                    # This might be a proper name - check if it's in whitelist or special cases
-                    # First check for exact matches
-                    exact_match = any(alpha_part.lower() == proper_name.lower() for proper_name in self.config.get('proper_name_whitelist', []))
-
-                    # Then check for partial matches in multi-word names (but not common words)
-                    partial_match = False
-                    if not exact_match:
-                        for proper_name in self.config.get('proper_name_whitelist', []):
-                            if ' ' in proper_name:  # Multi-word name
-                                proper_words = proper_name.lower().split()
-                                if alpha_lower in proper_words and alpha_lower not in self.common_words:
-                                    partial_match = True
-                                    break
-
-                    if exact_match or partial_match:
-                        return original_token
-                    else:
-                        # Not a known proper name, apply lowercase for sentence case
-                        return self._reconstruct_with_punctuation(alpha_lower, original_token)
-                else:
-                    # For other cases (mixed case, etc.), apply lowercase
-                    return self._reconstruct_with_punctuation(alpha_lower, original_token)
+            return self._handle_punctuated_token(original_token)
         
-        # If no preservation rules apply, use the normalized (sentence case) version
         return normalized_token
+    
+    def _is_proper_name(self, token: str) -> bool:
+        """Check if token is a known proper name."""
+        token_lower = token.lower()
+        # Check for exact match or as part of multi-word proper name
+        for proper_name in self.proper_names:
+            if proper_name.lower() == token_lower:
+                return True
+            if ' ' in proper_name and token_lower in proper_name.lower().split() and token_lower not in self.common_words:
+                return True
+        return False
+    
+    def _get_proper_name_capitalization(self, token: str) -> str:
+        """Get the correct capitalization for a proper name token."""
+        token_lower = token.lower()
+        for proper_name in self.proper_names:
+            if proper_name.lower() == token_lower:
+                return proper_name
+            if ' ' in proper_name:
+                proper_words = proper_name.split()
+                for word in proper_words:
+                    if word.lower() == token_lower:
+                        return word
+        return token
+    
+    def _handle_punctuated_token(self, token: str) -> str:
+        """Handle tokens that contain punctuation."""
+        # For tokens with punctuation, preserve them as-is unless they're clearly wrong
+        # This prevents "here's" from becoming "heres's" and "it's" from becoming "its's"
+        
+        # Extract alphabetic part
+        alpha_part = re.sub(r'[^\w]', '', token)
+        if not alpha_part:
+            return token
+        
+        # Preserve ALL CAPS words with punctuation (e.g., "U.S.A.")
+        if len(alpha_part) >= 2 and alpha_part.isupper():
+            return token
+        
+        # Preserve proper names with punctuation
+        if self._is_proper_name(alpha_part):
+            return token
+        
+        # For common contractions and punctuated words, preserve original case
+        # This prevents mangling of "here's", "it's", "don't", etc.
+        return token
 
     def _reconstruct_with_punctuation(self, new_alpha_part: str, original_token: str) -> str:
-        """
-        Reconstruct a token with punctuation, replacing the alphabetic part.
-
-        Args:
-            new_alpha_part: The new alphabetic part to use
-            original_token: Original token with punctuation
-
-        Returns:
-            Token with new alphabetic part and preserved punctuation
-        """
-        # Find all non-alphabetic parts (punctuation) in the original token
+        """Reconstruct a token with punctuation, replacing the alphabetic part."""
         parts = re.findall(r'[^\w]+|\w+', original_token)
-
-        # Replace the first alphabetic part with our new version
         result_parts = []
         alpha_replaced = False
 
@@ -459,237 +362,125 @@ class NotionNameNormalizer:
 
         return ''.join(result_parts)
 
-    def _is_token_match(self, token: str, proper_name: str) -> bool:
-        """
-        Check if a token matches a proper name (case-insensitive word boundary match).
-        
-        Args:
-            token: Token to check
-            proper_name: Proper name to match against
-            
-        Returns:
-            True if token matches the proper name, False otherwise
-        """
-        # Convert both to lowercase for case-insensitive comparison
-        token_lower = token.lower()
-        proper_lower = proper_name.lower()
-        
-        # Check for exact match first (most common case)
-        if token_lower == proper_lower:
-            return True
-        
-        # Check if token is a component of a multi-word proper name
-        # BUT only if the token is actually part of the proper name, not just a common word
-        # This prevents "law" from matching "Moore's Law" when we're processing "The law of reversed effort"
-        # AND prevents "Karpathy" from matching "Andrej Karpathy" when processing "Karpathy: software is changing"
-        if ' ' in proper_name:  # Only for multi-word names
-            proper_words = proper_lower.split()
-            # Only match if the token is a distinctive part of the proper name
-            # Avoid matching common words like "law", "future", "work", etc.
-            if token_lower in proper_words:
-                # Additional check: don't substitute common words that appear in many proper names
-                if token_lower not in self.common_words:
-                    # CRITICAL FIX: Don't replace individual tokens from multi-word proper names
-                    # when they appear in isolation, as they might be in a different context
-                    # This prevents "Karpathy" from being replaced when it's just a surname
-                    # in a different context like "Karpathy: software is changing"
-                    return False
-        
-        return False
-    
-    def _is_person_entity(self, token: str) -> bool:
-        """
-        Check if a token is recognized as a person entity by spaCy NLP.
-        
-        Args:
-            token: Token to check for person entity
-            
-        Returns:
-            True if token is recognized as a person, False otherwise
-        """
-        # Early return if spaCy is not available
-        if not self.spacy_nlp:
-            return False
-        
-        # Process token through spaCy NLP pipeline
-        doc = self.spacy_nlp(token)
-        
-        # Check if any detected entity is labeled as a person
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                return True
-        
-        return False
-    
     def _is_valid_multi_word_match(self, tokens: List[str], proper_name: str) -> bool:
         """
         Validate if a multi-word match is actually a proper name and not just common words.
-        
-        Args:
-            tokens: List of tokens that potentially match the proper name
-            proper_name: Proper name to validate against
-            
-        Returns:
-            True if the match is valid, False otherwise
         """
-        # Convert to lowercase for comparison
         token_text = ' '.join([t.lower() for t in tokens])
         proper_lower = proper_name.lower()
         
-        # If it's an exact match, it's valid
+        # Exact match is always valid
         if token_text == proper_lower:
             return True
         
-        # Check if the tokens contain distinctive words that make it a proper name
-        # Common words that appear in many contexts should not trigger substitution
-        
-        # Count how many distinctive (non-common) words are in the match
+        # Count distinctive (non-common) words in the match
         distinctive_words = [word for word in tokens if word.lower() not in self.common_words]
         
-        # Require at least 2 distinctive words or the match to be very specific
-        if len(distinctive_words) >= 2:
-            return True
-        
-        # Special cases: allow specific proper names even if they contain common words
-        # but only if they're distinctive enough
-        if proper_name in self.special_cases:
-            # These are very specific and should only match when the context is right
-            # Check if the surrounding context suggests this is actually the proper name
-            return self._context_suggests_proper_name(tokens, proper_name)
-        
-        return False
+        # Require at least 2 distinctive words or be in special cases
+        return len(distinctive_words) >= 2 or proper_name in self.special_cases
     
-    def _context_suggests_proper_name(self, tokens: List[str], proper_name: str) -> bool:
-        """
-        Check if the surrounding context suggests this is actually a proper name reference.
+    def _is_person_entity(self, token: str) -> bool:
+        """Check if a token is recognized as a person entity by spaCy NLP."""
+        if not self.spacy_nlp:
+            return False
         
-        Args:
-            tokens: List of tokens to check context for
-            proper_name: Proper name to validate context against
-            
-        Returns:
-            True if context suggests this is a proper name, False otherwise
-        """
-        # For now, be conservative and only allow exact matches for these special cases
-        # This prevents "The law of reversed effort" from becoming "The Moore's Law of reversed effort"
-        token_text = ' '.join([t.lower() for t in tokens])
-        proper_lower = proper_name.lower()
-        
-        # Only allow substitution if it's an exact match
-        return token_text == proper_lower
+        doc = self.spacy_nlp(token)
+        return any(ent.label_ == 'PERSON' for ent in doc.ents)
     
     def _update_page_property(self, page_id: str, property_name: str, new_value: str) -> bool:
-        """
-        Update a specific property of a Notion page via API.
-        
-        Args:
-            page_id: Notion page ID to update
-            property_name: Name of the property to update
-            new_value: New value for the property
-            
-        Returns:
-            True if update successful, False otherwise
-        """
-        try:
-            # Prepare the update payload for the title property
-            update_data = {
-                "properties": {
-                    property_name: {
-                        "title": [
-                            {
-                                "type": "text",
-                                "text": {
-                                    "content": new_value
-                                }
-                            }
-                        ]
-                    }
+        """Update a specific property of a Notion page via API."""
+        update_data = {
+            "properties": {
+                property_name: {
+                    "title": [{"type": "text", "text": {"content": new_value}}]
                 }
             }
-            
-            # Make PATCH request to update the page
+        }
+        
+        try:
             response = requests.patch(
                 f"https://api.notion.com/v1/pages/{page_id}",
                 headers=self.headers,
                 json=update_data
             )
             response.raise_for_status()
-            
             logging.debug(f"✅ Successfully updated page {page_id[:8]}...{page_id[-2:]}")
             return True
             
         except requests.exceptions.RequestException as e:
-            logging.error(f"❌ Failed to update page {page_id[:8]}...{page_id[-2:]}: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                logging.error(f"📊 Status code: {e.response.status_code}")
-                logging.error(f"📄 Response: {e.response.text[:200]}...")
+            page_short = f"{page_id[:8]}...{page_id[-2:]}"
+            logging.error(f"❌ Failed to update page {page_short}: {e}")
+            if hasattr(e, 'response') and e.response:
+                logging.error(f"📊 Status: {e.response.status_code}, Response: {e.response.text[:200]}...")
             return False
         except Exception as e:
             logging.error(f"❌ Unexpected error updating page {page_id[:8]}...{page_id[-2:]}: {e}")
             return False
     
-    def process_database(self, days: int) -> List[Dict]:
+    def process_database(self, days: int, dry_run: bool = False) -> List[Dict]:
         """
         Main method to process the database and update normalized results.
         
         Args:
             days: Number of days to look back for articles
+            dry_run: If True, only show what would be changed without updating Notion
             
         Returns:
             List of processing results with original and normalized names
         """
-        # Query Notion database for pages created in the specified time period
         pages = self._query_notion_database(days)
-        
-        # Initialize counters and results collection
         results = []
-        processed_count = 0
-        updated_count = 0
-        unchanged_count = 0
+        stats = {'processed': 0, 'updated': 0, 'unchanged': 0, 'would_update': 0}
+        
+        if dry_run:
+            logging.info("🔍 DRY RUN MODE: No changes will be made to Notion")
         
         for page in pages:
-            # Extract essential page information (ID, timestamp, article name)
             page_info = self._extract_page_info(page)
             if not page_info:
                 continue
             
             page_id, last_edited_time, original_name = page_info
-            # Apply normalization rules to the article name
             normalized_name = self._normalize_name(original_name)
             
-            # Store results for reporting and analysis
             result = {
                 'page_id': page_id,
                 'last_edited_time': last_edited_time,
                 'original_name': original_name,
                 'normalized_name': normalized_name
             }
-            
             results.append(result)
-            processed_count += 1
+            stats['processed'] += 1
             
-            # Determine if normalization actually changed the name
+            # Update if changed, otherwise log as unchanged
             if original_name != normalized_name:
-                # Attempt to update the Notion page with normalized name
-                if self._update_page_property(page_id, 'article', normalized_name):
-                    updated_count += 1
-                    logging.info(f'📝 Article: "{original_name}" normalized to "{normalized_name}"')
+                if dry_run:
+                    stats['would_update'] += 1
+                    logging.info(f'📝 [DRY RUN] Would change: "{original_name}" → "{normalized_name}"')
                 else:
-                    logging.error(f'❌ Article: "{original_name}" failed to update to "{normalized_name}"')
+                    if self._update_page_property(page_id, 'article', normalized_name):
+                        stats['updated'] += 1
+                        logging.info(f'📝 "{original_name}" → "{normalized_name}"')
+                    else:
+                        logging.error(f'❌ Failed to update: "{original_name}"')
             else:
-                # Name was already in expected format (e.g., ALL CAPS preserved)
-                unchanged_count += 1
-                logging.info(f'✅ Article: "{original_name}" did not change, was already normalized')
+                stats['unchanged'] += 1
+                logging.info(f'✅ Already normalized: "{original_name}"')
             
-            # Log first few normalizations at DEBUG level for troubleshooting
-            if processed_count <= 3:
-                logging.debug(f"🔍 Sample normalization: '{original_name}' -> '{normalized_name}'")
+            # Log sample normalizations for debugging
+            if stats['processed'] <= 3:
+                logging.debug(f"🔍 Sample: '{original_name}' → '{normalized_name}'")
         
-        # Log final processing summary with counts
-        logging.info(f"✅ Successfully processed {processed_count} pages")
-        logging.info(f"📝 Updated {updated_count} pages with normalized names")
-        logging.info(f"✅ Left unchanged {unchanged_count} pages (already normalized)")
+        self._log_summary(stats, dry_run)
         return results
+    
+    def _log_summary(self, stats: Dict[str, int], dry_run: bool = False):
+        """Log processing summary."""
+        logging.info(f"✅ Processed {stats['processed']} pages")
+        if dry_run:
+            logging.info(f"📝 Would update {stats['would_update']}, unchanged {stats['unchanged']}")
+        else:
+            logging.info(f"📝 Updated {stats['updated']}, unchanged {stats['unchanged']}")
 
 
 def setup_logging(debug: bool = False):
@@ -716,6 +507,7 @@ def main():
     - --config: Path to config file (default: normalize_names.json)
     - --debug: Enable debug logging
     - --test: Test mode with specific string
+    - --dry-run: Preview changes without updating Notion
     """
     parser = argparse.ArgumentParser(
         description="Normalize Notion article names to sentence case while preserving proper names"
@@ -742,6 +534,11 @@ def main():
         type=str,
         help='Test mode: normalize a specific string without processing the database'
     )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Dry run mode: show what would be changed without updating Notion'
+    )
     
     args = parser.parse_args()
     
@@ -764,8 +561,8 @@ def main():
         # Initialize normalizer for database processing
         normalizer = NotionNameNormalizer(args.config)
         
-        # Process database and update article properties
-        results = normalizer.process_database(args.days)
+        # Process database and update article properties (or dry run)
+        results = normalizer.process_database(args.days, dry_run=args.dry_run)
         
         # Log successful completion
         logging.info("✅ Script completed successfully")
