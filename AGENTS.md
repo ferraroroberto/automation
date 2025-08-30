@@ -108,6 +108,31 @@ Always use the local `.venv` without activation. Call the interpreter directly.
 
 Use the same pattern for tools (black, isort, etc.): `./.venv/bin/python -m black .`
 
+## 🧪 Testing & Virtual Environment {#testing-venv}
+
+**Critical Rules:**
+- **Never create** a virtual environment - use the existing one
+- **Never install requirements** unless explicitly asked by the user
+- **Always check** the `VENV_FOLDER` variable in the `.env` file for the venv path
+
+**Testing Instructions:**
+```powershell
+# Read venv path from .env file
+$venvPath = (Get-Content .env | Select-String "VENV_FOLDER" | ForEach-Object { $_.Line -split "=" | Select-Object -Last 1 }).Trim()
+
+# Run tests using the venv interpreter
+& "$venvPath\Scripts\python.exe" -m pytest
+
+# Run specific test file
+& "$venvPath\Scripts\python.exe" -m pytest tests/test_specific.py
+
+# Run tests with coverage
+& "$venvPath\Scripts\python.exe" -m pytest --cov=src --cov-report=html
+```
+
+**Example Usage:**
+- If `VENV_FOLDER=E:\automation\automation\.venv`, use: `& "E:\automation\automation\.venv\Scripts\python.exe" -m pytest`
+
 ## 🖥️ Platform & Shell Assumptions {#platform-shell}
 - Default environment: **Windows 10+ with PowerShell**.
 - When executing commands with tools, **use PowerShell syntax**, not Unix/bash-only constructs.
