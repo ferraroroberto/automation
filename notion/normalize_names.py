@@ -50,6 +50,7 @@ class NotionNameNormalizer:
         # Load special cases and common words from configuration
         self.special_cases = set(self.config.get('special_cases', []))
         self.common_words = set(self.config.get('common_words', []))
+        self.common_words_with_punct = set(self.config.get('common_words_with_punct', []))
         
         # Validate that all required configuration is present
         if not all([self.notion_api_key, self.database_id]):
@@ -77,6 +78,7 @@ class NotionNameNormalizer:
         logging.info(f"📊 Database ID: {self.database_id}")
         logging.info(f"🔤 Special cases loaded: {len(self.special_cases)}")
         logging.info(f"📝 Common words loaded: {len(self.common_words)}")
+        logging.info(f"❓ Common words with punctuation loaded: {len(self.common_words_with_punct)}")
     
     def _load_config(self, config_path: str) -> Dict:
         """
@@ -389,18 +391,74 @@ class NotionNameNormalizer:
             if self._is_person_entity(original_token):
                 return original_token
         
-        # Rule 6: Preserve original capitalization for tokens that contain punctuation
-        # This prevents "Karpathy:" from becoming "karpathy:" when the original had "Karpathy:"
+        # Rule 6: Handle tokens that contain punctuation (improved logic)
+        # This prevents "Karpathy:" from becoming "karpathy:" but still applies sentence case rules
         if re.search(r'[^\w\s]', original_token):
-            # Extract the alphabetic part and preserve its original capitalization
+            # Extract the alphabetic part
             alpha_part = re.sub(r'[^\w]', '', original_token)
-            if alpha_part and alpha_part[0].isupper():
-                # If the alphabetic part was originally capitalized, preserve it
-                return original_token
+            if alpha_part:
+                # Check if this is a common word that should be lowercased
+                alpha_lower = alpha_part.lower()
+                if alpha_lower in self.common_words_with_punct:
+                    # For common words with punctuation, apply lowercase
+                    return self._reconstruct_with_punctuation(alpha_lower, original_token)
+                elif len(alpha_part) >= 3 and alpha_part.isupper():
+                    # Preserve ALL CAPS words (3+ chars) as acronyms
+                    return original_token
+                elif len(alpha_part) >= 2 and alpha_part[0].isupper() and alpha_part[1:].islower():
+                    # This might be a proper name - check if it's in whitelist or special cases
+                    # First check for exact matches
+                    exact_match = any(alpha_part.lower() == proper_name.lower() for proper_name in self.config.get('proper_name_whitelist', []))
+
+                    # Then check for partial matches in multi-word names (but not common words)
+                    partial_match = False
+                    if not exact_match:
+                        for proper_name in self.config.get('proper_name_whitelist', []):
+                            if ' ' in proper_name:  # Multi-word name
+                                proper_words = proper_name.lower().split()
+                                if alpha_lower in proper_words and alpha_lower not in self.common_words:
+                                    partial_match = True
+                                    break
+
+                    if exact_match or partial_match:
+                        return original_token
+                    else:
+                        # Not a known proper name, apply lowercase for sentence case
+                        return self._reconstruct_with_punctuation(alpha_lower, original_token)
+                else:
+                    # For other cases (mixed case, etc.), apply lowercase
+                    return self._reconstruct_with_punctuation(alpha_lower, original_token)
         
         # If no preservation rules apply, use the normalized (sentence case) version
         return normalized_token
-    
+
+    def _reconstruct_with_punctuation(self, new_alpha_part: str, original_token: str) -> str:
+        """
+        Reconstruct a token with punctuation, replacing the alphabetic part.
+
+        Args:
+            new_alpha_part: The new alphabetic part to use
+            original_token: Original token with punctuation
+
+        Returns:
+            Token with new alphabetic part and preserved punctuation
+        """
+        # Find all non-alphabetic parts (punctuation) in the original token
+        parts = re.findall(r'[^\w]+|\w+', original_token)
+
+        # Replace the first alphabetic part with our new version
+        result_parts = []
+        alpha_replaced = False
+
+        for part in parts:
+            if part.isalpha() and not alpha_replaced:
+                result_parts.append(new_alpha_part)
+                alpha_replaced = True
+            else:
+                result_parts.append(part)
+
+        return ''.join(result_parts)
+
     def _is_token_match(self, token: str, proper_name: str) -> bool:
         """
         Check if a token matches a proper name (case-insensitive word boundary match).
