@@ -141,6 +141,61 @@ $venvPath = (Get-Content .env | Select-String "VENV_FOLDER" | ForEach-Object { $
 - Provide Windows examples first. Unix/macOS equivalents live in `AGENTS_PR.md` and are reference-only.
 - Combine with the `.venv` policy above (no activation; call the interpreter directly).
 
+## 🖥️ PowerShell Usage {#powershell}
+- **Use PowerShell 7+** for `&&` operator and command chaining
+- **Avoid PowerShell 5.1** - doesn't support `&&`, causes "stuck" commands
+- **Reference**: `system/terminal_setup_howto.md`
+
+### Command Patterns
+```powershell
+# PowerShell 7+ (Recommended)
+cd "E:\automation\project" && git add . && git commit -m "Update"
+
+# PowerShell 5.1 Fallback
+cd "E:\automation\project"; if ($?) { git add . }; if ($?) { git commit -m "Update" }
+```
+
+### Multi-line Commands
+```powershell
+# Backtick continuation (PowerShell 7+)
+git commit -m "Add feature" `
+           -m "- Core functionality"
+
+# Here-string
+git commit -m @"
+Add logging system
+- JSON output
+- Log rotation
+"@
+```
+
+### Error Handling
+```powershell
+git add .; if ($?) { git commit -m "Success" } else { Write-Host "❌ Failed" }
+```
+
+### Common Commands
+```powershell
+# File operations
+New-Item -ItemType File -Path ".\new_script.py" -Force
+Copy-Item ".\source\*" ".\destination\" -Recurse
+Remove-Item ".\temp\*" -Recurse -Force
+
+# Git operations
+git add .\modified_file.py; git commit -m "Fix bug"; git push origin main
+
+# Python operations
+python -c "import sys; print(sys.version)"
+python -m pytest --cov=src
+```
+
+### Troubleshooting
+```powershell
+$PSVersionTable.PSVersion
+Get-Command python -ErrorAction SilentlyContinue
+Get-ChildItem Env: | Where-Object {$_.Name -like "*PYTHON*"}
+```
+
 ## 📄 GIT commits and push rules
 - Do not automatically create commits or push. Wait for explicit instruction from the user. On task completion, ask: "shall I create a commit message, stage, commit and push"?
 
