@@ -18,12 +18,12 @@ REM   - The transcribe_voice.py script file
 REM
 REM ============================================================================
 
-set "PROJECT_DIR=E:\onedrive\Documentos\Roberto\projects\automation\notion-automation"
-set "SCRIPT_PATH=E:\onedrive\Documentos\Roberto\projects\automation\notion-automation\home\image\screenshot.py"
+set "PROJECT_DIR=E:\automation\automation"
+set "SCRIPT_PATH=E:\automation\automation\image\screenshot.py"
 set "VENV_ACTIVATE=%PROJECT_DIR%\.venv\Scripts\activate.bat"
 
 echo [INFO] Changing to project directory: "%PROJECT_DIR%\home\image"
-cd /d "E:\onedrive\Documentos\Roberto\projects\automation\notion-automation"
+cd /d "E:\automation\automation"
 if errorlevel 1 (
     echo [ERROR] Failed to change directory.
     exit /b 1
