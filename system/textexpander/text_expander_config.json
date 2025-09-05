@@ -9,7 +9,9 @@
     "/ref01": "follow the steps in the prompt \"prompt_01_style.md\" then create the results in the same folder where the prompt file is located",
     "/ref02": "ok now follow the steps in \"prompt_02_analyze_plan.md\" using the code file I give you as annex. Note: I don't have table map or constraints or volume thresholds, use the style guide created as support.",
     "/ref03": "ok now with all the previous context, follow \"prompt_03_code_and_test.md\" and create the last part, create the full code for all the tasks in the migration plan, in the same folder again",
-    "/ref04": "ok now with all the previous context, follow \"prompt_04_backtest.md\" and create the backtest analysys in the same folder again"
+    "/ref04": "ok now with all the previous context, follow \"prompt_04_backtest.md\" and create the backtest analysys in the same folder again",
+    "/gcs": "Gracias!\nRoberto",
+    "/abz": "Un abrazo\nRoberto"
   },
   "settings": {
     "trigger_key": "/",
