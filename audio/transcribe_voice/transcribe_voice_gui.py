@@ -581,29 +581,131 @@ class TranscriptionGUI:
             self.recorder.cleanup_ffmpeg_copy()
 
 
+def quick_transcribe(language: str):
+    """Quick transcription mode - no GUI, auto-copy, auto-exit."""
+    import signal
+    import sys
+
+    print(f"Recording in {language}... (press any key to stop early)")
+
+    # Create configuration for quick mode
+    config = TranscriptionConfig()
+    config.language = language
+    config.model_size = "base"  # Use base for speed
+    config.translate = (language == "Spanish")
+    config.record_seconds = 300  # Default 5 minutes
+
+    # Initialize recorder
+    recorder = AudioRecorder(config)
+
+    # Check dependencies
+    if not recorder.check_dependencies():
+        print("ERROR: Required dependencies not available.")
+        sys.exit(1)
+
+    # Get audio devices
+    input_devices = recorder.get_audio_devices()
+    if not input_devices:
+        print("ERROR: No input devices found!")
+        sys.exit(1)
+
+    # Select microphone
+    selected_device = recorder.select_microphone(input_devices, verbose=False)
+    if selected_device is None:
+        print("ERROR: No suitable microphone found!")
+        sys.exit(1)
+
+    # Set up keyboard interrupt handler for early stop
+    def signal_handler(signum, frame):
+        print("\nRecording stopped by user.")
+        recorder.key_pressed = True
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Start keyboard listener for early stop
+    def on_press(key):
+        recorder.key_pressed = True
+        return False
+
+    from pynput import keyboard
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+
+    try:
+        # Record audio
+        recording = recorder.record_audio(selected_device)
+
+        if recording is None or len(recording) == 0:
+            print("ERROR: Recording too short, nothing to transcribe.")
+            sys.exit(1)
+
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
+            wav.write(tmpfile.name, 16000, recording)
+            audio_path = tmpfile.name
+
+        print("Recording stopped. Processing...")
+
+        # Initialize transcriber
+        transcriber = Transcriber(config)
+        transcriber.load_model(recorder)
+
+        # Transcribe
+        text = transcriber.transcribe_audio(audio_path)
+
+        # Clean up temp file
+        if config.clean_temp and os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
+            except Exception as cleanup_exc:
+                print(f"[WARNING] Could not remove temp file: {cleanup_exc}")
+
+        # Copy to clipboard and exit
+        pyperclip.copy(text)
+        print("Transcription complete. Text copied to clipboard.")
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"ERROR during transcription: {e}")
+        sys.exit(1)
+    finally:
+        listener.stop()
+        recorder.cleanup_ffmpeg_copy()
+
+
 def main():
     """Main entry point for the GUI application."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Voice Transcription GUI")
     parser.add_argument("--launch_from_elgato", action="store_true",
                        help="Launch with GUI interface for Elgato Stream Deck")
+    parser.add_argument("--quick-spanish", action="store_true",
+                       help="Quick transcription mode for Spanish (no GUI, auto-exit)")
+    parser.add_argument("--quick-english", action="store_true",
+                       help="Quick transcription mode for English (no GUI, auto-exit)")
     args = parser.parse_args()
-    
-    # Create and run the GUI
-    app = TranscriptionGUI()
-    
-    try:
-        app.run()
-    except KeyboardInterrupt:
-        print("\n⚠️  Interrupted by user")
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        messagebox.showerror("Error", f"Unexpected error: {e}")
-    finally:
-        # Ensure cleanup
-        if app.recorder:
-            app.recorder.cleanup_ffmpeg_copy()
+
+    # Handle quick modes
+    if args.quick_spanish:
+        quick_transcribe("Spanish")
+    elif args.quick_english:
+        quick_transcribe("English")
+    else:
+        # Normal GUI mode
+        app = TranscriptionGUI()
+
+        try:
+            app.run()
+        except KeyboardInterrupt:
+            print("\n⚠️  Interrupted by user")
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+            messagebox.showerror("Error", f"Unexpected error: {e}")
+        finally:
+            # Ensure cleanup
+            if app.recorder:
+                app.recorder.cleanup_ffmpeg_copy()
 
 
 if __name__ == "__main__":
