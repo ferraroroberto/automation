@@ -30,6 +30,10 @@ def main():
         gui_main()
     else:
         # Console mode
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
         from transcribe_voice_core import TranscriptionConfig, transcribe_file, run_console_transcription
         
         if args.file:

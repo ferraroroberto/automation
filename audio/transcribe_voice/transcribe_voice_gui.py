@@ -23,9 +23,13 @@ except ImportError:
     CUDA_AVAILABLE = False
 
 # Import core transcription functionality
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from transcribe_voice_core import (
-    TranscriptionConfig, 
-    AudioRecorder, 
+    TranscriptionConfig,
+    AudioRecorder,
     Transcriber,
     transcribe_file
 )
