@@ -40,7 +40,7 @@ class TranscriptionGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Voice Transcription")
-        self.root.geometry("400x400")
+        self.root.geometry("400x450")
         self.root.configure(background='#2E2E2E')
         self.root.resizable(False, False)
         
@@ -56,7 +56,8 @@ class TranscriptionGUI:
         
         # GUI variables
         self.selected_language = tk.StringVar(value="Spanish")
-        self.selected_model_size = tk.StringVar(value="medium")
+        self.selected_model_size = tk.StringVar(value="base")
+        self.translate_to_english = tk.BooleanVar(value=True)
         self.progress_var = tk.DoubleVar()
         self.level_var = tk.DoubleVar()
         
@@ -97,7 +98,24 @@ class TranscriptionGUI:
         
         # Start with main view
         self._show_main_view()
-        
+
+        # Set initial checkbox state
+        self._on_language_change()
+
+    def _on_language_change(self, event=None):
+        """Update checkbox state based on selected language."""
+        if self.selected_language.get() == "English":
+            # Disable translation checkbox for English
+            self.translate_checkbox.config(state="disabled")
+            self.translate_to_english.set(False)
+        else:
+            # Enable translation checkbox for other languages
+            self.translate_checkbox.config(state="normal")
+            # Keep current value if already set, otherwise default to True
+            if not hasattr(self, '_checkbox_initialized'):
+                self.translate_to_english.set(True)
+                self._checkbox_initialized = True
+
     def _create_main_view(self):
         """Create the main selection view."""
         self.main_view_frame = ttk.Frame(self.main_frame)
@@ -114,10 +132,11 @@ class TranscriptionGUI:
         language_label = ttk.Label(language_frame, text="Select Language:")
         language_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        language_combo = ttk.Combobox(language_frame, textvariable=self.selected_language, 
+        language_combo = ttk.Combobox(language_frame, textvariable=self.selected_language,
                                      state="readonly", width=15)
         language_combo['values'] = ('Spanish', 'English')
         language_combo.pack(side=tk.LEFT)
+        language_combo.bind('<<ComboboxSelected>>', self._on_language_change)
         
         # Model size selection
         model_size_frame = ttk.Frame(self.main_view_frame)
@@ -130,10 +149,21 @@ class TranscriptionGUI:
                                        state="readonly", width=15)
         model_size_combo['values'] = ('tiny', 'base', 'small', 'medium', 'large')
         model_size_combo.pack(side=tk.LEFT)
-        
+
+        # Translation checkbox
+        translate_frame = ttk.Frame(self.main_view_frame)
+        translate_frame.pack(fill=tk.X, pady=5)
+
+        self.translate_checkbox = ttk.Checkbutton(
+            translate_frame,
+            text="Translate to English",
+            variable=self.translate_to_english
+        )
+        self.translate_checkbox.pack(side=tk.LEFT)
+
         # Help text
-        help_text = ttk.Label(self.main_view_frame, 
-                             text="Spanish: Transcribe & Translate | English: Transcribe only", 
+        help_text = ttk.Label(self.main_view_frame,
+                             text="Select language and toggle translation as needed",
                              font=("Arial", 9), foreground="#888888")
         help_text.pack(pady=5)
         
@@ -151,18 +181,18 @@ class TranscriptionGUI:
         button_container.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
         
         # Buttons with equal spacing
-        start_button = ttk.Button(button_container, text="🎤 Start Recording", 
+        start_button = ttk.Button(button_container, text="🎤 Start Recording",
                                  command=self._start_recording)
-        start_button.pack(pady=10, fill=tk.X)
-        
-        file_button = ttk.Button(button_container, text="📁 Select Audio File", 
+        start_button.pack(pady=8, fill=tk.X, ipady=5)
+
+        file_button = ttk.Button(button_container, text="📁 Select Audio File",
                                 command=self._select_audio_file)
-        file_button.pack(pady=10, fill=tk.X)
-        
+        file_button.pack(pady=8, fill=tk.X, ipady=5)
+
         # Exit button
-        exit_button = ttk.Button(button_container, text="Exit", 
+        exit_button = ttk.Button(button_container, text="Exit",
                                 command=self._on_close)
-        exit_button.pack(pady=10, fill=tk.X)
+        exit_button.pack(pady=8, fill=tk.X, ipady=5)
         
     def _create_recording_view(self):
         """Create the recording view."""
@@ -230,7 +260,7 @@ class TranscriptionGUI:
         # Update configuration
         self.config.language = self.selected_language.get()
         self.config.model_size = self.selected_model_size.get()
-        self.config.translate = (self.config.language == "Spanish")
+        self.config.translate = self.translate_to_english.get()
         
         # Reset progress bars
         self.progress_var.set(100)
@@ -337,7 +367,7 @@ class TranscriptionGUI:
         # Update configuration
         self.config.language = self.selected_language.get()
         self.config.model_size = self.selected_model_size.get()
-        self.config.translate = (self.config.language == "Spanish")
+        self.config.translate = self.translate_to_english.get()
         
         # Open file dialog
         filetypes = (
