@@ -53,10 +53,10 @@ def test_cuda_computation():
         end_time = time.time()
 
         elapsed = end_time - start_time
-        print(".4f"
+        print(f"Time: {elapsed:.4f} seconds")
         # Check memory usage
         memory_used = torch.cuda.memory_allocated(device) / 1024**2
-        print(".1f")
+        print(f"Memory used: {memory_used:.1f} MB")
 
     print("✅ CUDA computation test completed successfully")
     return True
@@ -77,13 +77,13 @@ def test_memory_management():
         tensor = torch.randn(1000, 1000).to(device)
         tensors.append(tensor)
         memory_used = torch.cuda.memory_allocated(device) / 1024**2
-        print(".1f")
+        print(f"Memory after tensor {i+1}: {memory_used:.1f} MB")
 
     # Clear memory
     del tensors
     torch.cuda.empty_cache()
     memory_after = torch.cuda.memory_allocated(device) / 1024**2
-    print(".1f")
+    print(f"Memory after cleanup: {memory_after:.1f} MB")
 
     print("✅ Memory management test completed")
     return True
