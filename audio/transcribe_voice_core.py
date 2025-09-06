@@ -8,7 +8,7 @@ import os
 import warnings
 import subprocess
 import shutil
-import whisper
+# import whisper  # Deferred until needed in load_model()
 import sounddevice as sd
 import scipy.io.wavfile as wav
 import tempfile
@@ -61,6 +61,8 @@ class AudioRecorder:
         self.ffmpeg_path = None
         self.ffmpeg_copy_path = None
         self.ffmpeg_already_cleaned = False
+        self.dependencies_checked = False  # Cache dependency check results
+        self.audio_devices_cached = None   # Cache audio devices
         
     def check_gpu_availability(self) -> bool:
         """Check if a CUDA GPU is available. Perform this check lazily."""
@@ -82,6 +84,10 @@ class AudioRecorder:
     
     def check_dependencies(self) -> bool:
         """Check if all required dependencies are available."""
+        # Return cached result if already checked
+        if self.dependencies_checked:
+            return True
+
         # Check GPU availability
         self.check_gpu_availability()
         
@@ -154,18 +160,26 @@ class AudioRecorder:
         
         if ffmpeg_path:
             self.ffmpeg_path = ffmpeg_path
-            
+
+        # Cache the result
+        self.dependencies_checked = True
         return ffmpeg_found
     
     def get_audio_devices(self) -> List[Tuple[int, dict]]:
         """Get list of available audio input devices."""
+        # Return cached result if available
+        if self.audio_devices_cached is not None:
+            return self.audio_devices_cached
+
         devices = sd.query_devices()
         input_devices = []
-        
+
         for i, device in enumerate(devices):
             if device['max_input_channels'] > 0:
                 input_devices.append((i, device))
-                
+
+        # Cache the result
+        self.audio_devices_cached = input_devices
         return input_devices
     
     def select_microphone(self, input_devices: List[Tuple[int, dict]], 
@@ -324,7 +338,7 @@ class Transcriber:
         self.model = None
         self.device = None
         
-    def load_model(self, recorder: AudioRecorder):
+    def load_model(self, recorder: AudioRecorder, progress_callback=None):
         """Load the Whisper model."""
         # Configure FFmpeg paths
         try:
@@ -343,7 +357,15 @@ class Transcriber:
             print("⚠️  Using CPU (will use FP32 precision)")
         
         # Load model
+        if progress_callback:
+            progress_callback("Initializing model download...")
+        print(f"Downloading/loading Whisper model '{self.config.model_size}'...")
+
+        # Import whisper here (deferred import for faster startup)
+        import whisper
         self.model = whisper.load_model(self.config.model_size, device=self.device)
+        if progress_callback:
+            progress_callback("Model loaded successfully!")
         
     def transcribe_audio(self, audio_path: str) -> str:
         """Transcribe audio file and return text."""

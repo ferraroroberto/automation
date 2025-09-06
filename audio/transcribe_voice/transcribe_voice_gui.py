@@ -12,15 +12,22 @@ import sys
 import time
 import pyperclip
 import tempfile
-import scipy.io.wavfile as wav
+# scipy.io.wavfile import deferred until needed
 from typing import Optional
 
-# Add CUDA check
-try:
-    import torch
-    CUDA_AVAILABLE = torch.cuda.is_available()
-except ImportError:
-    CUDA_AVAILABLE = False
+# Defer CUDA check until needed (lazy loading)
+CUDA_AVAILABLE = None
+
+def check_cuda_availability():
+    """Check CUDA availability with caching."""
+    global CUDA_AVAILABLE
+    if CUDA_AVAILABLE is None:
+        try:
+            import torch
+            CUDA_AVAILABLE = torch.cuda.is_available()
+        except ImportError:
+            CUDA_AVAILABLE = False
+    return CUDA_AVAILABLE
 
 # Import core transcription functionality
 import sys
@@ -61,12 +68,7 @@ class TranscriptionGUI:
         self.progress_var = tk.DoubleVar()
         self.level_var = tk.DoubleVar()
         
-        # Show CUDA status in the GUI or console
-        if CUDA_AVAILABLE:
-            print("✅ CUDA is available. Will use GPU for transcription.")
-        else:
-            print("⚠️  CUDA not available. Will use CPU (slower).")
-        
+        # CUDA check deferred until needed for faster startup
         # Initialize GUI
         self._setup_styles()
         self._create_widgets()
@@ -189,6 +191,11 @@ class TranscriptionGUI:
                                 command=self._select_audio_file)
         file_button.pack(pady=8, fill=tk.X, ipady=5)
 
+        # Preload model button
+        preload_button = ttk.Button(button_container, text="⚡ Preload Model",
+                                   command=self._preload_model)
+        preload_button.pack(pady=8, fill=tk.X, ipady=5)
+
         # Exit button
         exit_button = ttk.Button(button_container, text="Exit",
                                 command=self._on_close)
@@ -239,9 +246,8 @@ class TranscriptionGUI:
         
     def _center_window(self):
         """Center the window on screen."""
-        self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
+        # Use fixed dimensions since window is not resizable
+        width, height = 400, 450
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
@@ -267,7 +273,7 @@ class TranscriptionGUI:
         self.level_var.set(0)
         
         # Set device in config if possible
-        self.config.device = "cuda" if CUDA_AVAILABLE else "cpu"
+        self.config.device = "cuda" if check_cuda_availability() else "cpu"
         
         # Show recording view
         self._show_recording_view()
@@ -320,6 +326,7 @@ class TranscriptionGUI:
                 return
             
             # Save to temporary file
+            import scipy.io.wavfile as wav
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
                 wav.write(tmpfile.name, 16000, recording)
                 audio_path = tmpfile.name
@@ -332,7 +339,10 @@ class TranscriptionGUI:
             # Initialize transcriber
             if not self.transcriber:
                 self.transcriber = Transcriber(self.config)
-                self.transcriber.load_model(self.recorder)
+                # Progress callback for model loading
+                def model_progress_callback(status):
+                    self.update_queue.put(("status", f"Loading model: {status}"))
+                self.transcriber.load_model(self.recorder, model_progress_callback)
             print("Model loaded.", flush=True)
             
             # Transcribe
@@ -362,6 +372,60 @@ class TranscriptionGUI:
         if self.recorder:
             self.recorder.key_pressed = True
             
+    def _preload_model(self):
+        """Preload the Whisper model in the background."""
+        # Update configuration with current settings
+        self.config.language = self.selected_language.get()
+        self.config.model_size = self.selected_model_size.get()
+        self.config.translate = self.translate_to_english.get()
+        self.config.device = "cuda" if check_cuda_availability() else "cpu"
+
+        # Show status window
+        self._show_status_window("Preloading Model",
+                                f"Loading Whisper model '{self.config.model_size}'...\n"
+                                "This may take a moment on first run.\n"
+                                "Subsequent transcriptions will be faster.")
+
+        # Start preloading in a separate thread
+        preload_thread = threading.Thread(target=self._preload_model_worker)
+        preload_thread.daemon = True
+        preload_thread.start()
+
+    def _preload_model_worker(self):
+        """Worker thread for model preloading."""
+        try:
+            print("Starting model preload...", flush=True)
+
+            # Create recorder for dependency checking
+            recorder = AudioRecorder(self.config)
+
+            # Check dependencies
+            if not recorder.check_dependencies():
+                self.update_queue.put(("error", "Required dependencies not available."))
+                return
+
+            # Create transcriber and load model
+            if not self.transcriber:
+                self.transcriber = Transcriber(self.config)
+
+            def preload_progress_callback(status):
+                self.update_queue.put(("status", f"Preloading: {status}"))
+
+            self.transcriber.load_model(recorder, preload_progress_callback)
+
+            # Success
+            self.update_queue.put(("status", "✅ Model preloaded successfully! Ready for fast transcription."))
+            print("Model preload complete.", flush=True)
+
+            # Auto-hide status window after a delay
+            self.root.after(2000, self._hide_status_window)
+
+        except Exception as e:
+            import traceback
+            print("[EXCEPTION] Exception in _preload_model_worker:", flush=True)
+            traceback.print_exc()
+            self.update_queue.put(("error", f"Failed to preload model: {str(e)}"))
+
     def _select_audio_file(self):
         """Select and transcribe an audio file."""
         # Update configuration
@@ -488,11 +552,10 @@ class TranscriptionGUI:
         self.status_window.geometry("400x150")
         self.status_window.resizable(False, False)
         
-        # Center the window
-        self.status_window.update_idletasks()
-        x = (self.status_window.winfo_screenwidth() // 2) - 200
-        y = (self.status_window.winfo_screenheight() // 2) - 75
-        self.status_window.geometry(f"+{x}+{y}")
+        # Center the window (optimized - no update_idletasks needed for fixed size)
+        x = (self.root.winfo_screenwidth() // 2) - 200
+        y = (self.root.winfo_screenheight() // 2) - 75
+        self.status_window.geometry(f"400x150+{x}+{y}")
         
         # Add content
         frame = ttk.Frame(self.status_window, padding=20)
@@ -592,7 +655,7 @@ def quick_transcribe(language: str):
     config = TranscriptionConfig()
     config.language = language
     config.model_size = "base"  # Use base for speed
-    config.translate = (language == "Spanish")
+    config.translate = False  # Only transcribe, don't translate
     config.record_seconds = 300  # Default 5 minutes
 
     # Initialize recorder
@@ -640,6 +703,7 @@ def quick_transcribe(language: str):
             sys.exit(1)
 
         # Save to temporary file
+        import scipy.io.wavfile as wav
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
             wav.write(tmpfile.name, 16000, recording)
             audio_path = tmpfile.name
@@ -648,7 +712,10 @@ def quick_transcribe(language: str):
 
         # Initialize transcriber
         transcriber = Transcriber(config)
-        transcriber.load_model(recorder)
+        # Simple progress callback for console mode
+        def model_progress_callback(status):
+            print(f"📥 {status}")
+        transcriber.load_model(recorder, model_progress_callback)
 
         # Transcribe
         text = transcriber.transcribe_audio(audio_path)
