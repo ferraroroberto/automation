@@ -3,8 +3,13 @@ Main launcher script for the voice transcription application.
 This script provides a unified entry point for both console and GUI modes.
 """
 
-import sys
+# Standard library imports
 import argparse
+import logging
+import sys
+
+# Set up module-level logger (non-persistent)
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -18,7 +23,7 @@ def main():
                        help="Transcribe a specific audio file")
     parser.add_argument("--language", type=str, choices=["Spanish", "English"], 
                        default="Spanish", help="Language for transcription")
-    parser.add_argument("--model", type=str, default="base",
+    parser.add_argument("--model", type=str, default="small",
                        choices=["tiny", "base", "small", "medium", "large"],
                        help="Whisper model size")
     args = parser.parse_args()
@@ -51,7 +56,7 @@ def main():
                 pyperclip.copy(text)
                 print("\n✅ Text copied to clipboard.")
             except Exception as e:
-                print(f"❌ ERROR: {e}")
+                logger.error(f"❌ ERROR: {e}")
                 sys.exit(1)
         else:
             # Interactive recording mode
@@ -60,7 +65,7 @@ def main():
                 exit_code = run_console_transcription(config)
                 sys.exit(exit_code)
             except KeyboardInterrupt:
-                print("\n⚠️  Interrupted by user")
+                logger.warning("⚠️ Interrupted by user")
                 sys.exit(1)
 
 

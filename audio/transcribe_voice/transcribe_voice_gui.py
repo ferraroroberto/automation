@@ -3,17 +3,25 @@ GUI module for the voice transcription application.
 This module provides a graphical interface for the transcription functionality.
 """
 
+# Standard library imports
+import logging
+import os
+import queue
+import sys
+import tempfile
+import threading
+import time
+from typing import Optional
+
+# Third-party imports
+import pyperclip
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-import queue
-import threading
-import os
-import sys
-import time
-import pyperclip
-import tempfile
+
 # scipy.io.wavfile import deferred until needed
-from typing import Optional
+
+# Set up module-level logger (non-persistent)
+logger = logging.getLogger(__name__)
 
 # Defer CUDA check until needed (lazy loading)
 CUDA_AVAILABLE = None
@@ -63,7 +71,7 @@ class TranscriptionGUI:
         
         # GUI variables
         self.selected_language = tk.StringVar(value="Spanish")
-        self.selected_model_size = tk.StringVar(value="base")
+        self.selected_model_size = tk.StringVar(value="small")
         self.translate_to_english = tk.BooleanVar(value=True)
         self.progress_var = tk.DoubleVar()
         self.level_var = tk.DoubleVar()
@@ -289,53 +297,53 @@ class TranscriptionGUI:
     def _recording_worker(self):
         """Worker thread for recording."""
         try:
-            print("Starting recording worker...", flush=True)
+            logger.debug("🎬 Starting recording worker...")
             # Initialize recorder
             self.recorder = AudioRecorder(self.config)
-            print("Recorder initialized.", flush=True)
-            
+            logger.debug("🎙️ Recorder initialized.")
+
             # Check dependencies
             if not self.recorder.check_dependencies():
-                print("Dependencies not available.", flush=True)
+                logger.error("❌ Dependencies not available.")
                 self.update_queue.put(("error", "Required dependencies not available."))
                 return
-            
+
             # Get audio devices
             input_devices = self.recorder.get_audio_devices()
-            print(f"Input devices: {input_devices}", flush=True)
+            logger.debug(f"🎙️ Found {len(input_devices)} input devices")
             if not input_devices:
                 self.update_queue.put(("error", "No input devices found!"))
                 return
-            
+
             # Select microphone
             selected_device = self.recorder.select_microphone(input_devices, verbose=False)
-            print(f"Selected device: {selected_device}", flush=True)
-            
+            logger.debug(f"🎙️ Selected device: {selected_device}")
+
             # Progress callback
             def progress_callback(remaining, level):
                 self.update_queue.put(("progress", (remaining, level)))
-            
+
             # Record audio
-            print("Starting audio recording...", flush=True)
+            logger.info("🎤 Starting audio recording...")
             recording = self.recorder.record_audio(selected_device, progress_callback)
-            print("Audio recording finished.", flush=True)
+            logger.info("🎤 Audio recording finished.")
             
             if recording is None or len(recording) == 0:
                 self.update_queue.put(("info", "Recording too short, nothing to transcribe."))
                 self.update_queue.put(("return_to_main", None))
                 return
-            
+
             # Save to temporary file
             import scipy.io.wavfile as wav
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
                 wav.write(tmpfile.name, 16000, recording)
                 audio_path = tmpfile.name
-            print(f"Audio saved to {audio_path}", flush=True)
-            
+            logger.debug(f"📁 Audio saved to {audio_path}")
+
             # Show transcribing status
             self.update_queue.put(("status", "Loading model and transcribing..."))
-            print("Loading model...", flush=True)
-            
+            logger.info("🤖 Loading Whisper model...")
+
             # Initialize transcriber
             if not self.transcriber:
                 self.transcriber = Transcriber(self.config)
@@ -343,28 +351,28 @@ class TranscriptionGUI:
                 def model_progress_callback(status):
                     self.update_queue.put(("status", f"Loading model: {status}"))
                 self.transcriber.load_model(self.recorder, model_progress_callback)
-            print("Model loaded.", flush=True)
-            
+            logger.info("🤖 Model loaded.")
+
             # Transcribe
-            print("Starting transcription...", flush=True)
+            logger.info("🎤 Starting transcription...")
             text = self.transcriber.transcribe_audio(audio_path)
-            print("Transcription finished.", flush=True)
+            logger.info("✅ Transcription finished.")
             
             # Clean up temp file
             if self.config.clean_temp and os.path.exists(audio_path):
                 try:
                     os.remove(audio_path)
                 except Exception as cleanup_exc:
-                    print(f"[WARNING] Could not remove temp file: {cleanup_exc}", flush=True)
-            
+                    logger.warning(f"🗑️ Could not remove temp file: {cleanup_exc}")
+
             # Show result
             self.update_queue.put(("result", text))
-            print("Result put in queue.", flush=True)
-            
+            logger.debug("📤 Result sent to queue.")
+
         except Exception as e:
             import traceback
-            print("[EXCEPTION] Exception in _recording_worker:", flush=True)
-            traceback.print_exc()
+            logger.error(f"❌ Exception in _recording_worker: {e}")
+            logger.debug("Full traceback:", exc_info=True)
             self.update_queue.put(("error", str(e)))
             
     def _stop_recording(self):
@@ -394,7 +402,7 @@ class TranscriptionGUI:
     def _preload_model_worker(self):
         """Worker thread for model preloading."""
         try:
-            print("Starting model preload...", flush=True)
+            logger.debug("🤖 Starting model preload...")
 
             # Create recorder for dependency checking
             recorder = AudioRecorder(self.config)
@@ -415,15 +423,15 @@ class TranscriptionGUI:
 
             # Success
             self.update_queue.put(("status", "✅ Model preloaded successfully! Ready for fast transcription."))
-            print("Model preload complete.", flush=True)
+            logger.info("🤖 Model preload complete.")
 
             # Auto-hide status window after a delay
             self.root.after(2000, self._hide_status_window)
 
         except Exception as e:
             import traceback
-            print("[EXCEPTION] Exception in _preload_model_worker:", flush=True)
-            traceback.print_exc()
+            logger.error(f"❌ Exception in _preload_model_worker: {e}")
+            logger.debug("Full traceback:", exc_info=True)
             self.update_queue.put(("error", f"Failed to preload model: {str(e)}"))
 
     def _select_audio_file(self):
@@ -465,14 +473,14 @@ class TranscriptionGUI:
     def _transcribe_file_worker(self, filename):
         """Worker thread for file transcription."""
         try:
-            print(f"Starting file transcription for {filename}", flush=True)
+            logger.debug(f"📁 Starting file transcription for {filename}")
             text = transcribe_file(filename, self.config)
-            print("File transcription finished.", flush=True)
+            logger.info("✅ File transcription finished.")
             self.update_queue.put(("result", text))
         except Exception as e:
             import traceback
-            print("[EXCEPTION] Exception in _transcribe_file_worker:", flush=True)
-            traceback.print_exc()
+            logger.error(f"❌ Exception in _transcribe_file_worker: {e}")
+            logger.debug("Full traceback:", exc_info=True)
             self.update_queue.put(("error", str(e)))
             
     def _check_update_queue(self):
@@ -491,12 +499,12 @@ class TranscriptionGUI:
                 elif update_type == "result":
                     self._hide_status_window()
                     try:
-                        print("Showing result window...", flush=True)
+                        logger.debug("🖼️ Showing result window...")
                         self._show_result(data)
                     except Exception as e:
                         import traceback
-                        print("[EXCEPTION] Exception in _show_result:", flush=True)
-                        traceback.print_exc()
+                        logger.error(f"❌ Exception in _show_result: {e}")
+                        logger.debug("Full traceback:", exc_info=True)
                 elif update_type == "error":
                     self._hide_status_window()
                     messagebox.showerror("Error", data)
@@ -649,12 +657,12 @@ def quick_transcribe(language: str):
     import signal
     import sys
 
-    print(f"Recording in {language}... (press any key to stop early)")
+    print(f"🎤 Recording in {language}... (press any key to stop early)")
 
     # Create configuration for quick mode
     config = TranscriptionConfig()
     config.language = language
-    config.model_size = "base"  # Use base for speed
+    config.model_size = "small"  # Use small for speed
     config.translate = False  # Only transcribe, don't translate
     config.record_seconds = 300  # Default 5 minutes
 
@@ -663,24 +671,24 @@ def quick_transcribe(language: str):
 
     # Check dependencies
     if not recorder.check_dependencies():
-        print("ERROR: Required dependencies not available.")
+        logger.error("❌ Required dependencies not available.")
         sys.exit(1)
 
     # Get audio devices
     input_devices = recorder.get_audio_devices()
     if not input_devices:
-        print("ERROR: No input devices found!")
+        logger.error("❌ No input devices found!")
         sys.exit(1)
 
     # Select microphone
     selected_device = recorder.select_microphone(input_devices, verbose=False)
     if selected_device is None:
-        print("ERROR: No suitable microphone found!")
+        logger.error("❌ No suitable microphone found!")
         sys.exit(1)
 
     # Set up keyboard interrupt handler for early stop
     def signal_handler(signum, frame):
-        print("\nRecording stopped by user.")
+        print("\n⏹️ Recording stopped by user.")
         recorder.key_pressed = True
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -699,7 +707,7 @@ def quick_transcribe(language: str):
         recording = recorder.record_audio(selected_device)
 
         if recording is None or len(recording) == 0:
-            print("ERROR: Recording too short, nothing to transcribe.")
+            logger.error("❌ Recording too short, nothing to transcribe.")
             sys.exit(1)
 
         # Save to temporary file
@@ -708,7 +716,7 @@ def quick_transcribe(language: str):
             wav.write(tmpfile.name, 16000, recording)
             audio_path = tmpfile.name
 
-        print("Recording stopped. Processing...")
+        print("⏹️ Recording stopped. Processing...")
 
         # Initialize transcriber
         transcriber = Transcriber(config)
@@ -725,15 +733,18 @@ def quick_transcribe(language: str):
             try:
                 os.remove(audio_path)
             except Exception as cleanup_exc:
-                print(f"[WARNING] Could not remove temp file: {cleanup_exc}")
+                logger.warning(f"🗑️ Could not remove temp file: {cleanup_exc}")
 
-        # Copy to clipboard and exit
+        # Print and copy to clipboard
+        print("\n=== TRANSCRIPTION RESULT ===")
+        print(text)
+        print()
         pyperclip.copy(text)
-        print("Transcription complete. Text copied to clipboard.")
+        print("✅ Transcription complete. Text copied to clipboard.")
         sys.exit(0)
 
     except Exception as e:
-        print(f"ERROR during transcription: {e}")
+        logger.error(f"❌ ERROR during transcription: {e}")
         sys.exit(1)
     finally:
         listener.stop()
@@ -765,9 +776,9 @@ def main():
         try:
             app.run()
         except KeyboardInterrupt:
-            print("\n⚠️  Interrupted by user")
+            logger.warning("⚠️ Interrupted by user")
         except Exception as e:
-            print(f"❌ Unexpected error: {e}")
+            logger.error(f"❌ Unexpected error: {e}")
             messagebox.showerror("Error", f"Unexpected error: {e}")
         finally:
             # Ensure cleanup
