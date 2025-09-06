@@ -6,6 +6,7 @@
 google/config.json
 google/client_secret.json
 google/token*.json
+system/quickdeck/quickdeck.json
 
 # application settings
 text_expander_config.json
@@ -25,3 +26,4 @@ __pycache__
 # temporary files
 system/foldersearcher/folder_structure.txt
 notion/build_newsletter.html
+

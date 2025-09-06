@@ -1,0 +1,62 @@
+{
+  "title": "🚀 QuickDeck Example",
+  "geometry": "1000x300+40+40",
+  "topmost": true,
+  "borderless": true,
+  "theme": {
+    "bg": "#111827",
+    "fg": "#E5E7EB",
+    "button_bg": "#1F2937"
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3,
+    "pad": 4,
+    "button_height": 40,
+    "emoji_size": 30,
+    "text_size": 12,
+    "text_position": "below"
+  },
+  "buttons": [
+    {
+      "label": "Browser",
+      "emoji": "🌐",
+      "type": "url",
+      "url": "https://www.example.com"
+    },
+    {
+      "label": "Calculator",
+      "emoji": "🧮",
+      "type": "shell",
+      "cmd": "calc",
+      "args": []
+    },
+    {
+      "label": "Copy Text",
+      "emoji": "📋",
+      "type": "copy",
+      "text": "Hello World!"
+    },
+    {
+      "label": "Ping Test",
+      "emoji": "📡",
+      "type": "shell",
+      "cmd": "ping",
+      "args": [
+        "-n",
+        "2",
+        "127.0.0.1"
+      ]
+    },
+    {
+      "label": "Python Test",
+      "emoji": "🐍",
+      "type": "python",
+      "code": "print('QuickDeck example!')"
+    },
+    {},
+    {},
+    {},
+    {}
+  ]
+}
