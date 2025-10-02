@@ -1,0 +1,13 @@
+{
+  "record_seconds": 300,
+  "language": "Spanish",
+  "translate": true,
+  "preferred_mics": [
+    "el gato wave XLR (Elgato Wave XLR)",
+    "Wave Link Stream (Elgato Wave:XLR)"
+  ],
+  "model_size": "small",
+  "clean_temp": true,
+  "ffmpeg_path": null,
+  "log_level": "INFO"
+}

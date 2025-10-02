@@ -113,6 +113,10 @@ class AudioExtractorGUI:
         # Clear log button
         self.clear_btn = ttk.Button(button_frame, text="Clear Log", command=self.clear_log)
         self.clear_btn.pack(side=tk.LEFT)
+
+        # Exit button
+        self.exit_btn = ttk.Button(button_frame, text="Exit", command=self.root.quit)
+        self.exit_btn.pack(side=tk.LEFT, padx=(10, 0))
         
         # Progress bar
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')

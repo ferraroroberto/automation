@@ -3,10 +3,13 @@ import subprocess
 from typing import List
 import logging
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging following AGENTS.md standards
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class VideoConcatenator:
@@ -177,55 +180,46 @@ def select_output_file() -> str:
 
 def main():
     """Example usage of the VideoConcatenator class with GUI file selection."""
-    print("Video Concatenator - Select files using GUI")
+    logger.info("🎬 Video Concatenator - Select files using GUI")
     
     try:
         # Select input video files
         video_files = select_video_files()
         
         if not video_files:
-            print("No video files selected. Exiting.")
+            logger.warning("⚠️ No video files selected. Exiting.")
             return
-        
-        # Print video files in the order selected by the user
-        print(f"Selected {len(video_files)} video files:")
+
+        # Log video files in the order selected by the user
+        logger.info(f"📋 Selected {len(video_files)} video files:")
         for i, file in enumerate(video_files, 1):
-            print(f"  {i}. {os.path.basename(file)}")
+            logger.info(f"  {i}. {os.path.basename(file)}")
         
         # Select output file location
         output_file = select_output_file()
         
         if not output_file:
-            print("No output file selected. Exiting.")
+            logger.warning("⚠️ No output file selected. Exiting.")
             return
-        
-        print(f"Output file: {output_file}")
+
+        logger.info(f"📁 Output file: {output_file}")
         
         # Concatenate videos
         concatenator = VideoConcatenator()
         success = concatenator.concatenate_videos(video_files, output_file)
         
         if success:
-            print("Videos concatenated successfully!")
-            # Show success message box
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showinfo("Success", f"Videos concatenated successfully!\nOutput: {output_file}")
-            root.destroy()
+            logger.info("✅ Videos concatenated successfully!")
+            logger.info(f"📁 Output saved to: {output_file}")
         else:
-            print("Failed to concatenate videos.")
-            # Show error message box
-            root = tk.Tk()
-            root.withdraw()
-            messagebox.showerror("Error", "Failed to concatenate videos. Check the console for details.")
-            root.destroy()
+            logger.error("❌ Failed to concatenate videos.")
+            logger.error("💡 Check the console output above for detailed error information.")
     
     except Exception as e:
-        logger.error(f"Unexpected error in main: {str(e)}")
-        print(f"An error occurred: {str(e)}")
-    
+        logger.error(f"💥 Unexpected error in main: {str(e)}")
+
     finally:
-        print("Script execution completed.")
+        logger.info("🏁 Script execution completed.")
 
 if __name__ == "__main__":
     main()

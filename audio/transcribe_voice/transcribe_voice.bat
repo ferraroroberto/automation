@@ -19,11 +19,11 @@ REM
 REM ============================================================================
 
 set "PROJECT_DIR=E:\automation\automation"
-set "SCRIPT_PATH=E:\automation\automation\audio\transcribe_voice_gui.py"
+set "SCRIPT_PATH=E:\automation\automation\audio\transcribe_voice\transcribe_voice_gui.py"
 set "VENV_ACTIVATE=%PROJECT_DIR%\.venv\Scripts\activate.bat"
 
-echo [INFO] Changing to project directory: "%PROJECT_DIR%\audio"
-cd /d "E:\automation\automation"
+echo [INFO] Changing to project directory: "%PROJECT_DIR%\audio\transcribe_voice"
+cd /d "E:\automation\automation\audio\transcribe_voice"
 if errorlevel 1 (
     echo [ERROR] Failed to change directory.
     exit /b 1

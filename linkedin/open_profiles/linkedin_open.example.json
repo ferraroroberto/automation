@@ -1,5 +1,5 @@
 {
-    "file_path": "E:\\automation\\notion-automation-files\\database-dump-connections_clean.xlsx",
+    "file_path": "path/to/your/database-dump-connections.xlsx",
     "verbose": false,
     "default_chunk_size": 10,
     "filter_options": {
@@ -8,4 +8,4 @@
         "circle_choices": ["Any", "Top5", "Key50", "Vital100", "None"],
         "topic_choices": ["all", "innovation", "personal development", "leadership and management", "LinkedIn", "visual illustration"]
     }
-} 
+}
