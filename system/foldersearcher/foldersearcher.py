@@ -537,10 +537,17 @@ class FolderSearcher:
             self.status_var.set("Error loading structure file")
     
     def search_folders(self):
-        """Search for folders containing the specified word."""
-        search_term = self.search_var.get().strip().lower()
-        if not search_term:
+        """Search for folders containing the specified word(s)."""
+        search_input = self.search_var.get().strip()
+        if not search_input:
             messagebox.showwarning("Warning", "Please enter a search term")
+            return
+        
+        # Parse multiple search terms separated by space or semicolon
+        search_input_processed = search_input.replace(';', ' ')
+        search_terms = [term.strip().lower() for term in search_input_processed.split() if term.strip()]
+        if not search_terms:
+            messagebox.showwarning("Warning", "Please enter valid search term(s)")
             return
         
         try:
@@ -563,16 +570,16 @@ class FolderSearcher:
                     self.search_in_explorer_var.set(False)
                     self.search_in_explorer = False
                     # Fall back to full structure search
-                    self._search_in_full_structure(search_term, matching_folders)
+                    self._search_in_full_structure(search_terms, matching_folders)
                 else:
                     # Search only in the Explorer path
-                    self._search_in_explorer_path(search_term, explorer_path, matching_folders)
+                    self._search_in_explorer_path(search_terms, explorer_path, matching_folders)
             else:
                 # Search in full scanned structure
                 if not self.folder_structure:
                     messagebox.showwarning("Warning", "No folder structure loaded. Please scan a folder first.")
                     return
-                self._search_in_full_structure(search_term, matching_folders)
+                self._search_in_full_structure(search_terms, matching_folders)
             
             # Convert set to sorted list
             matching_folders = sorted(list(matching_folders))
@@ -583,52 +590,54 @@ class FolderSearcher:
             
             scope_text = "Explorer path" if self.search_in_explorer else "full structure"
             self.status_var.set(f"Found {len(matching_folders)} matching folders in {scope_text}")
-            logger.info(f"Search completed. Found {len(matching_folders)} folders containing '{search_term}' in {scope_text}")
+            logger.info(f"Search completed. Found {len(matching_folders)} folders containing '{search_input}' in {scope_text}")
             
         except Exception as e:
             logger.error(f"Error searching folders: {e}")
             messagebox.showerror("Error", f"Error searching folders: {e}")
             self.status_var.set("Search failed")
     
-    def _search_in_full_structure(self, search_term: str, matching_folders: set):
+    def _search_in_full_structure(self, search_terms: List[str], matching_folders: set):
         """Search in the full scanned folder structure."""
+        # Create a single list of all relative paths to check
+        all_relative_paths = set()
         for folder_path, subdirs in self.folder_structure.items():
-            # Check if folder path contains the search term
-            if search_term in folder_path.lower():
-                matching_folders.add(folder_path)
-            
-            # Check subdirectories (which are now full paths)
+            if folder_path != 'root':
+                all_relative_paths.add(folder_path)
             for subdir in subdirs:
-                if search_term in subdir.lower():
-                    matching_folders.add(subdir)
-                    logger.debug(f"Found matching subdir: '{subdir}' in folder '{folder_path}'")
+                all_relative_paths.add(subdir)
+
+        # Iterate through the unique relative paths
+        for rel_path in all_relative_paths:
+            # Construct the full, absolute path for checking
+            full_path = os.path.join(self.root_folder, rel_path)
+            
+            # Check if the full path contains all search terms (AND condition)
+            if all(term in full_path.lower() for term in search_terms):
+                matching_folders.add(rel_path) # Add the relative path to results
+                logger.debug(f"Found match: '{rel_path}'")
     
-    def _search_in_explorer_path(self, search_term: str, explorer_path: str, matching_folders: set):
+    def _search_in_explorer_path(self, search_terms: List[str], explorer_path: str, matching_folders: set):
         """Search only in the current Explorer window path."""
         try:
             logger.debug(f"Starting search in Explorer path: {explorer_path}")
-            logger.debug(f"Search term: '{search_term}'")
+            logger.debug(f"Search terms: {search_terms}")
             
             # Walk through the Explorer path directory
             for root, dirs, files in os.walk(explorer_path):
-                # Check if current directory name contains the search term
-                dir_name = os.path.basename(root)
-                logger.debug(f"Checking directory: '{dir_name}' in '{root}'")
-                
-                if search_term in dir_name.lower():
+                # Check if the full root path contains all search terms
+                if all(term in root.lower() for term in search_terms):
                     matching_folders.add(root)
-                    logger.debug(f"Found matching directory: '{root}'")
+                    logger.debug(f"Found matching directory by full path: '{root}'")
                 
-                # Check subdirectories
+                # Check subdirectories against their full path
                 for dir_name in dirs:
-                    logger.debug(f"Checking subdirectory: '{dir_name}' in '{root}'")
-                    if search_term in dir_name.lower():
-                        full_path = os.path.join(root, dir_name)
+                    full_path = os.path.join(root, dir_name)
+                    if all(term in full_path.lower() for term in search_terms):
                         matching_folders.add(full_path)
-                        logger.debug(f"Found matching subdirectory: '{full_path}'")
+                        logger.debug(f"Found matching subdirectory by full path: '{full_path}'")
             
             logger.debug(f"Search completed in Explorer path: {explorer_path}")
-            logger.debug(f"Total matching folders found: {len(matching_folders)}")
             
         except Exception as e:
             logger.error(f"Error searching in Explorer path: {e}")
@@ -692,4 +701,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
