@@ -3,29 +3,48 @@ GUI module for the voice transcription application.
 This module provides a graphical interface for the transcription functionality.
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import queue
-import threading
+# Standard library imports
+import logging
 import os
+import queue
 import sys
-import time
-import pyperclip
 import tempfile
-import scipy.io.wavfile as wav
+import threading
+import time
 from typing import Optional
 
-# Add CUDA check
-try:
-    import torch
-    CUDA_AVAILABLE = torch.cuda.is_available()
-except ImportError:
-    CUDA_AVAILABLE = False
+# Third-party imports
+import pyperclip
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+
+# scipy.io.wavfile import deferred until needed
+
+# Set up module-level logger (non-persistent)
+logger = logging.getLogger(__name__)
+
+# Defer CUDA check until needed (lazy loading)
+CUDA_AVAILABLE = None
+
+def check_cuda_availability():
+    """Check CUDA availability with caching."""
+    global CUDA_AVAILABLE
+    if CUDA_AVAILABLE is None:
+        try:
+            import torch
+            CUDA_AVAILABLE = torch.cuda.is_available()
+        except ImportError:
+            CUDA_AVAILABLE = False
+    return CUDA_AVAILABLE
 
 # Import core transcription functionality
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from transcribe_voice_core import (
-    TranscriptionConfig, 
-    AudioRecorder, 
+    TranscriptionConfig,
+    AudioRecorder,
     Transcriber,
     transcribe_file
 )
@@ -36,7 +55,7 @@ class TranscriptionGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Voice Transcription")
-        self.root.geometry("400x400")
+        self.root.geometry("400x450")
         self.root.configure(background='#2E2E2E')
         self.root.resizable(False, False)
         
@@ -52,16 +71,12 @@ class TranscriptionGUI:
         
         # GUI variables
         self.selected_language = tk.StringVar(value="Spanish")
-        self.selected_model_size = tk.StringVar(value="medium")
+        self.selected_model_size = tk.StringVar(value="small")
+        self.translate_to_english = tk.BooleanVar(value=True)
         self.progress_var = tk.DoubleVar()
         self.level_var = tk.DoubleVar()
         
-        # Show CUDA status in the GUI or console
-        if CUDA_AVAILABLE:
-            print("✅ CUDA is available. Will use GPU for transcription.")
-        else:
-            print("⚠️  CUDA not available. Will use CPU (slower).")
-        
+        # CUDA check deferred until needed for faster startup
         # Initialize GUI
         self._setup_styles()
         self._create_widgets()
@@ -93,7 +108,24 @@ class TranscriptionGUI:
         
         # Start with main view
         self._show_main_view()
-        
+
+        # Set initial checkbox state
+        self._on_language_change()
+
+    def _on_language_change(self, event=None):
+        """Update checkbox state based on selected language."""
+        if self.selected_language.get() == "English":
+            # Disable translation checkbox for English
+            self.translate_checkbox.config(state="disabled")
+            self.translate_to_english.set(False)
+        else:
+            # Enable translation checkbox for other languages
+            self.translate_checkbox.config(state="normal")
+            # Keep current value if already set, otherwise default to True
+            if not hasattr(self, '_checkbox_initialized'):
+                self.translate_to_english.set(True)
+                self._checkbox_initialized = True
+
     def _create_main_view(self):
         """Create the main selection view."""
         self.main_view_frame = ttk.Frame(self.main_frame)
@@ -110,10 +142,11 @@ class TranscriptionGUI:
         language_label = ttk.Label(language_frame, text="Select Language:")
         language_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        language_combo = ttk.Combobox(language_frame, textvariable=self.selected_language, 
+        language_combo = ttk.Combobox(language_frame, textvariable=self.selected_language,
                                      state="readonly", width=15)
         language_combo['values'] = ('Spanish', 'English')
         language_combo.pack(side=tk.LEFT)
+        language_combo.bind('<<ComboboxSelected>>', self._on_language_change)
         
         # Model size selection
         model_size_frame = ttk.Frame(self.main_view_frame)
@@ -126,10 +159,21 @@ class TranscriptionGUI:
                                        state="readonly", width=15)
         model_size_combo['values'] = ('tiny', 'base', 'small', 'medium', 'large')
         model_size_combo.pack(side=tk.LEFT)
-        
+
+        # Translation checkbox
+        translate_frame = ttk.Frame(self.main_view_frame)
+        translate_frame.pack(fill=tk.X, pady=5)
+
+        self.translate_checkbox = ttk.Checkbutton(
+            translate_frame,
+            text="Translate to English",
+            variable=self.translate_to_english
+        )
+        self.translate_checkbox.pack(side=tk.LEFT)
+
         # Help text
-        help_text = ttk.Label(self.main_view_frame, 
-                             text="Spanish: Transcribe & Translate | English: Transcribe only", 
+        help_text = ttk.Label(self.main_view_frame,
+                             text="Select language and toggle translation as needed",
                              font=("Arial", 9), foreground="#888888")
         help_text.pack(pady=5)
         
@@ -147,18 +191,23 @@ class TranscriptionGUI:
         button_container.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
         
         # Buttons with equal spacing
-        start_button = ttk.Button(button_container, text="🎤 Start Recording", 
+        start_button = ttk.Button(button_container, text="🎤 Start Recording",
                                  command=self._start_recording)
-        start_button.pack(pady=10, fill=tk.X)
-        
-        file_button = ttk.Button(button_container, text="📁 Select Audio File", 
+        start_button.pack(pady=8, fill=tk.X, ipady=5)
+
+        file_button = ttk.Button(button_container, text="📁 Select Audio File",
                                 command=self._select_audio_file)
-        file_button.pack(pady=10, fill=tk.X)
-        
+        file_button.pack(pady=8, fill=tk.X, ipady=5)
+
+        # Preload model button
+        preload_button = ttk.Button(button_container, text="⚡ Preload Model",
+                                   command=self._preload_model)
+        preload_button.pack(pady=8, fill=tk.X, ipady=5)
+
         # Exit button
-        exit_button = ttk.Button(button_container, text="Exit", 
+        exit_button = ttk.Button(button_container, text="Exit",
                                 command=self._on_close)
-        exit_button.pack(pady=10, fill=tk.X)
+        exit_button.pack(pady=8, fill=tk.X, ipady=5)
         
     def _create_recording_view(self):
         """Create the recording view."""
@@ -205,9 +254,8 @@ class TranscriptionGUI:
         
     def _center_window(self):
         """Center the window on screen."""
-        self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
+        # Use fixed dimensions since window is not resizable
+        width, height = 400, 450
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
@@ -226,14 +274,14 @@ class TranscriptionGUI:
         # Update configuration
         self.config.language = self.selected_language.get()
         self.config.model_size = self.selected_model_size.get()
-        self.config.translate = (self.config.language == "Spanish")
+        self.config.translate = self.translate_to_english.get()
         
         # Reset progress bars
         self.progress_var.set(100)
         self.level_var.set(0)
         
         # Set device in config if possible
-        self.config.device = "cuda" if CUDA_AVAILABLE else "cpu"
+        self.config.device = "cuda" if check_cuda_availability() else "cpu"
         
         # Show recording view
         self._show_recording_view()
@@ -249,78 +297,82 @@ class TranscriptionGUI:
     def _recording_worker(self):
         """Worker thread for recording."""
         try:
-            print("Starting recording worker...", flush=True)
+            logger.debug("🎬 Starting recording worker...")
             # Initialize recorder
             self.recorder = AudioRecorder(self.config)
-            print("Recorder initialized.", flush=True)
-            
+            logger.debug("🎙️ Recorder initialized.")
+
             # Check dependencies
             if not self.recorder.check_dependencies():
-                print("Dependencies not available.", flush=True)
+                logger.error("❌ Dependencies not available.")
                 self.update_queue.put(("error", "Required dependencies not available."))
                 return
-            
+
             # Get audio devices
             input_devices = self.recorder.get_audio_devices()
-            print(f"Input devices: {input_devices}", flush=True)
+            logger.debug(f"🎙️ Found {len(input_devices)} input devices")
             if not input_devices:
                 self.update_queue.put(("error", "No input devices found!"))
                 return
-            
+
             # Select microphone
             selected_device = self.recorder.select_microphone(input_devices, verbose=False)
-            print(f"Selected device: {selected_device}", flush=True)
-            
+            logger.debug(f"🎙️ Selected device: {selected_device}")
+
             # Progress callback
             def progress_callback(remaining, level):
                 self.update_queue.put(("progress", (remaining, level)))
-            
+
             # Record audio
-            print("Starting audio recording...", flush=True)
+            logger.info("🎤 Starting audio recording...")
             recording = self.recorder.record_audio(selected_device, progress_callback)
-            print("Audio recording finished.", flush=True)
+            logger.info("🎤 Audio recording finished.")
             
             if recording is None or len(recording) == 0:
                 self.update_queue.put(("info", "Recording too short, nothing to transcribe."))
                 self.update_queue.put(("return_to_main", None))
                 return
-            
+
             # Save to temporary file
+            import scipy.io.wavfile as wav
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
                 wav.write(tmpfile.name, 16000, recording)
                 audio_path = tmpfile.name
-            print(f"Audio saved to {audio_path}", flush=True)
-            
+            logger.debug(f"📁 Audio saved to {audio_path}")
+
             # Show transcribing status
             self.update_queue.put(("status", "Loading model and transcribing..."))
-            print("Loading model...", flush=True)
-            
+            logger.info("🤖 Loading Whisper model...")
+
             # Initialize transcriber
             if not self.transcriber:
                 self.transcriber = Transcriber(self.config)
-                self.transcriber.load_model(self.recorder)
-            print("Model loaded.", flush=True)
-            
+                # Progress callback for model loading
+                def model_progress_callback(status):
+                    self.update_queue.put(("status", f"Loading model: {status}"))
+                self.transcriber.load_model(self.recorder, model_progress_callback)
+            logger.info("🤖 Model loaded.")
+
             # Transcribe
-            print("Starting transcription...", flush=True)
+            logger.info("🎤 Starting transcription...")
             text = self.transcriber.transcribe_audio(audio_path)
-            print("Transcription finished.", flush=True)
+            logger.info("✅ Transcription finished.")
             
             # Clean up temp file
             if self.config.clean_temp and os.path.exists(audio_path):
                 try:
                     os.remove(audio_path)
                 except Exception as cleanup_exc:
-                    print(f"[WARNING] Could not remove temp file: {cleanup_exc}", flush=True)
-            
+                    logger.warning(f"🗑️ Could not remove temp file: {cleanup_exc}")
+
             # Show result
             self.update_queue.put(("result", text))
-            print("Result put in queue.", flush=True)
-            
+            logger.debug("📤 Result sent to queue.")
+
         except Exception as e:
             import traceback
-            print("[EXCEPTION] Exception in _recording_worker:", flush=True)
-            traceback.print_exc()
+            logger.error(f"❌ Exception in _recording_worker: {e}")
+            logger.debug("Full traceback:", exc_info=True)
             self.update_queue.put(("error", str(e)))
             
     def _stop_recording(self):
@@ -328,12 +380,66 @@ class TranscriptionGUI:
         if self.recorder:
             self.recorder.key_pressed = True
             
+    def _preload_model(self):
+        """Preload the Whisper model in the background."""
+        # Update configuration with current settings
+        self.config.language = self.selected_language.get()
+        self.config.model_size = self.selected_model_size.get()
+        self.config.translate = self.translate_to_english.get()
+        self.config.device = "cuda" if check_cuda_availability() else "cpu"
+
+        # Show status window
+        self._show_status_window("Preloading Model",
+                                f"Loading Whisper model '{self.config.model_size}'...\n"
+                                "This may take a moment on first run.\n"
+                                "Subsequent transcriptions will be faster.")
+
+        # Start preloading in a separate thread
+        preload_thread = threading.Thread(target=self._preload_model_worker)
+        preload_thread.daemon = True
+        preload_thread.start()
+
+    def _preload_model_worker(self):
+        """Worker thread for model preloading."""
+        try:
+            logger.debug("🤖 Starting model preload...")
+
+            # Create recorder for dependency checking
+            recorder = AudioRecorder(self.config)
+
+            # Check dependencies
+            if not recorder.check_dependencies():
+                self.update_queue.put(("error", "Required dependencies not available."))
+                return
+
+            # Create transcriber and load model
+            if not self.transcriber:
+                self.transcriber = Transcriber(self.config)
+
+            def preload_progress_callback(status):
+                self.update_queue.put(("status", f"Preloading: {status}"))
+
+            self.transcriber.load_model(recorder, preload_progress_callback)
+
+            # Success
+            self.update_queue.put(("status", "✅ Model preloaded successfully! Ready for fast transcription."))
+            logger.info("🤖 Model preload complete.")
+
+            # Auto-hide status window after a delay
+            self.root.after(2000, self._hide_status_window)
+
+        except Exception as e:
+            import traceback
+            logger.error(f"❌ Exception in _preload_model_worker: {e}")
+            logger.debug("Full traceback:", exc_info=True)
+            self.update_queue.put(("error", f"Failed to preload model: {str(e)}"))
+
     def _select_audio_file(self):
         """Select and transcribe an audio file."""
         # Update configuration
         self.config.language = self.selected_language.get()
         self.config.model_size = self.selected_model_size.get()
-        self.config.translate = (self.config.language == "Spanish")
+        self.config.translate = self.translate_to_english.get()
         
         # Open file dialog
         filetypes = (
@@ -367,14 +473,14 @@ class TranscriptionGUI:
     def _transcribe_file_worker(self, filename):
         """Worker thread for file transcription."""
         try:
-            print(f"Starting file transcription for {filename}", flush=True)
+            logger.debug(f"📁 Starting file transcription for {filename}")
             text = transcribe_file(filename, self.config)
-            print("File transcription finished.", flush=True)
+            logger.info("✅ File transcription finished.")
             self.update_queue.put(("result", text))
         except Exception as e:
             import traceback
-            print("[EXCEPTION] Exception in _transcribe_file_worker:", flush=True)
-            traceback.print_exc()
+            logger.error(f"❌ Exception in _transcribe_file_worker: {e}")
+            logger.debug("Full traceback:", exc_info=True)
             self.update_queue.put(("error", str(e)))
             
     def _check_update_queue(self):
@@ -393,12 +499,12 @@ class TranscriptionGUI:
                 elif update_type == "result":
                     self._hide_status_window()
                     try:
-                        print("Showing result window...", flush=True)
+                        logger.debug("🖼️ Showing result window...")
                         self._show_result(data)
                     except Exception as e:
                         import traceback
-                        print("[EXCEPTION] Exception in _show_result:", flush=True)
-                        traceback.print_exc()
+                        logger.error(f"❌ Exception in _show_result: {e}")
+                        logger.debug("Full traceback:", exc_info=True)
                 elif update_type == "error":
                     self._hide_status_window()
                     messagebox.showerror("Error", data)
@@ -454,11 +560,10 @@ class TranscriptionGUI:
         self.status_window.geometry("400x150")
         self.status_window.resizable(False, False)
         
-        # Center the window
-        self.status_window.update_idletasks()
-        x = (self.status_window.winfo_screenwidth() // 2) - 200
-        y = (self.status_window.winfo_screenheight() // 2) - 75
-        self.status_window.geometry(f"+{x}+{y}")
+        # Center the window (optimized - no update_idletasks needed for fixed size)
+        x = (self.root.winfo_screenwidth() // 2) - 200
+        y = (self.root.winfo_screenheight() // 2) - 75
+        self.status_window.geometry(f"400x150+{x}+{y}")
         
         # Add content
         frame = ttk.Frame(self.status_window, padding=20)
@@ -547,29 +652,138 @@ class TranscriptionGUI:
             self.recorder.cleanup_ffmpeg_copy()
 
 
+def quick_transcribe(language: str):
+    """Quick transcription mode - no GUI, auto-copy, auto-exit."""
+    import signal
+    import sys
+
+    print(f"🎤 Recording in {language}... (press any key to stop early)")
+
+    # Create configuration for quick mode
+    config = TranscriptionConfig()
+    config.language = language
+    config.model_size = "small"  # Use small for speed
+    config.translate = False  # Only transcribe, don't translate
+    config.record_seconds = 300  # Default 5 minutes
+
+    # Initialize recorder
+    recorder = AudioRecorder(config)
+
+    # Check dependencies
+    if not recorder.check_dependencies():
+        logger.error("❌ Required dependencies not available.")
+        sys.exit(1)
+
+    # Get audio devices
+    input_devices = recorder.get_audio_devices()
+    if not input_devices:
+        logger.error("❌ No input devices found!")
+        sys.exit(1)
+
+    # Select microphone
+    selected_device = recorder.select_microphone(input_devices, verbose=False)
+    if selected_device is None:
+        logger.error("❌ No suitable microphone found!")
+        sys.exit(1)
+
+    # Set up keyboard interrupt handler for early stop
+    def signal_handler(signum, frame):
+        print("\n⏹️ Recording stopped by user.")
+        recorder.key_pressed = True
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Start keyboard listener for early stop
+    def on_press(key):
+        recorder.key_pressed = True
+        return False
+
+    from pynput import keyboard
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+
+    try:
+        # Record audio
+        recording = recorder.record_audio(selected_device)
+
+        if recording is None or len(recording) == 0:
+            logger.error("❌ Recording too short, nothing to transcribe.")
+            sys.exit(1)
+
+        # Save to temporary file
+        import scipy.io.wavfile as wav
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
+            wav.write(tmpfile.name, 16000, recording)
+            audio_path = tmpfile.name
+
+        print("⏹️ Recording stopped. Processing...")
+
+        # Initialize transcriber
+        transcriber = Transcriber(config)
+        # Simple progress callback for console mode
+        def model_progress_callback(status):
+            print(f"📥 {status}")
+        transcriber.load_model(recorder, model_progress_callback)
+
+        # Transcribe
+        text = transcriber.transcribe_audio(audio_path)
+
+        # Clean up temp file
+        if config.clean_temp and os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
+            except Exception as cleanup_exc:
+                logger.warning(f"🗑️ Could not remove temp file: {cleanup_exc}")
+
+        # Print and copy to clipboard
+        print("\n=== TRANSCRIPTION RESULT ===")
+        print(text)
+        print()
+        pyperclip.copy(text)
+        print("✅ Transcription complete. Text copied to clipboard.")
+        sys.exit(0)
+
+    except Exception as e:
+        logger.error(f"❌ ERROR during transcription: {e}")
+        sys.exit(1)
+    finally:
+        listener.stop()
+        recorder.cleanup_ffmpeg_copy()
+
+
 def main():
     """Main entry point for the GUI application."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Voice Transcription GUI")
     parser.add_argument("--launch_from_elgato", action="store_true",
                        help="Launch with GUI interface for Elgato Stream Deck")
+    parser.add_argument("--quick-spanish", action="store_true",
+                       help="Quick transcription mode for Spanish (no GUI, auto-exit)")
+    parser.add_argument("--quick-english", action="store_true",
+                       help="Quick transcription mode for English (no GUI, auto-exit)")
     args = parser.parse_args()
-    
-    # Create and run the GUI
-    app = TranscriptionGUI()
-    
-    try:
-        app.run()
-    except KeyboardInterrupt:
-        print("\n⚠️  Interrupted by user")
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        messagebox.showerror("Error", f"Unexpected error: {e}")
-    finally:
-        # Ensure cleanup
-        if app.recorder:
-            app.recorder.cleanup_ffmpeg_copy()
+
+    # Handle quick modes
+    if args.quick_spanish:
+        quick_transcribe("Spanish")
+    elif args.quick_english:
+        quick_transcribe("English")
+    else:
+        # Normal GUI mode
+        app = TranscriptionGUI()
+
+        try:
+            app.run()
+        except KeyboardInterrupt:
+            logger.warning("⚠️ Interrupted by user")
+        except Exception as e:
+            logger.error(f"❌ Unexpected error: {e}")
+            messagebox.showerror("Error", f"Unexpected error: {e}")
+        finally:
+            # Ensure cleanup
+            if app.recorder:
+                app.recorder.cleanup_ffmpeg_copy()
 
 
 if __name__ == "__main__":

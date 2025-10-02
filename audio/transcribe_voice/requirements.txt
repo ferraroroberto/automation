@@ -1,0 +1,18 @@
+# Core dependencies for voice transcription
+numpy>=1.21.0
+scipy>=1.7.0
+sounddevice>=0.4.4
+pyperclip>=1.8.0
+pynput>=1.7.0
+openai-whisper>=20230314
+torch>=1.12.0
+imageio-ffmpeg>=0.4.5
+
+# Optional: for GUI interface
+# tkinter is included with Python, but for better compatibility:
+# tk>=8.6
+
+# Development dependencies (uncomment for development)
+# pytest>=7.0.0
+# black>=22.0.0
+# mypy>=0.950

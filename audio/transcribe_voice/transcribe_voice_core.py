@@ -3,23 +3,50 @@ Core module for audio recording and transcription functionality.
 This module can be used standalone from the command line or imported by the GUI module.
 """
 
-import sys
+# Standard library imports
+import json
+import logging
 import os
-import warnings
-import subprocess
-import shutil
-import whisper
-import sounddevice as sd
-import scipy.io.wavfile as wav
-import tempfile
-import pyperclip
-import numpy as np
-import time
-import threading
-from pynput import keyboard
-from dataclasses import dataclass
-from typing import Optional, Tuple, List, Callable
 import queue
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import warnings
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+# Third-party imports
+import numpy as np
+import pyperclip
+import scipy.io.wavfile as wav
+import sounddevice as sd
+from pynput import keyboard
+
+# Local imports
+# import whisper  # Deferred until needed in load_model()
+
+# Set up module-level logger
+logger = logging.getLogger(__name__)
+
+# Custom exceptions
+class TranscriptionError(Exception):
+    """Base exception for transcription-related errors."""
+    pass
+
+class DependencyError(TranscriptionError):
+    """Raised when required dependencies are not available."""
+    pass
+
+class AudioDeviceError(TranscriptionError):
+    """Raised when audio device issues occur."""
+    pass
+
+class ConfigurationError(TranscriptionError):
+    """Raised when configuration issues occur."""
+    pass
 
 # Suppress specific whisper warnings for cleaner output
 def suppress_whisper_warnings():
@@ -36,31 +63,136 @@ class TranscriptionConfig:
     record_seconds: int = 300
     language: str = "Spanish"
     translate: bool = True
-    preferred_mics: List[str] = None
-    model_size: str = "base"
+    preferred_mics: Optional[List[str]] = None
+    model_size: str = "small"
     clean_temp: bool = True
-    
-    def __post_init__(self):
+    ffmpeg_path: Optional[str] = None
+    log_level: str = "INFO"
+
+    def __post_init__(self) -> None:
+        """Initialize default values for optional fields."""
         if self.preferred_mics is None:
             self.preferred_mics = [
                 "el gato wave XLR (Elgato Wave XLR)",
                 "Wave Link Stream (Elgato Wave:XLR)"
             ]
 
+    @classmethod
+    def from_json(cls, config_path: Optional[str] = None) -> "TranscriptionConfig":
+        """Load configuration from JSON file.
+
+        Args:
+            config_path: Path to config file. If None, uses default location.
+
+        Returns:
+            TranscriptionConfig: Loaded configuration instance.
+        """
+        if config_path is None:
+            # Default config path relative to this module
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(module_dir, "config.json")
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+
+            # Validate required fields
+            cls._validate_config(config_data)
+
+            # Convert preferred_mics to list if it's not None
+            if 'preferred_mics' in config_data and config_data['preferred_mics'] is not None:
+                config_data['preferred_mics'] = list(config_data['preferred_mics'])
+
+            return cls(**config_data)
+
+        except FileNotFoundError:
+            logger.warning(f"📂 Config file not found at {config_path}, using defaults")
+            return cls()
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Invalid JSON in config file: {e}")
+            return cls()
+        except Exception as e:
+            logger.error(f"❌ Error loading config: {e}")
+            return cls()
+
+    @staticmethod
+    def _validate_config(config_data: Dict[str, Any]) -> None:
+        """Validate configuration data.
+
+        Args:
+            config_data: Configuration dictionary to validate.
+
+        Raises:
+            ValueError: If configuration is invalid.
+        """
+        # Validate record_seconds
+        if 'record_seconds' in config_data:
+            if not isinstance(config_data['record_seconds'], int) or config_data['record_seconds'] <= 0:
+                raise ValueError("record_seconds must be a positive integer")
+
+        # Validate language
+        if 'language' in config_data:
+            valid_languages = ["Spanish", "English"]
+            if config_data['language'] not in valid_languages:
+                raise ValueError(f"language must be one of: {valid_languages}")
+
+        # Validate model_size
+        if 'model_size' in config_data:
+            valid_models = ["tiny", "base", "small", "medium", "large"]
+            if config_data['model_size'] not in valid_models:
+                raise ValueError(f"model_size must be one of: {valid_models}")
+
+        # Validate log_level
+        if 'log_level' in config_data:
+            valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+            if config_data['log_level'] not in valid_levels:
+                raise ValueError(f"log_level must be one of: {valid_levels}")
+
+    def save_to_json(self, config_path: Optional[str] = None) -> None:
+        """Save current configuration to JSON file.
+
+        Args:
+            config_path: Path to save config file. If None, uses default location.
+        """
+        if config_path is None:
+            module_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(module_dir, "config.json")
+
+        config_data = {
+            "record_seconds": self.record_seconds,
+            "language": self.language,
+            "translate": self.translate,
+            "preferred_mics": self.preferred_mics,
+            "model_size": self.model_size,
+            "clean_temp": self.clean_temp,
+            "ffmpeg_path": self.ffmpeg_path,
+            "log_level": self.log_level
+        }
+
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
+            logger.info(f"🔧 Configuration saved to {config_path}")
+        except Exception as e:
+            logger.error(f"❌ Failed to save configuration: {e}")
+
 class AudioRecorder:
     """Handles audio recording functionality."""
-    
-    def __init__(self, config: TranscriptionConfig):
+
+    def __init__(self, config: TranscriptionConfig) -> None:
+        """Initialize the audio recorder with configuration."""
         self.config = config
-        self.audio_buffer = []
-        self.stop_recording = False
-        self.key_pressed = False
-        self.recording = None
-        self.start_time = None
-        self.gpu_available = None
-        self.ffmpeg_path = None
-        self.ffmpeg_copy_path = None
-        self.ffmpeg_already_cleaned = False
+        self.audio_buffer: List[float] = []
+        self.stop_recording: bool = False
+        self.key_pressed: bool = False
+        self.recording: Optional[np.ndarray] = None
+        self.start_time: Optional[float] = None
+        self.gpu_available: Optional[bool] = None
+        self.ffmpeg_path: Optional[str] = None
+        self.ffmpeg_copy_path: Optional[str] = None
+        self.ffmpeg_already_cleaned: bool = False
+        self.dependencies_checked: bool = False  # Cache dependency check results
+        self.audio_devices_cached: Optional[List[Tuple[int, dict]]] = None   # Cache audio devices
         
     def check_gpu_availability(self) -> bool:
         """Check if a CUDA GPU is available. Perform this check lazily."""
@@ -70,59 +202,70 @@ class AudioRecorder:
                 if torch.cuda.is_available():
                     gpu_count = torch.cuda.device_count()
                     gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "Unknown"
-                    print(f"✅ CUDA GPU detected: {gpu_name} (Count: {gpu_count})")
+                    logger.info(f"✅ CUDA GPU detected: {gpu_name} (Count: {gpu_count})")
                     self.gpu_available = True
                 else:
-                    print("⚠️  CUDA not available. Will use CPU (slower).")
+                    logger.warning("⚠️  CUDA not available. Will use CPU (slower).")
                     self.gpu_available = False
             except ImportError:
-                print("⚠️  PyTorch not found. Assuming CPU mode.")
+                logger.warning("⚠️  PyTorch not found. Assuming CPU mode.")
                 self.gpu_available = False
         return self.gpu_available
     
     def check_dependencies(self) -> bool:
-        """Check if all required dependencies are available."""
+        """Check if all required dependencies are available.
+
+        Returns:
+            bool: True if all dependencies are available, False otherwise.
+
+        Raises:
+            DependencyError: If critical dependencies are missing.
+        """
+        # Return cached result if already checked
+        if self.dependencies_checked:
+            return True
+
         # Check GPU availability
         self.check_gpu_availability()
-        
+
         # Check for FFmpeg
         ffmpeg_found = False
         ffmpeg_path = None
-        
+
         try:
-            result = subprocess.run(['ffmpeg', '-version'], 
+            result = subprocess.run(['ffmpeg', '-version'],
                                   capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 ffmpeg_found = True
                 ffmpeg_path = shutil.which('ffmpeg')
-                print(f"✅ FFmpeg found in system PATH: {ffmpeg_path}")
+                logger.info(f"✅ FFmpeg found in system PATH: {ffmpeg_path}")
         except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError):
             pass
-        
+
         if not ffmpeg_found:
-            print("❌ FFmpeg executable not found in system PATH.")
-            print("Trying alternative solutions...")
-            
+            logger.error("❌ FFmpeg executable not found in system PATH.")
+            logger.info("Trying alternative solutions...")
+
             # Try to use imageio-ffmpeg
             try:
                 import imageio_ffmpeg
                 ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
-                print(f"✅ FFmpeg binary found via imageio-ffmpeg: {ffmpeg_path}")
-                
+                logger.info(f"✅ FFmpeg binary found via imageio-ffmpeg: {ffmpeg_path}")
+
                 # Test if the binary works
                 try:
-                    result = subprocess.run([ffmpeg_path, '-version'], 
+                    result = subprocess.run([ffmpeg_path, '-version'],
                                           capture_output=True, text=True, timeout=5)
                     if result.returncode == 0:
                         ffmpeg_found = True
-                        
+
                         # Add the directory to PATH
                         ffmpeg_dir = os.path.dirname(ffmpeg_path)
                         current_path = os.environ.get('PATH', '')
                         if ffmpeg_dir not in current_path:
                             os.environ['PATH'] = ffmpeg_dir + os.pathsep + current_path
-                            print(f"✅ Added FFmpeg directory to PATH: {ffmpeg_dir}")
-                        
+                            logger.info(f"✅ Added FFmpeg directory to PATH: {ffmpeg_dir}")
+
                         # Set environment variables
                         os.environ['FFMPEG_BINARY'] = ffmpeg_path
                         os.environ['IMAGEIO_FFMPEG_EXE'] = ffmpeg_path
@@ -133,44 +276,70 @@ class AudioRecorder:
                         if os.name == 'nt' and not os.path.exists(ffmpeg_copy_path):
                             try:
                                 shutil.copy2(ffmpeg_path, ffmpeg_copy_path)
-                                print(f"✅ Copied FFmpeg to script directory: {ffmpeg_copy_path}")
+                                logger.info(f"✅ Copied FFmpeg to script directory: {ffmpeg_copy_path}")
                                 self.ffmpeg_copy_path = ffmpeg_copy_path
                             except Exception as e:
-                                print(f"⚠️  Could not copy FFmpeg to script directory: {e}")
+                                logger.warning(f"⚠️  Could not copy FFmpeg to script directory: {e}")
                         # --- END: Copy ffmpeg.exe to script directory if not present ---
 
                 except Exception as e:
-                    print(f"⚠️  Could not test FFmpeg binary: {e}")
-                    
+                    logger.warning(f"⚠️  Could not test FFmpeg binary: {e}")
+
             except ImportError:
-                print("📦 Installing imageio-ffmpeg...")
+                logger.info("📦 Installing imageio-ffmpeg...")
                 try:
                     subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'imageio-ffmpeg'])
-                    print("✅ imageio-ffmpeg installed successfully.")
+                    logger.info("✅ imageio-ffmpeg installed successfully.")
                     return self.check_dependencies()  # Retry after installation
                 except subprocess.CalledProcessError:
-                    print("❌ ERROR: Could not install imageio-ffmpeg")
-                    return False
-        
+                    error_msg = "❌ ERROR: Could not install imageio-ffmpeg"
+                    logger.error(error_msg)
+                    raise DependencyError(error_msg)
+
+        if not ffmpeg_found:
+            error_msg = "FFmpeg is required but not available"
+            logger.error(f"❌ {error_msg}")
+            raise DependencyError(error_msg)
+
         if ffmpeg_path:
             self.ffmpeg_path = ffmpeg_path
-            
+
+        # Cache the result
+        self.dependencies_checked = True
         return ffmpeg_found
     
     def get_audio_devices(self) -> List[Tuple[int, dict]]:
-        """Get list of available audio input devices."""
+        """Get list of available audio input devices.
+
+        Returns:
+            List[Tuple[int, dict]]: List of tuples containing device index and device info.
+        """
+        # Return cached result if available
+        if self.audio_devices_cached is not None:
+            return self.audio_devices_cached
+
         devices = sd.query_devices()
-        input_devices = []
-        
+        input_devices: List[Tuple[int, dict]] = []
+
         for i, device in enumerate(devices):
             if device['max_input_channels'] > 0:
                 input_devices.append((i, device))
-                
+
+        # Cache the result
+        self.audio_devices_cached = input_devices
         return input_devices
-    
-    def select_microphone(self, input_devices: List[Tuple[int, dict]], 
+
+    def select_microphone(self, input_devices: List[Tuple[int, dict]],
                          verbose: bool = True) -> Optional[int]:
-        """Select the best available microphone."""
+        """Select the best available microphone based on preferences.
+
+        Args:
+            input_devices: List of available input devices.
+            verbose: Whether to print selection information.
+
+        Returns:
+            Optional[int]: Device index of selected microphone, or None if none found.
+        """
         if not input_devices:
             return None
             
@@ -179,49 +348,61 @@ class AudioRecorder:
             for i, device in input_devices:
                 if preferred_mic.lower() in device['name'].lower():
                     if verbose:
-                        print(f"\nFound preferred microphone: {device['name']}")
+                        logger.info(f"🎙️ Found preferred microphone: {device['name']}")
                     return i
-        
+
         # Use first available device as fallback
         selected_device = input_devices[0][0]
         if verbose:
             device_info = sd.query_devices(selected_device)
-            print(f"\nNo preferred microphone found. Using: {device_info['name']}")
-        
+            logger.info(f"🎙️ No preferred microphone found. Using: {device_info['name']}")
+
         return selected_device
     
-    def monitor_audio_levels(self, device: int, fs: int, 
-                           progress_callback: Optional[Callable] = None):
-        """Monitor audio levels during recording."""
-        def callback(indata, frames, time, status):
+    def monitor_audio_levels(self, device: int, fs: int,
+                           progress_callback: Optional[Callable[[int, float], None]] = None) -> None:
+        """Monitor audio levels during recording.
+
+        Args:
+            device: Audio device index to monitor.
+            fs: Sample rate.
+            progress_callback: Optional callback function for progress updates.
+        """
+        def callback(indata: np.ndarray, frames: int, time_info, status) -> None:
+            """Audio stream callback function."""
             if status:
-                print(f"Status: {status}")
+                logger.debug(f"🎤 Audio stream status: {status}")
             self.audio_buffer.append(np.max(np.abs(indata)))
-            
+
             if len(self.audio_buffer) > 50:
                 self.audio_buffer.pop(0)
-        
+
         with sd.InputStream(device=device, channels=1, samplerate=fs, callback=callback):
             while not self.stop_recording and not self.key_pressed:
                 if self.audio_buffer and self.start_time:
                     level = self.audio_buffer[-1]
                     remaining = int(self.config.record_seconds - (time.time() - self.start_time))
                     remaining = max(0, remaining)
-                    
+
                     if progress_callback:
                         progress_callback(remaining, level)
                     else:
                         # Terminal visualization
                         self._show_terminal_progress(remaining, level)
-                
+
                 time.sleep(0.1)
     
-    def _show_terminal_progress(self, remaining: int, level: float):
-        """Show progress in terminal mode."""
+    def _show_terminal_progress(self, remaining: int, level: float) -> None:
+        """Show progress in terminal mode.
+
+        Args:
+            remaining: Seconds remaining in recording.
+            level: Current audio level (0.0 to 1.0).
+        """
         meter_width = 50
         bars = int(level * meter_width)
         meter = "▓" * bars + "░" * (meter_width - bars)
-        
+
         status = ""
         if level < 0.01:
             status = "⚠️  VERY LOW AUDIO"
@@ -231,18 +412,18 @@ class AudioRecorder:
             status = "⚠️  TOO LOUD"
         else:
             status = "✅ Good level"
-        
+
         remaining_str = f"{remaining}s" if remaining > 0 else "Done"
         output = f"Time left: {remaining_str} | Level: [{meter}] {level:.2f} {status}"
-        
+
         sys.stdout.write("\033[F")  # Move up one line
         sys.stdout.write("\033[K")  # Clear the line
         sys.stdout.write(output)
         sys.stdout.write("\n")
         sys.stdout.flush()
-    
-    def record_audio(self, device: int, 
-                    progress_callback: Optional[Callable] = None) -> Optional[np.ndarray]:
+
+    def record_audio(self, device: int,
+                    progress_callback: Optional[Callable[[int, float], None]] = None) -> Optional[np.ndarray]:
         """Record audio from the specified device."""
         self.audio_buffer = []
         self.stop_recording = False
@@ -287,70 +468,88 @@ class AudioRecorder:
         if len(self.recording) > 0:
             max_level = np.max(np.abs(self.recording))
             if max_level < 0.01:
-                print(f"\n⚠️ WARNING: Very low audio levels detected (max: {max_level:.4f})")
+                logger.warning(f"⚠️  Very low audio levels detected (max: {max_level:.4f})")
             else:
-                print(f"\nPeak audio level: {max_level:.4f}")
-            
+                logger.info(f"🎤 Peak audio level: {max_level:.4f}")
+
             # Convert to int16
             return (self.recording * 32767).astype(np.int16)
         
         return None
     
-    def cleanup_ffmpeg_copy(self):
+    def cleanup_ffmpeg_copy(self) -> None:
         """Clean up the temporary FFmpeg copy if it exists."""
         if self.ffmpeg_already_cleaned:
             return
-        
+
         script_dir = os.path.dirname(os.path.abspath(__file__))
         ffmpeg_exe_path = os.path.join(script_dir, 'ffmpeg.exe')
-        
+
         target_path = self.ffmpeg_copy_path if self.ffmpeg_copy_path else ffmpeg_exe_path
-        
+
         if os.path.exists(target_path):
             try:
                 os.remove(target_path)
-                print(f"✅ Cleaned up FFmpeg copy: {target_path}")
+                logger.info(f"✅ Cleaned up FFmpeg copy: {target_path}")
                 self.ffmpeg_already_cleaned = True
             except Exception as e:
-                print(f"⚠️  Could not remove FFmpeg copy: {e}")
+                logger.warning(f"⚠️  Could not remove FFmpeg copy: {e}")
         else:
             self.ffmpeg_already_cleaned = True
 
 class Transcriber:
     """Handles transcription functionality using Whisper."""
-    
-    def __init__(self, config: TranscriptionConfig):
+
+    def __init__(self, config: TranscriptionConfig) -> None:
+        """Initialize the transcriber with configuration.
+
+        Args:
+            config: Transcription configuration settings.
+        """
         self.config = config
         self.model = None
-        self.device = None
+        self.device: Optional[str] = None
         
-    def load_model(self, recorder: AudioRecorder):
-        """Load the Whisper model."""
+    def load_model(self, recorder: AudioRecorder, progress_callback: Optional[Callable[[str], None]] = None) -> None:
+        """Load the Whisper model.
+
+        Args:
+            recorder: AudioRecorder instance for dependency checking.
+            progress_callback: Optional callback for progress updates.
+        """
         # Configure FFmpeg paths
         try:
             import imageio_ffmpeg
             ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
             os.environ['IMAGEIO_FFMPEG_EXE'] = ffmpeg_path
             os.environ['FFMPEG_BINARY'] = ffmpeg_path
-        except:
+        except ImportError:
             pass
-        
+
         # Determine device
         self.device = "cuda" if recorder.check_gpu_availability() else "cpu"
         if self.device == "cuda":
-            print("🚀 Using GPU acceleration (CUDA)")
+            logger.info("🚀 Using GPU acceleration (CUDA)")
         else:
-            print("⚠️  Using CPU (will use FP32 precision)")
-        
+            logger.warning("⚠️  Using CPU (will use FP32 precision)")
+
         # Load model
+        if progress_callback:
+            progress_callback("Initializing model download...")
+        logger.info(f"🤖 Downloading/loading Whisper model '{self.config.model_size}'...")
+
+        # Import whisper here (deferred import for faster startup)
+        import whisper
         self.model = whisper.load_model(self.config.model_size, device=self.device)
-        
+        if progress_callback:
+            progress_callback("Model loaded successfully!")
+
     def transcribe_audio(self, audio_path: str) -> str:
         """Transcribe audio file and return text."""
         if not self.model:
             raise ValueError("Model not loaded. Call load_model() first.")
-        
-        print("Transcribing...")
+
+        logger.info("🎤 Transcribing audio...")
 
         # --- Ensure ffmpeg.exe in script dir is in PATH (for Windows) ---
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -359,7 +558,7 @@ class Transcriber:
             current_path = os.environ.get('PATH', '')
             if script_dir not in current_path.split(os.pathsep):
                 os.environ['PATH'] = script_dir + os.pathsep + current_path
-                print(f"🔧 Added script directory to PATH for FFmpeg: {script_dir}")
+                logger.info(f"🔧 Added script directory to PATH for FFmpeg: {script_dir}")
         # ---------------------------------------------------------------
 
         # Set transcription options
@@ -367,14 +566,14 @@ class Transcriber:
             "language": self.config.language,
             "task": "translate" if self.config.translate else "transcribe"
         }
-        
+
         # Use fp16 only if GPU is available
         if self.device == "cuda":
             transcribe_options["fp16"] = True
-            print("Using FP16 precision for faster GPU processing")
+            logger.info("🚀 Using FP16 precision for faster GPU processing")
         else:
             transcribe_options["fp16"] = False
-            print("Using FP32 precision (CPU mode)")
+            logger.info("⚙️ Using FP32 precision (CPU mode)")
         
         # Transcribe with warnings suppressed
         with warnings.catch_warnings():
@@ -384,37 +583,40 @@ class Transcriber:
         return result["text"]
 
 def prompt_for_language() -> Tuple[str, bool]:
-    """Prompt the user to select a language in console mode."""
+    """Prompt the user to select a language in console mode.
+
+    Returns:
+        Tuple[str, bool]: Language name and whether to translate.
+    """
     print("\n=== LANGUAGE SELECTION ===")
     print("Select language (default: Spanish):")
     print("1. Spanish (Transcribe & Translate)")
     print("2. English (Transcribe only)")
-    
+
     choice = input("Enter choice (1/2 or es/en) [1]: ")
 
     if not choice:
         choice = "1"
-    
+
     if choice in ["1", "es", "spanish", "español", "s"]:
         language = "Spanish"
         translate = True
-        print("✅ Selected: Spanish (with translation)")
+        logger.info("✅ Selected: Spanish (with translation)")
     elif choice in ["2", "en", "english", "e"]:
         language = "English"
         translate = False
-        print("✅ Selected: English (transcription only)")
+        logger.info("✅ Selected: English (transcription only)")
     else:
-        print("⚠️ Invalid choice. Using default: Spanish (with translation)")
+        logger.warning("⚠️ Invalid choice. Using default: Spanish (with translation)")
         language = "Spanish"
         translate = True
-    
-    print()
+
+    print()  # Keep this for user input formatting
     return language, translate
 
-def run_console_transcription(config: Optional[TranscriptionConfig] = None):
-    """Run transcription in console mode."""
+def run_console_transcription(config: Optional[TranscriptionConfig] = None) -> int:
     if config is None:
-        config = TranscriptionConfig()
+        config = TranscriptionConfig.from_json()
     
     # Prompt for language
     config.language, config.translate = prompt_for_language()
@@ -423,23 +625,26 @@ def run_console_transcription(config: Optional[TranscriptionConfig] = None):
     recorder = AudioRecorder(config)
     
     # Check dependencies
-    if not recorder.check_dependencies():
-        print("\n❌ ERROR: Required dependencies not available.")
+    try:
+        recorder.check_dependencies()
+    except DependencyError as e:
+        logger.error(f"❌ ERROR: {e}")
         return 1
-    
+
     # Get and display audio devices
     print("\n=== AVAILABLE MICROPHONES ===\n")
     input_devices = recorder.get_audio_devices()
-    
+
     for i, device in input_devices:
         print(f"{i}: {device['name']}")
-    
+
     # Select microphone
     selected_device = recorder.select_microphone(input_devices)
     if selected_device is None:
-        print("No input devices found! Cannot continue.")
-        return 1
-    
+        error_msg = "No suitable microphone found! Cannot continue."
+        logger.error(f"❌ {error_msg}")
+        raise AudioDeviceError(error_msg)
+
     print(f"\nStarting recording (max {config.record_seconds} seconds)...")
     print("\n=== AUDIO LEVEL METER ===\n")
     print("Press any key to stop recording early.")
@@ -460,58 +665,68 @@ def run_console_transcription(config: Optional[TranscriptionConfig] = None):
     listener.stop()
     
     if recording is None or len(recording) == 0:
-        print("Recording too short, nothing to transcribe.")
+        logger.warning("🎤 Recording too short, nothing to transcribe.")
         recorder.cleanup_ffmpeg_copy()
         return 0
-    
+
     # Save to temporary file
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
         wav.write(tmpfile.name, 16000, recording)
         audio_path = tmpfile.name
-        print(f"Audio saved temporarily to: {tmpfile.name}")
-    
+        logger.debug(f"📁 Audio saved temporarily to: {tmpfile.name}")
+
     # Initialize transcriber and load model
     transcriber = Transcriber(config)
-    print("Loading model...")
+    logger.info("🤖 Loading Whisper model...")
     transcriber.load_model(recorder)
-    
+
     try:
         # Transcribe
         text = transcriber.transcribe_audio(audio_path)
-        
+
         # Output results
         print("\n=== FINAL OUTPUT ===\n")
         print(text)
         pyperclip.copy(text)
         print("\n✅ Text copied to clipboard.")
-        
+
     except Exception as e:
-        print(f"❌ ERROR during transcription: {e}")
+        logger.error(f"❌ ERROR during transcription: {e}")
         return 1
     finally:
         # Clean up
         if config.clean_temp and os.path.exists(audio_path):
             try:
                 os.remove(audio_path)
-                print(f"Temporary audio file deleted: {audio_path}")
+                logger.debug(f"🗑️ Temporary audio file deleted: {audio_path}")
             except Exception as e:
-                print(f"Note: Could not delete temporary file: {str(e)}")
-        
+                logger.warning(f"⚠️ Could not delete temporary file: {str(e)}")
+
         recorder.cleanup_ffmpeg_copy()
     
     return 0
 
 def transcribe_file(file_path: str, config: Optional[TranscriptionConfig] = None) -> Optional[str]:
-    """Transcribe a single audio file and return the text."""
+    """Transcribe a single audio file and return the text.
+
+    Args:
+        file_path: Path to the audio file to transcribe.
+        config: Optional transcription configuration.
+
+    Returns:
+        Optional[str]: Transcribed text, or None if transcription failed.
+    """
     if config is None:
-        config = TranscriptionConfig()
+        config = TranscriptionConfig.from_json()
     
     # Initialize recorder (for dependency checking)
     recorder = AudioRecorder(config)
     
     # Check dependencies
-    if not recorder.check_dependencies():
-        raise RuntimeError("Required dependencies not available.")
+    try:
+        recorder.check_dependencies()
+    except DependencyError as e:
+        raise TranscriptionError(f"Dependency check failed: {e}") from e
     
     # Initialize transcriber and load model
     transcriber = Transcriber(config)
@@ -532,32 +747,44 @@ if __name__ == "__main__":
     parser.add_argument("--file", type=str, help="Transcribe a specific audio file")
     parser.add_argument("--language", type=str, choices=["Spanish", "English"], 
                        default="Spanish", help="Language for transcription")
-    parser.add_argument("--model", type=str, default="large",
+    parser.add_argument("--model", type=str, default="small",
                        choices=["tiny", "base", "small", "medium", "large"],
                        help="Whisper model size")
     args = parser.parse_args()
     
     if args.file:
         # File mode
-        config = TranscriptionConfig(
-            language=args.language,
-            translate=(args.language == "Spanish"),
-            model_size=args.model
-        )
+        config = TranscriptionConfig.from_json()
+        # Override with command line arguments
+        if args.language:
+            config.language = args.language
+            config.translate = (args.language == "Spanish")
+        if args.model:
+            config.model_size = args.model
         try:
             text = transcribe_file(args.file, config)
             print("\n=== TRANSCRIPTION ===\n")
             print(text)
             pyperclip.copy(text)
             print("\n✅ Text copied to clipboard.")
+        except TranscriptionError as e:
+            logger.error(f"❌ Transcription failed: {e}")
+            sys.exit(1)
         except Exception as e:
-            print(f"❌ ERROR: {e}")
+            logger.error(f"❌ Unexpected error: {e}")
             sys.exit(1)
     else:
         # Interactive recording mode
         try:
-            exit_code = run_console_transcription()
+            config = TranscriptionConfig.from_json()
+            exit_code = run_console_transcription(config)
             sys.exit(exit_code)
+        except TranscriptionError as e:
+            logger.error(f"❌ Transcription failed: {e}")
+            sys.exit(1)
         except KeyboardInterrupt:
-            print("\n⚠️  Interrupted by user")
+            logger.warning("⚠️  Interrupted by user")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"❌ Unexpected error: {e}")
             sys.exit(1)
