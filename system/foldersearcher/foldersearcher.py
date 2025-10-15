@@ -52,7 +52,7 @@ class FolderSearcher:
         """Initialize the FolderSearcher application."""
         self.root = tk.Tk()
         self.root.title("Folder Searcher")
-        self.root.geometry("600x500")
+        self.root.geometry("1200x500")
         self.root.resizable(True, True)
         
         # Application state
@@ -269,7 +269,7 @@ class FolderSearcher:
         scope_frame = ttk.Frame(search_input_frame)
         scope_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
         
-        self.search_in_explorer_var = tk.BooleanVar(value=True)  # Default to checked
+        self.search_in_explorer_var = tk.BooleanVar(value=False)  # Default to unchecked
         self.scope_checkbox = ttk.Checkbutton(
             scope_frame, 
             text="Search in current Explorer window path", 
