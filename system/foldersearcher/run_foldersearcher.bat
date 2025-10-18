@@ -2,7 +2,7 @@
 REM Activates the virtual environment and runs foldersearcher.py
 
 REM Path to your virtual environment
-set VENV_DIR=E:\automation\notion-automation\.venv
+set VENV_DIR=E:\automation\automation\.venv\
 
 REM Activate the venv
 call %VENV_DIR%\Scripts\activate.bat
