@@ -882,22 +882,27 @@ class NotionArticlesSync:
         
         # Fetch only changed items
         logger.info("📥 Fetching changed items from source...")
-        source_items = self.fetch_all_items(self.source_db, filter_after=last_sync_time)
+        source_items = self.fetch_all_items(self.source_db, filter_after=last_sync_time, show_progress=True)
         logger.info(f"📊 Found {len(source_items)} changed items")
         
         new_items: List[Dict[str, Any]] = []
         updated_items: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
         
         # For incremental sync, we need to check each item
+        processed_count = 0
+        total_items = len(source_items)
+
         for item in source_items:
+            processed_count += 1
+
             if self.should_exclude(item):
                 continue
-            
+
             # Check if exists in target
             source_rowid = self.normalize_rowid(
                 self.extract_value(item.get("properties", {}).get("rowid", {}))
             )
-            
+
             if source_rowid:
                 # Quick check in target
                 data = {
@@ -914,7 +919,13 @@ class NotionArticlesSync:
                 else:
                     # Doesn't exist - it's new
                     new_items.append(item)
+
+            # Progress reporting - log every 100 items processed
+            if processed_count % 100 == 0:
+                progress_percent = (processed_count / total_items) * 100
+                logger.info(f"🔍 Progress: {processed_count}/{total_items} items processed ({progress_percent:.1f}%)")
         
+        logger.info(f"🔍 Progress: {processed_count}/{total_items} items processed (100.0%)")
         logger.info(f"📊 Changes detected: {len(new_items)} new, {len(updated_items)} updated")
         
         return new_items, updated_items, []
