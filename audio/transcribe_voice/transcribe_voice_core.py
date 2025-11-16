@@ -31,6 +31,35 @@ from pynput import keyboard
 # Set up module-level logger
 logger = logging.getLogger(__name__)
 
+# Known CUDA architectures that official PyTorch GPU wheels currently support
+TORCH_KNOWN_COMPATIBLE_ARCHES = {
+    "sm_50",
+    "sm_60",
+    "sm_61",
+    "sm_70",
+    "sm_75",
+    "sm_80",
+    "sm_86",
+    "sm_90",
+}
+
+TORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu121"
+
+
+def build_torch_install_command() -> List[str]:
+    """Return the recommended pip command for installing CUDA-enabled PyTorch."""
+    return [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "torch",
+        "torchvision",
+        "torchaudio",
+        "--index-url",
+        TORCH_CUDA_INDEX_URL,
+    ]
+
 # Custom exceptions
 class TranscriptionError(Exception):
     """Base exception for transcription-related errors."""
@@ -193,23 +222,159 @@ class AudioRecorder:
         self.ffmpeg_already_cleaned: bool = False
         self.dependencies_checked: bool = False  # Cache dependency check results
         self.audio_devices_cached: Optional[List[Tuple[int, dict]]] = None   # Cache audio devices
+        self.install_prompt_shown: bool = False
+
+    @staticmethod
+    def _format_command_for_logging(command: List[str]) -> str:
+        """Return a shell-friendly representation of a command list."""
+        formatted_parts = []
+        for part in command:
+            if " " in part or "\t" in part:
+                formatted_parts.append(f'"{part}"')
+            else:
+                formatted_parts.append(part)
+        return " ".join(formatted_parts)
+
+    @staticmethod
+    def _query_nvidia_smi_capability() -> Optional[str]:
+        """Attempt to read the GPU compute capability via nvidia-smi."""
+        nvidia_smi = shutil.which("nvidia-smi")
+        if not nvidia_smi:
+            return None
+
+        try:
+            result = subprocess.run(
+                [nvidia_smi, "--query-gpu=compute_cap", "--format=csv,noheader"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return None
+            raw_value = result.stdout.strip().splitlines()[0].strip()
+            major, minor = raw_value.split(".")
+            return f"sm_{int(major)}{int(minor)}"
+        except Exception as exc:
+            logger.debug(f"⚠️  Could not determine compute capability via nvidia-smi: {exc}")
+            return None
+
+    def _has_known_compatible_build(self, capability: Optional[str]) -> bool:
+        """Return True when we know a published wheel supports the GPU capability."""
+        if not capability:
+            return False
+        return capability in TORCH_KNOWN_COMPATIBLE_ARCHES
+
+    def _maybe_prompt_torch_install(self, reason: str) -> None:
+        """Optionally prompt the user to install a GPU-enabled PyTorch build."""
+        if self.install_prompt_shown:
+            return
+
+        self.install_prompt_shown = True
+        install_command = build_torch_install_command()
+        command_display = self._format_command_for_logging(install_command)
+        logger.warning(reason)
+        logger.info("💡 A compatible CUDA build exists. Run this to install it:")
+        logger.info(command_display)
+
+        if not sys.stdin or not sys.stdin.isatty():
+            logger.info("Skipping interactive prompt (non-interactive session).")
+            return
+
+        choice = input("Install GPU-enabled PyTorch now? [y/N]: ").strip().lower()
+        if choice not in {"y", "yes"}:
+            logger.info("Keeping current installation. Continuing with CPU execution.")
+            return
+
+        try:
+            subprocess.check_call(install_command)
+            logger.info("✅ PyTorch installation finished. Restart the app to enable GPU acceleration.")
+        except subprocess.CalledProcessError as exc:
+            logger.error(f"❌ PyTorch installation failed: {exc}")
+            logger.info("Continuing with CPU mode for this session.")
+
+    def _handle_gpu_incompatibility(
+        self,
+        capability: Optional[str],
+        compatible_build_available: bool,
+        reason: str,
+    ) -> None:
+        """Log guidance when CUDA execution is not possible."""
+        if compatible_build_available:
+            self._maybe_prompt_torch_install(reason)
+        else:
+            if capability:
+                logger.warning(
+                    f"⚠️  GPU capability {capability} is newer than available PyTorch wheels. "
+                    "Falling back to CPU."
+                )
+            else:
+                logger.warning("⚠️  Could not determine a compatible GPU build. Falling back to CPU.")
         
     def check_gpu_availability(self) -> bool:
         """Check if a CUDA GPU is available. Perform this check lazily."""
-        if self.gpu_available is None:
+        if self.gpu_available is not None:
+            return self.gpu_available
+
+        try:
+            import torch
+        except ImportError:
+            logger.warning("⚠️  PyTorch not found. Assuming CPU mode.")
+            self.gpu_available = False
+            return self.gpu_available
+
+        capability_str: Optional[str] = None
+        compatibility_reason: Optional[str] = None
+        build_arches: List[str] = []
+        cpu_only_build = False
+
+        if hasattr(torch.cuda, "get_arch_list"):
             try:
-                import torch
-                if torch.cuda.is_available():
-                    gpu_count = torch.cuda.device_count()
-                    gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "Unknown"
-                    logger.info(f"✅ CUDA GPU detected: {gpu_name} (Count: {gpu_count})")
-                    self.gpu_available = True
-                else:
-                    logger.warning("⚠️  CUDA not available. Will use CPU (slower).")
-                    self.gpu_available = False
-            except ImportError:
-                logger.warning("⚠️  PyTorch not found. Assuming CPU mode.")
-                self.gpu_available = False
+                build_arches = [arch.strip() for arch in torch.cuda.get_arch_list()]
+            except Exception as exc:
+                logger.debug(f"⚠️  Could not read compiled CUDA architectures: {exc}")
+
+        if torch.cuda.is_available():
+            try:
+                gpu_count = torch.cuda.device_count()
+                gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "Unknown"
+                major, minor = torch.cuda.get_device_capability(0)
+                capability_str = f"sm_{major}{minor}"
+                logger.info(
+                    f"✅ CUDA GPU detected: {gpu_name} (Count: {gpu_count}, Capability: {capability_str})"
+                )
+            except Exception as exc:
+                compatibility_reason = f"Unable to inspect GPU details: {exc}"
+
+            if capability_str and (not build_arches or capability_str in build_arches):
+                self.gpu_available = True
+                return True
+
+            if capability_str and build_arches and capability_str not in build_arches:
+                supported_arches = ", ".join(build_arches) if build_arches else "unknown"
+                compatibility_reason = (
+                    f"GPU capability {capability_str} is not included in the current PyTorch build "
+                    f"(supports: {supported_arches})."
+                )
+        else:
+            torch_cuda_version = getattr(torch.version, "cuda", None)
+            if torch_cuda_version is None:
+                cpu_only_build = True
+                compatibility_reason = "Current PyTorch build is CPU-only."
+            else:
+                compatibility_reason = (
+                    "PyTorch CUDA runtime is unavailable despite a CUDA build being installed."
+                )
+
+        if capability_str is None:
+            capability_str = self._query_nvidia_smi_capability()
+
+        compatible_build_available = self._has_known_compatible_build(capability_str)
+        if not compatible_build_available and cpu_only_build:
+            # We could not determine the GPU capability, but a compatible build likely exists.
+            compatible_build_available = True
+        reason = compatibility_reason or "Unknown GPU compatibility issue."
+        self._handle_gpu_incompatibility(capability_str, compatible_build_available, reason)
+        self.gpu_available = False
         return self.gpu_available
     
     def check_dependencies(self) -> bool:
