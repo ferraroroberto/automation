@@ -30,12 +30,28 @@ def update_last_download_in_excel(database, excel_path, n_rows, output_path):
     # Save the updated DataFrame to the Excel file, overwriting it
     df.to_excel(excel_path, index=False, engine='openpyxl')
 
+def query_database_rows(notion_client, data_source_id, start_cursor=None):
+    """
+    Wrapper to query a database via its data source (required in notion-client 2.7.0+).
+    """
+    response = notion_client.data_sources.query(
+        data_source_id,
+        start_cursor=start_cursor,
+    )
+    return response
+
+
 def download_database_data(database, output_folder, api_token, excel_path):
     # Authenticate
     notion = Client(auth=api_token)
 
     # Get the database properties
-    properties = notion.databases.retrieve(database["id"]).get("properties")
+    database_details = notion.databases.retrieve(database["id"])
+    properties = database_details.get("properties")
+    data_sources = database_details.get("data_sources") or []
+    if not data_sources:
+        raise ValueError(f"No data sources associated with database {database['name']}")
+    data_source_id = data_sources[0]["id"]
 
     # Initialize variables for pagination
     has_more = True
@@ -51,7 +67,11 @@ def download_database_data(database, output_folder, api_token, excel_path):
     # Loop through the paginated results to get all rows
     while has_more:
         # Query the database data with a start cursor if provided
-        response = notion.databases.query(database["id"], start_cursor=start_cursor)
+        response = query_database_rows(
+            notion_client=notion,
+            data_source_id=data_source_id,
+            start_cursor=start_cursor,
+        )
         results = response.get("results")
         start_cursor = response.get("next_cursor")
 
@@ -60,7 +80,11 @@ def download_database_data(database, output_folder, api_token, excel_path):
             record = {}
             id_list.append(row['id'])  # Add the internal ID of the row to the id_list
             for key, value in row["properties"].items():
-                record[key] = value.get(properties[key]["type"])
+                prop_type = value.get("type")
+                if prop_type:
+                    record[key] = value.get(prop_type)
+                else:
+                    record[key] = None
             data.append(record)
             rows_processed += 1
 
