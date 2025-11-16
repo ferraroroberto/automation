@@ -347,6 +347,19 @@ Path += %CUDA_PATH%\libnvvp
 
 ### CUDA Troubleshooting
 
+#### Automatic compatibility checks
+
+The launcher now inspects your GPU’s compute capability and the CUDA kernels bundled inside the current PyTorch wheel before loading Whisper. The behavior is:
+
+1. **Compatible wheel available but not installed** (e.g., CPU-only PyTorch on a supported GPU).  
+   - The console session shows a prompt offering to install the CUDA wheel via  
+     `python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121`.  
+   - Choose “yes” to run the command immediately; otherwise the session continues on CPU.
+2. **GPU newer than published wheels** (e.g., RTX 50-series with `sm_120`).  
+   - The tool logs that no compatible PyTorch build exists yet and automatically switches Whisper to CPU mode so you can keep working.
+
+You can always re-run the recommended pip command manually once PyTorch ships support for your GPU. After upgrading, restart the launcher so the new CUDA kernels are picked up.
+
 #### Common Issues
 
 1. **"CUDA not available" after installation**
