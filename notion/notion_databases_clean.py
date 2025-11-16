@@ -2,6 +2,7 @@
 # https://chatgpt.com/c/9d919945-16dc-4a8a-8f79-8cc2b055ad2f
 
 import os
+import sys
 import pandas as pd
 import re
 import warnings
@@ -12,6 +13,12 @@ from utils import read_params_from_txt_file, get_column_widths, apply_column_wid
 
 # Suppress openpyxl warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl.worksheet._reader")
+
+# Ensure stdout can emit unicode regardless of console code page
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except AttributeError:
+    pass
 
 def read_database_list(excel_path):
     df = pd.read_excel(excel_path)
@@ -164,7 +171,10 @@ def process_databases(databases_to_process, metadata):
             print(f"Applying column widths: {database['name']}")
             column_widths = get_column_widths(output_path)
             df.to_excel(output_path, index=False, engine='openpyxl')
-            apply_column_widths(output_path, column_widths)
+            if column_widths:
+                apply_column_widths(output_path, column_widths)
+            else:
+                print(f"No reusable column widths found for {database['name']}.")
         else:
             df.to_excel(output_path, index=False, engine='openpyxl')
 
