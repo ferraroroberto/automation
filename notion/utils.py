@@ -1,6 +1,7 @@
 # requirements: public
 import ast
 import openpyxl
+from openpyxl.utils.exceptions import InvalidFileException
 import win32com.client
 import win32gui
 from urllib.parse import unquote, urlsplit
@@ -9,6 +10,7 @@ import pandas as pd
 import pickle
 from pathlib import Path
 from datetime import datetime
+from zipfile import BadZipFile
 
 
 # Custom function to replace special characters
@@ -136,7 +138,12 @@ def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, use
 
 # Get the column widths from the existing Excel file, initializing column_widths as an empty list first
 def get_column_widths(excel_path):
-    if os.path.exists(excel_path):
+    column_widths = []
+    if not os.path.exists(excel_path):
+        print(f"No existing workbook at {excel_path}; skipping column width reuse.")
+        return column_widths
+
+    try:
         wb_existing = openpyxl.load_workbook(excel_path)
         ws_existing = wb_existing.active
 
@@ -144,7 +151,13 @@ def get_column_widths(excel_path):
         last_col = ws_existing.max_column
 
         # Get column widths for columns with content
-        column_widths = [ws_existing.column_dimensions[openpyxl.utils.get_column_letter(i+1)].width for i in range(last_col)]
+        column_widths = [
+            ws_existing.column_dimensions[openpyxl.utils.get_column_letter(i + 1)].width
+            for i in range(last_col)
+        ]
+    except (InvalidFileException, KeyError, BadZipFile) as exc:
+        print(f"Unable to read column widths from {excel_path}: {exc}")
+
     return column_widths
 
 # Apply column widths to an excel file (requires the column_widths)
