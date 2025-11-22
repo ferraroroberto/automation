@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """
-instagram_formatter.py - Core module for Instagram image formatting
+illustrations_formatter.py - Core module for image formatting
 
-This module provides functionality to convert square images to Instagram's
-vertical format by adding padding above and below the image.
-
-source: https://claude.ai/chat/cd76c081-6d4c-4c16-b368-7930f9885371
+This module provides functionality to format images for Instagram or
+to fixed dimensions (1920x1080) by adding padding.
 
 """
 
@@ -33,8 +31,8 @@ class ProcessingResult:
     errors: List[Tuple[str, str]]
 
 
-class InstagramFormatter:
-    """Main class for formatting images for Instagram"""
+class IllustrationsFormatter:
+    """Main class for formatting images"""
     
     SUPPORTED_FORMATS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp'}
     DEFAULT_ASPECT_RATIOS = {
@@ -44,7 +42,7 @@ class InstagramFormatter:
         '1:1': 1.0,      # Square (no change needed)
         '16:9': 1.7778,  # Landscape
     }
-    CONFIG_FILE = 'instagram_formatter_config.json'
+    CONFIG_FILE = 'illustrations_formatter_config.json'
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         """Initialize the formatter with optional logger"""
@@ -53,7 +51,7 @@ class InstagramFormatter:
         
     def _setup_default_logger(self) -> logging.Logger:
         """Setup default logger configuration"""
-        logger = logging.getLogger('InstagramFormatter')
+        logger = logging.getLogger('IllustrationsFormatter')
         logger.setLevel(logging.INFO)
         
         # Console handler
@@ -78,8 +76,10 @@ class InstagramFormatter:
         default_config = {
             'source_folder': '',
             'destination_folder': '',
+            'destination_folder_1920x1080': r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_1920x1080',
             'aspect_ratio': '3:4',
-            'background_color': ''
+            'background_color': '',
+            'format_type': 'instagram'
         }
         
         try:
@@ -166,7 +166,7 @@ class InstagramFormatter:
     def process_image(self, input_path: Path, output_path: Path, 
                      aspect_ratio: float, background_color: Optional[Tuple[int, int, int]] = None) -> None:
         """
-        Process a single image to add padding for Instagram format
+        Process a single image to add padding for aspect ratio format
         
         Args:
             input_path: Path to input image
@@ -227,6 +227,74 @@ class InstagramFormatter:
             new_img.save(output_path, 'PNG')
             
             self.logger.info(f"Saved: {output_path.name} ({original_width}x{original_height} -> {new_width}x{new_height})")
+    
+    def process_image_fixed_size(self, input_path: Path, output_path: Path,
+                                 target_width: int, target_height: int,
+                                 background_color: Optional[Tuple[int, int, int]] = None) -> None:
+        """
+        Process a single image to fixed dimensions (1920x1080)
+        
+        Args:
+            input_path: Path to input image
+            output_path: Path to save processed image
+            target_width: Target width in pixels
+            target_height: Target height in pixels
+            background_color: Optional RGB tuple for background color
+            
+        Raises:
+            Exception: If image processing fails
+        """
+        self.logger.info(f"Processing: {input_path.name}")
+        
+        # Open image
+        with Image.open(input_path) as img:
+            # Convert to RGB if necessary
+            if img.mode not in ('RGB', 'RGBA'):
+                img = img.convert('RGB')
+            
+            original_width, original_height = img.size
+            
+            # Check if image is already in target size
+            if original_width == target_width and original_height == target_height:
+                # Just save a copy
+                img.save(output_path, 'PNG')
+                self.logger.info(f"Image already in target size: {input_path.name}")
+                return
+            
+            # Determine background color if not provided
+            if background_color is None:
+                background_color = self.get_background_color(img)
+            
+            # Calculate scaling to fit within target dimensions while maintaining aspect ratio
+            scale_w = target_width / original_width
+            scale_h = target_height / original_height
+            scale = min(scale_w, scale_h)  # Use smaller scale to fit within bounds
+            
+            # Calculate new dimensions
+            new_width = int(original_width * scale)
+            new_height = int(original_height * scale)
+            
+            # Resize image
+            resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Create new image with target dimensions
+            new_img = Image.new('RGB', (target_width, target_height), background_color)
+            
+            # Calculate position to paste resized image (centered)
+            x_offset = (target_width - new_width) // 2
+            y_offset = (target_height - new_height) // 2
+            
+            # Paste resized image onto new image
+            if resized_img.mode == 'RGBA':
+                new_img.paste(resized_img, (x_offset, y_offset), resized_img)
+            else:
+                new_img.paste(resized_img, (x_offset, y_offset))
+            
+            # Save the result
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            new_img.save(output_path, 'PNG')
+            
+            self.logger.info(f"Saved: {output_path.name} ({original_width}x{original_height} -> {target_width}x{target_height})")
     
     def process_folder(self, source_folder: str, destination_folder: str, 
                       aspect_ratio: str, background_color: Optional[Tuple[int, int, int]] = None,
@@ -331,6 +399,105 @@ class InstagramFormatter:
         self.logger.info(f"Time elapsed: {elapsed_time:.2f} seconds")
         
         return ProcessingResult(total_images, successful, failed, skipped, elapsed_time, errors)
+    
+    def process_folder_fixed_size(self, source_folder: str, destination_folder: str,
+                                  target_width: int, target_height: int,
+                                  background_color: Optional[Tuple[int, int, int]] = None,
+                                  progress_callback=None) -> ProcessingResult:
+        """
+        Process all images in a folder to fixed dimensions
+        
+        Args:
+            source_folder: Path to source folder
+            destination_folder: Path to destination folder
+            target_width: Target width in pixels
+            target_height: Target height in pixels
+            background_color: Optional RGB tuple for background color
+            progress_callback: Optional callback function for progress updates
+            
+        Returns:
+            ProcessingResult object with statistics
+        """
+        start_time = time.time()
+        errors = []
+        
+        # Validate inputs
+        source_path = Path(source_folder)
+        dest_path = Path(destination_folder)
+        
+        if not source_path.exists():
+            raise ValueError(f"Source folder does not exist: {source_folder}")
+        
+        if not source_path.is_dir():
+            raise ValueError(f"Source path is not a directory: {source_folder}")
+        
+        # Create destination folder
+        dest_path.mkdir(parents=True, exist_ok=True)
+        
+        # Find all image files
+        image_files = []
+        for ext in self.SUPPORTED_FORMATS:
+            image_files.extend(source_path.glob(f'*{ext}'))
+            image_files.extend(source_path.glob(f'*{ext.upper()}'))
+        
+        # Remove duplicates
+        image_files = list(set(image_files))
+        total_images = len(image_files)
+        
+        if total_images == 0:
+            self.logger.warning(f"No supported image files found in: {source_folder}")
+            return ProcessingResult(0, 0, 0, 0, 0.0, [])
+        
+        self.logger.info(f"Found {total_images} image(s) to process")
+        
+        successful = 0
+        failed = 0
+        skipped = 0
+        
+        # Process images
+        for idx, img_path in enumerate(image_files, 1):
+            try:
+                output_path = dest_path / img_path.name
+                
+                # Skip if the destination file already exists and has the correct size
+                if output_path.exists():
+                    try:
+                        with Image.open(output_path) as existing_img:
+                            if existing_img.width == target_width and existing_img.height == target_height:
+                                self.logger.info(f"Skipping already processed image: {output_path.name}")
+                                skipped += 1
+                                if progress_callback:
+                                    progress_callback(idx, total_images, f"Skipping: {img_path.name}")
+                                continue
+                    except Exception as e:
+                        self.logger.warning(f"Could not check existing file {output_path.name}, will re-process. Error: {e}")
+
+                self.process_image_fixed_size(img_path, output_path, target_width, target_height, background_color)
+                successful += 1
+                
+                if progress_callback:
+                    progress_callback(idx, total_images, f"Processing: {img_path.name}")
+                    
+            except Exception as e:
+                failed += 1
+                error_msg = f"Failed to process {img_path.name}: {str(e)}"
+                self.logger.error(error_msg)
+                errors.append((img_path.name, str(e)))
+                
+                if progress_callback:
+                    progress_callback(idx, total_images, f"Error: {img_path.name}")
+        
+        elapsed_time = time.time() - start_time
+        
+        # Log summary
+        self.logger.info(f"\nProcessing complete!")
+        self.logger.info(f"Total images: {total_images}")
+        self.logger.info(f"Successful: {successful}")
+        self.logger.info(f"Skipped: {skipped}")
+        self.logger.info(f"Failed: {failed}")
+        self.logger.info(f"Time elapsed: {elapsed_time:.2f} seconds")
+        
+        return ProcessingResult(total_images, successful, failed, skipped, elapsed_time, errors)
 
 
 def parse_color(color_str: str) -> Tuple[int, int, int]:
@@ -366,11 +533,11 @@ def parse_color(color_str: str) -> Tuple[int, int, int]:
 def main():
     """Main entry point for command line usage"""
     # Load configuration first
-    formatter = InstagramFormatter()
+    formatter = IllustrationsFormatter()
     config = formatter.config
     
     parser = argparse.ArgumentParser(
-        description='Format square images for Instagram by adding padding',
+        description='Format images for Instagram or fixed dimensions',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

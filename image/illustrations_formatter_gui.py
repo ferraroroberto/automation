@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-instagram_formatter_gui.py - GUI module for Instagram image formatting
+illustrations_formatter_gui.py - GUI module for image formatting
 
 This module provides a tkinter-based graphical user interface for the
-Instagram image formatter.
+image formatter with support for Instagram and 1920x1080 formats.
 """
 
 import tkinter as tk
@@ -19,11 +19,11 @@ import os
 
 # Import the core module
 try:
-    from instagram_formatter import InstagramFormatter, ProcessingResult, parse_color
+    from illustrations_formatter import IllustrationsFormatter, ProcessingResult, parse_color
 except ImportError:
     # If running as standalone, try to import from same directory
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from instagram_formatter import InstagramFormatter, ProcessingResult, parse_color
+    from illustrations_formatter import IllustrationsFormatter, ProcessingResult, parse_color
 
 
 class TextHandler(logging.Handler):
@@ -40,15 +40,16 @@ class TextHandler(logging.Handler):
         self.queue.put(('log', msg))
 
 
-class InstagramFormatterGUI:
-    """GUI application for Instagram image formatting"""
+class IllustrationsFormatterGUI:
+    """GUI application for image formatting"""
     
-    CONFIG_FILE = 'instagram_formatter_config.json'
+    CONFIG_FILE = 'illustrations_formatter_config.json'
+    DEFAULT_1920X1080_FOLDER = r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_1920x1080'
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Instagram Image Formatter")
-        self.root.geometry("800x600")
+        self.root.title("Illustrations Formatter")
+        self.root.geometry("800x650")
         
         # Configure style
         self.style = ttk.Style()
@@ -58,6 +59,7 @@ class InstagramFormatterGUI:
         self.config = self.load_config()
         
         # Variables with config defaults
+        self.format_type = tk.StringVar(value=self.config.get('format_type', 'instagram'))
         self.source_folder = tk.StringVar(value=self.config.get('source_folder', ''))
         self.dest_folder = tk.StringVar(value=self.config.get('destination_folder', ''))
         self.aspect_ratio = tk.StringVar(value=self.config.get('aspect_ratio', '3:4'))
@@ -74,6 +76,9 @@ class InstagramFormatterGUI:
         # Setup formatter with custom logger
         self.setup_formatter()
         
+        # Update destination folder based on format type
+        self.update_destination_folder()
+        
         # Start queue monitoring
         self.root.after(100, self.process_queue)
     
@@ -85,8 +90,10 @@ class InstagramFormatterGUI:
         default_config = {
             'source_folder': '',
             'destination_folder': '',
+            'destination_folder_1920x1080': self.DEFAULT_1920X1080_FOLDER,
             'aspect_ratio': '3:4',
-            'background_color': ''
+            'background_color': '',
+            'format_type': 'instagram'
         }
         
         try:
@@ -106,9 +113,17 @@ class InstagramFormatterGUI:
         config = {
             'source_folder': self.source_folder.get(),
             'destination_folder': self.dest_folder.get(),
+            'destination_folder_1920x1080': self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER),
             'aspect_ratio': self.aspect_ratio.get(),
-            'background_color': self.bg_color.get()
+            'background_color': self.bg_color.get(),
+            'format_type': self.format_type.get()
         }
+        
+        # Update config based on format type
+        if self.format_type.get() == '1920x1080':
+            config['destination_folder_1920x1080'] = self.dest_folder.get()
+        else:
+            config['destination_folder'] = self.dest_folder.get()
         
         config_path = Path(__file__).parent / self.CONFIG_FILE
         try:
@@ -116,6 +131,32 @@ class InstagramFormatterGUI:
                 json.dump(config, f, indent=4)
         except IOError as e:
             print(f"Warning: Could not save config file: {e}")
+    
+    def update_destination_folder(self):
+        """Update destination folder based on format type"""
+        if self.format_type.get() == '1920x1080':
+            default_dest = self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER)
+            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get('destination_folder', ''):
+                self.dest_folder.set(default_dest)
+        else:
+            default_dest = self.config.get('destination_folder', '')
+            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get('destination_folder_1920x1080', ''):
+                self.dest_folder.set(default_dest)
+    
+    def on_format_change(self):
+        """Handle format type change"""
+        self.update_destination_folder()
+        # Show/hide format-specific fields
+        if self.format_type.get() == '1920x1080':
+            self.aspect_ratio_frame.grid_remove()
+            self.aspect_ratio_label.grid_remove()
+            self.size_info_frame.grid()
+            self.size_info_label.grid()
+        else:
+            self.aspect_ratio_frame.grid()
+            self.aspect_ratio_label.grid()
+            self.size_info_frame.grid_remove()
+            self.size_info_label.grid_remove()
     
     def setup_ui(self):
         """Setup the user interface"""
@@ -127,35 +168,53 @@ class InstagramFormatterGUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(5, weight=1)
+        main_frame.rowconfigure(6, weight=1)
         
         # Title
-        title_label = ttk.Label(main_frame, text="Instagram Image Formatter", 
+        title_label = ttk.Label(main_frame, text="Illustrations Formatter", 
                                font=('Arial', 16, 'bold'))
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
         
+        # Format type selection
+        format_frame = ttk.LabelFrame(main_frame, text="Format Type", padding="10")
+        format_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        instagram_radio = ttk.Radiobutton(format_frame, text="Instagram", 
+                                         variable=self.format_type, value='instagram',
+                                         command=self.on_format_change)
+        instagram_radio.grid(row=0, column=0, padx=(0, 20))
+        
+        hd_radio = ttk.Radiobutton(format_frame, text="1920x1080", 
+                                   variable=self.format_type, value='1920x1080',
+                                   command=self.on_format_change)
+        hd_radio.grid(row=0, column=1)
+        
         # Source folder selection
-        ttk.Label(main_frame, text="Source Folder:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(main_frame, text="Source Folder:").grid(row=2, column=0, sticky=tk.W, pady=5)
         source_entry = ttk.Entry(main_frame, textvariable=self.source_folder, width=50)
-        source_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 5))
+        source_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 5))
         ttk.Button(main_frame, text="Browse", 
-                  command=self.browse_source).grid(row=1, column=2, pady=5)
+                  command=self.browse_source).grid(row=2, column=2, pady=5)
         
         # Destination folder selection
-        ttk.Label(main_frame, text="Destination Folder:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        ttk.Label(main_frame, text="Destination Folder:").grid(row=3, column=0, sticky=tk.W, pady=5)
         dest_entry = ttk.Entry(main_frame, textvariable=self.dest_folder, width=50)
-        dest_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 5))
+        dest_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 5))
         ttk.Button(main_frame, text="Browse", 
-                  command=self.browse_dest).grid(row=2, column=2, pady=5)
+                  command=self.browse_dest).grid(row=3, column=2, pady=5)
         
         # Settings frame
         settings_frame = ttk.LabelFrame(main_frame, text="Settings", padding="10")
-        settings_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+        settings_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
         settings_frame.columnconfigure(1, weight=1)
-          # Aspect ratio
-        ttk.Label(settings_frame, text="Aspect Ratio:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        
+        # Aspect ratio (only for Instagram format)
+        self.aspect_ratio_label = ttk.Label(settings_frame, text="Aspect Ratio:")
+        self.aspect_ratio_label.grid(row=0, column=0, sticky=tk.W, pady=5)
+        
         ratio_frame = ttk.Frame(settings_frame)
         ratio_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5)
+        self.aspect_ratio_frame = ratio_frame
         
         # Aspect ratio dropdown
         ratio_combo = ttk.Combobox(ratio_frame, textvariable=self.aspect_ratio, width=15)
@@ -163,6 +222,18 @@ class InstagramFormatterGUI:
         ratio_combo.grid(row=0, column=0, sticky=tk.W)
         
         ttk.Label(ratio_frame, text="(Instagram: 4:5, Stories: 9:16)").grid(row=0, column=1, padx=(10, 0))
+        
+        # Fixed size info (only for 1920x1080 format)
+        self.size_info_label = ttk.Label(settings_frame, text="Target Size:", state='disabled')
+        self.size_info_label.grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.size_info_label.grid_remove()
+        
+        size_info_frame = ttk.Frame(settings_frame)
+        size_info_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5)
+        self.size_info_frame = size_info_frame
+        size_info_frame.grid_remove()
+        
+        ttk.Label(size_info_frame, text="1920 x 1080 pixels").grid(row=0, column=0, sticky=tk.W)
         
         # Background color
         ttk.Label(settings_frame, text="Background Color:").grid(row=1, column=0, sticky=tk.W, pady=5)
@@ -176,10 +247,11 @@ class InstagramFormatterGUI:
         # Process button
         self.process_btn = ttk.Button(main_frame, text="Process Images", 
                                      command=self.process_images, style='Accent.TButton')
-        self.process_btn.grid(row=4, column=0, columnspan=3, pady=20)
-          # Progress frame
+        self.process_btn.grid(row=5, column=0, columnspan=3, pady=20)
+        
+        # Progress frame
         progress_frame = ttk.LabelFrame(main_frame, text="Progress", padding="10")
-        progress_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        progress_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         progress_frame.columnconfigure(0, weight=1)
         progress_frame.rowconfigure(2, weight=1)  # Only the log area should expand
         
@@ -202,11 +274,14 @@ class InstagramFormatterGUI:
         self.log_text.tag_config('WARNING', foreground='orange')
         self.log_text.tag_config('ERROR', foreground='red')
         self.log_text.tag_config('SUCCESS', foreground='green')
+        
+        # Initialize format-specific UI elements
+        self.on_format_change()
     
     def setup_formatter(self):
         """Setup the image formatter with custom logger"""
         # Create logger
-        logger = logging.getLogger('InstagramFormatter')
+        logger = logging.getLogger('IllustrationsFormatter')
         logger.setLevel(logging.INFO)
         
         # Add our custom handler
@@ -217,7 +292,7 @@ class InstagramFormatterGUI:
         logger.addHandler(text_handler)
         
         # Create formatter instance
-        self.formatter = InstagramFormatter(logger)
+        self.formatter = IllustrationsFormatter(logger)
     
     def browse_source(self):
         """Browse for source folder"""
@@ -242,14 +317,16 @@ class InstagramFormatterGUI:
         if not Path(self.source_folder.get()).exists():
             return "Source folder does not exist"
         
-        if not self.aspect_ratio.get():
-            return "Please specify an aspect ratio"
-        
-        # Validate aspect ratio
-        try:
-            self.formatter.parse_aspect_ratio(self.aspect_ratio.get())
-        except ValueError:
-            return "Invalid aspect ratio format"
+        # Validate aspect ratio only for Instagram format
+        if self.format_type.get() == 'instagram':
+            if not self.aspect_ratio.get():
+                return "Please specify an aspect ratio"
+            
+            # Validate aspect ratio
+            try:
+                self.formatter.parse_aspect_ratio(self.aspect_ratio.get())
+            except ValueError:
+                return "Invalid aspect ratio format"
         
         # Validate color if provided
         if self.bg_color.get():
@@ -293,14 +370,24 @@ class InstagramFormatterGUI:
             if self.bg_color.get():
                 bg_color = parse_color(self.bg_color.get())
             
-            # Process images
-            result = self.formatter.process_folder(
-                self.source_folder.get(),
-                self.dest_folder.get(),
-                self.aspect_ratio.get(),
-                bg_color,
-                progress_callback=self.progress_callback
-            )
+            # Process images based on format type
+            if self.format_type.get() == '1920x1080':
+                result = self.formatter.process_folder_fixed_size(
+                    self.source_folder.get(),
+                    self.dest_folder.get(),
+                    1920,
+                    1080,
+                    bg_color,
+                    progress_callback=self.progress_callback
+                )
+            else:
+                result = self.formatter.process_folder(
+                    self.source_folder.get(),
+                    self.dest_folder.get(),
+                    self.aspect_ratio.get(),
+                    bg_color,
+                    progress_callback=self.progress_callback
+                )
               # Send completion message
             self.queue.put(('complete', result))
             
@@ -376,7 +463,7 @@ class InstagramFormatterGUI:
 def main():
     """Main entry point for GUI application"""
     root = tk.Tk()
-    app = InstagramFormatterGUI(root)
+    app = IllustrationsFormatterGUI(root)
     root.mainloop()
 
 

@@ -1,14 +1,15 @@
 @echo off
 REM ============================================================================
-REM INSTAGRAM FORMATTER GUI BATCH SCRIPT
+REM ILLUSTRATIONS FORMATTER GUI BATCH SCRIPT
 REM ============================================================================
-REM Description: This batch file runs the Instagram Formatter GUI application.
-REM              It provides a graphical interface for formatting images for Instagram.
+REM Description: This batch file runs the Illustrations Formatter GUI application.
+REM              It provides a graphical interface for formatting images for
+REM              Instagram or to fixed dimensions (1920x1080).
 REM
 REM Usage: Simply double-click this bat file or run it from command line.
 REM ============================================================================
 
-echo [INFO] Starting Instagram Formatter GUI process...
+echo [INFO] Starting Illustrations Formatter GUI process...
 
 REM Read the virtual environment path from .env file
 for /f "tokens=2 delims==" %%a in ('findstr "VENV_FOLDER" "E:\automation\automation\.env"') do set "VENV_DIR=%%a"
@@ -17,7 +18,7 @@ if not defined VENV_DIR (
     set "VENV_DIR=E:\automation\automation\.venv"
 )
 
-REM Set the path to the Instagram formatter scripts
+REM Set the path to the illustrations formatter scripts
 set "SCRIPT_DIR=E:\automation\automation\image"
 
 echo [INFO] Using virtual environment: "%VENV_DIR%"
@@ -29,14 +30,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [INFO] Running instagram_formatter_gui.py...
-"%VENV_DIR%\Scripts\python.exe" instagram_formatter_gui.py
+echo [INFO] Running illustrations_formatter_gui.py...
+"%VENV_DIR%\Scripts\python.exe" illustrations_formatter_gui.py
 if errorlevel 1 (
-    echo [ERROR] instagram_formatter_gui.py returned an error code: %errorlevel%
+    echo [ERROR] illustrations_formatter_gui.py returned an error code: %errorlevel%
     echo [INFO] Check the logs above for more details.
     pause
     exit /b 1
 )
 
-echo [INFO] Instagram Formatter GUI process completed successfully!
+echo [INFO] Illustrations Formatter GUI process completed successfully!
 pause
