@@ -217,15 +217,24 @@ class NotionNameNormalizer:
                 orig_token = original_tokens[i]
                 norm_token = normalized_tokens[i]
                 
-                # Apply capitalization rules
-                if self._should_capitalize_token(i, normalized_tokens):
-                    norm_token = self._capitalize_first_letter(norm_token)
-                else:
-                    norm_token = self._lowercase_first_letter(norm_token)
+                # Extract sentence-ending punctuation from current token
+                sentence_punct, word_part = self._extract_sentence_punctuation(norm_token)
                 
-                # Restore proper capitalization for special cases
-                restored_token = self._restore_token_capitalization(orig_token, norm_token)
-                result_tokens.append(restored_token)
+                # Apply capitalization rules (check previous token for sentence-ending punctuation)
+                should_cap = self._should_capitalize_token(i, normalized_tokens)
+                
+                # Normalize the word part
+                if should_cap:
+                    word_part = self._capitalize_first_letter(word_part)
+                else:
+                    word_part = self._lowercase_first_letter(word_part)
+                
+                # Restore proper capitalization for special cases (using original token)
+                restored_word = self._restore_token_capitalization(orig_token, word_part)
+                
+                # Reattach sentence-ending punctuation
+                final_token = restored_word + sentence_punct
+                result_tokens.append(final_token)
                 i += 1
         
         return re.sub(r'\s+', ' ', ' '.join(result_tokens)).strip()
@@ -254,12 +263,27 @@ class NotionNameNormalizer:
         return ' '.join(tokens)  # Fallback
     
     def _should_capitalize_token(self, token_index: int, normalized_tokens: List[str]) -> bool:
-        """Determine if a token should be capitalized based on sentence boundaries."""
+        """
+        Determine if a token should be capitalized based on sentence boundaries.
+        
+        Checks if previous token ends with sentence-ending punctuation.
+        Acronyms like U.S.A. should not trigger capitalization.
+        """
         if token_index == 0:
             return True
         
         prev_token = normalized_tokens[token_index - 1]
-        return bool(re.search(r'[.!?]$', prev_token))
+        
+        # Check if previous token is an acronym (has internal periods)
+        # If so, don't treat its final period as sentence-ending
+        if re.search(r'[A-Za-z]\.[A-Za-z]', prev_token):
+            acronym_match = re.match(r'^[A-Za-z](?:\.[A-Za-z])+\.?$', prev_token)
+            if acronym_match:
+                # It's an acronym - only capitalize if it has ! or ? after it
+                return bool(re.search(r'[!?]+$', prev_token))
+        
+        # Regular sentence-ending punctuation
+        return bool(re.search(r'[.!?]+$', prev_token))
     
     def _capitalize_first_letter(self, token: str) -> str:
         """Capitalize the first letter of a token if it's alphabetic."""
@@ -278,26 +302,32 @@ class NotionNameNormalizer:
     def _restore_token_capitalization(self, original_token: str, normalized_token: str) -> str:
         """
         Restore proper capitalization for a specific token based on preservation rules.
+        
+        Note: This works on the word part without sentence-ending punctuation.
         """
-        # Rule 1: Preserve ALL CAPS words (2+ chars) - assumed to be acronyms/emphasis
-        if len(original_token) >= 2 and original_token.isupper():
-            return original_token
+        # Extract sentence-ending punctuation from original token for comparison
+        _, orig_word_part = self._extract_sentence_punctuation(original_token)
+        
+        # Rule 1: Preserve ALL CAPS words (2+ chars) - check alphabetic part only
+        alpha_part = re.sub(r'[^\w]', '', orig_word_part)
+        if len(alpha_part) >= 2 and alpha_part.isupper():
+            return orig_word_part
         
         # Rule 2: Preserve the pronoun "I"
-        if original_token.lower() == 'i':
+        if orig_word_part.lower() == 'i':
             return 'I'
         
         # Rule 3: Check against proper name whitelist
-        if self._is_proper_name(original_token):
-            return self._get_proper_name_capitalization(original_token)
+        if self._is_proper_name(orig_word_part):
+            return self._get_proper_name_capitalization(orig_word_part)
         
         # Rule 4: Use spaCy NLP to detect person names if available
-        if self.spacy_nlp and self._is_person_entity(original_token):
-            return original_token
+        if self.spacy_nlp and self._is_person_entity(orig_word_part):
+            return orig_word_part
         
-        # Rule 5: Handle tokens with punctuation
-        if re.search(r'[^\w\s]', original_token):
-            return self._handle_punctuated_token(original_token)
+        # Rule 5: Handle tokens with other punctuation (not sentence-ending)
+        if re.search(r'[^\w\s]', orig_word_part):
+            return self._handle_punctuated_token(orig_word_part, normalized_token)
         
         return normalized_token
     
@@ -325,15 +355,18 @@ class NotionNameNormalizer:
                         return word
         return token
     
-    def _handle_punctuated_token(self, token: str) -> str:
-        """Handle tokens that contain punctuation."""
-        # For tokens with punctuation, preserve them as-is unless they're clearly wrong
-        # This prevents "here's" from becoming "heres's" and "it's" from becoming "its's"
+    def _handle_punctuated_token(self, token: str, normalized_token: str) -> str:
+        """
+        Handle tokens that contain punctuation (excluding sentence-ending punctuation).
         
-        # Extract alphabetic part
-        alpha_part = re.sub(r'[^\w]', '', token)
-        if not alpha_part:
+        This handles contractions, apostrophes, commas, etc.
+        """
+        # Extract first alphabetic part (before any punctuation)
+        alpha_part_match = re.match(r'^([A-Za-z]+)', token)
+        if not alpha_part_match:
             return token
+        
+        alpha_part = alpha_part_match.group(1)
         
         # Preserve ALL CAPS words with punctuation (e.g., "U.S.A.")
         if len(alpha_part) >= 2 and alpha_part.isupper():
@@ -343,24 +376,86 @@ class NotionNameNormalizer:
         if self._is_proper_name(alpha_part):
             return token
         
-        # For common contractions and punctuated words, preserve original case
-        # This prevents mangling of "here's", "it's", "don't", etc.
-        return token
+        # Extract normalized alphabetic part (normalized_token might have punctuation too)
+        normalized_alpha_match = re.match(r'^([A-Za-z]+)', normalized_token)
+        normalized_alpha = normalized_alpha_match.group(1) if normalized_alpha_match else normalized_token
+        
+        # Reconstruct with normalized word part
+        return self._reconstruct_with_punctuation(normalized_alpha, token)
 
     def _reconstruct_with_punctuation(self, new_alpha_part: str, original_token: str) -> str:
-        """Reconstruct a token with punctuation, replacing the alphabetic part."""
+        """
+        Reconstruct a token with punctuation, replacing the alphabetic part.
+        
+        For contractions like "Here's", we need to preserve the structure.
+        Example: reconstruct_with_punctuation("here", "Here's") -> "here's"
+        """
+        # For contractions (apostrophes), preserve the original structure
+        # Example: "Here's" -> normalize "Here" to "here", keep "'s"
+        if "'" in original_token:
+            # Split on apostrophe
+            parts = original_token.split("'", 1)
+            if len(parts) == 2:
+                first_part = parts[0]
+                rest = "'" + parts[1]
+                # Replace first part with normalized version
+                return new_alpha_part + rest
+        
+        # For other punctuation, use regex to find and replace first alphabetic sequence
+        # Match first sequence of letters
+        match = re.match(r'^([A-Za-z]+)', original_token)
+        if match:
+            return new_alpha_part + original_token[len(match.group(1)):]
+        
+        # Fallback: try to replace first alphabetic part
         parts = re.findall(r'[^\w]+|\w+', original_token)
         result_parts = []
         alpha_replaced = False
-
+        
         for part in parts:
             if part.isalpha() and not alpha_replaced:
                 result_parts.append(new_alpha_part)
                 alpha_replaced = True
             else:
                 result_parts.append(part)
-
+        
         return ''.join(result_parts)
+    
+    def _extract_sentence_punctuation(self, token: str) -> Tuple[str, str]:
+        """
+        Extract sentence-ending punctuation from a token.
+        
+        Only extracts if punctuation is truly sentence-ending (not part of acronym like U.S.A.).
+        Acronyms typically have periods between letters, not just at the end.
+        
+        Returns:
+            Tuple of (punctuation_suffix, word_part)
+            Example: ("!", "Amazing") from "Amazing!"
+        """
+        # Check if token looks like an acronym (has periods between letters, e.g., U.S.A.)
+        # Works with both uppercase (U.S.A.) and lowercase (u.s.a.) after normalization
+        # Pattern: letter.letter.letter (with optional final period)
+        if re.search(r'[A-Za-z]\.[A-Za-z]', token):
+            # Check if there's sentence punctuation AFTER the acronym pattern
+            # Match pattern like "U.S.A." or "U.S.A.!" or "u.s.a." 
+            acronym_match = re.match(r'^([A-Za-z](?:\.[A-Za-z])+\.?)([.!?]*)$', token)
+            if acronym_match:
+                # It's an acronym - don't extract the periods as sentence punctuation
+                # But extract any trailing ! or ? after the acronym
+                base = acronym_match.group(1)
+                trailing_punct = acronym_match.group(2)
+                if trailing_punct and re.search(r'[!?]', trailing_punct):
+                    # Has ! or ? after acronym - extract those
+                    return trailing_punct, base
+                return "", token
+        
+        # Extract trailing sentence-ending punctuation
+        match = re.search(r'([.!?]+)$', token)
+        if match:
+            punct = match.group(1)
+            word_part = token[:-len(punct)]
+            return punct, word_part
+        return "", token
 
     def _is_valid_multi_word_match(self, tokens: List[str], proper_name: str) -> bool:
         """
