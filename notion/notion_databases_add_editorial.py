@@ -37,6 +37,13 @@ def add_missing_dates(notion, database_id, start_date, end_date):
         print("Error: Could not retrieve existing dates. Please check database ID.")
         return
 
+    # Debug: Show how many existing dates were found
+    print(f"Found {len(existing_dates)} existing date(s) in database")
+    if existing_dates:
+        sample_dates = sorted(list(existing_dates))[:5]  # Show first 5 dates
+        print(f"Sample existing dates: {sample_dates}")
+    print()  # Blank line after sample dates
+
     # Generate missing date records
     new_entries = []
     current_date = start
@@ -53,6 +60,9 @@ def add_missing_dates(notion, database_id, start_date, end_date):
             if new_entry:
                 print(f"Added record: day = {day_text}, date = {date_str}, DoW = {day_of_week}, Record ID = {new_entry['id']}")
                 new_entries.append(new_entry)
+        else:
+            # Debug: Show which dates are being skipped
+            print(f"Skipping existing date: {date_str}")
         
         current_date += timedelta(days=1)
 
@@ -64,22 +74,56 @@ def add_missing_dates(notion, database_id, start_date, end_date):
 # Helper: Retrieve existing dates
 def get_existing_dates(notion, database_id):
     try:
-        response = notion.databases.query(database_id=database_id)
+        # Format database ID with hyphens if needed
+        formatted_db_id = format_database_id(database_id)
         
-        # Check if response is valid
-        if response is None or "results" not in response:
-            print("Error: No results returned. Check database permissions and structure.")
+        # Get database details to retrieve data source ID
+        database_details = notion.databases.retrieve(formatted_db_id)
+        data_sources = database_details.get("data_sources") or []
+        if not data_sources:
+            print("Error: No data sources associated with database")
             return None
+        data_source_id = data_sources[0]["id"]
         
-        results = response.get("results", [])
-        
-        # Collect existing dates from the "date" property
+        # Query database using data source with pagination
+        print("Loading database records...")
         existing_dates = set()
-        for item in results:
-            # Check if "date" property exists and has a "start" field
-            date_property = item["properties"].get("date", {}).get("date")
-            if date_property and date_property.get("start"):
-                existing_dates.add(date_property["start"])
+        has_more = True
+        start_cursor = None
+        cumulative_count = 0
+        
+        while has_more:
+            response = notion.data_sources.query(
+                data_source_id,
+                start_cursor=start_cursor,
+            )
+            
+            # Check if response is valid
+            if response is None or "results" not in response:
+                print("Error: No results returned. Check database permissions and structure.")
+                return None
+            
+            results = response.get("results", [])
+            start_cursor = response.get("next_cursor")
+            
+            # Log progress for each API call
+            records_in_batch = len(results)
+            cumulative_count += records_in_batch
+            print(f"Fetched {records_in_batch} records (cumulative: {cumulative_count})")
+            
+            # Collect existing dates from the "date" property
+            for item in results:
+                # Check if "date" property exists and has a "start" field
+                date_property = item["properties"].get("date", {}).get("date")
+                if date_property and date_property.get("start"):
+                    date_value = date_property["start"]
+                    # Normalize date to YYYY-MM-DD format (strip time if present)
+                    if "T" in date_value:
+                        date_value = date_value.split("T")[0]
+                    existing_dates.add(date_value)
+            
+            # Check if there are more pages to be fetched
+            has_more = start_cursor is not None
         
         return existing_dates
     
@@ -90,8 +134,10 @@ def get_existing_dates(notion, database_id):
 # Helper: Add a new record to the Notion database
 def add_date_record(notion, database_id, day, date, day_of_week):
     try:
+        # Format database ID with hyphens if needed
+        formatted_db_id = format_database_id(database_id)
         return notion.pages.create(
-            parent={"database_id": database_id},
+            parent={"database_id": formatted_db_id},
             properties={
                 "day": {"title": [{"text": {"content": day}}]},
                 "date": {"date": {"start": date}},
