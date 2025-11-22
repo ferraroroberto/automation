@@ -43,7 +43,7 @@ def get_bottom_left_monitor(monitors):
     return min(monitors[1:], key=lambda m: (m["top"], m["left"]))
 
 if __name__ == "__main__":
-    output_folder = "D:\\MwSnap_temporal"
+    output_folder = "E:\\downloads\\snaps"
     monitors = list_monitors()
     monitor_index = None
 
