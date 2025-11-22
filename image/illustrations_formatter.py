@@ -76,6 +76,7 @@ class IllustrationsFormatter:
         default_config = {
             'source_folder': '',
             'destination_folder': '',
+            'destination_folder_instagram': r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_IGformat',
             'destination_folder_1920x1080': r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_1920x1080',
             'aspect_ratio': '3:4',
             'background_color': '',

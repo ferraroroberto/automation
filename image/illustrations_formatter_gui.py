@@ -45,6 +45,7 @@ class IllustrationsFormatterGUI:
     
     CONFIG_FILE = 'illustrations_formatter_config.json'
     DEFAULT_1920X1080_FOLDER = r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_1920x1080'
+    DEFAULT_INSTAGRAM_FOLDER = r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_IGformat'
     
     def __init__(self, root):
         self.root = root
@@ -90,6 +91,7 @@ class IllustrationsFormatterGUI:
         default_config = {
             'source_folder': '',
             'destination_folder': '',
+            'destination_folder_instagram': self.DEFAULT_INSTAGRAM_FOLDER,
             'destination_folder_1920x1080': self.DEFAULT_1920X1080_FOLDER,
             'aspect_ratio': '3:4',
             'background_color': '',
@@ -113,6 +115,7 @@ class IllustrationsFormatterGUI:
         config = {
             'source_folder': self.source_folder.get(),
             'destination_folder': self.dest_folder.get(),
+            'destination_folder_instagram': self.config.get('destination_folder_instagram', self.DEFAULT_INSTAGRAM_FOLDER),
             'destination_folder_1920x1080': self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER),
             'aspect_ratio': self.aspect_ratio.get(),
             'background_color': self.bg_color.get(),
@@ -123,6 +126,7 @@ class IllustrationsFormatterGUI:
         if self.format_type.get() == '1920x1080':
             config['destination_folder_1920x1080'] = self.dest_folder.get()
         else:
+            config['destination_folder_instagram'] = self.dest_folder.get()
             config['destination_folder'] = self.dest_folder.get()
         
         config_path = Path(__file__).parent / self.CONFIG_FILE
@@ -136,10 +140,10 @@ class IllustrationsFormatterGUI:
         """Update destination folder based on format type"""
         if self.format_type.get() == '1920x1080':
             default_dest = self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER)
-            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get('destination_folder', ''):
+            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get('destination_folder_instagram', ''):
                 self.dest_folder.set(default_dest)
         else:
-            default_dest = self.config.get('destination_folder', '')
+            default_dest = self.config.get('destination_folder_instagram', self.DEFAULT_INSTAGRAM_FOLDER)
             if not self.dest_folder.get() or self.dest_folder.get() == self.config.get('destination_folder_1920x1080', ''):
                 self.dest_folder.set(default_dest)
     
