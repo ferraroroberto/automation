@@ -89,6 +89,10 @@ numpy>=1.20.0
 # Source: notion/notion_databases_dump.py, notion/notion_databases_clean.py
 notion-client>=2.0.0
 
+# Natural language processing for entity detection
+# Source: notion/normalize_names.py
+spacy>=3.7.0
+
 # =============================================================================
 # GOOGLE API INTEGRATION
 # =============================================================================
