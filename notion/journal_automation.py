@@ -24,7 +24,7 @@ def get_adjusted_date(timedelta_value=None):
 
     # Ask the user if they want to apply a timedelta to the current date if not provided
     if timedelta_value is None:
-        timedelta_value = input("Enter an integer number to apply a timedelta to the current date (default is 0): ")
+        timedelta_value = input("📅 Enter an integer number to apply a timedelta to the current date (default is 0): ")
         try:
             timedelta_value = int(timedelta_value)
         except ValueError:
@@ -52,6 +52,7 @@ def process_journal(journal_excel_path, journal_output_path, date_column, text_c
     current_date = get_adjusted_date()
 
     # Load the Excel file into a pandas DataFrame
+    print(f"📂 Loading Excel file: {journal_excel_path}")
     df = pd.read_excel(journal_excel_path)
 
     # Calculate the date of the previous Sunday
@@ -60,6 +61,7 @@ def process_journal(journal_excel_path, journal_output_path, date_column, text_c
 
     # Calculate the date of the Monday before the previous Sunday
     one_week_ago = previous_sunday - timedelta(days=6)
+    print(f"📅 Date range: {one_week_ago.strftime('%Y-%m-%d')} to {previous_sunday.strftime('%Y-%m-%d')}")
 
     # Fix potential time discrepancies by setting time to start of the day
     one_week_ago = one_week_ago.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -73,18 +75,21 @@ def process_journal(journal_excel_path, journal_output_path, date_column, text_c
 
     # Select the rows between the one week ago date and the previous sunday
     df = df[(df[date_column] >= one_week_ago) & (df[date_column] <= previous_sunday)]
+    print(f"📊 Filtered {len(df)} rows for date range")
 
     # Select the text column
     df = df[text_column]
 
     if split_comma:
         # Split the text column rows on commas and expand into new DataFrame
+        print("🔀 Splitting text on commas...")
         df = df.str.split(',', expand=True).stack().reset_index(drop=True)
 
     # Filter out rows that contain only '[]'
     df = df[df != '[]']
 
     # Drop duplicates while preserving the original order
+    print("🔍 Removing duplicates...")
     df = df.drop_duplicates(keep='first')
 
     # Set max column width to None to avoid cutting off strings
@@ -107,16 +112,22 @@ def process_journal(journal_excel_path, journal_output_path, date_column, text_c
     output_file_name = f"{one_week_ago.strftime('%Y-%m-%d')} to {previous_sunday.strftime('%Y-%m-%d')}-{file_suffix}.txt"
 
     # Save the data string to a text file at the specified directory, using a path.join method
-    with open(os.path.join(journal_output_path, output_file_name), 'w') as file:
+    output_path = os.path.join(journal_output_path, output_file_name)
+    print(f"📝 Writing output file: {output_file_name}")
+    with open(output_path, 'w') as file:
         file.write(data_string)
 
-    print(os.path.join(journal_output_path, output_file_name))
+    print(f"✅ Saved: {output_path}")
 
 # Main execution
 params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+print("📂 Loading parameters...")
 params = read_params_from_txt_file(params_file_path)
+print("✅ Parameters loaded")
 
+print("\n🚀 Processing journal entries...")
 process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_GRATITUDE", True, "gratitude")
 process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_WORK", False, "work")
 process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_PERSONAL", False, "personal")
 process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_LEARN", False, "learning")
+print("\n✅ All journal processing completed")
