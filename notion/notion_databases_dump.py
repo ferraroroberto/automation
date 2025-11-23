@@ -28,6 +28,7 @@ def update_last_download_in_excel(database, excel_path, n_rows, output_path):
     df.loc[df['id'] == database['id'], 'output_path'] = output_path
 
     # Save the updated DataFrame to the Excel file, overwriting it
+    print(f"💾 Updating metadata for database '{database['name']}'")
     df.to_excel(excel_path, index=False, engine='openpyxl')
 
 def query_database_rows(notion_client, data_source_id, start_cursor=None):
@@ -43,14 +44,16 @@ def query_database_rows(notion_client, data_source_id, start_cursor=None):
 
 def download_database_data(database, output_folder, api_token, excel_path):
     # Authenticate
+    print(f"🔐 Authenticating with Notion API...")
     notion = Client(auth=api_token)
 
     # Get the database properties
+    print(f"📥 Retrieving database details for '{database['name']}'...")
     database_details = notion.databases.retrieve(database["id"])
     properties = database_details.get("properties")
     data_sources = database_details.get("data_sources") or []
     if not data_sources:
-        raise ValueError(f"No data sources associated with database {database['name']}")
+        raise ValueError(f"❌ No data sources associated with database {database['name']}")
     data_source_id = data_sources[0]["id"]
 
     # Initialize variables for pagination
@@ -62,9 +65,10 @@ def download_database_data(database, output_folder, api_token, excel_path):
     start_time = datetime.datetime.now()
 
     # Print the database and start
-    print(f"Starting to save database '{database['name']}'")
+    print(f"🚀 Starting to save database '{database['name']}'")
 
     # Loop through the paginated results to get all rows
+    print(f"📥 Fetching data from database '{database['name']}'...")
     while has_more:
         # Query the database data with a start cursor if provided
         response = query_database_rows(
@@ -91,12 +95,13 @@ def download_database_data(database, output_folder, api_token, excel_path):
             # Print progress every 100 rows
             if rows_processed % 100 == 0:
                 elapsed_time = datetime.datetime.now() - start_time
-                print(f"{datetime.datetime.now()} - Processed {rows_processed} rows - Time elapsed: {elapsed_time}")
+                print(f"📊 {datetime.datetime.now()} - Processed {rows_processed} rows - Time elapsed: {elapsed_time}")
 
         # Check if there are more pages to be fetched
         has_more = start_cursor is not None
 
     # Create a DataFrame from the fetched data
+    print(f"🔨 Creating DataFrame from {len(data)} records...")
     df = pd.DataFrame(data)
 
     # Add the 'id' column to the DataFrame using the id_list
@@ -108,23 +113,26 @@ def download_database_data(database, output_folder, api_token, excel_path):
     # Check if output_path is a valid file before processing
     if os.path.isfile(output_path):
         # Before processing the Excel file reads the column widths
+        print(f"📏 Reading column widths from existing file...")
         column_widths = get_column_widths(output_path)
     else:
-        print(f"'{output_path}' is not a valid file. Skipping reading column widths")
+        print(f"⚠️ '{output_path}' is not a valid file. Skipping reading column widths")
         column_widths = False
 
+    print(f"📝 Writing Excel file: {output_path}")
     df.to_excel(output_path, index=False, engine='openpyxl')
 
     # Check if column_widths is valid (in this case, non-empty) before applying
     if column_widths == False:
-        print("Column widths are not valid, skipping the step.")
+        print("⚠️ Column widths are not valid, skipping the step.")
     else:
         # After processing the Excel file recovers the column widths
+        print(f"📏 Applying column widths...")
         apply_column_widths(excel_path, column_widths)
 
 
     # Print the saved file information
-    print(f"Database '{database['name']}' saved to {output_path} with {len(df)} rows")
+    print(f"✅ Database '{database['name']}' saved to {output_path} with {len(df)} rows")
 
     # Update the last_download and n_rows columns in the Excel file for the current database
     update_last_download_in_excel(database, excel_path, len(df),output_path)
@@ -139,7 +147,9 @@ def read_database_list(excel_path):
 
 # Load the parameters from the text file
 params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+print("📂 Loading parameters...")
 params = read_params_from_txt_file(params_file_path)
+print("✅ Parameters loaded")
 
 # Get the api_token
 api_token = params['api_token']
@@ -149,11 +159,15 @@ excel_path = params['excel_path']
 dump_path = params['dump_path']
 
 # Read the database list from the Excel file and filter the rows with "download = 1"
+print("📋 Reading database list...")
 databases_to_download = read_database_list(excel_path)
+print(f"📊 Found {len(databases_to_download)} databases to download")
 
 # Download the data for each selected database
+print("\n🚀 Starting database downloads...")
 for _, database in databases_to_download.iterrows():
     output_path = download_database_data(database, dump_path, api_token, excel_path)
+print("\n✅ All database downloads completed")
 
 
 

@@ -25,6 +25,7 @@ def read_database_list(excel_path):
     return df[df["ind_clean"] == 1]
 
 def load_metadata(metadata_path):
+    print(f"📂 Loading metadata from: {metadata_path}")
     return pd.read_excel(metadata_path)
 
 def clean_data(row, col_value, row_num=None):
@@ -42,14 +43,14 @@ def clean_data(row, col_value, row_num=None):
         try:
             json_data = ast.literal_eval(json_str)
         except (ValueError, SyntaxError) as e:
-            print(f"Failed to parse JSON string at row {row_num}: {json_str}. Error: {e}")
+            print(f"❌ Failed to parse JSON string at row {row_num}: {json_str}. Error: {e}")
             return None
 
         if len(json_data) > 0 and dictionary1 in json_data[0] and dictionary2 in json_data[0][dictionary1]:
             return json_data[0][dictionary1][dictionary2]
         else:
             if verbose:
-                print(f"Skipping row number {row_num} due to missing data: {json_str}")
+                print(f"⚠️ Skipping row number {row_num} due to missing data: {json_str}")
             return None
 
     if json_check == 1:  # Check if the 'json' value is 1.
@@ -82,12 +83,12 @@ def clean_data(row, col_value, row_num=None):
         return col_value
 
 def process_databases(databases_to_process, metadata):
-    print(f"Databases to process: {len(databases_to_process)}")
+    print(f"📊 Databases to process: {len(databases_to_process)}")
 
     for _, database in databases_to_process.iterrows():
         input_path = database["output_path"]
-        print(f"Processing database: {database['name']}")
-        print(f"Input path: {input_path}")
+        print(f"\n🔄 Processing database: {database['name']}")
+        print(f"📂 Input path: {input_path}")
         df = pd.read_excel(input_path)
 
         # Define a list to hold columns to be dropped
@@ -105,7 +106,7 @@ def process_databases(databases_to_process, metadata):
             # If there's metadata for this column
             if not metadata_row.empty:
                 if verbose:
-                    print(f"Cleaning column: {col}")
+                    print(f"🧹 Cleaning column: {col}")
                 # Create a cleaned column
                 df[f"{col}_clean"] = df.apply(lambda row: clean_data(metadata_row.iloc[0], row[col], row.name + 1), axis=1)
                 # Replace "[]" with NaN
@@ -122,7 +123,7 @@ def process_databases(databases_to_process, metadata):
                     cols_to_drop.append(col)
                     cols_to_drop.append(f"{col}_clean")
                     if verbose:
-                        print(f"Marking for drop: {col}, {col}_clean")
+                        print(f"🗑️ Marking for drop: {col}, {col}_clean")
                 elif ind_keep == 1:
                     # If ind_keep is 1, we'll keep the cleaned column and drop the original one
                     # Also, we'll rename the cleaned column to the final name
@@ -130,67 +131,77 @@ def process_databases(databases_to_process, metadata):
                     columns_to_keep.append(col_name_final)
                     df.rename(columns={f"{col}_clean": col_name_final}, inplace=True)
                     if verbose:
-                        print(f"Renaming column {col}_clean to {col_name_final}")
+                        print(f"📝 Renaming column {col}_clean to {col_name_final}")
 
                     # If "order_final" value is not null and it's an integer, store it in the dictionary
                     if pd.notnull(order_final):
                         final_col_order[col_name_final] = order_final
                         if verbose:
-                            print(f"Setting order for column {col_name_final}: {order_final}")
+                            print(f"🔢 Setting order for column {col_name_final}: {order_final}")
                 elif ind_keep == 2:
                     # If ind_keep is 2, we keep both the original and cleaned columns
                     columns_to_keep.append(col)
                     columns_to_keep.append(f"{col}_clean")
                     if verbose:
-                        print(f"Keeping both original and cleaned columns for {col}")
+                        print(f"✅ Keeping both original and cleaned columns for {col}")
 
             else:
-                print(f"Skipping column: {col}")
+                print(f"⚠️ Skipping column: {col} (no metadata found)")
 
         # Drop columns that are marked to be dropped
-        print(f"Columns to drop: {cols_to_drop}")
+        print(f"🗑️ Columns to drop: {cols_to_drop}")
         df.drop(cols_to_drop, axis=1, inplace=True)
 
         # Ensure we only keep the columns we have processed and want to keep
         df = df[columns_to_keep]
 
         # Print the accurate columns after dropping and filtering to only include columns_to_keep
-        print(f"Columns after dropping and filtering to keep: {df.columns.tolist()}")
+        print(f"📊 Columns after dropping and filtering to keep: {df.columns.tolist()}")
 
         # If there are valid "order_final" values, rearrange the DataFrame columns
         if final_col_order:
-            print(f"Ordering columns: {final_col_order}")
+            print(f"🔢 Ordering columns: {final_col_order}")
             sorted_columns = [col for col in sorted(final_col_order, key=final_col_order.get)]
             df = df[sorted_columns]
-            print(f"Columns after reordering: {df.columns.tolist()}")
+            print(f"✅ Columns after reordering: {df.columns.tolist()}")
 
         output_path = os.path.join(dump_path, f"database-dump-{database['name']}_clean.xlsx")
 
         # If the database is flagged as ind_format = 1 then gather and then apply widths to the excel file, before overwriting it again
         if database["ind_format"] == 1:
-            print(f"Applying column widths: {database['name']}")
+            print(f"📏 Applying column widths: {database['name']}")
             column_widths = get_column_widths(output_path)
+            print(f"📝 Writing Excel file: {output_path}")
             df.to_excel(output_path, index=False, engine='openpyxl')
             if column_widths:
                 apply_column_widths(output_path, column_widths)
             else:
-                print(f"No reusable column widths found for {database['name']}.")
+                print(f"⚠️ No reusable column widths found for {database['name']}.")
         else:
+            print(f"📝 Writing Excel file: {output_path}")
             df.to_excel(output_path, index=False, engine='openpyxl')
 
-        print(f"Processed database '{database['name']}' saved to {output_path} with {len(df)} rows")
+        print(f"✅ Processed database '{database['name']}' saved to {output_path} with {len(df)} rows")
 
 # Main execution
 
 params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+print("📂 Loading parameters...")
 params = read_params_from_txt_file(params_file_path)
+print("✅ Parameters loaded")
 
 excel_path = params['excel_path']
 dump_path = params['dump_path']
 verbose = params['verbose'] == "True"  # Ensure this is checked correctly
 
 metadata_path = params['metadata_path']
-metadata = pd.read_excel(metadata_path)
+metadata = load_metadata(metadata_path)
+print("✅ Metadata loaded")
 
+print("📋 Reading database list...")
 databases_to_process = read_database_list(excel_path)
+print(f"📊 Found {len(databases_to_process)} databases to process")
+
+print("\n🚀 Starting database cleaning...")
 process_databases(databases_to_process, metadata)
+print("\n✅ All database cleaning completed")
