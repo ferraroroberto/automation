@@ -159,46 +159,6 @@
             content: '▶ START';
         }
 
-        .progress-bar-container {
-            width: 600px;
-            max-width: 90%;
-            height: 30px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50px;
-            border: 4px solid #1a1a1a;
-            overflow: hidden;
-            margin-top: 30px;
-            box-shadow: inset 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #FFD700 0%, #FFA500 50%, #FF6B6B 100%);
-            width: 0%;
-            transition: width 0.5s linear;
-            border-radius: 50px;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-            position: relative;
-        }
-
-        .progress-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255, 255, 255, 0.3) 50%, 
-                transparent 100%);
-            animation: shine 2s infinite;
-        }
-
-        @keyframes shine {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
 
 
         .instructions-panel {
@@ -312,10 +272,6 @@
                 width: 50px;
                 height: 50px;
             }
-
-            .progress-bar-container {
-                width: 90%;
-            }
         }
 
         @media (max-width: 480px) {
@@ -356,10 +312,10 @@
         <h2>🎯 El Reto</h2>
         <div class="instruction-item">
             <strong>Correo de análisis gestión remota</strong>
-            <p>Publicar en el canal de Teams "copilot"</p>
+            <p><strong>Publicar en canal de Teams "copilot"</strong></p>
             <ul>
-                <li>1) El prompt</li>
-                <li>2) El correo</li>
+                <li>El prompt</li>
+                <li>El correo</li>
             </ul>
         </div>
         
@@ -378,8 +334,8 @@
                         <li>Top en negativo</li>
                     </ul>
                 </li>
-                <li>Operativas que destaquen</li>
-                <li>Resumen ejecutivo</li>
+                <li><strong>Operativas que destaquen</strong></li>
+                <li><strong>Resumen ejecutivo</strong></li>
             </ul>
         </div>
     </div>
@@ -398,10 +354,6 @@
         <button class="start-button" id="startButton"></button>
 
         <button class="spotify-button" id="spotifyButton">🎵</button>
-
-        <div class="progress-bar-container">
-            <div class="progress-bar" id="progressBar"></div>
-        </div>
     </div>
 
     <script>
@@ -412,7 +364,6 @@
 
         const timerDisplay = document.getElementById('timerDisplay');
         const startButton = document.getElementById('startButton');
-        const progressBar = document.getElementById('progressBar');
         const progressCircle = document.getElementById('progressCircle');
 
         // Calculate circumference for progress ring
@@ -430,11 +381,8 @@
         function updateDisplay() {
             timerDisplay.textContent = formatTime(timeRemaining);
             
-            // Update progress bar
-            const progress = ((TIMER_DURATION - timeRemaining) / TIMER_DURATION) * 100;
-            progressBar.style.width = `${progress}%`;
-            
             // Update progress ring
+            const progress = ((TIMER_DURATION - timeRemaining) / TIMER_DURATION) * 100;
             const offset = circumference - (progress / 100) * circumference;
             progressCircle.style.strokeDashoffset = offset;
         }
