@@ -1,0 +1,13 @@
+{
+  "notion_api_key": "${NOTION_API_TOKEN}",
+  "database_id": "67fbcee66711465c852ebf97303787a3",
+  "domains_preserving_params": [
+    "youtube.com",
+    "www.youtube.com",
+    "youtu.be",
+    "vimeo.com",
+    "twitter.com",
+    "x.com"
+  ]
+}
+
