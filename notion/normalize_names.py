@@ -75,10 +75,14 @@ class NotionNameNormalizer:
         if self.config.get('use_spacy', False):
             try:
                 import spacy
+                logging.info("🔄 Loading spaCy model (this may take a moment)...")
                 self.spacy_nlp = spacy.load("en_core_web_sm")
                 logging.info("🧠 spaCy loaded successfully for entity detection")
             except ImportError:
                 logging.warning("⚠️  spaCy requested but not available, falling back to heuristics")
+            except Exception as e:
+                logging.warning(f"⚠️  spaCy failed to load: {e}. Falling back to heuristics")
+                self.spacy_nlp = None
     
     def _log_initialization(self):
         """Log initialization summary."""
