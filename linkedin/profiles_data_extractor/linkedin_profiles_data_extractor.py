@@ -236,11 +236,24 @@ def extract_name(text: str) -> Optional[str]:
 
 
 def extract_job_title(text: str, name: Optional[str] = None) -> Optional[str]:
-    """Extract the job title appearing just after the name."""
+    """Extract the job title appearing after connection info (usually after 'degree connection')."""
     if not text:
         return None
-    
-    # If name is provided, search after it
+
+    # Primary method: find text after connection info (most reliable)
+    # Look for "degree connection" followed by the job title on the next line
+    pattern = r'\d+(?:st|nd|rd|th)?\s*degree\s*connection[^\n\r]*?\s*\n\s*([^\n\r]+)'
+    match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+    if match:
+        job_title = match.group(1).strip()
+        # Clean up any trailing connection info that might have been captured
+        job_title = re.sub(r'\s+\d+(?:st|nd|rd|th)?\s*degree\s*connection.*$', '', job_title, flags=re.IGNORECASE)
+        # Filter out pronouns and other non-job-title content
+        if job_title and not re.match(r'^(he/him|she/her|they/them|he|she|they)$', job_title, re.IGNORECASE):
+            logger.info(f"✅ Found job title: {job_title[:100]}...")
+            return job_title
+
+    # If name is provided, search after it (fallback)
     if name:
         # Find text after name (second occurrence), before connection info
         # The name appears twice, so we want the text after the second occurrence
@@ -251,20 +264,22 @@ def extract_job_title(text: str, name: Optional[str] = None) -> Optional[str]:
             job_title = match.group(1).strip()
             # Clean up if it contains connection info
             job_title = re.sub(r'\s+\d+(?:st|nd|rd|th)?\s*degree\s*connection.*$', '', job_title, flags=re.IGNORECASE)
-            if job_title:
+            # Filter out pronouns
+            if job_title and not re.match(r'^(he/him|she/her|they/them|he|she|they)$', job_title, re.IGNORECASE):
                 logger.info(f"✅ Found job title: {job_title[:100]}...")
                 return job_title
-    
+
     # Fallback: find text after markers, before connection info
     pattern = r'(?:For Business|Learning|Background Image)\s+[A-Z][a-zA-Z\s\.]+\s+[A-Z][a-zA-Z\s\.]+\s+([^\n\r]+?)(?:\s+\d+(?:st|nd|rd|th)?\s*degree\s*connection|$)'
     match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
     if match:
         job_title = match.group(1).strip()
         job_title = re.sub(r'\s+\d+(?:st|nd|rd|th)?\s*degree\s*connection.*$', '', job_title, flags=re.IGNORECASE)
-        if job_title:
+        # Filter out pronouns
+        if job_title and not re.match(r'^(he/him|she/her|they/them|he|she|they)$', job_title, re.IGNORECASE):
             logger.info(f"✅ Found job title: {job_title[:100]}...")
             return job_title
-    
+
     logger.warning("⚠️  Job title pattern not found in text")
     return None
 
