@@ -8,6 +8,7 @@ Automatically finds Chrome, activates it, and extracts the content and URL.
 import logging
 import re
 import time
+from datetime import datetime
 from typing import Optional
 
 import pyperclip
@@ -144,17 +145,37 @@ def extract_follow_date(text: str) -> Optional[str]:
     """Extract the date from text following 'following you since'."""
     if not text:
         return None
-    
-    pattern = r'following you since\s+([^\n\r]+)'
+
+    # Extract month abbreviation and 4-digit year after "since"
+    pattern = r'following you since\s+(\w+)\s+(\d{4})'
     match = re.search(pattern, text, re.IGNORECASE)
-    
+
     if match:
-        date_text = match.group(1).strip()
+        month = match.group(1)
+        year = match.group(2)
+        date_text = f"{month} {year}"
         logger.info(f"✅ Found date text: {date_text}")
         return date_text
-    
+
     logger.warning("⚠️  'following you since' pattern not found in text")
     return None
+
+
+def convert_date_format(date_text: str) -> Optional[str]:
+    """Convert date from 'Oct 2023' format to 'oct/23' format."""
+    if not date_text:
+        return None
+
+    try:
+        # Parse the date using datetime - this will handle various formats
+        parsed_date = datetime.strptime(date_text.strip(), '%b %Y')
+        # Format as lowercase month abbreviation and 2-digit year
+        formatted_date = parsed_date.strftime('%b/%y').lower()
+        logger.info(f"✅ Converted date: {date_text} -> {formatted_date}")
+        return formatted_date
+    except ValueError as e:
+        logger.warning(f"⚠️  Could not parse date '{date_text}': {e}")
+        return None
 
 
 def extract_name(text: str) -> Optional[str]:
@@ -373,6 +394,12 @@ def main() -> None:
     company = extract_company(content, job_title)
     location = extract_location(content, company)
     date_text = extract_follow_date(content)
+
+    # Convert date format if found
+    if date_text:
+        formatted_date = convert_date_format(date_text)
+    else:
+        formatted_date = None
     
     # Display results
     print("\n" + "="*60)
@@ -395,8 +422,10 @@ def main() -> None:
         print(f"Location: {location}")
     else:
         print("Location: Not found")
-    if date_text:
-        print(f"Date: {date_text}")
+    if formatted_date:
+        print(f"Date: {formatted_date}")
+    elif date_text:
+        print(f"Date: {date_text} (could not convert format)")
     else:
         print("Date: Not found")
     print("="*60 + "\n")
