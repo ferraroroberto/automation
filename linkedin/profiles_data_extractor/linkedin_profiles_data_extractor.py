@@ -285,15 +285,15 @@ def extract_job_title(text: str, name: Optional[str] = None) -> Optional[str]:
 
 
 def extract_company(text: str, job_title: Optional[str] = None) -> Optional[str]:
-    """Extract the company name appearing just after the job title."""
+    """Extract the company name appearing after the job title with empty lines separating them."""
     if not text:
         return None
-    
+
     if job_title:
-        # Find text after job title, before location or contact info
+        # Find text after job title, separated by newlines (job title line, empty line, company line)
         # Escape job title but allow flexible matching
         job_title_escaped = re.escape(job_title)
-        pattern = rf'{job_title_escaped}\s+([A-Z][a-zA-Z\s&,\.\-]{2,150}?)(?:\s+(?:Metropolitan Area|Area|City|County|State|Country|contact info|Contact info|CONTACT INFO)|$)'
+        pattern = rf'{job_title_escaped}\s*\n\s*\n\s*([^\n\r]+)'
         match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
         if match:
             company = match.group(1).strip()
@@ -303,9 +303,9 @@ def extract_company(text: str, job_title: Optional[str] = None) -> Optional[str]
             if company and len(company) < 200 and not re.search(r'\d+(?:st|nd|rd|th)\s*degree', company, re.IGNORECASE):
                 logger.info(f"✅ Found company: {company}")
                 return company
-    
+
     # Fallback: find text after connection info, before location markers
-    pattern = r'\d+(?:st|nd|rd|th)?\s*degree\s*connection[^\n\r]*?\s+([A-Z][a-zA-Z\s&,\.\-]{2,150}?)(?:\s+(?:Metropolitan Area|Area|City|County|State|Country|contact info|Contact info|CONTACT INFO)|$)'
+    pattern = r'\d+(?:st|nd|rd|th)?\s*degree\s*connection[^\n\r]*?\s*\n\s*\n\s*([^\n\r]+)'
     match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
     if match:
         company = match.group(1).strip()
@@ -313,7 +313,7 @@ def extract_company(text: str, job_title: Optional[str] = None) -> Optional[str]
         if company and len(company) < 200 and not re.search(r'\d+(?:st|nd|rd|th)\s*degree', company, re.IGNORECASE):
             logger.info(f"✅ Found company: {company}")
             return company
-    
+
     logger.warning("⚠️  Company pattern not found in text")
     return None
 
