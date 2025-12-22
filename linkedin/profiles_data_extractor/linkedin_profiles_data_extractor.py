@@ -319,33 +319,23 @@ def extract_company(text: str, job_title: Optional[str] = None) -> Optional[str]
 
 
 def extract_location(text: str, company: Optional[str] = None) -> Optional[str]:
-    """Extract the location appearing after the company and before 'contact info'."""
+    """Extract the location appearing before 'contact info' on the same line."""
     if not text:
         return None
-    
-    if company:
-        # Find text after company, before contact info
-        company_escaped = re.escape(company)
-        pattern = rf'{company_escaped}\s+([A-Z][a-zA-Z\s,\.]+?)(?:\s+contact info|Contact info|CONTACT INFO|$)'
-        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-        if match:
-            location = match.group(1).strip()
-            # Clean up if it contains contact info
-            location = re.sub(r'\s+contact info.*$', '', location, flags=re.IGNORECASE)
-            if location and len(location) < 150:  # Reasonable location length
-                logger.info(f"✅ Found location: {location}")
-                return location
-    
-    # Fallback: find location pattern before contact info (look for common location patterns)
-    pattern = r'([A-Z][a-zA-Z\s,\.]+?(?:Metropolitan Area|Area|City|County|State|Country|Region))(?:\s+contact info|Contact info|CONTACT INFO|$)'
-    match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-    if match:
-        location = match.group(1).strip()
-        location = re.sub(r'\s+contact info.*$', '', location, flags=re.IGNORECASE)
-        if location and len(location) < 150:
-            logger.info(f"✅ Found location: {location}")
-            return location
-    
+
+    # Simple approach: find any line containing "Contact info" and extract everything before it on that line
+    lines = text.split('\n')
+    for line in lines:
+        line = line.strip()
+        if 'contact info' in line.lower():
+            # Find the position of "contact info" (case insensitive)
+            contact_pos = line.lower().find('contact info')
+            if contact_pos > 0:
+                location = line[:contact_pos].strip()
+                if location and len(location) < 150:
+                    logger.info(f"✅ Found location: {location}")
+                    return location
+
     logger.warning("⚠️  Location pattern not found in text")
     return None
 
