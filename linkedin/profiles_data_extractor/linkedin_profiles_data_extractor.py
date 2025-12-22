@@ -178,15 +178,15 @@ class LinkedInProfileExtractor:
         return None
 
     def convert_date_format(self, date_text: str) -> Optional[str]:
-        """Convert date from 'Oct 2023' format to 'oct/23' format."""
+        """Convert date from 'Oct 2023' format to Excel-compatible format."""
         if not date_text:
             return None
 
         try:
             # Parse the date using datetime - this will handle various formats
             parsed_date = datetime.strptime(date_text.strip(), '%b %Y')
-            # Format as lowercase month abbreviation and 2-digit year
-            formatted_date = parsed_date.strftime('%b/%y').lower()
+            # Format as MM/YYYY for Excel compatibility (e.g., "10/2023")
+            formatted_date = parsed_date.strftime('%m/%Y')
             logger.info(f"✅ Converted date: {date_text} -> {formatted_date}")
             return formatted_date
         except ValueError as e:
