@@ -5,13 +5,14 @@ Extracts profile names and page numbers from LinkedIn search result tabs in Chro
 then compares with existing contacts to show which profiles need to be opened.
 """
 
+import hashlib
+import json
 import logging
+import os
 import re
 import time
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple, Set
-import json
-import os
 
 import pandas as pd
 import pyperclip
@@ -285,16 +286,54 @@ class LinkedInProfileSearchChecker:
 
         page_names = {}  # page_number -> list of names
         processed_pages = set()
+        content_hashes = set()  # Track content to detect cycling
+        previous_content_hash = None
+        consecutive_no_progress = 0
+        MIN_CONTENT_LENGTH = 100  # Minimum content length to consider valid
 
         for tab_num in range(max_tabs):
-            logger.info(f"📄 Processing tab {tab_num + 1}/{max_tabs}")
+            logger.info(f"📄 Processing tab {tab_num + 1} (max: {max_tabs})")
 
             # Copy content from current tab
             content = self.copy_all_content()
 
             if not content:
                 logger.warning(f"⚠️  No content copied from tab {tab_num + 1}")
+                consecutive_no_progress += 1
+                if consecutive_no_progress >= 2:
+                    logger.info("⏹️  No content found for 2 consecutive tabs - stopping")
+                    break
+                if tab_num < max_tabs - 1:
+                    self.switch_to_next_tab()
                 continue
+
+            # Check if content is too short (likely not a LinkedIn search page)
+            if len(content) < MIN_CONTENT_LENGTH:
+                logger.warning(f"⚠️  Content too short ({len(content)} chars) - likely not a LinkedIn search page")
+                consecutive_no_progress += 1
+                if consecutive_no_progress >= 2:
+                    logger.info("⏹️  Non-search pages detected - stopping")
+                    break
+                if tab_num < max_tabs - 1:
+                    self.switch_to_next_tab()
+                continue
+
+            # Create content hash to detect cycling
+            content_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
+
+            # Check if we've seen this exact content before (cycling back)
+            if content_hash in content_hashes:
+                logger.info("⏹️  Detected tab cycling (same content as previous tab) - stopping")
+                break
+
+            # Check if content is identical to previous tab (also indicates cycling)
+            if content_hash == previous_content_hash:
+                logger.info("⏹️  Same content as previous tab - stopping")
+                break
+
+            content_hashes.add(content_hash)
+            previous_content_hash = content_hash
+            consecutive_no_progress = 0  # Reset counter on successful content
 
             # Extract page number and names
             page_number = self.extract_page_number(content)

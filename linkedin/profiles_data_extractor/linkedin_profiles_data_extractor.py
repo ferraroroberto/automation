@@ -5,13 +5,14 @@ Extracts profile data from multiple Chrome tabs automatically.
 Cycles through all open tabs, extracts profile information, and saves to Excel.
 """
 
+import hashlib
+import json
 import logging
+import os
 import re
 import time
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
-import json
-import os
 
 import pandas as pd
 import pyperclip
@@ -448,9 +449,56 @@ class LinkedInProfileExtractor:
 
         all_profiles = []
         processed_urls = set()  # Track processed URLs to avoid duplicates
+        content_hashes = set()  # Track content to detect cycling
+        previous_content_hash = None
+        consecutive_no_progress = 0
+        MIN_CONTENT_LENGTH = 100  # Minimum content length to consider valid
+        actual_tabs_processed = 0
 
         for tab_num in range(max_tabs):
-            logger.info(f"📄 Processing tab {tab_num + 1}/{max_tabs}")
+            actual_tabs_processed = tab_num + 1  # Track actual tabs processed (1-indexed)
+            logger.info(f"📄 Processing tab {actual_tabs_processed} (max: {max_tabs})")
+
+            # Copy content first to check for cycling before extraction
+            content = self.copy_all_content()
+
+            if not content:
+                logger.warning(f"⚠️  No content copied from tab {tab_num + 1}")
+                consecutive_no_progress += 1
+                if consecutive_no_progress >= 2:
+                    logger.info("⏹️  No content found for 2 consecutive tabs - stopping")
+                    break
+                if tab_num < max_tabs - 1:
+                    self.switch_to_next_tab()
+                continue
+
+            # Check if content is too short (likely not a LinkedIn profile page)
+            if len(content) < MIN_CONTENT_LENGTH:
+                logger.warning(f"⚠️  Content too short ({len(content)} chars) - likely not a LinkedIn profile page")
+                consecutive_no_progress += 1
+                if consecutive_no_progress >= 2:
+                    logger.info("⏹️  Non-profile pages detected - stopping")
+                    break
+                if tab_num < max_tabs - 1:
+                    self.switch_to_next_tab()
+                continue
+
+            # Create content hash to detect cycling
+            content_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
+
+            # Check if we've seen this exact content before (cycling back)
+            if content_hash in content_hashes:
+                logger.info("⏹️  Detected tab cycling (same content as previous tab) - stopping")
+                break
+
+            # Check if content is identical to previous tab (also indicates cycling)
+            if content_hash == previous_content_hash:
+                logger.info("⏹️  Same content as previous tab - stopping")
+                break
+
+            content_hashes.add(content_hash)
+            previous_content_hash = content_hash
+            consecutive_no_progress = 0  # Reset counter on successful content
 
             # Extract data from current tab
             profile_data = self.extract_profile_data()
@@ -484,15 +532,6 @@ class LinkedInProfileExtractor:
             if tab_num < max_tabs - 1:  # Don't switch on last iteration
                 self.switch_to_next_tab()
 
-                # Check if we're back to the first tab (Chrome cycles through tabs)
-                # We'll stop if we detect we're looping back
-                if tab_num > 0 and len(all_profiles) > 0:
-                    current_url = self.copy_url(silent=True)
-                    if current_url == all_profiles[0]['url']:
-                        logger.info("🔄 Detected tab cycle - stopping extraction")
-                        break
-
-        actual_tabs_processed = tab_num + 1  # tab_num is 0-indexed, so add 1
         logger.info(f"✅ Completed extraction: {len(all_profiles)} profiles found from {actual_tabs_processed} tabs")
         return all_profiles, actual_tabs_processed
 
