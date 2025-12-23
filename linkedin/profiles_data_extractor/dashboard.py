@@ -50,6 +50,36 @@ def load_data(file_path):
         st.error(f"Error loading Excel file: {e}")
         return None
 
+def create_performance_chart(df, group_col, title):
+    if group_col not in df.columns:
+        return None, None
+        
+    stats = df.groupby(group_col).agg(
+        Contacted=(group_col, 'count'),
+        Connected=('date connected', 'count')
+    ).reset_index()
+    
+    stats['Rate'] = (stats['Connected'] / stats['Contacted'] * 100).fillna(0).round(1)
+    # User request: bar length is contacted + connected
+    stats['Length'] = stats['Contacted'] + stats['Connected']
+    
+    # Sort by Rate ascending (so highest is at top in chart, as plotly builds from bottom)
+    stats_chart = stats.sort_values('Rate', ascending=True)
+    
+    fig = px.bar(
+        stats_chart, 
+        x='Length', 
+        y=group_col, 
+        orientation='h',
+        title=title, 
+        color='Rate',
+        color_continuous_scale='Viridis',
+        labels={'Length': 'Volume (Contacted + Connected)', 'Rate': 'Success Rate (%)', group_col: group_col.replace('_', ' ').title()}
+    )
+    
+    # Return stats sorted by Rate descending for tables (highest first)
+    return fig, stats.sort_values('Rate', ascending=False)
+
 def main():
     st.title("📊 LinkedIn Reachout Dashboard")
     
@@ -144,34 +174,19 @@ def main():
         # 2. Performance by Search Type
         st.subheader("🔍 Performance by Search Type")
         if 'search_type' in df_filtered.columns:
-            type_stats = df_filtered.groupby('search_type').agg(
-                Contacted=('search_type', 'count'),
-                Connected=('date connected', 'count')
-            ).reset_index()
-            type_stats['Rate'] = (type_stats['Connected'] / type_stats['Contacted'] * 100).round(1)
-            
-            fig_type = px.bar(type_stats, x='search_type', y=['Contacted', 'Connected'], 
-                              title="Contacts by Search Type", barmode='group')
+            fig_type, type_stats = create_performance_chart(df_filtered, 'search_type', "Performance by Search Type")
             st.plotly_chart(fig_type, width="stretch")
             
-            st.dataframe(type_stats, hide_index=True)
+            st.dataframe(type_stats[['search_type', 'Contacted', 'Connected', 'Rate']], hide_index=True)
 
     with col_right:
         # 3. Performance by Company
         st.subheader("🏢 Performance by Company")
         if 'company' in df_filtered.columns:
-            # Show top 10 companies by volume
-            company_stats = df_filtered.groupby('company').agg(
-                Contacted=('company', 'count'),
-                Connected=('date connected', 'count')
-            ).reset_index().sort_values('Contacted', ascending=False).head(10)
-            
-            company_stats['Rate'] = (company_stats['Connected'] / company_stats['Contacted'] * 100).round(1)
-
-            fig_company = px.bar(company_stats, x='Connected', y='company', orientation='h',
-                                 title="Top Companies by Connections", color='Rate',
-                                 color_continuous_scale='Viridis')
+            fig_company, company_stats = create_performance_chart(df_filtered, 'company', "Performance by Company")
             st.plotly_chart(fig_company, width="stretch")
+            
+            st.dataframe(company_stats[['company', 'Contacted', 'Connected', 'Rate']], hide_index=True)
 
     # --- Data Table ---
     st.subheader("📄 Raw Data")
@@ -180,4 +195,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
