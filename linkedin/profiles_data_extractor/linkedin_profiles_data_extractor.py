@@ -427,11 +427,12 @@ class LinkedInProfileExtractor:
         self.controller.release(keyboard.Key.ctrl)
         time.sleep(1.5)  # Wait for tab switch to complete
 
-    def extract_all_tabs(self, max_tabs: int = 50) -> Tuple[List[Dict[str, str]], int]:
+    def extract_all_tabs(self, max_tabs: int = 50, exit_check=None) -> Tuple[List[Dict[str, str]], int]:
         """Extract profile data from all Chrome tabs.
 
         Args:
             max_tabs: Maximum number of tabs to process.
+            exit_check: Optional callable that returns True if extraction should exit.
 
         Returns:
             List of dictionaries containing profile data from each tab.
@@ -456,6 +457,10 @@ class LinkedInProfileExtractor:
         actual_tabs_processed = 0
 
         for tab_num in range(max_tabs):
+            # Check if exit was requested
+            if exit_check and exit_check():
+                logger.info("⏹️  Extraction stopped by user (exit requested)")
+                break
             actual_tabs_processed = tab_num + 1  # Track actual tabs processed (1-indexed)
             logger.info(f"📄 Processing tab {actual_tabs_processed} (max: {max_tabs})")
 
