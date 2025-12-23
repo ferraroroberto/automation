@@ -8,11 +8,18 @@ Extracts data from Chrome tabs and merges new records into an existing Excel fil
 import logging
 import json
 import os
+import threading
 from typing import List, Dict, Tuple
 import pandas as pd
+from pynput import keyboard
 
 # Import the existing extractor module
 from linkedin_profiles_data_extractor import LinkedInProfileExtractor, save_to_excel
+from excel_format_manager import (
+    save_excel_format_to_json,
+    apply_format_from_json,
+    convert_url_columns_to_hyperlinks
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,6 +39,8 @@ class LinkedInProfilesDataOrchestrator:
         """
         self.config = self.load_config(config_path)
         self.extractor = LinkedInProfileExtractor()
+        self.exit_requested = False  # Flag to track if 'x' key was pressed
+        self.keyboard_listener = None  # Keyboard listener for 'x' keypress
 
     def load_config(self, config_path: str) -> Dict:
         """Load configuration from JSON file.
@@ -192,33 +201,122 @@ class LinkedInProfilesDataOrchestrator:
             logger.error(f"❌ Failed to merge profiles into Excel: {e}")
             raise
 
+    def _on_key_press(self, key) -> bool:
+        """Handle key press events - detect 'x' key to exit.
+        
+        Args:
+            key: The key that was pressed.
+            
+        Returns:
+            False to stop listener, True to continue.
+        """
+        try:
+            # Check if 'x' key was pressed (case-insensitive)
+            if hasattr(key, 'char') and key.char and key.char.lower() == 'x':
+                logger.info("")
+                logger.info("⚠️  'x' key pressed - exit requested")
+                logger.info("")
+                self.exit_requested = True
+                return False  # Stop listener
+        except AttributeError:
+            pass
+        return True  # Continue listening
+
+    def _start_keyboard_listener(self) -> None:
+        """Start keyboard listener in background thread to detect 'x' keypress."""
+        self.exit_requested = False
+        self.keyboard_listener = keyboard.Listener(on_press=self._on_key_press)
+        self.keyboard_listener.start()
+        logger.info("⌨️  Keyboard listener started - press 'x' at any time to exit")
+
+    def _stop_keyboard_listener(self) -> None:
+        """Stop keyboard listener."""
+        if self.keyboard_listener:
+            self.keyboard_listener.stop()
+            self.keyboard_listener = None
+
     def run_extraction_cycle(self) -> List[Dict[str, str]]:
-        """Run the complete extraction cycle.
+        """Run the complete extraction cycle with 'x' keypress exit support.
 
         Returns:
             List of extracted profile dictionaries.
         """
         logger.info("🚀 Starting LinkedIn profile data extraction cycle")
+        logger.info("⌨️  Press 'x' at any time to exit the extraction loop")
 
-        # Extract data from all tabs using the existing extractor
-        max_tabs = self.config.get('max_tabs', 50)
-        profiles_data, actual_tabs_processed = self.extractor.extract_all_tabs(max_tabs)
+        # Start keyboard listener for 'x' keypress detection
+        self._start_keyboard_listener()
 
-        if profiles_data:
-            logger.info(f"✅ Extracted {len(profiles_data)} profiles from {actual_tabs_processed} tabs")
-        else:
-            logger.warning("⚠️  No profile data was extracted")
+        try:
+            # Extract data from all tabs using the existing extractor
+            # Pass exit_check callback to allow interruption
+            max_tabs = self.config.get('max_tabs', 50)
+            profiles_data, actual_tabs_processed = self.extractor.extract_all_tabs(
+                max_tabs, 
+                exit_check=lambda: self.exit_requested
+            )
 
-        return profiles_data
+            # Check if exit was requested
+            if self.exit_requested:
+                logger.info("⏹️  Extraction stopped by user (x key pressed)")
+
+            if profiles_data:
+                logger.info(f"✅ Extracted {len(profiles_data)} profiles from {actual_tabs_processed} tabs")
+            else:
+                logger.warning("⚠️  No profile data was extracted")
+
+            return profiles_data
+        finally:
+            # Always stop keyboard listener
+            self._stop_keyboard_listener()
 
     def orchestrate(self) -> None:
         """Main orchestration method that runs extraction and merging."""
         logger.info("🎯 Starting LinkedIn Profiles Data Orchestrator")
         logger.info("=" * 80)
 
+        destination_file = self.config.get('destination_file')
+        if not destination_file:
+            logger.error("❌ destination_file not specified in configuration")
+            return
+
+        # Create format JSON path (same directory as config)
+        config_path = os.path.join(
+            os.path.dirname(__file__),
+            "linkedin_profiles_data.json"
+        )
+        format_json_path = os.path.join(
+            os.path.dirname(config_path),
+            "excel_format_spec.json"
+        )
+
         try:
+            # Step 0: Ask if user wants to save format to JSON
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("STEP 0: Format saving option")
+            logger.info("=" * 80)
+            if os.path.exists(destination_file):
+                print("\nDo you want to save the Excel format to JSON? (y/n): ", end='')
+                user_input = input().strip().lower()
+                if user_input == 'y':
+                    logger.info("💾 Saving Excel format to JSON...")
+                    success = save_excel_format_to_json(destination_file, format_json_path)
+                    if success:
+                        logger.info("✅ Format saved successfully")
+                    else:
+                        logger.warning("⚠️  Failed to save format, continuing anyway...")
+                else:
+                    logger.info("⏭️  Skipping format save")
+            else:
+                logger.info("ℹ️  Destination file doesn't exist yet - skipping format save")
+
+            logger.info("")
+            
             # Step 1: Run extraction cycle
-            logger.info("📋 Step 1: Extracting data from Chrome tabs...")
+            logger.info("=" * 80)
+            logger.info("STEP 1: Extracting data from Chrome tabs...")
+            logger.info("=" * 80)
             profiles_data = self.run_extraction_cycle()
 
             if not profiles_data:
@@ -226,12 +324,10 @@ class LinkedInProfilesDataOrchestrator:
                 return
 
             # Step 2: Merge to destination Excel file
-            logger.info("📋 Step 2: Merging data to destination Excel file...")
-
-            destination_file = self.config.get('destination_file')
-            if not destination_file:
-                logger.error("❌ destination_file not specified in configuration")
-                return
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("STEP 2: Merging data to destination Excel file...")
+            logger.info("=" * 80)
 
             # Ensure destination directory exists
             destination_dir = os.path.dirname(destination_file)
@@ -240,7 +336,32 @@ class LinkedInProfilesDataOrchestrator:
             # Merge profiles
             inserted_count, skipped_count = self.merge_to_excel(profiles_data, destination_file)
 
+            # Step 3: Apply format and convert URLs
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("STEP 3: Applying format and converting URLs...")
+            logger.info("=" * 80)
+
+            if os.path.exists(format_json_path):
+                logger.info("📋 Applying format from JSON...")
+                success = apply_format_from_json(destination_file, format_json_path)
+                if success:
+                    logger.info("✅ Format applied successfully")
+                else:
+                    logger.warning("⚠️  Failed to apply format")
+            else:
+                logger.warning(f"⚠️  Format JSON not found: {format_json_path} - skipping format application")
+
+            logger.info("")
+            logger.info("📎 Converting URL columns to hyperlinks...")
+            success = convert_url_columns_to_hyperlinks(destination_file)
+            if success:
+                logger.info("✅ URLs converted successfully")
+            else:
+                logger.warning("⚠️  Failed to convert URLs")
+
             # Display final summary
+            logger.info("")
             print("\n" + "="*80)
             print("ORCHESTRATION COMPLETE")
             print("="*80)
@@ -255,6 +376,9 @@ class LinkedInProfilesDataOrchestrator:
         except Exception as e:
             logger.error(f"❌ Orchestration failed: {e}")
             raise
+        finally:
+            # Ensure keyboard listener is stopped
+            self._stop_keyboard_listener()
 
 
 def main() -> None:
