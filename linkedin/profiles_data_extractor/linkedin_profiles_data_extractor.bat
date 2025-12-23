@@ -29,12 +29,22 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Main loop for continuous execution
+:LOOP
 echo [INFO] Running linkedin_profiles_data_extractor.py...
 python linkedin_profiles_data_extractor.py
 if errorlevel 1 (
     echo [ERROR] linkedin_profiles_data_extractor.py failed with error code %errorlevel%
-    exit /b 1
+    echo [INFO] Press any key to retry or CTRL+C to exit...
+    pause >nul
+    goto LOOP
 )
 
 echo [INFO] Process completed successfully!
-pause
+echo [INFO] Press ENTER to continue and repeat after 5 seconds, or CTRL+C to stop...
+pause >nul
+
+echo [INFO] Waiting 5 seconds before next cycle...
+timeout /t 5 /nobreak >nul
+
+goto LOOP
