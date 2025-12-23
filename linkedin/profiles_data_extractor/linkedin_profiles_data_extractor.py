@@ -460,7 +460,7 @@ class LinkedInProfileExtractor:
                 processed_urls.add(profile_data['url'])
 
                 # Only save profiles with complete data (all required fields present)
-                required_fields = ['name', 'job_title', 'company', 'location']
+                required_fields = ['name', 'job_title', 'location']
                 has_all_fields = all(
                     profile_data.get(field) and profile_data[field].strip()
                     for field in required_fields
