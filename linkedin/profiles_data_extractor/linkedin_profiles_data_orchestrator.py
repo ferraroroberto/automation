@@ -51,6 +51,39 @@ class LinkedInProfilesDataOrchestrator:
             logger.error(f"❌ Failed to load configuration: {e}")
             raise
 
+    def check_file_accessible(self, file_path: str) -> bool:
+        """Check if file is accessible for reading/writing.
+
+        Args:
+            file_path: Path to the file to check.
+
+        Returns:
+            True if file is accessible, False otherwise.
+        """
+        try:
+            with open(file_path, 'r+b') as f:
+                pass
+            return True
+        except (PermissionError, OSError):
+            return False
+
+    def wait_for_file_access(self, file_path: str) -> bool:
+        """Wait for user to close the file if it's open.
+
+        Args:
+            file_path: Path to the file that might be open.
+
+        Returns:
+            True if user wants to continue, False if they want to exit.
+        """
+        while not self.check_file_accessible(file_path):
+            print(f"\n⚠️  The file '{os.path.basename(file_path)}' appears to be open in another application.")
+            print("Please close the file and press ENTER to continue, or type 'x' to exit:")
+            user_input = input().strip().lower()
+            if user_input == 'x':
+                return False
+        return True
+
     def merge_to_excel(self, new_profiles: List[Dict[str, str]], destination_file: str) -> Tuple[int, int]:
         """Merge new profiles into existing Excel file based on name column.
 
@@ -86,6 +119,11 @@ class LinkedInProfilesDataOrchestrator:
             return len(filtered_profiles), 0
 
         try:
+            # Check if file is accessible before reading
+            if not self.wait_for_file_access(destination_file):
+                logger.info("ℹ️  User chose to exit - skipping Excel merge")
+                return 0, len(filtered_profiles)
+
             # Read existing Excel file
             df_existing = pd.read_excel(destination_file, engine='openpyxl')
             logger.info(f"📖 Read existing Excel file with {len(df_existing)} rows")
@@ -136,6 +174,11 @@ class LinkedInProfilesDataOrchestrator:
             # Append new profiles to existing data
             df_combined = pd.concat([df_existing, df_new], ignore_index=True)
 
+            # Check file access before writing
+            if not self.wait_for_file_access(destination_file):
+                logger.info("ℹ️  User chose to exit - changes not saved")
+                return 0, len(filtered_profiles)
+
             # Save back to Excel
             df_combined.to_excel(destination_file, index=False, engine='openpyxl')
 
@@ -159,10 +202,10 @@ class LinkedInProfilesDataOrchestrator:
 
         # Extract data from all tabs using the existing extractor
         max_tabs = self.config.get('max_tabs', 50)
-        profiles_data = self.extractor.extract_all_tabs(max_tabs)
+        profiles_data, actual_tabs_processed = self.extractor.extract_all_tabs(max_tabs)
 
         if profiles_data:
-            logger.info(f"✅ Extracted {len(profiles_data)} profiles from {max_tabs} tabs")
+            logger.info(f"✅ Extracted {len(profiles_data)} profiles from {actual_tabs_processed} tabs")
         else:
             logger.warning("⚠️  No profile data was extracted")
 
