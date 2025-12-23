@@ -66,6 +66,9 @@ def create_performance_chart(df, group_col, title):
     # Sort by Rate ascending (so highest is at top in chart, as plotly builds from bottom)
     stats_chart = stats.sort_values('Rate', ascending=True)
     
+    # Custom gradient from contacted gray (#808080) to connected green (#00A44E)
+    custom_color_scale = ['#808080', '#00A44E']
+    
     fig = px.bar(
         stats_chart, 
         x='Length', 
@@ -73,12 +76,12 @@ def create_performance_chart(df, group_col, title):
         orientation='h',
         title=title, 
         color='Rate',
-        color_continuous_scale='Viridis',
+        color_continuous_scale=custom_color_scale,
         labels={'Length': 'Volume (Contacted + Connected)', 'Rate': 'Success Rate (%)', group_col: group_col.replace('_', ' ').title()}
     )
     
-    # Return stats sorted by Rate descending for tables (highest first)
-    return fig, stats.sort_values('Rate', ascending=False)
+    # Return stats sorted by Contacted descending for tables (highest first)
+    return fig, stats.sort_values('Contacted', ascending=False)
 
 def main():
     st.title("📊 LinkedIn Reachout Dashboard")
@@ -162,8 +165,8 @@ def main():
         daily_stats = pd.merge(daily_counts, daily_connected, on='day', how='left').fillna(0)
         
         fig_timeline = go.Figure()
-        fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Contacted'], name='Contacted', marker_color='#636EFA'))
-        fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#00CC96'))
+        fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Contacted'], name='Contacted', marker_color='#808080'))
+        fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#00A44E'))
         
         fig_timeline.update_layout(barmode='overlay', title="Daily Contacts vs Connections", xaxis_title="Date", yaxis_title="Count")
         st.plotly_chart(fig_timeline, width="stretch")
