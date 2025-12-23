@@ -1,13 +1,14 @@
 @echo off
 REM ============================================================================
-REM LINKEDIN PROFILES DATA EXTRACTOR BATCH SCRIPT
+REM LINKEDIN PROFILES DATA ORCHESTRATOR BATCH SCRIPT
 REM ============================================================================
-REM Description: This batch file runs the LinkedIn profile data extractor
+REM Description: This batch file runs the LinkedIn profile data orchestrator
+REM which extracts data and merges it into the destination Excel file
 REM
 REM Usage: Simply double-click this bat file or run it from command line.
 REM ============================================================================
 
-echo [INFO] Starting LinkedIn Profiles Data Extractor Module...
+echo [INFO] Starting LinkedIn Profiles Data Orchestrator Module...
 
 REM Set the path to the virtual environment
 set "VENV_DIR=E:\automation\automation\.venv"
@@ -31,10 +32,10 @@ if errorlevel 1 (
 
 REM Main loop for continuous execution
 :LOOP
-echo [INFO] Running linkedin_profiles_data_extractor.py...
-python linkedin_profiles_data_extractor.py
+echo [INFO] Running linkedin_profiles_data_orchestrator.py...
+python linkedin_profiles_data_orchestrator.py
 if errorlevel 1 (
-    echo [ERROR] linkedin_profiles_data_extractor.py failed with error code %errorlevel%
+    echo [ERROR] linkedin_profiles_data_orchestrator.py failed with error code %errorlevel%
     echo [INFO] Press any key to retry or CTRL+C to exit...
     pause >nul
     goto LOOP

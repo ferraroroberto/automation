@@ -1,6 +1,6 @@
 {
-  "module_name": "linkedin_profiles_data_extractor_module",
-  "description": "LinkedIn profiles data extractor module",
+  "module_name": "linkedin_profiles_data_orchestrator_module",
+  "description": "LinkedIn profiles data orchestrator module",
   "version": "1.0.0",
   "output_columns": [
     "name",
@@ -11,9 +11,10 @@
     "location"
   ],
   "output_path": "E:\\onedrive\\Documentos\\Roberto\\areas\\work\\contacts reachout",
+  "destination_file": "E:\\onedrive\\Documentos\\Roberto\\areas\\work\\contacts reachout\\contacts.xlsx",
   "max_tabs": 50,
   "wait_time_seconds": 5,
   "tab_switch_delay": 1.5,
-  "created_at": "2025-12-22T17:16:23",
+  "created_at": "2025-12-23T12:00:00",
   "author": "Automation Script"
 }
