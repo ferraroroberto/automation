@@ -2,6 +2,18 @@
 # Comprehensive dependencies for all automation modules
 
 # =============================================================================
+# DATA VISUALIZATION
+# =============================================================================
+
+# Interactive web apps for data science
+# Source: linkedin/profiles_data_extractor/dashboard.py
+streamlit>=1.30.0
+
+# Interactive graphing library
+# Source: linkedin/profiles_data_extractor/dashboard.py
+plotly>=5.18.0
+
+# =============================================================================
 # AUDIO PROCESSING MODULES
 # =============================================================================
 
