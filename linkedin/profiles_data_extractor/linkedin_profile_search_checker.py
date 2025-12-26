@@ -403,7 +403,13 @@ class LinkedInProfileSearchChecker:
             total_missing += len(names)
 
             for name in names:
-                print(f"page {page_num}: {name},")
+                # Handle Unicode encoding issues on Windows console
+                try:
+                    print(f"page {page_num}: {name},")
+                except UnicodeEncodeError:
+                    # Fallback: encode to ASCII, replacing problematic characters
+                    safe_name = name.encode('ascii', 'replace').decode('ascii')
+                    print(f"page {page_num}: {safe_name},")
 
         print("="*80)
         print(f"Total missing profiles: {total_missing}")
