@@ -14,7 +14,7 @@ REM Set the path to the virtual environment
 set "VENV_DIR=E:\automation\automation\.venv"
 
 REM Set the path to the linkedin scripts
-set "SCRIPT_DIR=E:\automation\automation\linkedin\profiles_data_extractor"
+set "SCRIPT_DIR=E:\automation\automation\linkedin\profiles_data_extractor\common"
 
 echo [INFO] Activating virtual environment...
 call "%VENV_DIR%\Scripts\activate.bat"

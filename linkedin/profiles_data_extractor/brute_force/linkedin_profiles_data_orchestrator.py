@@ -14,8 +14,8 @@ import pandas as pd
 from pynput import keyboard
 
 # Import the existing extractor module
-from linkedin_profiles_data_extractor import LinkedInProfileExtractor, save_to_excel
-from excel_format_manager import (
+from .linkedin_profiles_data_extractor import LinkedInProfileExtractor, save_to_excel
+from ..common.excel_format_manager import (
     save_excel_format_to_json,
     apply_format_from_json,
     convert_url_columns_to_hyperlinks

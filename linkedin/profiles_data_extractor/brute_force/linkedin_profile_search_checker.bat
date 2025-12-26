@@ -1,20 +1,21 @@
 @echo off
 REM ============================================================================
-REM LINKEDIN PROFILES DATA ORCHESTRATOR BATCH SCRIPT
+REM LINKEDIN PROFILE SEARCH CHECKER BATCH SCRIPT
 REM ============================================================================
-REM Description: This batch file runs the LinkedIn profile data orchestrator
-REM which extracts data and merges it into the destination Excel file
+REM Description: This batch file runs the LinkedIn profile search checker
+REM which extracts profile names and page numbers from search tabs and
+REM compares them with existing contacts to show missing profiles
 REM
 REM Usage: Simply double-click this bat file or run it from command line.
 REM ============================================================================
 
-echo [INFO] Starting LinkedIn Profiles Data Orchestrator Module...
+echo [INFO] Starting LinkedIn Profile Search Checker Module...
 
 REM Set the path to the virtual environment
 set "VENV_DIR=E:\automation\automation\.venv"
 
 REM Set the path to the linkedin scripts
-set "SCRIPT_DIR=E:\automation\automation\linkedin\profiles_data_extractor"
+set "SCRIPT_DIR=E:\automation\automation\linkedin\profiles_data_extractor\brute_force"
 
 echo [INFO] Activating virtual environment...
 call "%VENV_DIR%\Scripts\activate.bat"
@@ -30,22 +31,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Main loop for continuous execution
-:LOOP
-echo [INFO] Running linkedin_profiles_data_orchestrator.py...
-python linkedin_profiles_data_orchestrator.py
+echo [INFO] Running linkedin_profile_search_checker.py...
+python linkedin_profile_search_checker.py
 if errorlevel 1 (
-    echo [ERROR] linkedin_profiles_data_orchestrator.py failed with error code %errorlevel%
+    echo [ERROR] linkedin_profile_search_checker.py failed with error code %errorlevel%
     echo [INFO] Press any key to retry or CTRL+C to exit...
     pause >nul
-    goto LOOP
+    goto :eof
 )
 
 echo [INFO] Process completed successfully!
-echo [INFO] Press ENTER to continue and repeat after 5 seconds, or CTRL+C to stop...
+echo [INFO] Press any key to exit...
 pause >nul
-
-echo [INFO] Waiting 5 seconds before next cycle...
-timeout /t 5 /nobreak >nul
-
-goto LOOP
