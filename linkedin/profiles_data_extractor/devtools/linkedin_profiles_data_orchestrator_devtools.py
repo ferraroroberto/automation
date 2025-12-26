@@ -245,15 +245,11 @@ class LinkedInProfilesDataOrchestratorDevTools:
         # Ensure destination directory exists
         os.makedirs(os.path.dirname(destination_file), exist_ok=True)
 
-        # Create format JSON path (same directory as config)
-        config_path = os.path.join(
-            os.path.dirname(__file__),
-            "linkedin_profiles_data.json"
-        )
-        format_json_path = os.path.join(
-            os.path.dirname(config_path),
-            "excel_format_spec.json"
-        )
+        # Create paths to common directory files (same as in main())
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        common_dir = os.path.join(os.path.dirname(script_dir), "common")
+        config_path = os.path.join(common_dir, "linkedin_profiles_data.json")
+        format_json_path = os.path.join(common_dir, "excel_format_spec.json")
 
         try:
             # STEP 0: Ask if user wants to save format to JSON
@@ -263,7 +259,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             logger.info("=" * 80)
             if os.path.exists(destination_file):
                 try:
-                    print("\nDo you want to save the Excel format to JSON? (y/n): ", end='')
+                    print("\nDo you want to save the Excel format to JSON? (y/n) [n]: ", end='')
                     user_input = input().strip().lower()
                     if user_input == 'y':
                         logger.info("💾 Saving Excel format to JSON...")
@@ -275,7 +271,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
                     else:
                         logger.info("⏭️  Skipping format save")
                 except EOFError:
-                    logger.info("⏭️  No input available - skipping format save")
+                    logger.info("⏭️  No input available - defaulting to 'n' (skip format save)")
             else:
                 logger.info("ℹ️  Destination file doesn't exist yet - skipping format save")
 

@@ -454,61 +454,58 @@ class LinkedInProfileExtractorDevTools:
                         }
                     }
 
-                    // Extract job title and company - look for text that contains job info
-                    // Try to find text that looks like job titles (contains common job keywords or "at")
-                    const allTextElements = result.querySelectorAll('span, div, p');
-                    let jobInfo = '';
+                    // Extract job title - use robust selectors like in extract_profile_data()
+                    const insights = result.querySelector('.entity-result__insights');
+                    if (insights) {
+                        const profileContainer = insights.previousElementSibling;
+                        if (profileContainer) {
+                            // Extract job title: look for elements with t-14 t-black t-normal classes
+                            for (const child of profileContainer.children) {
+                                if (child.classList.contains('t-14') &&
+                                    child.classList.contains('t-black') &&
+                                    child.classList.contains('t-normal')) {
+                                    const jobTitleText = child.textContent?.trim();
+                                    if (jobTitleText) {
+                                        profile.job_title = jobTitleText;
+                                        break;
+                                    }
+                                }
+                            }
 
-                    for (const element of allTextElements) {
-                        const text = element.textContent?.trim() || '';
-                        // Look for patterns that suggest job information
-                        if ((text.includes(' at ') || text.includes(' · ') ||
-                             /\b(manager|director|engineer|developer|specialist|analyst|consultant|lead|senior|vp|chief)\b/i.test(text)) &&
-                            text.length > 5 && text.length < 100) {
-                            jobInfo = text;
-                            break;
-                        }
-                    }
-
-                    if (jobInfo) {
-                        // Parse job title and company
-                        const atIndex = jobInfo.indexOf(' at ');
-                        const dotIndex = jobInfo.indexOf(' · ');
-
-                        if (atIndex !== -1) {
-                            profile.job_title = jobInfo.substring(0, atIndex).trim();
-                            profile.company = jobInfo.substring(atIndex + 4).trim();
-                        } else if (dotIndex !== -1) {
-                            profile.job_title = jobInfo.substring(0, dotIndex).trim();
-                            profile.company = jobInfo.substring(dotIndex + 3).trim();
-                        } else {
-                            // If no separator found, use heuristics
-                            const words = jobInfo.split(' ');
-                            if (words.length > 3) {
-                                profile.job_title = words.slice(0, -1).join(' ');
-                                profile.company = words[words.length - 1];
-                            } else {
-                                profile.job_title = jobInfo;
-                                profile.company = '';
+                            // Extract location: look for elements with t-14 t-normal but NOT t-black
+                            for (const child of profileContainer.children) {
+                                if (child.classList.contains('t-14') &&
+                                    child.classList.contains('t-normal') &&
+                                    !child.classList.contains('t-black')) {
+                                    const locationText = child.textContent?.trim();
+                                    if (locationText && locationText !== profile.job_title) {
+                                        profile.location = locationText;
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
 
-                    // Extract location - look for location-like text
-                    let locationInfo = '';
-                    for (const element of allTextElements) {
-                        const text = element.textContent?.trim() || '';
-                        // Location patterns: contains geographic indicators or is short and not job-related
-                        if ((text.includes(',') || /\b(area|region|city|province|state|country)\b/i.test(text) ||
-                             /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*$/.test(text)) &&
-                            text.length > 2 && text.length < 50 && !text.includes(' at ') && !text.includes(' · ')) {
-                            locationInfo = text;
-                            break;
-                        }
-                    }
+                    // Fallback: extract company from search filter pill if job title was found
+                    if (profile.job_title && !profile.company) {
+                        const companySelectors = [
+                            'button[id="searchFilter_currentCompany"]',
+                            '.artdeco-pill[aria-label*="Current company"]',
+                            '.search-reusables__filter-pill-button[aria-label*="company"]'
+                        ];
 
-                    if (locationInfo) {
-                        profile.location = locationInfo;
+                        for (const selector of companySelectors) {
+                            const element = result.querySelector(selector);
+                            if (element) {
+                                const text = element.textContent?.trim();
+                                if (text) {
+                                    // Remove the count (e.g., "HP 1" -> "HP")
+                                    profile.company = text.replace(/\s+\d+$/, '');
+                                    break;
+                                }
+                            }
+                        }
                     }
 
                     // follows_from is always null
