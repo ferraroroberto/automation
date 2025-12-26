@@ -166,6 +166,10 @@ pywin32>=306
 # Source: Various modules for web interactions
 requests>=2.31.0
 
+# WebSocket client for Chrome DevTools Protocol
+# Source: linkedin/profiles_data_extractor/linkedin_profile_search_checker_devtools.py
+websocket-client>=1.6.0
+
 # =============================================================================
 # UTILITY AND HELPER MODULES
 # =============================================================================
