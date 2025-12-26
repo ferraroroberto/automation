@@ -83,6 +83,25 @@ def create_performance_chart(df, group_col, title):
     # Return stats sorted by Contacted descending for tables (highest first)
     return fig, stats.sort_values('Contacted', ascending=False)
 
+def generate_color_gradient(start_hex, end_hex, n):
+    """Generate a gradient of n colors between start_hex and end_hex."""
+    if n < 1: return []
+    if n == 1: return [start_hex]
+    
+    def hex_to_rgb(h):
+        return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+    
+    start_rgb = hex_to_rgb(start_hex)
+    end_rgb = hex_to_rgb(end_hex)
+    
+    colors = []
+    for i in range(n):
+        ratio = i / (n - 1)
+        rgb = tuple(int(start_rgb[j] + (end_rgb[j] - start_rgb[j]) * ratio) for j in range(3))
+        colors.append('#{:02x}{:02x}{:02x}'.format(*rgb))
+        
+    return colors
+
 def main():
     st.title("📊 LinkedIn Reachout Dashboard")
     
@@ -154,22 +173,71 @@ def main():
 
     # --- Visualizations ---
     
-    # 1. Contacts & Connections per Day (Time Series)
-    st.subheader("📅 Activity Over Time")
-    if 'day' in df_filtered.columns:
-        # Group by day
-        daily_counts = df_filtered.groupby(df_filtered['day'].dt.date).size().reset_index(name='Contacted')
-        daily_connected = df_filtered[df_filtered['date connected'].notna()].groupby(df_filtered['day'].dt.date).size().reset_index(name='Connected')
-        
-        # Merge data for plotting
-        daily_stats = pd.merge(daily_counts, daily_connected, on='day', how='left').fillna(0)
-        
-        fig_timeline = go.Figure()
-        fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Contacted'], name='Contacted', marker_color='#808080'))
-        fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#00A44E'))
-        
-        fig_timeline.update_layout(barmode='overlay', title="Daily Contacts vs Connections", xaxis_title="Date", yaxis_title="Count")
-        st.plotly_chart(fig_timeline, width="stretch")
+    # 1. Contacts & Connections per Day (Time Series) & Response Time
+    col_activity_left, col_activity_right = st.columns(2)
+
+    with col_activity_left:
+        st.subheader("📅 Activity Over Time")
+        if 'day' in df_filtered.columns:
+            # Group by day
+            daily_counts = df_filtered.groupby(df_filtered['day'].dt.date).size().reset_index(name='Contacted')
+            daily_connected = df_filtered[df_filtered['date connected'].notna()].groupby(df_filtered['day'].dt.date).size().reset_index(name='Connected')
+            
+            # Merge data for plotting
+            daily_stats = pd.merge(daily_counts, daily_connected, on='day', how='left').fillna(0)
+            
+            fig_timeline = go.Figure()
+            fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Contacted'], name='Contacted', marker_color='#808080'))
+            fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#00A44E'))
+            
+            fig_timeline.update_layout(barmode='overlay', title="Daily Contacts vs Connections", xaxis_title="Date", yaxis_title="Count")
+            st.plotly_chart(fig_timeline, use_container_width=True)
+
+    with col_activity_right:
+        st.subheader("⏱️ Response Time Distribution")
+        if 'day' in df_filtered.columns and 'date connected' in df_filtered.columns:
+            # Calculate days to respond
+            df_resp = df_filtered.copy()
+            df_resp['days_diff'] = (df_resp['date connected'] - df_resp['day']).dt.days
+            
+            def get_label(x):
+                if pd.isna(x):
+                    return "Never"
+                return f"{int(x)} days"
+            
+            df_resp['response_label'] = df_resp['days_diff'].apply(get_label)
+            
+            # Count for pie chart
+            pie_data = df_resp['response_label'].value_counts().reset_index()
+            pie_data.columns = ['Label', 'Count']
+            
+            # Sort: 0, 1... then Never
+            def sort_key(label):
+                if label == "Never":
+                    return float('inf')
+                try:
+                    return int(label.split()[0])
+                except:
+                    return float('inf')
+            
+            pie_data['sort_key'] = pie_data['Label'].apply(sort_key)
+            pie_data = pie_data.sort_values('sort_key')
+            
+            # Generate colors: Green (#00A44E) -> Gray (#808080)
+            # 0 days is Green, Never is Gray
+            colors = generate_color_gradient('#00A44E', '#808080', len(pie_data))
+
+            fig_pie = px.pie(
+                pie_data, 
+                values='Count', 
+                names='Label',
+                title="Days to Connect",
+                category_orders={'Label': pie_data['Label'].tolist()},
+                color_discrete_sequence=colors,
+                hole=0.4
+            )
+            fig_pie.update_traces(sort=False, textinfo='percent+label')
+            st.plotly_chart(fig_pie, use_container_width=True)
 
     col_left, col_right = st.columns(2)
 
