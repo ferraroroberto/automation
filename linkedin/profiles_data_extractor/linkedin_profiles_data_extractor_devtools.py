@@ -273,14 +273,41 @@ class LinkedInProfileExtractorDevTools:
         # Extract job title
         job_title_js = """
         (function() {
-            const jobSelectors = [
-                '.IFiVzuSIYxwMkLpWWzQicnkpyLp',
+            // Strategy 1: Search Results List (Robust)
+            // Iterate over each profile card to find the first valid job title
+            const searchResults = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
+            for (const result of searchResults) {
+                // Orient based on entity-result__insights
+                const insights = result.querySelector('.entity-result__insights');
+                if (insights) {
+                    // The profile info is in the previous sibling container
+                    const profileContainer = insights.previousElementSibling;
+                    if (profileContainer) {
+                        // Look for the job title div.
+                        // Based on analysis:
+                        // - Job Title: t-14 t-black t-normal
+                        
+                        // Iterate over direct children of the profile container
+                        for (const child of profileContainer.children) {
+                            if (child.classList.contains('t-14') && 
+                                child.classList.contains('t-black') && 
+                                child.classList.contains('t-normal')) {
+                                
+                                const text = child.textContent?.trim();
+                                if (text) return text;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback to profile page selectors
+            const profileSelectors = [
                 '.pv-text-details__left-panel .text-body-medium',
-                '.pv-text-details__left-panel div[data-test-id="profile-card__primary-headline"]',
-                '.IFiVzuSIYxwMkLpWWzQicnkpyLp h4'
+                '.pv-text-details__left-panel div[data-test-id="profile-card__primary-headline"]'
             ];
 
-            for (const selector of jobSelectors) {
+            for (const selector of profileSelectors) {
                 const element = document.querySelector(selector);
                 if (element) {
                     return element.textContent?.trim();
@@ -295,14 +322,45 @@ class LinkedInProfileExtractorDevTools:
         # Extract location
         location_js = """
         (function() {
-            const locationSelectors = [
-                '.fxBZQyKZgMuOrUkBaCXstijorNwovTsmrWbOowPA',
+            // Strategy 1: Search Results List (Robust)
+            // Iterate over each profile card to find the first valid location
+            // We use the data-view-name to identify the profile card container
+            const searchResults = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
+            for (const result of searchResults) {
+                // Orient based on entity-result__insights as requested
+                const insights = result.querySelector('.entity-result__insights');
+                if (insights) {
+                    // The profile info is in the previous sibling container
+                    const profileContainer = insights.previousElementSibling;
+                    if (profileContainer) {
+                        // Look for the location div.
+                        // Based on analysis:
+                        // - Job Title: t-14 t-black t-normal
+                        // - Location: t-14 t-normal (and usually NOT t-black)
+                        
+                        // Iterate over direct children of the profile container
+                        for (const child of profileContainer.children) {
+                            // Check for t-14 and t-normal
+                            if (child.classList.contains('t-14') && child.classList.contains('t-normal')) {
+                                // Exclude Job Title (which has t-black)
+                                if (!child.classList.contains('t-black')) {
+                                    const text = child.textContent?.trim();
+                                    if (text) return text;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback to profile page selectors
+            const profileSelectors = [
                 '.pv-text-details__left-panel .text-body-small.inline.t-black--light.break-words',
                 '.pv-text-details__left-panel span[data-test-id="profile-card__location"]',
                 '.VlSKoXSzfRCLBjvFdhXHtrnCCaNHklv span.text-body-small'
             ];
 
-            for (const selector of locationSelectors) {
+            for (const selector of profileSelectors) {
                 const element = document.querySelector(selector);
                 if (element) {
                     return element.textContent?.trim();
