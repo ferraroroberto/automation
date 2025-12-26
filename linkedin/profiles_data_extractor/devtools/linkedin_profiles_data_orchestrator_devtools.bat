@@ -16,7 +16,7 @@ echo.
 
 REM Check if Chrome is running with debugging
 echo Checking if Chrome debug port is accessible...
-powershell -Command "try { $response = Invoke-WebRequest -Uri 'http://localhost:9222/json' -TimeoutSec 5; if ($response.StatusCode -eq 200) { Write-Host '[OK] Chrome debug port accessible' -ForegroundColor Green } } catch { Write-Host '[ERROR] Chrome debug port not accessible' -ForegroundColor Red; Write-Host 'Please run start_chrome_debug.bat first!' -ForegroundColor Yellow; exit 1 }"
+powershell -Command "try { $response = Invoke-WebRequest -Uri 'http://localhost:9222/json' -UseBasicParsing -TimeoutSec 5; if ($response.StatusCode -eq 200) { Write-Host '[OK] Chrome debug port accessible' -ForegroundColor Green } } catch { Write-Host '[ERROR] Chrome debug port not accessible' -ForegroundColor Red; Write-Host 'Please run start_chrome_debug.bat first!' -ForegroundColor Yellow; exit 1 }"
 
 echo.
 echo Starting DevTools-based profile orchestrator...
