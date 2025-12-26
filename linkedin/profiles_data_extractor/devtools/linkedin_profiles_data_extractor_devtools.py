@@ -496,7 +496,7 @@ class LinkedInProfileExtractorDevTools:
                         ];
 
                         for (const selector of companySelectors) {
-                            const element = result.querySelector(selector);
+                            const element = document.querySelector(selector);
                             if (element) {
                                 const text = element.textContent?.trim();
                                 if (text) {
