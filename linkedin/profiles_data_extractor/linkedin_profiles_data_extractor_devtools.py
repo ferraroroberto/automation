@@ -401,6 +401,10 @@ class LinkedInProfileExtractorDevTools:
         # follows_from is always null as requested
         follows_from = None
 
+        # Clean URL by removing query parameters after ?
+        if url:
+            url = url.split('?')[0]
+
         return {
             'name': name or "",
             'url': url,
