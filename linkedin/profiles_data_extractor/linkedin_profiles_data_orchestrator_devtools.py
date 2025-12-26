@@ -94,82 +94,113 @@ class LinkedInProfilesDataOrchestratorDevTools:
                 return False
         return True
 
-    def merge_to_excel(self, new_profiles: List[Dict[str, str]], destination_file: str) -> Tuple[int, int]:
+    def merge_to_excel(self, new_profiles: List[Dict[str, str]], destination_file: str) -> Tuple[int, int, int]:
         """Merge new profiles into existing Excel file based on name column.
 
         Args:
             new_profiles: List of new profile dictionaries to merge.
-            destination_file: Path to destination Excel file.
+            destination_file: Path to the destination Excel file.
 
         Returns:
-            Tuple of (new_records_added, total_records_after_merge)
+            Tuple of (inserted_count, skipped_count).
         """
-        if not new_profiles:
-            logger.info("ℹ️  No new profiles to merge")
+        # Columns to use from the profiles (as specified in requirements)
+        columns_to_use = ['name', 'url', 'job_title', 'follows_from', 'company', 'location']
+
+        # Filter new profiles to only include specified columns
+        filtered_profiles = []
+        for profile in new_profiles:
+            filtered_profile = {col: profile.get(col, '') for col in columns_to_use}
+            # Only include profiles that have a name (required for deduplication)
+            if filtered_profile.get('name', '').strip():
+                filtered_profiles.append(filtered_profile)
+
+        if not filtered_profiles:
+            logger.warning("⚠️  No valid profiles to merge (missing name field)")
             return 0, 0
 
+        # Check if destination file exists
+        if not os.path.exists(destination_file):
+            logger.info(f"📄 Destination file doesn't exist, creating new file: {destination_file}")
+            # Create new file with all profiles
+            df_new = pd.DataFrame(filtered_profiles)
+            df_new.to_excel(destination_file, index=False, engine='openpyxl')
+            logger.info(f"✅ Created new Excel file with {len(filtered_profiles)} profiles")
+            return len(filtered_profiles), 0, len(filtered_profiles)
+
         try:
-            # Check if destination file exists
-            if os.path.exists(destination_file):
-                # Read existing data
-                existing_df = pd.read_excel(destination_file, engine='openpyxl')
-                logger.info(f"📖 Read existing Excel file with {len(existing_df)} rows")
+            # Check if file is accessible before reading
+            if not self.wait_for_file_access(destination_file):
+                logger.info("ℹ️  User chose to exit - skipping Excel merge")
+                return 0, len(filtered_profiles), 0
 
-                # Convert to lowercase for case-insensitive comparison
-                existing_names = set()
-                if 'name' in existing_df.columns:
-                    existing_names = set(
-                        str(name).lower().strip()
-                        for name in existing_df['name'].dropna()
-                        if str(name).strip()
-                    )
+            # Read existing Excel file
+            df_existing = pd.read_excel(destination_file, engine='openpyxl')
+            logger.info(f"📖 Read existing Excel file with {len(df_existing)} rows")
 
-                # Filter new profiles to exclude duplicates
-                filtered_new_profiles = []
-                duplicates_found = 0
+            # Get existing names (case-insensitive comparison)
+            existing_names = set()
+            if 'name' in df_existing.columns:
+                existing_names = set(
+                    name.lower().strip()
+                    for name in df_existing['name'].dropna()
+                    if isinstance(name, str) and name.strip()
+                )
 
-                for profile in new_profiles:
-                    profile_name = profile.get('name', '').lower().strip()
-                    if profile_name and profile_name not in existing_names:
-                        filtered_new_profiles.append(profile)
-                        existing_names.add(profile_name)
+            # Filter out profiles that already exist
+            new_profiles_filtered = []
+            skipped_count = 0
+
+            for profile in filtered_profiles:
+                profile_name = profile.get('name', '').lower().strip()
+                if profile_name and profile_name not in existing_names:
+                    new_profiles_filtered.append(profile)
+                else:
+                    skipped_count += 1
+                    if profile_name:
+                        logger.info(f"⏭️  Skipped existing profile: {profile['name']}")
                     else:
-                        duplicates_found += 1
+                        logger.info("⏭️  Skipped profile with missing name")
 
-                if duplicates_found > 0:
-                    logger.info(f"⏭️  Skipped {duplicates_found} duplicate profiles")
+            # If no new profiles to add, return early
+            if not new_profiles_filtered:
+                logger.info("ℹ️  No new profiles to add - all profiles already exist")
+                return 0, len(filtered_profiles), len(df_existing)
 
-                if not filtered_new_profiles:
-                    logger.info("ℹ️  All new profiles were duplicates - nothing to merge")
-                    return 0, len(existing_df)
+            # Create DataFrame from new profiles
+            df_new = pd.DataFrame(new_profiles_filtered)
 
-                # Append new profiles to existing data
-                new_df = pd.DataFrame(filtered_new_profiles)
-                combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+            # Ensure all required columns exist in both DataFrames
+            all_columns = set(df_existing.columns.tolist() + columns_to_use)
+            for col in all_columns:
+                if col not in df_existing.columns:
+                    df_existing[col] = ''
+                if col not in df_new.columns:
+                    df_new[col] = ''
 
-                logger.info(f"📊 Adding {len(filtered_new_profiles)} new profiles to existing {len(existing_df)} profiles")
+            # Reorder columns to match the desired order
+            df_new = df_new[columns_to_use]
 
-            else:
-                # Create new file with all profiles
-                combined_df = pd.DataFrame(new_profiles)
-                filtered_new_profiles = new_profiles
-                logger.info(f"📄 Creating new Excel file with {len(new_profiles)} profiles")
+            # Append new profiles to existing data
+            df_combined = pd.concat([df_existing, df_new], ignore_index=True)
 
-            # Save to Excel with formatting
-            with pd.ExcelWriter(destination_file, engine='openpyxl') as writer:
-                combined_df.to_excel(writer, sheet_name='Profiles', index=False)
+            # Check file access before writing
+            if not self.wait_for_file_access(destination_file):
+                logger.info("ℹ️  User chose to exit - changes not saved")
+                return 0, len(filtered_profiles), len(df_existing)
 
-                # Apply formatting if format file exists
-                format_file = self.config.get('excel_format_file')
-                if format_file and os.path.exists(format_file):
-                    apply_format_from_json(writer, format_file)
-                    convert_url_columns_to_hyperlinks(writer, 'Profiles', ['url'])
+            # Save back to Excel
+            df_combined.to_excel(destination_file, index=False, engine='openpyxl')
 
-            logger.info(f"✅ Successfully merged data to {destination_file}")
-            return len(filtered_new_profiles), len(combined_df)
+            inserted_count = len(new_profiles_filtered)
+            total_records = len(df_combined)
+            logger.info(f"✅ Successfully merged {inserted_count} new profiles into {destination_file}")
+            logger.info(f"📊 Summary: {inserted_count} inserted, {skipped_count} skipped, {total_records} total")
+
+            return inserted_count, skipped_count, total_records
 
         except Exception as e:
-            logger.error(f"❌ Failed to merge to Excel: {e}")
+            logger.error(f"❌ Failed to merge profiles into Excel: {e}")
             raise
 
     def setup_keyboard_listener(self) -> None:
@@ -196,21 +227,55 @@ class LinkedInProfilesDataOrchestratorDevTools:
         logger.info("🎯 Starting LinkedIn Profiles Data Orchestrator (DevTools Version)")
         logger.info("=" * 80)
 
+        # Get configuration values
+        destination_file = self.config.get('destination_file')
+        max_tabs = self.config.get('max_tabs', 50)
+
+        if not destination_file:
+            logger.error("❌ destination_file not specified in configuration")
+            return
+
+        # Ensure destination directory exists
+        os.makedirs(os.path.dirname(destination_file), exist_ok=True)
+
+        # Create format JSON path (same directory as config)
+        config_path = os.path.join(
+            os.path.dirname(__file__),
+            "linkedin_profiles_data.json"
+        )
+        format_json_path = os.path.join(
+            os.path.dirname(config_path),
+            "excel_format_spec.json"
+        )
+
         try:
+            # STEP 0: Ask if user wants to save format to JSON
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("STEP 0: Format saving option")
+            logger.info("=" * 80)
+            if os.path.exists(destination_file):
+                try:
+                    print("\nDo you want to save the Excel format to JSON? (y/n): ", end='')
+                    user_input = input().strip().lower()
+                    if user_input == 'y':
+                        logger.info("💾 Saving Excel format to JSON...")
+                        success = save_excel_format_to_json(destination_file, format_json_path)
+                        if success:
+                            logger.info("✅ Format saved successfully")
+                        else:
+                            logger.warning("⚠️  Failed to save format, continuing anyway...")
+                    else:
+                        logger.info("⏭️  Skipping format save")
+                except EOFError:
+                    logger.info("⏭️  No input available - skipping format save")
+            else:
+                logger.info("ℹ️  Destination file doesn't exist yet - skipping format save")
+
             # Setup keyboard listener for exit
             self.setup_keyboard_listener()
+            logger.info("")
             logger.info("⌨️  Press 'x' at any time to stop the extraction")
-
-            # Get configuration values
-            destination_file = self.config.get('destination_file')
-            max_tabs = self.config.get('max_tabs', 50)
-
-            if not destination_file:
-                logger.error("❌ destination_file not specified in configuration")
-                return
-
-            # Ensure destination directory exists
-            os.makedirs(os.path.dirname(destination_file), exist_ok=True)
 
             # Wait for file access if it exists
             if os.path.exists(destination_file):
@@ -219,8 +284,11 @@ class LinkedInProfilesDataOrchestratorDevTools:
                     logger.info("⏹️  User chose to exit")
                     return
 
-            # Step 1: Extract profiles from Chrome tabs using DevTools
-            logger.info("📋 Step 1: Extracting profiles from Chrome tabs using DevTools...")
+            # STEP 1: Extract profiles from Chrome tabs using DevTools
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("STEP 1: Extracting data from Chrome tabs...")
+            logger.info("=" * 80)
             profiles, tabs_processed = self.extractor.extract_all_tabs_devtools(
                 max_tabs=max_tabs,
                 exit_check=lambda: self.exit_requested
@@ -230,25 +298,51 @@ class LinkedInProfilesDataOrchestratorDevTools:
                 logger.warning("⚠️  No profiles extracted")
                 return
 
-            # Step 2: Merge to Excel
-            logger.info("📋 Step 2: Merging profiles to Excel file...")
+            # STEP 2: Merge to destination Excel file
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("STEP 2: Merging data to destination Excel file...")
+            logger.info("=" * 80)
 
-            # Save format before merging (if file exists)
-            if os.path.exists(destination_file):
-                format_file = self.config.get('excel_format_file')
-                if format_file:
-                    save_excel_format_to_json(destination_file, format_file)
+            # Ensure destination directory exists
+            destination_dir = os.path.dirname(destination_file)
+            os.makedirs(destination_dir, exist_ok=True)
 
-            new_records, total_records = self.merge_to_excel(profiles, destination_file)
+            inserted_count, skipped_count, total_records = self.merge_to_excel(profiles, destination_file)
 
-            # Step 3: Report results
-            logger.info("📋 Step 3: Extraction and merge completed")
+            # STEP 3: Apply format and convert URLs
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("STEP 3: Applying format and converting URLs...")
+            logger.info("=" * 80)
+
+            if os.path.exists(format_json_path):
+                logger.info("📋 Applying format from JSON...")
+                success = apply_format_from_json(destination_file, format_json_path)
+                if success:
+                    logger.info("✅ Format applied successfully")
+                else:
+                    logger.warning("⚠️  Failed to apply format")
+            else:
+                logger.warning(f"⚠️  Format JSON not found: {format_json_path} - skipping format application")
+
+            logger.info("")
+            logger.info("📎 Converting URL columns to hyperlinks...")
+            success = convert_url_columns_to_hyperlinks(destination_file)
+            if success:
+                logger.info("✅ URLs converted successfully")
+            else:
+                logger.warning("⚠️  Failed to convert URLs")
+
+            # Display final summary
+            logger.info("")
             print("\n" + "="*80)
-            print("EXTRACTION RESULTS (DevTools Version)")
+            print("ORCHESTRATION COMPLETE (DevTools Version)")
             print("="*80)
-            print(f"Profiles extracted: {len(profiles)}")
+            print(f"Total profiles extracted: {len(profiles)}")
             print(f"Tabs processed: {tabs_processed}")
-            print(f"New records added: {new_records}")
+            print(f"Profiles inserted: {inserted_count}")
+            print(f"Profiles skipped (already exist): {skipped_count}")
             print(f"Total records in file: {total_records}")
             print(f"Destination file: {destination_file}")
             print("="*80 + "\n")
@@ -321,7 +415,7 @@ def main() -> None:
                 break
             else:
                 print("Invalid choice. Please enter 1, 2, or 3.")
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
             print("\nExiting...")
             break
 
