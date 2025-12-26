@@ -8,14 +8,21 @@ Extracts data from Chrome tabs and merges new records into an existing Excel fil
 import logging
 import json
 import os
+import sys
 import threading
 from typing import List, Dict, Tuple
 import pandas as pd
 from pynput import keyboard
 
+# Add current directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 # Import the DevTools extractor module
-from .linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools, ChromeDevToolsClient
-from ..common.excel_format_manager import (
+from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools, ChromeDevToolsClient
+
+# Add common directory to path for shared imports
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'common'))
+from excel_format_manager import (
     save_excel_format_to_json,
     apply_format_from_json,
     convert_url_columns_to_hyperlinks
