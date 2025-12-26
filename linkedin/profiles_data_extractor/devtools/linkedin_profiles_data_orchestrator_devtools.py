@@ -20,13 +20,23 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Import the DevTools extractor module
 from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools, ChromeDevToolsClient
 
-# Add common directory to path for shared imports
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'common'))
-from excel_format_manager import (
-    save_excel_format_to_json,
-    apply_format_from_json,
-    convert_url_columns_to_hyperlinks
-)
+# Import from common directory using importlib for reliable path handling
+import importlib.util
+
+# Calculate path from devtools directory to common directory (../common)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+common_dir = os.path.join(script_dir, '..', 'common')
+common_dir = os.path.abspath(common_dir)  # Normalize path
+
+excel_format_path = os.path.join(common_dir, "excel_format_manager.py")
+excel_format_spec = importlib.util.spec_from_file_location("excel_format_manager", excel_format_path)
+excel_format_manager = importlib.util.module_from_spec(excel_format_spec)
+excel_format_spec.loader.exec_module(excel_format_manager)
+
+# Import the functions we need
+save_excel_format_to_json = excel_format_manager.save_excel_format_to_json
+apply_format_from_json = excel_format_manager.apply_format_from_json
+convert_url_columns_to_hyperlinks = excel_format_manager.convert_url_columns_to_hyperlinks
 
 logging.basicConfig(
     level=logging.INFO,
