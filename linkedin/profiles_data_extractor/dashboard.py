@@ -191,7 +191,7 @@ def main():
             fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#00A44E'))
             
             fig_timeline.update_layout(barmode='overlay', title="Daily Contacts vs Connections", xaxis_title="Date", yaxis_title="Count")
-            st.plotly_chart(fig_timeline, use_container_width=True)
+            st.plotly_chart(fig_timeline, width='stretch')
 
     with col_activity_right:
         st.subheader("⏱️ Response Time Distribution")
@@ -237,7 +237,7 @@ def main():
                 hole=0.4
             )
             fig_pie.update_traces(sort=False, textinfo='percent+label')
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width='stretch')
 
     col_left, col_right = st.columns(2)
 
