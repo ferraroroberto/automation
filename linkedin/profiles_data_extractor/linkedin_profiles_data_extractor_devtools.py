@@ -251,17 +251,33 @@ class LinkedInProfileExtractorDevTools:
         """
         name = self.chrome.evaluate_javascript(name_js)
 
-        # Extract URL
-        url = self.chrome.get_current_url()
+        # Extract URL from profile link
+        url_js = """
+        (function() {
+            // Get the profile URL from the link's href attribute
+            const profileLinks = document.querySelectorAll('a[href*="linkedin.com/in/"]');
+            for (const link of profileLinks) {
+                const href = link.getAttribute('href');
+                if (href && href.includes('linkedin.com/in/')) {
+                    // Clean up the URL - remove query parameters after profile name if needed
+                    // But keep the miniProfileUrn parameter as it contains the profile ID
+                    return href;
+                }
+            }
+
+            return null;
+        })();
+        """
+        url = self.chrome.evaluate_javascript(url_js)
 
         # Extract job title
         job_title_js = """
         (function() {
             const jobSelectors = [
+                '.IFiVzuSIYxwMkLpWWzQicnkpyLp',
                 '.pv-text-details__left-panel .text-body-medium',
                 '.pv-text-details__left-panel div[data-test-id="profile-card__primary-headline"]',
-                '.IFiVzuSIYxwMkLpWWzQicnkpyLp h4',
-                '.fxBZQyKZgMuOrUkBaCXstijorNwovTsmrWbOowPA'
+                '.IFiVzuSIYxwMkLpWWzQicnkpyLp h4'
             ];
 
             for (const selector of jobSelectors) {
@@ -280,6 +296,7 @@ class LinkedInProfileExtractorDevTools:
         location_js = """
         (function() {
             const locationSelectors = [
+                '.fxBZQyKZgMuOrUkBaCXstijorNwovTsmrWbOowPA',
                 '.pv-text-details__left-panel .text-body-small.inline.t-black--light.break-words',
                 '.pv-text-details__left-panel span[data-test-id="profile-card__location"]',
                 '.VlSKoXSzfRCLBjvFdhXHtrnCCaNHklv span.text-body-small'
