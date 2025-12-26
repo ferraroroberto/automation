@@ -414,6 +414,137 @@ class LinkedInProfileExtractorDevTools:
             'location': location or ""
         }
 
+    def extract_search_results_profiles(self) -> List[Dict[str, str]]:
+        """Extract multiple profiles from a LinkedIn search results page using DevTools.
+
+        Returns:
+            List of dictionaries containing profile data from all search results.
+        """
+
+        profiles_js = """
+        (function() {
+            const profiles = [];
+
+            // Find all search result containers
+            const searchResults = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
+
+            for (let i = 0; i < searchResults.length; i++) {
+                const result = searchResults[i];
+                try {
+                    const profile = {};
+
+                    // Extract name - look for spans with aria-hidden="true" within this result
+                    const nameSpans = result.querySelectorAll('span[aria-hidden="true"]');
+                    for (const span of nameSpans) {
+                        const name = span.textContent?.trim();
+                        if (name && name.split(' ').length >= 2) {
+                            profile.name = name;
+                            break;
+                        }
+                    }
+
+                    // Extract URL from LinkedIn profile links within this result
+                    const profileLinks = result.querySelectorAll('a[href*="linkedin.com/in/"]');
+                    for (const link of profileLinks) {
+                        const href = link.getAttribute('href');
+                        if (href && href.includes('linkedin.com/in/')) {
+                            // Clean URL by removing query parameters after ?
+                            profile.url = href.split('?')[0];
+                            break;
+                        }
+                    }
+
+                    // Extract job title and company - look for text that contains job info
+                    // Try to find text that looks like job titles (contains common job keywords or "at")
+                    const allTextElements = result.querySelectorAll('span, div, p');
+                    let jobInfo = '';
+
+                    for (const element of allTextElements) {
+                        const text = element.textContent?.trim() || '';
+                        // Look for patterns that suggest job information
+                        if ((text.includes(' at ') || text.includes(' · ') ||
+                             /\b(manager|director|engineer|developer|specialist|analyst|consultant|lead|senior|vp|chief)\b/i.test(text)) &&
+                            text.length > 5 && text.length < 100) {
+                            jobInfo = text;
+                            break;
+                        }
+                    }
+
+                    if (jobInfo) {
+                        // Parse job title and company
+                        const atIndex = jobInfo.indexOf(' at ');
+                        const dotIndex = jobInfo.indexOf(' · ');
+
+                        if (atIndex !== -1) {
+                            profile.job_title = jobInfo.substring(0, atIndex).trim();
+                            profile.company = jobInfo.substring(atIndex + 4).trim();
+                        } else if (dotIndex !== -1) {
+                            profile.job_title = jobInfo.substring(0, dotIndex).trim();
+                            profile.company = jobInfo.substring(dotIndex + 3).trim();
+                        } else {
+                            // If no separator found, use heuristics
+                            const words = jobInfo.split(' ');
+                            if (words.length > 3) {
+                                profile.job_title = words.slice(0, -1).join(' ');
+                                profile.company = words[words.length - 1];
+                            } else {
+                                profile.job_title = jobInfo;
+                                profile.company = '';
+                            }
+                        }
+                    }
+
+                    // Extract location - look for location-like text
+                    let locationInfo = '';
+                    for (const element of allTextElements) {
+                        const text = element.textContent?.trim() || '';
+                        // Location patterns: contains geographic indicators or is short and not job-related
+                        if ((text.includes(',') || /\b(area|region|city|province|state|country)\b/i.test(text) ||
+                             /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*$/.test(text)) &&
+                            text.length > 2 && text.length < 50 && !text.includes(' at ') && !text.includes(' · ')) {
+                            locationInfo = text;
+                            break;
+                        }
+                    }
+
+                    if (locationInfo) {
+                        profile.location = locationInfo;
+                    }
+
+                    // follows_from is always null
+                    profile.follows_from = null;
+
+                    // Only add profile if we have at least a name or URL
+                    if (profile.name || profile.url) {
+                        profiles.push(profile);
+                    }
+
+                } catch (error) {
+                    console.log('Error extracting profile:', error);
+                }
+            }
+
+            return profiles;
+        })();
+        """
+
+        try:
+            profiles_data = self.chrome.evaluate_javascript(profiles_js)
+            if profiles_data and isinstance(profiles_data, list):
+                # Convert any None values to empty strings for consistency
+                for profile in profiles_data:
+                    for key in profile:
+                        if profile[key] is None:
+                            profile[key] = ""
+                logger.info(f"📊 Extracted {len(profiles_data)} profiles from search results")
+                return profiles_data
+            else:
+                logger.warning("⚠️  No profiles found or invalid response from search results extraction")
+                return []
+        except Exception as e:
+            logger.error(f"❌ Failed to extract profiles from search results: {e}")
+            return []
+
     def switch_to_next_tab_devtools(self) -> None:
         """Switch to the next tab using keyboard simulation (Ctrl+Tab)."""
 
@@ -486,12 +617,12 @@ class LinkedInProfileExtractorDevTools:
                             break
                     continue
 
-                # Check if this is a LinkedIn profile URL
-                if 'linkedin.com/in/' not in current_url:
-                    logger.warning(f"⚠️  Not a LinkedIn profile page: {current_url}")
+                # Check if this is a LinkedIn page (search results or profile)
+                if 'linkedin.com' not in current_url:
+                    logger.warning(f"⚠️  Not a LinkedIn page: {current_url}")
                     consecutive_no_progress += 1
                     if consecutive_no_progress >= 2:
-                        logger.info("⏹️  Non-profile pages detected - stopping")
+                        logger.info("⏹️  Non-LinkedIn pages detected - stopping")
                         break
                     if tab_num < max_tabs - 1:
                         self.switch_to_next_tab_devtools()
@@ -503,34 +634,53 @@ class LinkedInProfileExtractorDevTools:
                             break
                     continue
 
-                # Check for duplicate URLs
-                if current_url in processed_urls:
-                    logger.info(f"⏭️  URL already processed: {current_url}")
-                    if tab_num < max_tabs - 1:
-                        self.switch_to_next_tab_devtools()
-                        # Reconnect to the new active tab
-                        self.chrome.close()  # Close current connection
-                        time.sleep(0.5)  # Brief pause for tab switch to settle
-                        if not self.chrome.connect_to_chrome():  # Reconnect to new active tab
-                            logger.warning("⚠️  Could not reconnect to new tab - stopping")
-                            break
-                    continue
+                # Check for duplicate URLs (but allow processing same URL if content is different)
+                # We'll use content hash to detect actual duplicates
+                content_hash_js = """
+                (function() {
+                    // Get a hash of the search results content
+                    const results = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
+                    let content = '';
+                    for (const result of results) {
+                        content += result.textContent || '';
+                    }
+                    // Simple hash function
+                    let hash = 0;
+                    for (let i = 0; i < content.length; i++) {
+                        const char = content.charCodeAt(i);
+                        hash = ((hash << 5) - hash) + char;
+                        hash = hash & hash; // Convert to 32-bit integer
+                    }
+                    return Math.abs(hash).toString();
+                })();
+                """
+                content_hash = self.chrome.evaluate_javascript(content_hash_js)
 
-                # Extract profile data
-                profile_data = self.extract_profile_data()
+                if content_hash in content_hashes:
+                    logger.info(f"🔄 Content already processed (hash: {content_hash}) - cycled back to start, stopping extraction")
+                    break
+
+                # Extract multiple profiles from search results
+                profiles_data = self.extract_search_results_profiles()
 
                 # Validate that we got some data
-                if not profile_data.get('name') and not profile_data.get('job_title'):
-                    logger.warning(f"⚠️  No profile data extracted from tab {tab_num + 1}")
+                if not profiles_data:
+                    logger.warning(f"⚠️  No profiles extracted from tab {tab_num + 1}")
                     consecutive_no_progress += 1
                     if consecutive_no_progress >= 2:
-                        logger.info("⏹️  No profile data found for 2 consecutive tabs - stopping")
+                        logger.info("⏹️  No profiles found for 2 consecutive tabs - stopping")
                         break
                 else:
                     consecutive_no_progress = 0
                     processed_urls.add(current_url)
-                    all_profiles.append(profile_data)
-                    logger.info(f"✅ Extracted: {profile_data.get('name', 'Unknown')} - {profile_data.get('job_title', 'Unknown')}")
+                    content_hashes.add(content_hash)
+
+                    # Add all extracted profiles
+                    for profile_data in profiles_data:
+                        all_profiles.append(profile_data)
+                        logger.info(f"✅ Extracted: {profile_data.get('name', 'Unknown')} - {profile_data.get('job_title', 'Unknown')}")
+
+                    logger.info(f"📊 Extracted {len(profiles_data)} profiles from tab {actual_tabs_processed}")
 
                 # Switch to next tab
                 if tab_num < max_tabs - 1:
