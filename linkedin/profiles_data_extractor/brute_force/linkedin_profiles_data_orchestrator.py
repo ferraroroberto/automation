@@ -390,9 +390,10 @@ class LinkedInProfilesDataOrchestrator:
 
 def main() -> None:
     """Main execution function."""
-    # Load configuration from the same directory as this script
+    # Load configuration from the common directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "linkedin_profiles_data.json")
+    common_dir = os.path.join(os.path.dirname(script_dir), "common")
+    config_path = os.path.join(common_dir, "linkedin_profiles_data.json")
 
     if not os.path.exists(config_path):
         logger.error(f"❌ Configuration file not found: {config_path}")
