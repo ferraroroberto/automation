@@ -103,6 +103,7 @@ def generate_color_gradient(start_hex, end_hex, n):
     return colors
 
 def main():
+    """Main dashboard function that orchestrates the Streamlit app."""
     st.title("📊 LinkedIn Reachout Dashboard")
     
     # Load config and data
@@ -203,7 +204,14 @@ def main():
             def get_label(x):
                 if pd.isna(x):
                     return "Never"
-                return f"{int(x)} days"
+                elif x == 0:
+                    return "0 days"
+                elif 1 <= x <= 2:
+                    return "1-2 days"
+                elif 3 <= x <= 5:
+                    return "3-5 days"
+                else:  # x > 5
+                    return "more than 5 days"
             
             df_resp['response_label'] = df_resp['days_diff'].apply(get_label)
             
@@ -211,14 +219,20 @@ def main():
             pie_data = df_resp['response_label'].value_counts().reset_index()
             pie_data.columns = ['Label', 'Count']
             
-            # Sort: 0, 1... then Never
+            # Sort: 0 days, 1-2 days, 3-5 days, more than 5 days, Never
             def sort_key(label):
-                if label == "Never":
-                    return float('inf')
-                try:
-                    return int(label.split()[0])
-                except:
-                    return float('inf')
+                if label == "0 days":
+                    return 0
+                elif label == "1-2 days":
+                    return 1
+                elif label == "3-5 days":
+                    return 2
+                elif label == "more than 5 days":
+                    return 3
+                elif label == "Never":
+                    return 4
+                else:
+                    return 5
             
             pie_data['sort_key'] = pie_data['Label'].apply(sort_key)
             pie_data = pie_data.sort_values('sort_key')
