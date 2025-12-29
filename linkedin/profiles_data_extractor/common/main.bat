@@ -1,14 +1,14 @@
 @echo off
 REM ============================================================================
-REM LINKEDIN PROFILE REACHOUT DASHBOARD
+REM LINKEDIN REACHOUT HUB - MAIN APPLICATION
 REM ============================================================================
-REM Description: This batch file runs the Streamlit dashboard to visualize
-REM LinkedIn reachout data.
+REM Description: This batch file runs the main Streamlit application for the
+REM LinkedIn reachout hub, providing both dashboard visualization and data entry.
 REM
 REM Usage: Simply double-click this bat file.
 REM ============================================================================
 
-echo [INFO] Starting LinkedIn Reachout Dashboard...
+echo [INFO] Starting LinkedIn Reachout Hub...
 
 REM Set the path to the virtual environment
 set "VENV_DIR=E:\automation\automation\.venv"
@@ -30,16 +30,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [INFO] Running dashboard.py with Streamlit...
-echo [INFO] The dashboard should open in your default browser.
-streamlit run dashboard.py --browser.gatherUsageStats false --server.headless false
+echo [INFO] Running main.py with Streamlit...
+echo [INFO] The LinkedIn Reachout Hub should open in your default browser.
+streamlit run main.py --browser.gatherUsageStats false --server.headless false
 
 if errorlevel 1 (
-    echo [ERROR] Dashboard failed with error code %errorlevel%
+    echo [ERROR] Application failed with error code %errorlevel%
     echo [INFO] Press any key to see error details...
     pause >nul
     goto :eof
 )
 
-echo [INFO] Dashboard closed.
-
+echo [INFO] LinkedIn Reachout Hub closed.
