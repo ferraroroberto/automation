@@ -7,12 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-# Set page config
-st.set_page_config(
-    page_title="Reachout Dashboard",
-    page_icon="📊",
-    layout="wide"
-)
+# Page config is now handled in main.py
 
 def load_config():
     """Load configuration from the JSON file in the same directory."""
@@ -278,5 +273,4 @@ def main():
     with st.expander("Show detailed records"):
         st.dataframe(df_filtered)
 
-if __name__ == "__main__":
-    main()
+# Dashboard is now called from main.py
