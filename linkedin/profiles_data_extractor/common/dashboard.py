@@ -45,7 +45,7 @@ def load_data(file_path):
         st.error(f"Error loading Excel file: {e}")
         return None
 
-def create_performance_chart(df_filtered, df_all, group_col, title):
+def create_performance_chart(df_filtered, df_all, group_col):
     if group_col not in df_filtered.columns or group_col not in df_all.columns:
         return None, None
 
@@ -79,16 +79,19 @@ def create_performance_chart(df_filtered, df_all, group_col, title):
         x='Length',
         y=group_col,
         orientation='h',
-        title=title,
         color='Rate',
         color_continuous_scale=custom_color_scale,
         labels={'Length': 'Volume (Contacted + Connected)', 'Rate': 'Success Rate (%)', group_col: group_col.replace('_', ' ').title()}
     )
 
+    fig.update_layout(
+        margin=dict(t=10, b=10)
+    )
+
     # Return stats sorted by Contacted descending for tables (highest first)
     return fig, stats.sort_values('Contacted', ascending=False)
 
-def create_contact_chart(df_filtered, df_all, group_col, title):
+def create_contact_chart(df_filtered, df_all, group_col):
     """Create contact chart showing total people vs contacted people."""
     if group_col not in df_filtered.columns or group_col not in df_all.columns:
         return None, None
@@ -137,10 +140,10 @@ def create_contact_chart(df_filtered, df_all, group_col, title):
     fig.update_layout(
         barmode='overlay',  # Overlay mode: bars are drawn on top of each other, total width = max bar value
                             # Unlike 'stack' mode which sums bar values, overlay shows subsets within the total
-        title=title,
         xaxis_title="Count",
         yaxis_title=group_col.replace('_', ' ').title(),
-        legend_title="Legend"
+        legend_title="Legend",
+        margin=dict(t=10, b=10)
     )
 
     # Return stats sorted by Total_People descending for tables
@@ -253,7 +256,12 @@ def main():
             fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Contacted'], name='Contacted', marker_color='#808080'))
             fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#0B65C3'))
             
-            fig_timeline.update_layout(barmode='overlay', title="Daily Contacts vs Connections", xaxis_title="Date", yaxis_title="Count")
+            fig_timeline.update_layout(
+                barmode='overlay', 
+                xaxis_title="Date", 
+                yaxis_title="Count",
+                margin=dict(t=10, b=10)
+            )
             # barmode='overlay': Connected bars overlay on Contacted bars, showing subset relationship
             # Bar width = Contacted (total), green overlay shows Connected (subset)
             st.plotly_chart(fig_timeline, width='stretch')
@@ -306,15 +314,15 @@ def main():
             colors = generate_color_gradient('#0B65C3', '#808080', len(pie_data))
 
             fig_pie = px.pie(
-                pie_data, 
-                values='Count', 
+                pie_data,
+                values='Count',
                 names='Label',
-                title="Days to Connect",
                 category_orders={'Label': pie_data['Label'].tolist()},
                 color_discrete_sequence=colors,
                 hole=0.4
             )
             fig_pie.update_traces(sort=False, textinfo='percent+label')
+            fig_pie.update_layout(margin=dict(t=10, b=10))
             st.plotly_chart(fig_pie, width='stretch')
 
     col_left, col_right = st.columns(2)
@@ -323,14 +331,14 @@ def main():
         # 2. Performance by Search Type
         st.subheader("🔍 Performance by Search Type")
         if 'search_type' in df_filtered.columns:
-            fig_type, type_stats = create_performance_chart(df_filtered, df, 'search_type', "Performance by Search Type")
+            fig_type, type_stats = create_performance_chart(df_filtered, df, 'search_type')
             st.plotly_chart(fig_type, width="stretch")
 
     with col_right:
         # 3. Performance by Company
         st.subheader("🏢 Performance by Company")
         if 'company' in df_filtered.columns:
-            fig_company, company_stats = create_performance_chart(df_filtered, df, 'company', "Performance by Company")
+            fig_company, company_stats = create_performance_chart(df_filtered, df, 'company')
             st.plotly_chart(fig_company, width="stretch")
 
     # Contact Overview Charts
@@ -341,14 +349,14 @@ def main():
         # 4. Contact Overview by Search Type
         st.subheader("🔍 Contact Overview by Search Type")
         if 'search_type' in df_filtered.columns:
-            fig_contact_type, contact_type_stats = create_contact_chart(df_filtered, df, 'search_type', "Contact Overview by Search Type")
+            fig_contact_type, contact_type_stats = create_contact_chart(df_filtered, df, 'search_type')
             st.plotly_chart(fig_contact_type, width="stretch")
 
     with col_contact_right:
         # 5. Contact Overview by Company
         st.subheader("🏢 Contact Overview by Company")
         if 'company' in df_filtered.columns:
-            fig_contact_company, contact_company_stats = create_contact_chart(df_filtered, df, 'company', "Contact Overview by Company")
+            fig_contact_company, contact_company_stats = create_contact_chart(df_filtered, df, 'company')
             st.plotly_chart(fig_contact_company, width="stretch")
 
     # --- Data Tables ---
