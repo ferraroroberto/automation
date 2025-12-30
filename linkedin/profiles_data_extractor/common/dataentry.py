@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime
+import re
+import difflib
 
 import pandas as pd
 import streamlit as st
@@ -94,8 +96,142 @@ def apply_excel_formatting(excel_path, json_path):
         print(f"❌ Error applying Excel formatting: {e}")
         return False
 
+def fuzzy_search_names(df, search_query, max_results=50):
+    """
+    Perform intelligent fuzzy search on names with multi-word support and relevance ranking.
+
+    This function implements a sophisticated search algorithm that:
+    - Splits search queries into multiple words
+    - Matches each word against name components using multiple strategies
+    - Ranks results by relevance score based on match quality and coverage
+    - Supports partial matches, fuzzy matching, and prefix matching
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing a 'name' column to search
+        search_query (str): Search string that can contain multiple words separated by spaces
+        max_results (int): Maximum number of results to return (default: 50)
+
+    Returns:
+        pandas.DataFrame: Filtered DataFrame sorted by relevance score (highest first)
+                         Empty DataFrame if no matches found
+
+    Examples:
+        >>> df = pd.DataFrame({'name': ['Ana Izquierdo', 'Juan Pérez', 'Ana García']})
+        >>> fuzzy_search_names(df, 'ana izq')  # Returns Ana Izquierdo first
+        >>> fuzzy_search_names(df, 'ana')      # Returns all Ana* names
+    """
+    if not search_query.strip() or 'name' not in df.columns:
+        return df.head(0)
+
+    # Split search query into words and normalize
+    search_words = [word.lower().strip() for word in re.split(r'\s+', search_query.strip()) if word.strip()]
+    if not search_words:
+        return df.head(0)
+
+    results = []
+
+    for idx, row in df.iterrows():
+        name = str(row.get('name', '')).lower().strip()
+        if not name:
+            continue
+
+        # Split name into words for comparison
+        name_words = re.split(r'\s+', name)
+
+        # Calculate relevance score using multi-strategy matching
+        # Each search word is matched against each word in the name
+        total_score = 0
+        matched_words = 0
+
+        for search_word in search_words:
+            best_score = 0
+            best_match_type = 'none'
+
+            for name_word in name_words:
+                name_word_lower = name_word.lower()
+
+                # Strategy 1: Exact match (highest priority)
+                # "ana" exactly matches "ana" → 100 points
+                if search_word == name_word_lower:
+                    best_score = 100
+                    best_match_type = 'exact'
+                    break
+
+                # Strategy 2: Partial substring match
+                # "izq" is substring of "izquierdo" → 80 points scaled by length ratio
+                elif search_word in name_word_lower:
+                    score = 80 * (len(search_word) / len(name_word_lower))
+                    if score > best_score:
+                        best_score = score
+                        best_match_type = 'partial'
+
+                # Strategy 3: Fuzzy matching for typos/similar words
+                else:
+                    # Use difflib for sequence similarity (handles typos like "izq" ≈ "izqu")
+                    ratio = difflib.SequenceMatcher(None, search_word, name_word_lower).ratio()
+                    if ratio > 0.8:  # Only high similarity matches
+                        score = 60 * ratio
+                        if score > best_score:
+                            best_score = score
+                            best_match_type = 'fuzzy'
+
+                    # Strategy 4: Prefix matching for abbreviations
+                    # "ana" matches start of "ana maría" → 70 points scaled by coverage
+                    if len(search_word) >= 2 and len(name_word_lower) > len(search_word):
+                        if name_word_lower.startswith(search_word):
+                            score = 70 * (len(search_word) / len(name_word_lower))
+                            if score > best_score:
+                                best_score = score
+                                best_match_type = 'prefix'
+
+            # Accumulate score if we found any match for this search word
+            if best_score > 0:
+                total_score += best_score
+                matched_words += 1
+
+        # Only include results that match at least one search word
+        if matched_words > 0:
+            # Apply final scoring bonuses for better ranking:
+
+            # Bonus for matching multiple search words (encourages comprehensive matches)
+            word_match_bonus = matched_words * 10
+
+            # Bonus for having at least one exact word match (prioritizes precision)
+            exact_bonus = 20 if any(
+                any(search_word == name_word.lower() for name_word in name_words)
+                for search_word in search_words
+            ) else 0
+
+            final_score = total_score + word_match_bonus + exact_bonus
+            results.append((idx, final_score, row))
+
+    # Sort by score (descending) and return top results
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    # Extract the rows and return as DataFrame
+    if results:
+        indices = [idx for idx, score, row in results[:max_results]]
+        return df.loc[indices].copy()
+    else:
+        return df.head(0)
+
 def main():
-    """Data entry page for editing LinkedIn profiles."""
+    """
+    Main Streamlit application for LinkedIn profile data entry and editing.
+
+    This application provides a user-friendly interface for:
+    - Searching LinkedIn profiles using intelligent fuzzy matching
+    - Automatically selecting the first relevant result
+    - Editing profile data (name, connection date, response status, chat URLs)
+    - Applying Excel formatting automatically after saves
+
+    Features:
+    - Multi-word fuzzy search with relevance ranking
+    - Auto-selection of first search result for faster workflow
+    - Real-time data validation and error handling
+    - Excel formatting with hyperlinks and custom styling
+    - Session state management for seamless user experience
+    """
 
     st.title("✏️ LinkedIn Profile Data Editor")
 
@@ -123,7 +259,7 @@ def main():
     if 'original_name' not in st.session_state:
         st.session_state.original_name = None
 
-    # Step 1: Search Section
+    # Step 1: Enhanced Search Section
     st.subheader("🔍 Step 1: Search for a Record")
 
     col_search, col_filter = st.columns([2, 1])
@@ -132,22 +268,22 @@ def main():
         search_name = st.text_input(
             "Search by name:",
             placeholder="Type a name to search...",
-            help="Search for existing profiles by name",
+            help="Smart search: supports partial matches, multiple words, and fuzzy matching (e.g., 'ana izq' finds 'ana izquierdo')",
             key="search_input"
         )
 
     with col_filter:
         show_all = st.checkbox("Show all records", value=False, key="show_all_checkbox")
 
-    # Filter data based on search
+    # Enhanced search with fuzzy matching and multi-word support
     if search_name and not show_all:
-        # Case-insensitive search
-        mask = df['name'].str.lower().str.contains(search_name.lower(), na=False) if 'name' in df.columns else pd.Series([False] * len(df))
-        filtered_df = df[mask]
+        # Use intelligent fuzzy search that handles partial matches, multiple words,
+        # and similarity matching (e.g., "ana izq" finds "ana izquierdo")
+        filtered_df = fuzzy_search_names(df, search_name)
     elif show_all:
         filtered_df = df
     else:
-        filtered_df = df.head(0)  # Empty dataframe
+        filtered_df = df.head(0)  # Empty dataframe when no search criteria
 
     # Step 2: Select Record
     if not filtered_df.empty:
@@ -170,10 +306,13 @@ def main():
         # Add a "Clear selection" option
         record_options.insert(0, "--- Select a record ---")
 
+        # Auto-select first record if search results exist
+        default_index = 1 if len(record_options) > 1 else 0  # Index 1 is the first actual record
+
         selected_option = st.selectbox(
             "Choose a record to edit:",
             options=record_options,
-            index=0,
+            index=default_index,
             help="Select the record you want to edit",
             key="record_selector"
         )

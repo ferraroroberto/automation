@@ -71,8 +71,8 @@ def create_performance_chart(df_filtered, df_all, group_col, title):
     # Sort by Rate ascending (so highest is at top in chart, as plotly builds from bottom)
     stats_chart = stats.sort_values('Rate', ascending=True)
 
-    # Custom gradient from contacted gray (#808080) to connected green (#00A44E)
-    custom_color_scale = ['#808080', '#00A44E']
+    # Custom gradient from contacted gray (#808080) to connected blue (#0B65C3)
+    custom_color_scale = ['#808080', '#0B65C3']
 
     fig = px.bar(
         stats_chart,
@@ -124,13 +124,13 @@ def create_contact_chart(df_filtered, df_all, group_col, title):
         showlegend=True
     ))
 
-    # Add contacted people bars (green overlay)
+    # Add contacted people bars (blue overlay)
     fig.add_trace(go.Bar(
         x=stats_chart['Contacted'],
         y=stats_chart[group_col],
         orientation='h',
         name='Contacted',
-        marker_color='#00A44E',
+        marker_color='#0B65C3',
         showlegend=True
     ))
 
@@ -251,7 +251,7 @@ def main():
             
             fig_timeline = go.Figure()
             fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Contacted'], name='Contacted', marker_color='#808080'))
-            fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#00A44E'))
+            fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#0B65C3'))
             
             fig_timeline.update_layout(barmode='overlay', title="Daily Contacts vs Connections", xaxis_title="Date", yaxis_title="Count")
             # barmode='overlay': Connected bars overlay on Contacted bars, showing subset relationship
@@ -301,9 +301,9 @@ def main():
             pie_data['sort_key'] = pie_data['Label'].apply(sort_key)
             pie_data = pie_data.sort_values('sort_key')
             
-            # Generate colors: Green (#00A44E) -> Gray (#808080)
-            # 0 days is Green, Never is Gray
-            colors = generate_color_gradient('#00A44E', '#808080', len(pie_data))
+            # Generate colors: Blue (#0B65C3) -> Gray (#808080)
+            # 0 days is Blue, Never is Gray
+            colors = generate_color_gradient('#0B65C3', '#808080', len(pie_data))
 
             fig_pie = px.pie(
                 pie_data, 
