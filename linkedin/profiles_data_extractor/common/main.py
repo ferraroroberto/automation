@@ -20,6 +20,9 @@ def main():
         layout="wide"
     )
 
+    # Reduce spacing before title
+    st.markdown("<style>.block-container { padding-top: 1.5rem; }</style>", unsafe_allow_html=True)
+
     st.title("🔗 LinkedIn Reachout Hub")
 
     # Create tabs for navigation
