@@ -269,7 +269,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             logger.info("=" * 80)
             if os.path.exists(destination_file):
                 try:
-                    print("\nDo you want to save the Excel format to JSON? (y/n) [n]: ", end='')
+                    print("\nDo you want to save the Excel format to JSON? (y/n) [n]: \n", end='')
                     user_input = input().strip().lower()
                     if user_input == 'y':
                         logger.info("💾 Saving Excel format to JSON...")
@@ -404,10 +404,10 @@ def main() -> None:
         logger.error(f"   Script directory: {script_dir}")
         return
 
-    # Initialize and run orchestrator
+    # Initialize orchestrator
     orchestrator = LinkedInProfilesDataOrchestratorDevTools(config_path)
 
-    # Ask user what they want to do
+    # Ask user what they want to do initially (with option 1 as default)
     print("\nLinkedIn Profiles Data Orchestrator (DevTools Version)")
     print("=" * 55)
     print("1. Run full extraction and merge to Excel")
@@ -415,23 +415,77 @@ def main() -> None:
     print("3. Exit")
     print()
 
-    while True:
-        try:
-            choice = input("Enter your choice (1-3): ").strip()
-            if choice == '1':
-                orchestrator.run_extraction_and_merge()
-                break
-            elif choice == '2':
-                orchestrator.run_quick_test()
-                break
-            elif choice == '3':
-                print("Exiting...")
-                break
-            else:
-                print("Invalid choice. Please enter 1, 2, or 3.")
-        except (KeyboardInterrupt, EOFError):
-            print("\nExiting...")
-            break
+    choice = None
+    try:
+        user_input = input("Enter your choice (1-3) [1]: ").strip()
+        if not user_input:  # If user just presses Enter, default to '1'
+            choice = '1'
+        else:
+            choice = user_input
+
+        if choice == '1':
+            # Main loop for extraction with repeat option
+            while True:
+                print("\nRunning full extraction and merge to Excel...")
+                print()
+
+                try:
+                    # Run the full extraction and merge process
+                    orchestrator.run_extraction_and_merge()
+
+                    # Ask if user wants to repeat
+                    print("\n" + "="*80)
+                    print("EXTRACTION COMPLETE")
+                    print("="*80)
+
+                    # Loop until valid input (Enter to continue, 'x' to exit)
+                    while True:
+                        print("Press Enter to run another extraction, or 'x' to exit: ", end='')
+                        try:
+                            user_input = input().strip().lower()
+                            if user_input == 'x':
+                                print("Exiting...")
+                                return
+                            elif not user_input:  # Empty string (just Enter)
+                                break  # Continue the loop (run another extraction)
+                            else:
+                                # Invalid input, ask again
+                                continue
+                        except (KeyboardInterrupt, EOFError):
+                            print("\nExiting...")
+                            return
+
+                except KeyboardInterrupt:
+                    print("\nExiting...")
+                    return
+                except Exception as e:
+                    logger.error(f"❌ An error occurred: {e}")
+
+                    # Loop until valid input (Enter to continue, 'x' to exit)
+                    while True:
+                        print("Press Enter to try again, or 'x' to exit: ", end='')
+                        try:
+                            user_input = input().strip().lower()
+                            if user_input == 'x':
+                                print("Exiting...")
+                                return
+                            elif not user_input:  # Empty string (just Enter)
+                                break  # Continue the loop (try again)
+                            else:
+                                # Invalid input, ask again
+                                continue
+                        except (KeyboardInterrupt, EOFError):
+                            print("\nExiting...")
+                            return
+
+        elif choice == '2':
+            orchestrator.run_quick_test()
+        elif choice == '3':
+            print("Exiting...")
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")
+    except (KeyboardInterrupt, EOFError):
+        print("\nExiting...")
 
 
 if __name__ == "__main__":
