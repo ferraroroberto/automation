@@ -403,7 +403,13 @@ class LinkedInProfileSearchChecker:
             total_missing += len(names)
 
             for name in names:
-                print(f"page {page_num}: {name},")
+                # Handle Unicode encoding issues on Windows console
+                try:
+                    print(f"page {page_num}: {name},")
+                except UnicodeEncodeError:
+                    # Fallback: encode to ASCII, replacing problematic characters
+                    safe_name = name.encode('ascii', 'replace').decode('ascii')
+                    print(f"page {page_num}: {safe_name},")
 
         print("="*80)
         print(f"Total missing profiles: {total_missing}")
@@ -442,9 +448,10 @@ class LinkedInProfileSearchChecker:
 
 def main() -> None:
     """Main execution function."""
-    # Load configuration from the same directory as this script
+    # Load configuration from the common directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "linkedin_profiles_data.json")
+    common_dir = os.path.join(os.path.dirname(script_dir), "common")
+    config_path = os.path.join(common_dir, "linkedin_profiles_data.json")
 
     if not os.path.exists(config_path):
         logger.error(f"❌ Configuration file not found: {config_path}")
