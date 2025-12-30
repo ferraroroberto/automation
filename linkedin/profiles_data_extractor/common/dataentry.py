@@ -250,102 +250,102 @@ def main():
     if df is None:
         return
 
-    # Display current record count
-    st.info(f"📊 Current records: {len(df)}")
-
     # Initialize session state for selected record
     if 'selected_record' not in st.session_state:
         st.session_state.selected_record = None
     if 'original_name' not in st.session_state:
         st.session_state.original_name = None
 
+    # Create two-column layout for Steps 1 and 2
+    col_step1, col_step2 = st.columns(2)
+
     # Step 1: Enhanced Search Section
-    st.subheader("🔍 Step 1: Search for a Record")
+    with col_step1:
+        st.subheader("🔍 Step 1: Search for a Record")
 
-    col_search, col_filter = st.columns([2, 1])
+        col_search, col_filter = st.columns([2, 1])
 
-    with col_search:
-        search_name = st.text_input(
-            "Search by name:",
-            placeholder="Type a name to search...",
-            help="Smart search: supports partial matches, multiple words, and fuzzy matching (e.g., 'ana izq' finds 'ana izquierdo')",
-            key="search_input"
-        )
+        with col_search:
+            search_name = st.text_input(
+                "Search by name:",
+                placeholder="Type a name to search...",
+                help="Smart search: supports partial matches, multiple words, and fuzzy matching (e.g., 'ana izq' finds 'ana izquierdo')",
+                key="search_input"
+            )
 
-    with col_filter:
-        show_all = st.checkbox("Show all records", value=False, key="show_all_checkbox")
+        with col_filter:
+            show_all = st.checkbox("Show all records", value=False, key="show_all_checkbox")
 
-    # Enhanced search with fuzzy matching and multi-word support
-    if search_name and not show_all:
-        # Use intelligent fuzzy search that handles partial matches, multiple words,
-        # and similarity matching (e.g., "ana izq" finds "ana izquierdo")
-        filtered_df = fuzzy_search_names(df, search_name)
-    elif show_all:
-        filtered_df = df
-    else:
-        filtered_df = df.head(0)  # Empty dataframe when no search criteria
+        # Enhanced search with fuzzy matching and multi-word support
+        if search_name and not show_all:
+            # Use intelligent fuzzy search that handles partial matches, multiple words,
+            # and similarity matching (e.g., "ana izq" finds "ana izquierdo")
+            filtered_df = fuzzy_search_names(df, search_name)
+        elif show_all:
+            filtered_df = df
+        else:
+            filtered_df = df.head(0)  # Empty dataframe when no search criteria
 
     # Step 2: Select Record
-    if not filtered_df.empty:
+    with col_step2:
         st.subheader("📋 Step 2: Select a Record")
 
-        # Create selectable options
-        record_options = []
-        for idx, row in filtered_df.iterrows():
-            name = row.get('name', 'Unknown')
-            date_connected = row.get('date connected')
-            if pd.notna(date_connected):
-                date_str = date_connected.strftime('%Y-%m-%d')
+        if not filtered_df.empty:
+            # Create selectable options
+            record_options = []
+            for idx, row in filtered_df.iterrows():
+                name = row.get('name', 'Unknown')
+                date_connected = row.get('date connected')
+                if pd.notna(date_connected):
+                    date_str = date_connected.strftime('%Y-%m-%d')
+                else:
+                    date_str = 'No date'
+
+                # Show key info for selection
+                display_text = f"{name} - Connected: {date_str}"
+                record_options.append(display_text)
+
+            # Add a "Clear selection" option
+            record_options.insert(0, "--- Select a record ---")
+
+            # Auto-select first record if search results exist
+            default_index = 1 if len(record_options) > 1 else 0  # Index 1 is the first actual record
+
+            selected_option = st.selectbox(
+                "Choose a record to edit:",
+                options=record_options,
+                index=default_index,
+                help="Select the record you want to edit",
+                key="record_selector"
+            )
+
+            if selected_option != "--- Select a record ---":
+                # Find the selected record
+                selected_idx = record_options.index(selected_option) - 1  # -1 because we inserted at position 0
+                selected_row = filtered_df.iloc[selected_idx]
+
+                # Store in session state - handle NaN values
+                answered_value = selected_row.get('answered', 0)
+                if pd.isna(answered_value):
+                    answered_value = 0
+
+                st.session_state.selected_record = {
+                    'name': selected_row.get('name', ''),
+                    'date_connected': selected_row.get('date connected', None),
+                    'answered': answered_value,
+                    'chat_url': selected_row.get('chat_url', '')
+                }
+                st.session_state.original_name = selected_row.get('name', '')
+
+                st.success(f"✅ Selected: {selected_option}")
             else:
-                date_str = 'No date'
-
-            # Show key info for selection
-            display_text = f"{name} - Connected: {date_str}"
-            record_options.append(display_text)
-
-        # Add a "Clear selection" option
-        record_options.insert(0, "--- Select a record ---")
-
-        # Auto-select first record if search results exist
-        default_index = 1 if len(record_options) > 1 else 0  # Index 1 is the first actual record
-
-        selected_option = st.selectbox(
-            "Choose a record to edit:",
-            options=record_options,
-            index=default_index,
-            help="Select the record you want to edit",
-            key="record_selector"
-        )
-
-        if selected_option != "--- Select a record ---":
-            # Find the selected record
-            selected_idx = record_options.index(selected_option) - 1  # -1 because we inserted at position 0
-            selected_row = filtered_df.iloc[selected_idx]
-
-            # Store in session state - handle NaN values
-            answered_value = selected_row.get('answered', 0)
-            if pd.isna(answered_value):
-                answered_value = 0
-
-            st.session_state.selected_record = {
-                'name': selected_row.get('name', ''),
-                'date_connected': selected_row.get('date connected', None),
-                'answered': answered_value,
-                'chat_url': selected_row.get('chat_url', '')
-            }
-            st.session_state.original_name = selected_row.get('name', '')
-
-            st.success(f"✅ Selected: {selected_option}")
+                st.session_state.selected_record = None
+                st.session_state.original_name = None
         else:
+            if search_name:
+                st.warning("No records found matching your search.")
             st.session_state.selected_record = None
             st.session_state.original_name = None
-    else:
-        if search_name:
-            st.warning("No records found matching your search.")
-        st.session_state.selected_record = None
-        st.session_state.original_name = None
-
-    st.markdown("---")
 
     # Step 3: Edit Form
     st.subheader("📝 Step 3: Edit Record Data")
