@@ -1,0 +1,47 @@
+{
+  "app": {
+    "title": "Household Inventory & Shopping Helper",
+    "version": "1.0.0",
+    "description": "Mobile-responsive app for managing household grocery inventory"
+  },
+  "data": {
+    "xlsx_file": "C:\\Users\\rober\\Downloads\\list.xlsx",
+    "columns": {
+      "super": "super",
+      "buscador": "buscador",
+      "lugar": "lugar",
+      "comida": "comida",
+      "cantidad": "cantidad",
+      "tenemos": "tenemos",
+      "comprar": "comprar"
+    },
+    "ui_labels": {
+      "target": "cantidad",
+      "current": "tenemos",
+      "buy": "comprar"
+    },
+    "excel_columns": {
+      "target": "G",
+      "current": "H",
+      "buy": "I"
+    }
+  },
+  "ui": {
+    "page_config": {
+      "page_title": "Inventory Helper",
+      "page_icon": "🛒",
+      "layout": "wide",
+      "initial_sidebar_state": "expanded"
+    },
+    "modes": {
+      "audit": "🔍 Audit Inventory",
+      "edit": "✏️ Edit Targets",
+      "shopping": "🛒 Shopping List",
+      "export": "💾 Save/Export"
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  }
+}
