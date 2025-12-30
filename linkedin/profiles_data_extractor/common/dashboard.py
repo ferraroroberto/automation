@@ -45,38 +45,106 @@ def load_data(file_path):
         st.error(f"Error loading Excel file: {e}")
         return None
 
-def create_performance_chart(df, group_col, title):
-    if group_col not in df.columns:
+def create_performance_chart(df_filtered, df_all, group_col, title):
+    if group_col not in df_filtered.columns or group_col not in df_all.columns:
         return None, None
-        
-    stats = df.groupby(group_col).agg(
-        Contacted=(group_col, 'count'),
+
+    # Get total people from ALL data (unfiltered)
+    total_stats = df_all.groupby(group_col).agg(
+        Total_People=(group_col, 'count')
+    ).reset_index()
+
+    # Get contacted/connected from FILTERED data
+    filtered_stats = df_filtered.groupby(group_col).agg(
+        Contacted=('day', 'count'),  # Count of rows with contact date in filtered data
         Connected=('date connected', 'count')
     ).reset_index()
-    
+
+    # Merge the stats
+    stats = pd.merge(total_stats, filtered_stats, on=group_col, how='left').fillna(0)
+
     stats['Rate'] = (stats['Connected'] / stats['Contacted'] * 100).fillna(0).round(1)
+    stats['Contacted_Percent'] = (stats['Contacted'] / stats['Total_People'] * 100).fillna(0).round(1)
     # User request: bar length is contacted + connected
     stats['Length'] = stats['Contacted'] + stats['Connected']
-    
+
     # Sort by Rate ascending (so highest is at top in chart, as plotly builds from bottom)
     stats_chart = stats.sort_values('Rate', ascending=True)
-    
+
     # Custom gradient from contacted gray (#808080) to connected green (#00A44E)
     custom_color_scale = ['#808080', '#00A44E']
-    
+
     fig = px.bar(
-        stats_chart, 
-        x='Length', 
-        y=group_col, 
+        stats_chart,
+        x='Length',
+        y=group_col,
         orientation='h',
-        title=title, 
+        title=title,
         color='Rate',
         color_continuous_scale=custom_color_scale,
         labels={'Length': 'Volume (Contacted + Connected)', 'Rate': 'Success Rate (%)', group_col: group_col.replace('_', ' ').title()}
     )
-    
+
     # Return stats sorted by Contacted descending for tables (highest first)
     return fig, stats.sort_values('Contacted', ascending=False)
+
+def create_contact_chart(df_filtered, df_all, group_col, title):
+    """Create contact chart showing total people vs contacted people."""
+    if group_col not in df_filtered.columns or group_col not in df_all.columns:
+        return None, None
+
+    # Get total people from ALL data (unfiltered)
+    total_stats = df_all.groupby(group_col).agg(
+        Total_People=(group_col, 'count')
+    ).reset_index()
+
+    # Get contacted from FILTERED data
+    filtered_stats = df_filtered.groupby(group_col).agg(
+        Contacted=('day', 'count')  # Count rows where 'day' is not null in filtered data
+    ).reset_index()
+
+    # Merge the stats
+    stats = pd.merge(total_stats, filtered_stats, on=group_col, how='left').fillna(0)
+
+    stats['Contact_Rate'] = (stats['Contacted'] / stats['Total_People'] * 100).fillna(0).round(1)
+
+    # Sort by Total_People ascending for chart (highest at top)
+    stats_chart = stats.sort_values('Total_People', ascending=True)
+
+    # Create overlay bar chart: grey bars show total people, green bars show contacted subset
+    fig = go.Figure()
+
+    # Add total people bars (grey background)
+    fig.add_trace(go.Bar(
+        x=stats_chart['Total_People'],
+        y=stats_chart[group_col],
+        orientation='h',
+        name='Total People',
+        marker_color='#808080',
+        showlegend=True
+    ))
+
+    # Add contacted people bars (green overlay)
+    fig.add_trace(go.Bar(
+        x=stats_chart['Contacted'],
+        y=stats_chart[group_col],
+        orientation='h',
+        name='Contacted',
+        marker_color='#00A44E',
+        showlegend=True
+    ))
+
+    fig.update_layout(
+        barmode='overlay',  # Overlay mode: bars are drawn on top of each other, total width = max bar value
+                            # Unlike 'stack' mode which sums bar values, overlay shows subsets within the total
+        title=title,
+        xaxis_title="Count",
+        yaxis_title=group_col.replace('_', ' ').title(),
+        legend_title="Legend"
+    )
+
+    # Return stats sorted by Total_People descending for tables
+    return fig, stats.sort_values('Total_People', ascending=False)
 
 def generate_color_gradient(start_hex, end_hex, n):
     """Generate a gradient of n colors between start_hex and end_hex."""
@@ -153,8 +221,7 @@ def main():
         if selected_type != 'All':
             df_filtered = df_filtered[df_filtered['search_type'] == selected_type]
 
-    # --- Metrics Section ---
-    st.header("📈 Key Metrics")
+    # --- Performance Section ---
     
     total_contacts = len(df_filtered)
     connected_count = df_filtered['date connected'].notna().sum()
@@ -187,6 +254,8 @@ def main():
             fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#00A44E'))
             
             fig_timeline.update_layout(barmode='overlay', title="Daily Contacts vs Connections", xaxis_title="Date", yaxis_title="Count")
+            # barmode='overlay': Connected bars overlay on Contacted bars, showing subset relationship
+            # Bar width = Contacted (total), green overlay shows Connected (subset)
             st.plotly_chart(fig_timeline, width='stretch')
 
     with col_activity_right:
@@ -254,22 +323,52 @@ def main():
         # 2. Performance by Search Type
         st.subheader("🔍 Performance by Search Type")
         if 'search_type' in df_filtered.columns:
-            fig_type, type_stats = create_performance_chart(df_filtered, 'search_type', "Performance by Search Type")
+            fig_type, type_stats = create_performance_chart(df_filtered, df, 'search_type', "Performance by Search Type")
             st.plotly_chart(fig_type, width="stretch")
-            
-            st.dataframe(type_stats[['search_type', 'Contacted', 'Connected', 'Rate']], hide_index=True)
 
     with col_right:
         # 3. Performance by Company
         st.subheader("🏢 Performance by Company")
         if 'company' in df_filtered.columns:
-            fig_company, company_stats = create_performance_chart(df_filtered, 'company', "Performance by Company")
+            fig_company, company_stats = create_performance_chart(df_filtered, df, 'company', "Performance by Company")
             st.plotly_chart(fig_company, width="stretch")
-            
-            st.dataframe(company_stats[['company', 'Contacted', 'Connected', 'Rate']], hide_index=True)
 
-    # --- Data Table ---
-    st.subheader("📄 Raw Data")
+    # Contact Overview Charts
+
+    col_contact_left, col_contact_right = st.columns(2)
+
+    with col_contact_left:
+        # 4. Contact Overview by Search Type
+        st.subheader("🔍 Contact Overview by Search Type")
+        if 'search_type' in df_filtered.columns:
+            fig_contact_type, contact_type_stats = create_contact_chart(df_filtered, df, 'search_type', "Contact Overview by Search Type")
+            st.plotly_chart(fig_contact_type, width="stretch")
+
+    with col_contact_right:
+        # 5. Contact Overview by Company
+        st.subheader("🏢 Contact Overview by Company")
+        if 'company' in df_filtered.columns:
+            fig_contact_company, contact_company_stats = create_contact_chart(df_filtered, df, 'company', "Contact Overview by Company")
+            st.plotly_chart(fig_contact_company, width="stretch")
+
+    # --- Data Tables ---
+    st.header("📊 Data Tables")
+
+    # Performance Data Tables
+    col_table_left, col_table_right = st.columns(2)
+
+    with col_table_left:
+        st.subheader("🔍 by Search Type")
+        if 'search_type' in df_filtered.columns:
+            st.dataframe(type_stats[['search_type', 'Total_People', 'Contacted', 'Contacted_Percent', 'Connected', 'Rate']].rename(columns={'Total_People': 'Total People', 'Rate': '% Connected', 'Contacted_Percent': '% Contacted'}), hide_index=True)
+
+    with col_table_right:
+        st.subheader("🏢 by Company")
+        if 'company' in df_filtered.columns:
+            st.dataframe(company_stats[['company', 'Total_People', 'Contacted', 'Contacted_Percent', 'Connected', 'Rate']].rename(columns={'Total_People': 'Total People', 'Rate': '% Connected', 'Contacted_Percent': '% Contacted'}), hide_index=True)
+
+    # --- Raw Data ---
+    st.header("📄 Raw Data")
     with st.expander("Show detailed records"):
         st.dataframe(df_filtered)
 
