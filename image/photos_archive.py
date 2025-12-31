@@ -1,11 +1,29 @@
-# chatGPT long one > https://chatgpt.com/c/9887f68a-8392-40a9-a648-321dc77ff475
-# chatGPT issue with video dates > https://chatgpt.com/c/9aaeba93-8e88-416f-a502-0e4d4bfe9270
-# chatGPT with pattern recognition in filename > https://chatgpt.com/c/c8d6ca75-c05d-4a35-9360-dae22274c732
-# chatGPT with deleting discards > https://chatgpt.com/c/d81cead9-9fe0-49f7-a1a8-28d2d45c21d1
-# chatGPT with processing when destination and source are the same, plus minor issues > https://chatgpt.com/c/a5bf8310-98ab-4626-8e48-d223bb54d7f7
+"""
+Photo Archive Automation Script
+
+Organizes photos and videos with intelligent duplicate detection and metadata management.
+Extracts creation dates from EXIF, video metadata, and filename patterns.
+Creates unified naming: YYYYMMDD-HHMMSS.extension
+
+Configuration: photos_archive.json (follows AGENTS.md guidelines)
+- source_folder: Path to scan for media files
+- destination_folder: Path to store organized archive
+- processing_thresholds: Time/file count thresholds
+- behavior_flags: Control prompts and automation behavior
+- file_extensions: Supported image/video formats
+- date_parsing: Regex patterns for filename date extraction
+
+References:
+- https://chatgpt.com/c/9887f68a-8392-40a9-a648-321dc77ff475 (long version)
+- https://chatgpt.com/c/9aaeba93-8e88-416f-a502-0e4d4bfe9270 (video dates)
+- https://chatgpt.com/c/c8d6ca75-c05d-4a35-9360-dae22274c732 (pattern recognition)
+- https://chatgpt.com/c/d81cead9-9fe0-49f7-a1a8-28d2d45c21d1 (deleting discards)
+- https://chatgpt.com/c/a5bf8310-98ab-4626-8e48-d223bb54d7f7 (source/dest same path)
+"""
 
 import os
 import re
+import json
 import pandas as pd
 import shutil
 from datetime import datetime, timedelta
@@ -17,80 +35,104 @@ import tkinter as tk
 from tkinter import filedialog
 from pymediainfo import MediaInfo
 
-# Hardcoded source and destination folders
-HARDCODED_SOURCE_FOLDER = r"F:\Movistar Cloud\fotos\temporal"
-HARDCODED_DEST_FOLDER = r"F:\Movistar Cloud\fotos\archivo"
+def load_config():
+    """Load and validate configuration from photos_archive.json."""
+    config_path = os.path.join(os.path.dirname(__file__), 'photos_archive.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        # Validate required fields
+        required_fields = ['source_folder', 'destination_folder']
+        for field in required_fields:
+            if field not in config:
+                raise ValueError(f"Required field missing: {field}")
+
+        # Warn if configured paths don't exist
+        for folder_field in ['source_folder', 'destination_folder']:
+            folder_path = config.get(folder_field)
+            if folder_path and not os.path.exists(folder_path):
+                logging.warning(f"Path not found: {folder_field} = {folder_path}")
+
+        # Validate data types
+        thresholds = config.get('processing_thresholds', {})
+        if 'short_sequence_seconds' in thresholds and not isinstance(thresholds['short_sequence_seconds'], int):
+            raise ValueError("short_sequence_seconds must be integer")
+
+        # Set defaults for optional fields
+        config.setdefault('log_folder', config.get('destination_folder'))
+        config['logging'] = config.get('logging', {})
+        config['logging'].setdefault('level', 'INFO')
+        config['logging'].setdefault('progress_reporting_interval', 1000)
+        config['duplicate_detection'] = config.get('duplicate_detection', {})
+        config['duplicate_detection'].setdefault('enable_sha256_check', True)
+        config['duplicate_detection'].setdefault('keep_largest_file', True)
+
+        return config
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON: {e}")
+    except Exception as e:
+        raise ValueError(f"Config load error: {e}")
+
+# Load configuration
+CONFIG = load_config()
 
 def calculate_time_intervals(df):
-    """
-    Calculate the time intervals between consecutive files within the same day.
+    """Calculate time intervals between consecutive files within same day."""
+    # Extract date part from unified names (YYYYMMDD)
+    df['unified_day'] = df['unified_name'].apply(lambda x: x[:8])
 
-    Args:
-    df (pd.DataFrame): DataFrame containing file metadata.
-
-    Returns:
-    pd.DataFrame: DataFrame with an additional column 'time_interval'.
-    """
-    # Ensure unified_day is present
-    df['unified_day'] = df['unified_name'].apply(lambda x: x[:8])  # Extract YYYYMMDD from the unified name
-
-    # Convert unified_name to datetime
+    # Convert to datetime objects
     df['datetime'] = df['unified_name'].apply(lambda x: datetime.strptime(x[:15], '%Y%m%d-%H%M%S'))
 
-    # Calculate time intervals
+    # Calculate seconds between consecutive files per day
     df['time_interval'] = df.groupby('unified_day')['datetime'].diff().dt.total_seconds().fillna(0)
 
     return df
 
-def calculate_short_sequence_counts(df, threshold=10):
-    """
-    Calculate the number of files in short sequences (less than the threshold) for each day.
+def calculate_short_sequence_counts(df, threshold=None):
+    """Count files in short sequences per day (below time threshold)."""
+    if threshold is None:
+        threshold = CONFIG['processing_thresholds']['short_sequence_seconds']
 
-    Args:
-    df (pd.DataFrame): DataFrame containing file metadata.
-    threshold (int): Time threshold in seconds to consider as a short sequence.
-
-    Returns:
-    pd.DataFrame: DataFrame with an additional column 'short_sequence_count'.
-    """
-    # Ensure 'time_interval' column exists
+    # Ensure time intervals are calculated
     if 'time_interval' not in df.columns:
         df = calculate_time_intervals(df)
 
-    # Calculate short sequences count for each day
+    # Mark files with short intervals
     df['short_sequence'] = df['time_interval'] <= threshold
     df['short_sequence_count'] = df.groupby('unified_day')['short_sequence'].transform('sum')
 
-    # Drop intermediate columns
+    # Clean up temporary columns
     df.drop(columns=['datetime', 'time_interval', 'short_sequence'], inplace=True)
 
     return df
 
-def setup_logging(log_folder):
-    """
-    Set up logging configuration to output logs to a file in the specified folder.
+def setup_logging(log_folder=None):
+    """Configure logging to timestamped file in specified folder."""
+    if log_folder is None:
+        log_folder = CONFIG.get('log_folder', CONFIG['destination_folder'])
 
-    Args:
-    log_folder (str): Path to the folder where log file will be saved.
-    """
-    current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
-    log_file = os.path.join(log_folder, f'photo_processing_{current_time_str}.log')
-    if not os.path.exists(log_folder):
-        os.makedirs(log_folder)
-    logging.basicConfig(level=logging.INFO, filename=log_file, filemode='w',
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-    logging.info(f"Logging setup complete. Log file: {log_file}")
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M')
+    log_file = os.path.join(log_folder, f'photo_processing_{timestamp}.log')
+
+    os.makedirs(log_folder, exist_ok=True)
+
+    # Set logging level from config
+    log_level = getattr(logging, CONFIG['logging']['level'].upper(), logging.INFO)
+
+    logging.basicConfig(
+        level=log_level,
+        filename=log_file,
+        filemode='w',
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    logging.info(f"Logging initialized: {log_file}")
 
 def get_exif_creation_date(file_path):
-    """
-    Extracts the creation date from EXIF metadata if available.
-
-    Args:
-    file_path (str): Path to the image file.
-
-    Returns:
-    datetime: The creation date from EXIF metadata, or None if not available.
-    """
+    """Extract creation date from EXIF DateTimeOriginal tag."""
     try:
         image = Image.open(file_path)
         exif_data = image._getexif()
@@ -98,21 +140,23 @@ def get_exif_creation_date(file_path):
             for tag, value in exif_data.items():
                 decoded = TAGS.get(tag, tag)
                 if decoded == "DateTimeOriginal":
+                    # Try standard EXIF format first
                     try:
                         return datetime.strptime(value, "%Y:%m:%d %H:%M:%S")
                     except ValueError:
+                        # Try alternative format
                         try:
                             return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
                         except ValueError:
-                            # Handle the non-standard hour value of 24 by converting to 00 and incrementing the day by 1
+                            # Handle invalid hour 24 by rolling to next day
                             if " 24:" in value:
                                 corrected_value = value.replace(" 24:", " 00:")
                                 corrected_datetime = datetime.strptime(corrected_value, "%Y:%m:%d %H:%M:%S") + timedelta(days=1)
                                 return corrected_datetime
-                            logging.warning(f"Unknown date format for EXIF date: {value}")
+                            logging.warning(f"Unknown EXIF date format: {value}")
                             return None
     except Exception as e:
-        logging.warning(f"Error extracting EXIF date for {file_path}: {e}")
+        logging.warning(f"EXIF extraction failed for {file_path}: {e}")
     return None
 
 
@@ -136,87 +180,65 @@ def parse_date(date_str):
             return None
 
 def extract_date_from_filename(filename):
-    patterns = [
-        r'ScreenRecord_(\d{4}-\d{2}-\d{2})-(\d{2}-\d{2}-\d{2})',
-        r'(\d{8})_(\d{6})',
-        r'img_(\d{8})(\d{6})',
-        r'IMG_(\d{8})_(\d{6})',
-        r'VID-(\d{8})-WA(\d+)',
-        r'WP_(\d{8})_(\d{3})',
-        r'IMG-(\d{8})-WA(\d+)',
-        r'(\d{4}-\d{2}-\d{2}) (\d{2}\.\d{2}\.\d{2})',
-        r'Collage (\d{4}-\d{2}-\d{2}) (\d{2}_\d{2}_\d{2})',
-        r'Screenshot_(\d{4}-\d{2}-\d{2})-(\d{2}-\d{2}-\d{2})'
-    ]
+    """Extract date from filename using configured regex patterns."""
+    patterns = CONFIG['date_parsing']['filename_patterns']
     for pattern in patterns:
         match = re.search(pattern, filename, re.IGNORECASE)
         if match:
+            # Extract and normalize date/time components
             date_part = match.group(1).replace('-', '')
             time_part = match.group(2).replace('.', '').replace('_', '').replace('-', '') if len(match.groups()) > 1 else '000000'
             date_str = date_part + time_part
             try:
                 return datetime.strptime(date_str, '%Y%m%d%H%M%S')
             except ValueError as ve:
-                logging.error(f"ValueError parsing date: {ve}")
+                logging.error(f"Date parsing error: {ve}")
                 continue
     return None
 
 def get_video_creation_date(file_path):
-    """
-    Extracts the creation date from video metadata if available using pymediainfo.
-
-    Args:
-    file_path (str): Path to the video file.
-
-    Returns:
-    datetime: The creation date from video metadata, or None if not available.
-    """
+    """Extract creation date from video metadata using pymediainfo."""
     try:
         media_info = MediaInfo.parse(file_path)
         for track in media_info.tracks:
             if track.track_type == "General":
+                # Try encoded_date, tagged_date, or recorded_date
                 creation_date_str = track.encoded_date or track.tagged_date or track.recorded_date
                 if creation_date_str:
                     return parse_date(creation_date_str)
-        logging.warning(f"No creation date found in metadata for {file_path}")
+        logging.warning(f"No creation date in video metadata: {file_path}")
         return None
     except Exception as e:
-        logging.warning(f"Error extracting video date for {file_path}: {e}")
+        logging.warning(f"Video metadata extraction failed for {file_path}: {e}")
         return None
 
 
 def get_file_info(file_path):
-    """
-    Extracts metadata information from the file.
-
-    Args:
-    file_path (str): Path to the file.
-
-    Returns:
-    dict: A dictionary with file metadata or None if an error occurs.
-    """
+    """Extract comprehensive metadata from media file."""
     try:
         file_stat = os.stat(file_path)
         creation_time = datetime.fromtimestamp(file_stat.st_ctime)
         modified_time = datetime.fromtimestamp(file_stat.st_mtime)
 
-        # Default file type as 'Unknown'
+        # Initialize defaults
         file_type = 'Unknown'
-
         exif_date = None
         video_date = None
         criteria = "modified"
         unified_name = modified_time.strftime('%Y%m%d-%H%M%S') + os.path.splitext(file_path)[1].lower()
 
-        # Determine file type based on file extension
-        if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+        # Determine file type and extract creation date
+        file_extension_lower = file_path.lower()
+        image_extensions = [ext.lower() for ext in CONFIG['file_extensions']['image']]
+        video_extensions = [ext.lower() for ext in CONFIG['file_extensions']['video']]
+
+        if any(file_extension_lower.endswith(ext) for ext in image_extensions):
             file_type = 'Image'
-            # Try to get the creation date from EXIF metadata
             exif_date = get_exif_creation_date(file_path)
             if exif_date:
                 creation_time = exif_date
                 criteria = "exif"
-        elif file_path.lower().endswith(('.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv')):
+        elif any(file_extension_lower.endswith(ext) for ext in video_extensions):
             file_type = 'Video'
             video_date = get_video_creation_date(file_path)
             if video_date:
@@ -238,10 +260,10 @@ def get_file_info(file_path):
                     criteria = "creation"
 
         unified_name = creation_time.strftime('%Y%m%d-%H%M%S') + os.path.splitext(file_path)[1].lower()
-        dest_path = os.path.join(HARDCODED_DEST_FOLDER, unified_name)
+        dest_path = os.path.join(CONFIG['destination_folder'], unified_name)
 
         # Check if the file is in the destination directory (but not in its subfolders)
-        if os.path.abspath(os.path.dirname(file_path)) == os.path.abspath(HARDCODED_DEST_FOLDER):
+        if os.path.abspath(os.path.dirname(file_path)) == os.path.abspath(CONFIG['destination_folder']):
             exclude = 1  # Exclude if the file is directly in the destination directory
         else:
             exclude = 0  # Do not exclude if the file is in a subfolder
@@ -373,8 +395,11 @@ def mark_duplicates(df):
     # Count the number of duplicates
     num_duplicates = len(potential_duplicates)
     if num_duplicates > 0:
-        check_sha256 = input(f"Do you want to check SHA256 for the {num_duplicates} duplicates? (Y/N): ").strip().lower()
-        if check_sha256 == 'y':
+        check_sha256 = CONFIG['duplicate_detection']['enable_sha256_check']
+        if not check_sha256:
+            check_sha256_input = input(f"Do you want to check SHA256 for the {num_duplicates} duplicates? (Y/N): ").strip().lower()
+            check_sha256 = check_sha256_input == 'y'
+        if check_sha256:
             sha256_checked_count = 0
             for index, row in potential_duplicates.iterrows():
                 sha256 = calculate_sha256(row['file_path'])
@@ -449,7 +474,7 @@ def recalculate_metadata(df):
     # Apply the exclusion logic again
     df['exclude'] = df.apply(
         lambda row: 1 if os.path.abspath(os.path.dirname(row['file_path'])) == os.path.abspath(
-            HARDCODED_DEST_FOLDER) else 0,
+            CONFIG['destination_folder']) else 0,
         axis=1
     )
 
@@ -470,7 +495,7 @@ def recalculate_metadata(df):
                     df.loc[sub_subset_sorted.index[1:], 'discard'] = 1
 
     # Recalculate destination_path
-    df['destination_path'] = df['unified_name'].apply(lambda x: os.path.join(HARDCODED_DEST_FOLDER, x))
+    df['destination_path'] = df['unified_name'].apply(lambda x: os.path.join(CONFIG['destination_folder'], x))
 
     # Display top unified days only once
     top_days = df['unified_day'].value_counts().head(20)
@@ -507,7 +532,7 @@ def copy_files(df):
             else:
                 new_file_name = row['unified_name']  # No suffix for non-duplicates
 
-            dest_path = os.path.join(HARDCODED_DEST_FOLDER, new_file_name)
+            dest_path = os.path.join(CONFIG['destination_folder'], new_file_name)
             df.at[index, 'destination_path'] = dest_path
 
             # Skip files already present in the destination folder
@@ -566,8 +591,11 @@ def main(source_folder, dest_folder):
     current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
     setup_logging(dest_folder)
 
-    # Ask if user wants to use existing metadata
-    use_existing_metadata = input("Do you want to use an existing metadata file? (Y/N): ").strip().lower()
+    # Check if user wants to use existing metadata
+    use_existing_metadata = CONFIG['behavior_flags']['use_existing_metadata']
+    if not use_existing_metadata:
+        use_existing_metadata_input = input("Do you want to use an existing metadata file? (Y/N): ").strip().lower()
+        use_existing_metadata = use_existing_metadata_input == 'y'
     if use_existing_metadata == 'y':
         # Ensure Tkinter is properly initialized
         root = tk.Tk()
@@ -594,9 +622,12 @@ def main(source_folder, dest_folder):
             logging.info(f"Loaded metadata from {metadata_file}")
             print(f"Loaded metadata from {metadata_file}")
 
-            # Ask if user wants to recalculate the logic
-            recalculate_logic = input("Do you want to recalculate the logic? (Y/N): ").strip().lower()
-            if recalculate_logic == 'y':
+            # Check if user wants to recalculate the logic
+            recalculate_logic = CONFIG['behavior_flags']['recalculate_logic']
+            if not recalculate_logic:
+                recalculate_logic_input = input("Do you want to recalculate the logic? (Y/N): ").strip().lower()
+                recalculate_logic = recalculate_logic_input == 'y'
+            if recalculate_logic:
                 df = recalculate_metadata(df)
 
                 # Display top unified days
@@ -607,18 +638,25 @@ def main(source_folder, dest_folder):
                     logging.info(log_msg)
 
                 # Ask for exclusion threshold
-                exclude_threshold = int(input("Do you want to exclude days with more than X files? Enter X value, or zero if you don't want to exclude any file: ").strip() or 0)
+                default_exclude_threshold = CONFIG['processing_thresholds']['exclude_days_over_files']
+                exclude_threshold_input = input(f"Do you want to exclude days with more than X files? Enter X value, or zero if you don't want to exclude any file (default: {default_exclude_threshold}): ").strip()
+                exclude_threshold = int(exclude_threshold_input) if exclude_threshold_input else default_exclude_threshold
                 if exclude_threshold > 0:
                     df.loc[df['total_files_unified_day'] > exclude_threshold, 'exclude'] = 1
 
                 # Ask for short sequence exclusion threshold
-                short_seq_threshold = int(input("Enter the maximum number of files in short sequence to exclude days: ").strip() or 0)
+                default_short_seq_threshold = CONFIG['processing_thresholds']['exclude_short_sequences_over']
+                short_seq_threshold_input = input(f"Enter the maximum number of files in short sequence to exclude days (default: {default_short_seq_threshold}): ").strip()
+                short_seq_threshold = int(short_seq_threshold_input) if short_seq_threshold_input else default_short_seq_threshold
                 if short_seq_threshold > 0:
                     df.loc[df['short_sequence_count'] > short_seq_threshold, 'exclude'] = 1
 
-                # Ask to exclude files based on criteria
-                exclude_criteria = input("Do you want to exclude files where the unified name is based on creation or modified dates? (Y/N): ").strip().lower()
-                if exclude_criteria == 'y':
+                # Check to exclude files based on criteria
+                exclude_criteria = CONFIG['behavior_flags']['exclude_creation_modified_criteria']
+                if not exclude_criteria:
+                    exclude_criteria_input = input("Do you want to exclude files where the unified name is based on creation or modified dates? (Y/N): ").strip().lower()
+                    exclude_criteria = exclude_criteria_input == 'y'
+                if exclude_criteria:
                     df.loc[df['criteria'].isin(['creation', 'modified']), 'exclude'] = 1
 
                 current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
@@ -627,9 +665,12 @@ def main(source_folder, dest_folder):
                 logging.info(f"Recalculated metadata and saved to {metadata_file}")
                 print(f"Recalculated metadata and saved to {metadata_file}")
 
-            # Ask for confirmation to process files
-            continue_copy = input("Do you want to continue with copying the files? (Y/N): ").strip().lower()
-            if continue_copy != 'y':
+            # Check for confirmation to process files
+            continue_copy = CONFIG['behavior_flags']['continue_copy']
+            if not continue_copy:
+                continue_copy_input = input("Do you want to continue with copying the files? (Y/N): ").strip().lower()
+                continue_copy = continue_copy_input == 'y'
+            if not continue_copy:
                 logging.info("Process terminated by user before copying files")
                 print("Process terminated by user before copying files")
                 return
@@ -641,16 +682,22 @@ def main(source_folder, dest_folder):
             logging.info("Process completed")
             print("Process completed")
 
-            # Ask if user wants to delete the copied files
-            delete_files = input("Do you want to delete the source files that were copied? (Y/N): ").strip().lower()
-            if delete_files == 'y':
+            # Check if user wants to delete the copied files
+            delete_files = CONFIG['behavior_flags']['auto_delete_copied_files']
+            if not delete_files:
+                delete_files_input = input("Do you want to delete the source files that were copied? (Y/N): ").strip().lower()
+                delete_files = delete_files_input == 'y'
+            if delete_files:
                 logging.info("Deleting source files that were copied")
                 print("Deleting source files that were copied")
                 delete_copied_files(df)
 
-            # Ask if user wants to delete discarded files
-            delete_discarded = input("Do you want to delete the discarded files? (Y/N): ").strip().lower()
-            if delete_discarded == 'y':
+            # Check if user wants to delete discarded files
+            delete_discarded = CONFIG['behavior_flags']['auto_delete_discarded_files']
+            if not delete_discarded:
+                delete_discarded_input = input("Do you want to delete the discarded files? (Y/N): ").strip().lower()
+                delete_discarded = delete_discarded_input == 'y'
+            if delete_discarded:
                 logging.info("Deleting discarded files")
                 print("Deleting discarded files")
                 delete_discarded_files(df)
@@ -681,9 +728,9 @@ def main(source_folder, dest_folder):
     logging.info("Starting the process")
     print("Starting the process")
 
-    # Collect file information
-    logging.info("Collecting file information")
-    print("Collecting file information")
+    # Scan source folder and extract file metadata
+    logging.info("Scanning source folder")
+    print("Scanning source folder")
     df = process_files(source_folder, dest_folder, skip_dest_folder)
 
     # Log and print progress every 1000 files collected
@@ -695,16 +742,14 @@ def main(source_folder, dest_folder):
         print("No files collected")
         return
 
-    # Ensure unified_day is calculated before marking duplicates and recalculating metadata
+    # Prepare metadata for duplicate detection
     df = calculate_total_files_unified_day(df)
-
-    # Calculate short sequence counts for each day
-    df = calculate_time_intervals(df)  # Ensure time intervals are calculated
+    df = calculate_time_intervals(df)
     df = calculate_short_sequence_counts(df)
 
-    # Step 2: Mark duplicates
-    logging.info("Marking duplicates")
-    print("Marking duplicates")
+    # Identify and mark duplicate files
+    logging.info("Identifying duplicates")
+    print("Identifying duplicates")
     df = mark_duplicates(df)
 
     # Display top unified days
@@ -715,18 +760,25 @@ def main(source_folder, dest_folder):
         logging.info(log_msg)
 
     # Ask for exclusion threshold
-    exclude_threshold = int(input("Do you want to exclude days with more than X files? Enter X value, or zero if you don't want to exclude any file: ").strip() or 0)
+    default_exclude_threshold = CONFIG['processing_thresholds']['exclude_days_over_files']
+    exclude_threshold_input = input(f"Do you want to exclude days with more than X files? Enter X value, or zero if you don't want to exclude any file (default: {default_exclude_threshold}): ").strip()
+    exclude_threshold = int(exclude_threshold_input) if exclude_threshold_input else default_exclude_threshold
     if exclude_threshold > 0:
         df.loc[df['total_files_unified_day'] > exclude_threshold, 'exclude'] = 1
 
     # Ask for short sequence exclusion threshold
-    short_seq_threshold = int(input("Enter the maximum number of files in short sequence to exclude days: ").strip() or 0)
+    default_short_seq_threshold = CONFIG['processing_thresholds']['exclude_short_sequences_over']
+    short_seq_threshold_input = input(f"Enter the maximum number of files in short sequence to exclude days (default: {default_short_seq_threshold}): ").strip()
+    short_seq_threshold = int(short_seq_threshold_input) if short_seq_threshold_input else default_short_seq_threshold
     if short_seq_threshold > 0:
         df.loc[df['short_sequence_count'] > short_seq_threshold, 'exclude'] = 1
 
-    # Ask to exclude files based on criteria
-    exclude_criteria = input("Do you want to exclude files where the unified name is based on creation or modified dates? (Y/N): ").strip().lower()
-    if exclude_criteria == 'y':
+    # Check to exclude files based on criteria
+    exclude_criteria = CONFIG['behavior_flags']['exclude_creation_modified_criteria']
+    if not exclude_criteria:
+        exclude_criteria_input = input("Do you want to exclude files where the unified name is based on creation or modified dates? (Y/N): ").strip().lower()
+        exclude_criteria = exclude_criteria_input == 'y'
+    if exclude_criteria:
         df.loc[df['criteria'].isin(['creation', 'modified']), 'exclude'] = 1
 
     # Save inventory to Excel before copying
@@ -737,28 +789,37 @@ def main(source_folder, dest_folder):
     logging.info(f"Inventory saved to {excel_path}")
     print(f"Inventory saved to {excel_path}")
 
-    # Ask to continue with copying
-    continue_copy = input("Do you want to continue with copying the files? (Y/N): ").strip().lower()
-    if continue_copy != 'y':
+    # Check to continue with copying
+    continue_copy = CONFIG['behavior_flags']['continue_copy']
+    if not continue_copy:
+        continue_copy_input = input("Do you want to continue with copying the files? (Y/N): ").strip().lower()
+        continue_copy = continue_copy_input == 'y'
+    if not continue_copy:
         logging.info("Process terminated by user before copying files")
         print("Process terminated by user before copying files")
         return
 
-    # Step 4: Copy non-duplicate files to destination folder
-    logging.info("Copying files to destination folder")
-    print("Copying files to destination folder")
+    # Copy qualifying files to destination with unified naming
+    logging.info("Copying files to destination")
+    print("Copying files to destination")
     copy_files(df)
 
-    # Ask if user wants to delete the copied files
-    delete_files = input("Do you want to delete the source files that were copied? (Y/N): ").strip().lower()
-    if delete_files == 'y':
+    # Check if user wants to delete the copied files
+    delete_files = CONFIG['behavior_flags']['auto_delete_copied_files']
+    if not delete_files:
+        delete_files_input = input("Do you want to delete the source files that were copied? (Y/N): ").strip().lower()
+        delete_files = delete_files_input == 'y'
+    if delete_files:
         logging.info("Deleting source files that were copied")
         print("Deleting source files that were copied")
         delete_copied_files(df)
 
-    # Ask if user wants to delete discarded files before copying
-    delete_discarded = input("Do you want to delete the discarded files? (Y/N): ").strip().lower()
-    if delete_discarded == 'y':
+    # Check if user wants to delete discarded files before copying
+    delete_discarded = CONFIG['behavior_flags']['auto_delete_discarded_files']
+    if not delete_discarded:
+        delete_discarded_input = input("Do you want to delete the discarded files? (Y/N): ").strip().lower()
+        delete_discarded = delete_discarded_input == 'y'
+    if delete_discarded:
         logging.info("Deleting discarded files")
         print("Deleting discarded files")
         delete_discarded_files(df)
@@ -772,6 +833,16 @@ def main(source_folder, dest_folder):
     print("Process completed")
 
 if __name__ == "__main__":
-    source_folder = HARDCODED_SOURCE_FOLDER
-    dest_folder = HARDCODED_DEST_FOLDER
-    main(source_folder, dest_folder)
+    try:
+        source_folder = CONFIG['source_folder']
+        dest_folder = CONFIG['destination_folder']
+        main(source_folder, dest_folder)
+    except KeyError as e:
+        print(f"❌ Configuration error: Missing required configuration key: {e}")
+        exit(1)
+    except ValueError as e:
+        print(f"❌ Configuration error: {e}")
+        exit(1)
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        exit(1)

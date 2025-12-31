@@ -1,0 +1,47 @@
+{
+    "_comment": "Photo Archive Configuration - Follows AGENTS.md guidelines for JSON config",
+    "source_folder": "E:/fotos/temporal",
+    "destination_folder": "E:/fotos/archivo",
+    "log_folder": null,
+    "file_extensions": {
+        "image": [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif"],
+        "video": [".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv"]
+    },
+    "processing_thresholds": {
+        "short_sequence_seconds": 10,
+        "exclude_days_over_files": 0,
+        "exclude_short_sequences_over": 0
+    },
+    "behavior_flags": {
+        "skip_destination_folder_scan": false,
+        "auto_delete_copied_files": false,
+        "auto_delete_discarded_files": false,
+        "exclude_creation_modified_criteria": false,
+        "use_existing_metadata": false,
+        "recalculate_logic": false,
+        "continue_copy": false
+    },
+    "date_parsing": {
+        "filename_patterns": [
+            "ScreenRecord_(\\d{4}-\\d{2}-\\d{2})-(\\d{2}-\\d{2}-\\d{2})",
+            "(\\d{8})_(\\d{6})",
+            "img_(\\d{8})(\\d{6})",
+            "IMG_(\\d{8})_(\\d{6})",
+            "VID-(\\d{8})-WA(\\d+)",
+            "WP_(\\d{8})_(\\d{3})",
+            "IMG-(\\d{8})-WA(\\d+)",
+            "(\\d{4}-\\d{2}-\\d{2}) (\\d{2}\\.\\d{2}\\.\\d{2})",
+            "Collage (\\d{4}-\\d{2}-\\d{2}) (\\d{2}_\\d{2}_\\d{2})",
+            "Screenshot_(\\d{4}-\\d{2}-\\d{2})-(\\d{2}-\\d{2}-\\d{2})"
+        ]
+    },
+    "logging": {
+        "level": "INFO",
+        "progress_reporting_interval": 1000,
+        "enable_file_logging": true
+    },
+    "duplicate_detection": {
+        "enable_sha256_check": true,
+        "keep_largest_file": true
+    }
+}
