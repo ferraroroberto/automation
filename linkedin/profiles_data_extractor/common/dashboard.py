@@ -168,61 +168,9 @@ def generate_color_gradient(start_hex, end_hex, n):
         
     return colors
 
-def main():
+def main(df_filtered, df_all):
     """Main dashboard function that orchestrates the Streamlit app."""
     st.title("📊 LinkedIn Reachout Dashboard")
-    
-    # Load config and data
-    config = load_config()
-    if not config:
-        return
-
-    data_path = config.get("destination_file")
-    if not data_path:
-        st.error("No 'destination_file' specified in config.")
-        return
-
-    df = load_data(data_path)
-    if df is None:
-        return
-
-    # Sidebar Filters
-    st.sidebar.header("Filters")
-    
-    # Date Filter
-    if 'day' in df.columns:
-        min_date = df['day'].min().date()
-        max_date = df['day'].max().date()
-        
-        date_range = st.sidebar.date_input(
-            "Select Date Range",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date
-        )
-        
-        if len(date_range) == 2:
-            start_date, end_date = date_range
-            mask = (df['day'].dt.date >= start_date) & (df['day'].dt.date <= end_date)
-            df_filtered = df.loc[mask]
-        else:
-            df_filtered = df
-    else:
-        df_filtered = df
-
-    # Company Filter
-    if 'company' in df.columns:
-        companies = ['All'] + sorted(df['company'].dropna().unique().tolist())
-        selected_company = st.sidebar.selectbox("Select Company", companies)
-        if selected_company != 'All':
-            df_filtered = df_filtered[df_filtered['company'] == selected_company]
-
-    # Search Type Filter
-    if 'search_type' in df.columns:
-        search_types = ['All'] + sorted(df_filtered['search_type'].dropna().unique().tolist())
-        selected_type = st.sidebar.selectbox("Select Search Type", search_types)
-        if selected_type != 'All':
-            df_filtered = df_filtered[df_filtered['search_type'] == selected_type]
 
     # --- Performance Section ---
     
@@ -331,14 +279,14 @@ def main():
         # 2. Performance by Search Type
         st.subheader("🔍 Performance by Search Type")
         if 'search_type' in df_filtered.columns:
-            fig_type, type_stats = create_performance_chart(df_filtered, df, 'search_type')
+            fig_type, type_stats = create_performance_chart(df_filtered, df_all, 'search_type')
             st.plotly_chart(fig_type, width="stretch")
 
     with col_right:
         # 3. Performance by Company
         st.subheader("🏢 Performance by Company")
         if 'company' in df_filtered.columns:
-            fig_company, company_stats = create_performance_chart(df_filtered, df, 'company')
+            fig_company, company_stats = create_performance_chart(df_filtered, df_all, 'company')
             st.plotly_chart(fig_company, width="stretch")
 
     # Contact Overview Charts
@@ -349,14 +297,14 @@ def main():
         # 4. Contact Overview by Search Type
         st.subheader("🔍 Contact Overview by Search Type")
         if 'search_type' in df_filtered.columns:
-            fig_contact_type, contact_type_stats = create_contact_chart(df_filtered, df, 'search_type')
+            fig_contact_type, contact_type_stats = create_contact_chart(df_filtered, df_all, 'search_type')
             st.plotly_chart(fig_contact_type, width="stretch")
 
     with col_contact_right:
         # 5. Contact Overview by Company
         st.subheader("🏢 Contact Overview by Company")
         if 'company' in df_filtered.columns:
-            fig_contact_company, contact_company_stats = create_contact_chart(df_filtered, df, 'company')
+            fig_contact_company, contact_company_stats = create_contact_chart(df_filtered, df_all, 'company')
             st.plotly_chart(fig_contact_company, width="stretch")
 
     # --- Data Tables ---
