@@ -96,6 +96,15 @@ def apply_excel_formatting(excel_path, json_path):
 def main(df_filtered, df_all):
     """Main reachout function for managing uncontacted profiles."""
 
+    # Load config to get data path
+    config = load_config()
+    if not config:
+        return
+    data_path = config.get("destination_file")
+    if not data_path:
+        st.error("No 'destination_file' specified in config.")
+        return
+
     # Filter to only show uncontacted profiles (day is null) from the already filtered data
     uncontacted_df = df_filtered[df_filtered['day'].isna()].copy() if 'day' in df_filtered.columns else df_filtered.copy()
 
@@ -150,29 +159,80 @@ def main(df_filtered, df_all):
                 # Store selected record data
                 st.session_state.reachout_selected_record = {
                     'name': name,
+                    'day': row.get('day', ''),
                     'job_title': job_title,
                     'follows_from': row.get('follows_from', ''),
                     'company': company,
-                    'location': location
+                    'location': location,
+                    'search_type': row.get('search_type', ''),
+                    'url': row.get('url', ''),
+                    'reach out type': row.get('reach out type', '')
                 }
                 st.session_state.reachout_original_name = name
                 st.session_state.reachout_editing = True
                 st.rerun()
 
     with col_edit:
-        st.subheader("✏️ Edit Profile")
+        # Header with Edit Profile and Open Profile link
+        col_header, col_link = st.columns([3, 1])
+        with col_header:
+            st.subheader("✏️ Edit Profile")
+        with col_link:
+            if st.session_state.reachout_editing and st.session_state.reachout_selected_record:
+                profile_url = st.session_state.reachout_selected_record.get('url', '')
+                if profile_url:
+                    st.markdown(f'<a href="{profile_url}" target="_blank" style="text-decoration: none;"><button style="background-color: #0077b5; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">🔗 Open Profile</button></a>', unsafe_allow_html=True)
 
         if st.session_state.reachout_editing and st.session_state.reachout_selected_record:
             record = st.session_state.reachout_selected_record
 
             with st.form("reachout_edit_form"):
-                st.write(f"**Editing:** {record['name']}")
+
 
                 # Editable fields
                 name = st.text_input(
                     "Name *",
                     value=record.get('name', ''),
                     help="Full name of the LinkedIn profile"
+                )
+
+                # Handle day field - convert to date if it's not None/NaT
+                day_value = record.get('day', '')
+                if pd.notna(day_value) and day_value != '':
+                    try:
+                        # Convert to datetime.date if it's a pandas Timestamp
+                        if hasattr(day_value, 'date'):
+                            day_value = day_value.date()
+                        elif isinstance(day_value, str):
+                            day_value = pd.to_datetime(day_value).date()
+                    except:
+                        day_value = None
+                else:
+                    day_value = None
+
+                day = st.date_input(
+                    "Day",
+                    value=day_value,
+                    help="Date when this profile was contacted (leave empty if not contacted yet)"
+                )
+
+                # Get distinct reach out types from the full dataframe
+                reachout_types = ['']  # Start with empty option
+                if 'reach out type' in df_all.columns:
+                    distinct_types = df_all['reach out type'].dropna().unique().tolist()
+                    reachout_types.extend(sorted(distinct_types))
+
+                reach_out_type = st.selectbox(
+                    "Reachout Type",
+                    options=reachout_types,
+                    index=reachout_types.index(record.get('reach out type', '')) if record.get('reach out type', '') in reachout_types else 0,
+                    help="Type of reachout made to this profile"
+                )
+
+                search_type = st.text_input(
+                    "Search Type",
+                    value=record.get('search_type', ''),
+                    help="How this profile was found (e.g., keyword search, mutual connections, etc.)"
                 )
 
                 job_title = st.text_input(
@@ -199,7 +259,13 @@ def main(df_filtered, df_all):
                     help="Location/city"
                 )
 
-                submitted = st.form_submit_button("💾 Save Changes (Enter)")
+                url = st.text_input(
+                    "Profile URL",
+                    value=record.get('url', ''),
+                    help="LinkedIn profile URL"
+                )
+
+                submitted = st.form_submit_button("💾 Save Changes")
 
                 if submitted:
                     if not name.strip():
@@ -209,10 +275,14 @@ def main(df_filtered, df_all):
                     # Prepare record data
                     record_data = {
                         'name': name.strip(),
+                        'day': pd.Timestamp(day) if day else pd.NaT,
                         'job_title': job_title.strip(),
                         'follows_from': follows_from.strip(),
                         'company': company.strip(),
-                        'location': location.strip()
+                        'location': location.strip(),
+                        'search_type': search_type.strip(),
+                        'url': url.strip(),
+                        'reach out type': reach_out_type.strip() if reach_out_type else ''
                     }
 
                     # Update existing record
