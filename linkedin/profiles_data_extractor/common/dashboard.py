@@ -173,7 +173,7 @@ def main(df_filtered, df_all):
 
     # --- Performance Section ---
     
-    total_contacts = len(df_filtered)
+    total_contacts = df_filtered['day'].notna().sum()
     connected_count = df_filtered['date connected'].notna().sum()
     conversion_rate = (connected_count / total_contacts * 100) if total_contacts > 0 else 0
     
@@ -216,8 +216,8 @@ def main(df_filtered, df_all):
     with col_activity_right:
         st.subheader("⏱️ Response Time Distribution")
         if 'day' in df_filtered.columns and 'date connected' in df_filtered.columns:
-            # Calculate days to respond
-            df_resp = df_filtered.copy()
+            # Calculate days to respond - only for records where day is not null (contacted records)
+            df_resp = df_filtered[df_filtered['day'].notna()].copy()
             df_resp['days_diff'] = (df_resp['date connected'] - df_resp['day']).dt.days
             
             def get_label(x):

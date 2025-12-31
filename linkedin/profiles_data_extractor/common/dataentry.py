@@ -331,7 +331,12 @@ def main():
                     'name': selected_row.get('name', ''),
                     'date_connected': selected_row.get('date connected', None),
                     'answered': answered_value,
-                    'chat_url': selected_row.get('chat_url', '')
+                    'chat_url': selected_row.get('chat_url', ''),
+                    'company': selected_row.get('company', ''),
+                    'job title': selected_row.get('job title', ''),
+                    'location': selected_row.get('location', ''),
+                    'day': selected_row.get('day', None),
+                    'reach out type': selected_row.get('reach out type', '')
                 }
                 st.session_state.original_name = selected_row.get('name', '')
 
@@ -385,6 +390,56 @@ def main():
                     help="URL to the LinkedIn chat/messaging thread"
                 )
 
+            # Additional fields for company, job title, location, and day contacted
+            # First row: Company and Reachout Type
+            col_company, col_reachout = st.columns(2)
+
+            with col_company:
+                company = st.text_input(
+                    "Company",
+                    value=st.session_state.selected_record.get('company', ''),
+                    help="Company name"
+                )
+
+            with col_reachout:
+                # Reachout Type dropdown
+                # Get distinct reach out types from the full dataframe
+                reachout_types = ['']  # Start with empty option
+                if 'reach out type' in df.columns:
+                    distinct_types = df['reach out type'].dropna().unique().tolist()
+                    reachout_types.extend(sorted(distinct_types))
+
+                reach_out_type = st.selectbox(
+                    "Reachout Type",
+                    options=reachout_types,
+                    index=reachout_types.index(st.session_state.selected_record.get('reach out type', '')) if st.session_state.selected_record.get('reach out type', '') in reachout_types else 0,
+                    help="Type of reachout made to this profile"
+                )
+
+            # Second row: Job Title (full line)
+            job_title = st.text_input(
+                "Job Title",
+                value=st.session_state.selected_record.get('job title', ''),
+                help="Job title/position"
+            )
+
+            # Second row: Location and Date Contacted
+            col_location, col_day = st.columns(2)
+
+            with col_location:
+                location = st.text_input(
+                    "Location",
+                    value=st.session_state.selected_record.get('location', ''),
+                    help="Location/city"
+                )
+
+            with col_day:
+                day_contacted = st.date_input(
+                    "Date Contacted",
+                    value=st.session_state.selected_record.get('day') if pd.notna(st.session_state.selected_record.get('day')) else None,
+                    help="Date when the contact was made"
+                )
+
             submitted = st.form_submit_button("💾 Update Record")
 
             if submitted:
@@ -397,7 +452,12 @@ def main():
                     'name': name.strip(),
                     'date connected': pd.Timestamp(date_connected) if date_connected else None,
                     'answered': answered,
-                    'chat_url': chat_url.strip() if chat_url else None
+                    'chat_url': chat_url.strip() if chat_url else None,
+                    'company': company.strip() if company else None,
+                    'job title': job_title.strip() if job_title else None,
+                    'location': location.strip() if location else None,
+                    'day': pd.Timestamp(day_contacted) if day_contacted else None,
+                    'reach out type': reach_out_type.strip() if reach_out_type else None
                 }
 
                 # Update existing record

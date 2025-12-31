@@ -4,9 +4,29 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 
 # Import Excel formatting functions
 from excel_format_manager import convert_url_columns_to_hyperlinks, apply_format_from_json
+
+def generate_color_gradient(start_hex, end_hex, n):
+    """Generate a gradient of n colors between start_hex and end_hex."""
+    if n < 1: return []
+    if n == 1: return [start_hex]
+
+    def hex_to_rgb(h):
+        return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+
+    start_rgb = hex_to_rgb(start_hex)
+    end_rgb = hex_to_rgb(end_hex)
+
+    colors = []
+    for i in range(n):
+        ratio = i / (n - 1)
+        rgb = tuple(int(start_rgb[j] + (end_rgb[j] - start_rgb[j]) * ratio) for j in range(3))
+        colors.append('#{:02x}{:02x}{:02x}'.format(*rgb))
+
+    return colors
 
 def load_config():
     """Load configuration from the JSON file in the same directory."""
@@ -111,6 +131,53 @@ def main(df_filtered, df_all):
     if uncontacted_df.empty:
         st.info("🎉 All profiles have been contacted! No reachout targets remaining.")
         return
+
+    # Add horizontal bar chart showing uncontacted people by company at the top
+    st.subheader("📈 Uncontacted Profiles by Company")
+
+    # Create stacked bar chart by company and search_type
+    if 'company' in uncontacted_df.columns and 'search_type' in uncontacted_df.columns:
+        # Filter out empty/null company names
+        filtered_df = uncontacted_df[uncontacted_df['company'].notna() & (uncontacted_df['company'] != '')].copy()
+
+        if not filtered_df.empty:
+            # Create cross-tabulation of company vs search_type
+            company_search_counts = pd.crosstab(filtered_df['company'], filtered_df['search_type'])
+
+            # Sort companies by total count (descending)
+            company_totals = company_search_counts.sum(axis=1).sort_values(ascending=False)
+            company_search_counts = company_search_counts.loc[company_totals.index]
+
+            # Get unique search types and create color gradient
+            search_types = company_search_counts.columns.tolist()
+            colors = generate_color_gradient('#0B65C3', '#808080', len(search_types))
+
+            # Create stacked horizontal bar chart
+            fig = px.bar(
+                company_search_counts,
+                orientation='h',
+                title='Number of Uncontacted Profiles by Company and Search Type',
+                labels={'value': 'Number of Uncontacted Profiles', 'company': 'Company'},
+                color_discrete_map={search_type: colors[i] for i, search_type in enumerate(search_types)}
+            )
+
+            # Customize layout
+            fig.update_layout(
+                xaxis_title="Number of Uncontacted Profiles",
+                yaxis_title="Company",
+                showlegend=True,
+                legend_title="Search Type",
+                height=max(400, len(company_search_counts) * 35),  # Dynamic height based on number of companies
+                barmode='stack'  # Stack the bars
+            )
+
+            st.plotly_chart(fig, width='stretch')
+        else:
+            st.info("No company data available for chart.")
+    else:
+        st.warning("Required columns (company and search_type) not found in data.")
+
+    st.markdown("---")
 
     # Display filtered count
     st.subheader(f"📋 Uncontacted Profiles ({len(uncontacted_df)} total)")
@@ -317,6 +384,68 @@ def main(df_filtered, df_all):
                         st.rerun()
                     else:
                         st.error("❌ Failed to save changes!")
+
+            # Delete Profile button (red, similar to Open Profile button)
+            st.markdown("---")
+            col_delete, col_spacer = st.columns([1, 3])
+            with col_delete:
+                if st.button("🗑️ Delete Profile", key="delete_profile", type="secondary",
+                           help="Permanently delete this profile from the database"):
+                    # Confirm deletion with a dialog-like approach
+                    confirm_key = f"confirm_delete_{st.session_state.reachout_original_name}"
+                    if confirm_key not in st.session_state:
+                        st.session_state[confirm_key] = False
+
+                    if not st.session_state[confirm_key]:
+                        st.warning(f"⚠️ Are you sure you want to delete '{st.session_state.reachout_original_name}'? This action cannot be undone!")
+                        if st.button("✅ Yes, Delete", key=f"confirm_yes_{st.session_state.reachout_original_name}"):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
+                        if st.button("❌ Cancel", key=f"confirm_no_{st.session_state.reachout_original_name}"):
+                            del st.session_state[confirm_key]
+                            st.rerun()
+                    else:
+                        # Perform deletion
+                        try:
+                            # Find and remove the record
+                            name_to_delete = st.session_state.reachout_original_name
+                            mask = df_all['name'].str.lower() == name_to_delete.lower() if 'name' in df_all.columns else pd.Series([False] * len(df_all))
+
+                            if mask.any():
+                                # Remove the record
+                                df_all = df_all[~mask].copy()
+
+                                # Save to Excel
+                                if save_to_excel(df_all, data_path):
+                                    st.success(f"✅ Profile '{name_to_delete}' deleted successfully!")
+
+                                    # Automatically apply Excel formatting after saving
+                                    json_path = Path(__file__).parent / "excel_format_spec.json"
+                                    if json_path.exists():
+                                        print("🎨 Applying Excel formatting...")
+                                        try:
+                                            if apply_excel_formatting(data_path, str(json_path)):
+                                                print("✅ Excel formatting applied successfully!")
+                                            else:
+                                                print("❌ Failed to apply Excel formatting")
+                                        except Exception as e:
+                                            print(f"❌ Error applying Excel formatting: {e}")
+                                    else:
+                                        print("⚠️ Format specification file not found. Formatting not applied.")
+
+                                    # Clear session state
+                                    st.session_state.reachout_selected_record = None
+                                    st.session_state.reachout_original_name = None
+                                    st.session_state.reachout_editing = False
+                                    if confirm_key in st.session_state:
+                                        del st.session_state[confirm_key]
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to save changes after deletion!")
+                            else:
+                                st.error("❌ Profile not found for deletion.")
+                        except Exception as e:
+                            st.error(f"❌ Error deleting profile: {str(e)}")
         else:
             st.info("👆 Click on a profile from the list to edit its information.")
 
