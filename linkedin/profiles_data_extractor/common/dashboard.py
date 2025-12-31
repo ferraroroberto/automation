@@ -170,7 +170,6 @@ def generate_color_gradient(start_hex, end_hex, n):
 
 def main(df_filtered, df_all):
     """Main dashboard function that orchestrates the Streamlit app."""
-    st.title("📊 LinkedIn Reachout Dashboard")
 
     # --- Performance Section ---
     
