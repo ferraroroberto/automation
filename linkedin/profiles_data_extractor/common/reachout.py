@@ -95,7 +95,6 @@ def apply_excel_formatting(excel_path, json_path):
 
 def main(df_filtered, df_all):
     """Main reachout function for managing uncontacted profiles."""
-    st.title("🎯 Reachout Manager")
 
     # Filter to only show uncontacted profiles (day is null) from the already filtered data
     uncontacted_df = df_filtered[df_filtered['day'].isna()].copy() if 'day' in df_filtered.columns else df_filtered.copy()

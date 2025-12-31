@@ -233,8 +233,6 @@ def main():
     - Session state management for seamless user experience
     """
 
-    st.title("✏️ LinkedIn Profile Data Editor")
-
     # Load config
     config = load_config()
     if not config:

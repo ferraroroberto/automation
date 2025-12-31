@@ -98,18 +98,15 @@ def main():
             df_filtered = df_filtered[df_filtered['search_type'] == selected_type]
 
     # Create tabs for navigation
-    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "✏️ Data Editor", "🎯 Reachout"])
+    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager"])
 
     with tab1:
-        st.header("Dashboard")
         dashboard_main(df_filtered, df)  # Pass both filtered and full datasets
 
     with tab2:
-        st.header("Data Entry")
         dataentry_main()
 
     with tab3:
-        st.header("Reachout")
         reachout_main(df_filtered, df)  # Pass both filtered and full datasets
 
 if __name__ == "__main__":
