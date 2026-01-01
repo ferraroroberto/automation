@@ -168,8 +168,26 @@ def generate_color_gradient(start_hex, end_hex, n):
         
     return colors
 
-def main(df_filtered, df_all):
+def main(df_filtered, df_all, filter_params=None):
     """Main dashboard function that orchestrates the Streamlit app."""
+
+    # Extract filter parameters
+    if filter_params is None:
+        filter_params = {}
+
+    selected_company = filter_params.get('selected_company', 'All')
+    selected_search_type = filter_params.get('selected_type', 'All')
+    start_date = filter_params.get('start_date')
+    end_date = filter_params.get('end_date')
+    contacted_filter = filter_params.get('contacted_filter', 'All')
+    connected_filter = filter_params.get('connected_filter', 'All')
+
+    # Store filter info for raw data display
+    st.session_state['df_filtered'] = df_filtered
+    st.session_state['df_all'] = df_all
+    st.session_state['selected_company'] = selected_company
+    st.session_state['selected_search_type'] = selected_search_type
+    st.session_state['filter_params'] = filter_params
 
     # --- Performance Section ---
     
@@ -324,7 +342,111 @@ def main(df_filtered, df_all):
 
     # --- Raw Data ---
     st.header("📄 Raw Data")
-    with st.expander("Show detailed records"):
-        st.dataframe(df_filtered)
+
+    # Show current filter status
+    total_records = len(df_all)
+
+    # Determine which data to show in raw data table
+    # If date contacted filter is applied, show only contacted records
+    date_filter_applied = False
+    if start_date and end_date and 'day' in df_all.columns:
+        min_date_all = df_all['day'].min()
+        max_date_all = df_all['day'].max()
+        if pd.notna(min_date_all) and pd.notna(max_date_all):
+            min_date_all = min_date_all.date()
+            max_date_all = max_date_all.date()
+            if start_date > min_date_all or end_date < max_date_all:
+                date_filter_applied = True
+
+    if date_filter_applied:
+        # Show metrics for contacted records when date filter is applied
+        contacted_records = df_filtered[df_filtered['day'].notna()]
+        filtered_records = len(contacted_records)
+        filter_percentage = (filtered_records / total_records * 100) if total_records > 0 else 0
+    else:
+        # Show metrics for all filtered records for other filters
+        filtered_records = len(df_filtered)
+        filter_percentage = (filtered_records / total_records * 100) if total_records > 0 else 0
+
+    col_info, col_filters = st.columns([1, 2])
+
+    with col_info:
+        st.metric("Total Records", f"{total_records:,}")
+        st.metric("Filtered Records", f"{filtered_records:,}")
+        if total_records > 0:
+            st.metric("Filter Coverage", f"{filter_percentage:.1f}%")
+
+    with col_filters:
+        st.subheader("Current Filters Applied:")
+
+        filters_applied = []
+
+        # Show company filter if applied
+        if selected_company != 'All':
+            st.write(f"**🏢 Company:** {selected_company}")
+            filters_applied.append("Company")
+
+        # Show search type filter if applied
+        if selected_search_type != 'All':
+            st.write(f"**🔍 Search Type:** {selected_search_type}")
+            filters_applied.append("Search Type")
+
+        # Show date contacted filter if applied
+        if start_date and end_date and 'day' in df_all.columns:
+            # Check if date range is different from min/max to determine if filter is applied
+            min_date_all = df_all['day'].min()
+            max_date_all = df_all['day'].max()
+            if pd.notna(min_date_all) and pd.notna(max_date_all):
+                min_date_all = min_date_all.date()
+                max_date_all = max_date_all.date()
+                # Only show as applied if the range is more restrictive than the full data range
+                if start_date > min_date_all or end_date < max_date_all:
+                    st.write(f"**📅 Date Contacted:** {start_date} to {end_date}")
+                    filters_applied.append("Date Contacted")
+
+        # Show contacted status filter if applied
+        if contacted_filter != 'All':
+            status_text = "Contacted Only" if contacted_filter == "Contacted Only" else "Uncontacted Only"
+            st.write(f"**✅ Contacted Status:** {status_text}")
+            filters_applied.append("Contacted Status")
+
+        # Show connected status filter if applied
+        if connected_filter != 'All':
+            status_text = "Connected Only" if connected_filter == "Connected Only" else "Unconnected Only"
+            st.write(f"**🔗 Connected Status:** {status_text}")
+            filters_applied.append("Connected Status")
+
+        # If no filters are applied
+        if not filters_applied:
+            st.write("*No filters currently applied - showing all records*")
+        else:
+            st.write(f"*Showing records that match: {', '.join(filters_applied)} filters*")
+
+    # Determine which data to show in raw data table
+    # If date contacted filter is applied, show only contacted records
+    date_filter_applied = False
+    if start_date and end_date and 'day' in df_all.columns:
+        min_date_all = df_all['day'].min()
+        max_date_all = df_all['day'].max()
+        if pd.notna(min_date_all) and pd.notna(max_date_all):
+            min_date_all = min_date_all.date()
+            max_date_all = max_date_all.date()
+            if start_date > min_date_all or end_date < max_date_all:
+                date_filter_applied = True
+
+    if date_filter_applied:
+        # Show only contacted records when date filter is applied
+        contacted_records = df_filtered[df_filtered['day'].notna()].copy()
+        raw_data_count = len(contacted_records)
+        raw_data_title = f"Show {raw_data_count:,} contacted records (filtered by date)"
+        display_df = contacted_records
+    else:
+        # Show all filtered records for other filters
+        raw_data_count = filtered_records
+        raw_data_title = f"Show {raw_data_count:,} filtered records"
+        display_df = df_filtered
+
+    with st.expander(raw_data_title):
+        st.dataframe(display_df)
 
 # Dashboard is now called from main.py
