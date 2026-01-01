@@ -278,7 +278,7 @@ def main(df_filtered, df_all):
                     day_value = None
 
                 day = st.date_input(
-                    "Day",
+                    "Day Contacted",
                     value=day_value,
                     help="Date when this profile was contacted (leave empty if not contacted yet)"
                 )
