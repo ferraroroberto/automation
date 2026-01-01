@@ -364,22 +364,17 @@ def main():
 
     if st.session_state.selected_record:
         with st.form("edit_form"):
-            col1, col2 = st.columns(2)
+            # First row: Name and Answered (same line)
+            col_name, col_answered = st.columns(2)
 
-            with col1:
+            with col_name:
                 name = st.text_input(
                     "Name *",
                     value=st.session_state.selected_record.get('name', ''),
                     help="Full name of the LinkedIn profile"
                 )
 
-                date_connected = st.date_input(
-                    "Date Connected",
-                    value=st.session_state.selected_record.get('date_connected') if pd.notna(st.session_state.selected_record.get('date_connected')) else None,
-                    help="Date when the connection was made"
-                )
-
-            with col2:
+            with col_answered:
                 # Handle NaN values and ensure valid index
                 answered_value = st.session_state.selected_record.get('answered', 0)
                 if pd.isna(answered_value):
@@ -393,14 +388,45 @@ def main():
                     help="0 = Not answered, 1 = Answered"
                 )
 
-                chat_url = st.text_input(
-                    "LinkedIn Chat URL",
-                    value=st.session_state.selected_record.get('chat_url', ''),
-                    help="URL to the LinkedIn chat/messaging thread"
+            # Second row: Date Contacted, Clear Contacted, Date Connected, Clear Connected (4 parts on same line)
+            col_contacted, col_clear_contacted, col_connected, col_clear_connected = st.columns(4)
+
+            with col_contacted:
+                day_contacted = st.date_input(
+                    "Date Contacted",
+                    value=st.session_state.selected_record.get('day') if pd.notna(st.session_state.selected_record.get('day')) else None,
+                    help="Date when the contact was made"
                 )
 
-            # Additional fields for company, job title, location, and day contacted
-            # First row: Company and Reachout Type
+            with col_clear_contacted:
+                clear_contacted = st.checkbox(
+                    "Clear",
+                    key="clear_contacted",
+                    help="Clear the date contacted field"
+                )
+
+            with col_connected:
+                date_connected = st.date_input(
+                    "Date Connected",
+                    value=st.session_state.selected_record.get('date_connected') if pd.notna(st.session_state.selected_record.get('date_connected')) else None,
+                    help="Date when the connection was made"
+                )
+
+            with col_clear_connected:
+                clear_connected = st.checkbox(
+                    "Clear",
+                    key="clear_connected",
+                    help="Clear the date connected field"
+                )
+
+            # Third row: LinkedIn Chat URL (full line)
+            chat_url = st.text_input(
+                "LinkedIn Chat URL",
+                value=st.session_state.selected_record.get('chat_url', ''),
+                help="URL to the LinkedIn chat/messaging thread"
+            )
+
+            # Fourth row: Company and Reachout Type (same line)
             col_company, col_reachout = st.columns(2)
 
             with col_company:
@@ -437,28 +463,21 @@ def main():
                     help="Type of reachout made to this profile"
                 )
 
-            # Second row: Job Title (full line)
-            job_title = st.text_input(
-                "Job Title",
-                value=st.session_state.selected_record.get('job_title', ''),
-                help="Job title/position"
-            )
+            # Fifth row: Job Title and Location (same line)
+            col_job_title, col_location = st.columns(2)
 
-            # Second row: Location and Date Contacted
-            col_location, col_day = st.columns(2)
+            with col_job_title:
+                job_title = st.text_input(
+                    "Job Title",
+                    value=st.session_state.selected_record.get('job_title', ''),
+                    help="Job title/position"
+                )
 
             with col_location:
                 location = st.text_input(
                     "Location",
                     value=st.session_state.selected_record.get('location', ''),
                     help="Location/city"
-                )
-
-            with col_day:
-                day_contacted = st.date_input(
-                    "Date Contacted",
-                    value=st.session_state.selected_record.get('day') if pd.notna(st.session_state.selected_record.get('day')) else None,
-                    help="Date when the contact was made"
                 )
 
             submitted = st.form_submit_button("💾 Update Record")
@@ -469,15 +488,19 @@ def main():
                     return
 
                 # Prepare record data
+                # Handle clear checkboxes - if checked, set date to None
+                final_date_connected = None if clear_connected else (pd.Timestamp(date_connected) if date_connected else None)
+                final_day_contacted = None if clear_contacted else (pd.Timestamp(day_contacted) if day_contacted else None)
+
                 record_data = {
                     'name': name.strip(),
-                    'date connected': pd.Timestamp(date_connected) if date_connected else None,
+                    'date connected': final_date_connected,
                     'answered': answered,
                     'chat_url': chat_url.strip() if chat_url else None,
                     'company': company.strip() if company else None,
                     'job_title': job_title.strip() if job_title else None,
                     'location': location.strip() if location else None,
-                    'day': pd.Timestamp(day_contacted) if day_contacted else None,
+                    'day': final_day_contacted,
                     'reach out type': reach_out_type.strip() if reach_out_type else None
                 }
 
@@ -515,21 +538,6 @@ def main():
     else:
         st.info("👆 Please select a record from Step 2 to edit its data.")
 
-    # Recent Records Section
-    st.markdown("---")
-    st.subheader("📋 Recent Records")
-
-    # Show last 5 records
-    if not df.empty:
-        recent_df = df.tail(5).copy()
-
-        # Format dates for display
-        if 'date connected' in recent_df.columns:
-            recent_df['date connected'] = recent_df['date connected'].dt.strftime('%Y-%m-%d')
-
-        st.dataframe(recent_df)
-    else:
-        st.info("No records yet.")
 
 if __name__ == "__main__":
     main()

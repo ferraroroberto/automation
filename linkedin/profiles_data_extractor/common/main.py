@@ -84,6 +84,7 @@ def main():
 
     # Company Filter
     df_filtered = df.copy()
+    selected_company = 'All'
     if 'company' in df_filtered.columns:
         companies = ['All'] + sorted(df_filtered['company'].dropna().unique().tolist())
         selected_company = st.sidebar.selectbox("Select Company", companies)
@@ -91,17 +92,76 @@ def main():
             df_filtered = df_filtered[df_filtered['company'] == selected_company]
 
     # Search Type Filter
+    selected_type = 'All'
     if 'search_type' in df_filtered.columns:
         search_types = ['All'] + sorted(df_filtered['search_type'].dropna().unique().tolist())
         selected_type = st.sidebar.selectbox("Select Search Type", search_types)
         if selected_type != 'All':
             df_filtered = df_filtered[df_filtered['search_type'] == selected_type]
 
+    # Date Contacted Filter
+    st.sidebar.subheader("Contact Filters")
+
+    # Date contacted range filter
+    if 'day' in df.columns:
+        min_date = df['day'].min()
+        max_date = df['day'].max()
+
+        if pd.notna(min_date) and pd.notna(max_date):
+            # Convert to date objects for streamlit
+            min_date = min_date.date()
+            max_date = max_date.date()
+
+            col_date1, col_date2 = st.sidebar.columns(2)
+            with col_date1:
+                start_date = st.sidebar.date_input("Contacted From", value=min_date, min_value=min_date, max_value=max_date)
+            with col_date2:
+                end_date = st.sidebar.date_input("Contacted To", value=max_date, min_value=min_date, max_value=max_date)
+
+            # Apply date filter
+            df_filtered = df_filtered[
+                (df_filtered['day'].isna()) |
+                ((df_filtered['day'].dt.date >= start_date) & (df_filtered['day'].dt.date <= end_date))
+            ]
+
+    # Contacted Yes/No filter
+    contacted_filter = st.sidebar.selectbox(
+        "Contacted Status",
+        ["All", "Contacted Only", "Uncontacted Only"],
+        help="Filter by whether profiles have been contacted"
+    )
+
+    if contacted_filter == "Contacted Only":
+        df_filtered = df_filtered[df_filtered['day'].notna()]
+    elif contacted_filter == "Uncontacted Only":
+        df_filtered = df_filtered[df_filtered['day'].isna()]
+
+    # Connected Yes/No filter
+    connected_filter = st.sidebar.selectbox(
+        "Connected Status",
+        ["All", "Connected Only", "Unconnected Only"],
+        help="Filter by whether profiles have connected"
+    )
+
+    if connected_filter == "Connected Only":
+        df_filtered = df_filtered[df_filtered['date connected'].notna()]
+    elif connected_filter == "Unconnected Only":
+        df_filtered = df_filtered[df_filtered['date connected'].isna()]
+
     # Create tabs for navigation
     tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager"])
 
     with tab1:
-        dashboard_main(df_filtered, df)  # Pass both filtered and full datasets
+        # Prepare filter parameters for dashboard
+        filter_params = {
+            'selected_company': selected_company,
+            'selected_type': selected_type,
+            'start_date': start_date if 'day' in df.columns and pd.notna(df['day'].min()) else None,
+            'end_date': end_date if 'day' in df.columns and pd.notna(df['day'].max()) else None,
+            'contacted_filter': contacted_filter,
+            'connected_filter': connected_filter
+        }
+        dashboard_main(df_filtered, df, filter_params)  # Pass filtered data, full data, and all filter selections
 
     with tab2:
         dataentry_main()
