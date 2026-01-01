@@ -337,7 +337,7 @@ def main(df_filtered, df_all, filter_params=None):
     with col_table_left:
         st.subheader("🔍 by Search Type")
         if 'search_type' in df_filtered.columns:
-            st.dataframe(type_stats[['search_type', 'Total_People', 'Contacted', 'Contacted_Percent', 'Connected', 'Rate']].rename(columns={'Total_People': 'Total People', 'Rate': '% Connected', 'Contacted_Percent': '% Contacted'}), hide_index=True)
+            st.dataframe(type_stats[['search_type', 'Total_People', 'Contacted', 'Contacted_Percent', 'Connected', 'Rate']].rename(columns={'search_type': 'Search Type', 'Total_People': 'Total People', 'Rate': '% Connected', 'Contacted_Percent': '% Contacted'}), hide_index=True)
 
     with col_table_right:
         st.subheader("🏢 by Company")
