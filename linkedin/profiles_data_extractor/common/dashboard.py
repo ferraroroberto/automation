@@ -194,11 +194,15 @@ def main(df_filtered, df_all, filter_params=None):
     total_contacts = df_filtered['day'].notna().sum()
     connected_count = df_filtered['date connected'].notna().sum()
     conversion_rate = (connected_count / total_contacts * 100) if total_contacts > 0 else 0
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Contacted", f"{total_contacts}")
-    col2.metric("Connected", f"{connected_count}")
-    col3.metric("Conversion Rate", f"{conversion_rate:.1f}%")
+    total_records = len(df_all)
+    contacted_percentage = (total_contacts / total_records * 100) if total_records > 0 else 0
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Total People", f"{total_records}")
+    col2.metric("Contacted", f"{total_contacts}")
+    col3.metric("% Contacted", f"{contacted_percentage:.1f}%")
+    col4.metric("Connected", f"{connected_count}")
+    col5.metric("% Connected", f"{conversion_rate:.1f}%")
 
     st.markdown("---")
 
