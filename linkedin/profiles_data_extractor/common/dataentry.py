@@ -327,16 +327,25 @@ def main():
                 if pd.isna(answered_value):
                     answered_value = 0
 
+                # Handle NaN values for job title and reachout type
+                job_title_value = selected_row.get('job_title', '')
+                if pd.isna(job_title_value):
+                    job_title_value = ''
+
+                reachout_type_value = selected_row.get('reach out type', '')
+                if pd.isna(reachout_type_value):
+                    reachout_type_value = ''
+
                 st.session_state.selected_record = {
                     'name': selected_row.get('name', ''),
                     'date_connected': selected_row.get('date connected', None),
                     'answered': answered_value,
                     'chat_url': selected_row.get('chat_url', ''),
                     'company': selected_row.get('company', ''),
-                    'job title': selected_row.get('job title', ''),
+                    'job_title': job_title_value,
                     'location': selected_row.get('location', ''),
                     'day': selected_row.get('day', None),
-                    'reach out type': selected_row.get('reach out type', '')
+                    'reach out type': reachout_type_value
                 }
                 st.session_state.original_name = selected_row.get('name', '')
 
@@ -409,17 +418,29 @@ def main():
                     distinct_types = df['reach out type'].dropna().unique().tolist()
                     reachout_types.extend(sorted(distinct_types))
 
+                # Ensure current record's reachout type is in the options list
+                current_reachout_type = st.session_state.selected_record.get('reach out type', '')
+                if current_reachout_type and current_reachout_type not in reachout_types:
+                    reachout_types.append(current_reachout_type)
+                    reachout_types.sort()  # Keep sorted after adding
+
+                # Find the index of the current value
+                try:
+                    reachout_index = reachout_types.index(current_reachout_type) if current_reachout_type else 0
+                except ValueError:
+                    reachout_index = 0
+
                 reach_out_type = st.selectbox(
                     "Reachout Type",
                     options=reachout_types,
-                    index=reachout_types.index(st.session_state.selected_record.get('reach out type', '')) if st.session_state.selected_record.get('reach out type', '') in reachout_types else 0,
+                    index=reachout_index,
                     help="Type of reachout made to this profile"
                 )
 
             # Second row: Job Title (full line)
             job_title = st.text_input(
                 "Job Title",
-                value=st.session_state.selected_record.get('job title', ''),
+                value=st.session_state.selected_record.get('job_title', ''),
                 help="Job title/position"
             )
 
@@ -454,7 +475,7 @@ def main():
                     'answered': answered,
                     'chat_url': chat_url.strip() if chat_url else None,
                     'company': company.strip() if company else None,
-                    'job title': job_title.strip() if job_title else None,
+                    'job_title': job_title.strip() if job_title else None,
                     'location': location.strip() if location else None,
                     'day': pd.Timestamp(day_contacted) if day_contacted else None,
                     'reach out type': reach_out_type.strip() if reach_out_type else None
