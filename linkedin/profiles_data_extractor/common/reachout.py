@@ -282,13 +282,17 @@ def main(df_filtered, df_all):
             company_totals = company_search_counts.sum(axis=1).sort_values(ascending=True)
             company_search_counts = company_search_counts.loc[company_totals.index]
 
-            # Create stacked horizontal bar chart with single color
+            # Get unique search types and create color gradient
+            search_types = company_search_counts.columns.tolist()
+            colors = generate_color_gradient('#0B65C3', '#808080', len(search_types))
+
+            # Create stacked horizontal bar chart
             fig = px.bar(
                 company_search_counts,
                 orientation='h',
                 title='Number of Uncontacted Profiles by Company and Search Type',
                 labels={'value': 'Number of Uncontacted Profiles', 'company': 'Company'},
-                color_discrete_sequence=['#0B65C3']
+                color_discrete_map={search_type: colors[i] for i, search_type in enumerate(search_types)}
             )
 
             # Customize layout
