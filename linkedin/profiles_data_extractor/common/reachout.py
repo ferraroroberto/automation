@@ -2,6 +2,9 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime
+import re
+import difflib
+
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -27,6 +30,137 @@ def generate_color_gradient(start_hex, end_hex, n):
         colors.append('#{:02x}{:02x}{:02x}'.format(*rgb))
 
     return colors
+
+def fuzzy_search_profiles(df, search_query, max_results=100):
+    """
+    Perform intelligent fuzzy search across multiple profile fields with multi-word support and relevance ranking.
+
+    This function implements a sophisticated search algorithm that:
+    - Splits search queries into multiple words
+    - Matches each word against profile fields (name, job_title, location) using multiple strategies
+    - Ranks results by relevance score based on match quality and coverage
+    - Supports partial matches, fuzzy matching, and prefix matching
+    - Combines scores from all matching fields for comprehensive results
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing profile data to search
+        search_query (str): Search string that can contain multiple words separated by spaces
+        max_results (int): Maximum number of results to return (default: 100)
+
+    Returns:
+        pandas.DataFrame: Filtered DataFrame sorted by relevance score (highest first)
+                         Empty DataFrame if no matches found
+
+    Examples:
+        >>> df = pd.DataFrame({'name': ['Ana Izquierdo'], 'job_title': ['Software Engineer'], 'location': ['Madrid']})
+        >>> fuzzy_search_profiles(df, 'ana engineer')  # Returns profile with matches in name and job_title
+        >>> fuzzy_search_profiles(df, 'madrid')        # Returns profile with location match
+    """
+    if not search_query.strip():
+        return df.head(0)
+
+    # Check if we have at least one searchable column
+    searchable_columns = ['name', 'job_title', 'location']
+    available_columns = [col for col in searchable_columns if col in df.columns]
+    if not available_columns:
+        return df.head(0)
+
+    # Split search query into words and normalize
+    search_words = [word.lower().strip() for word in re.split(r'\s+', search_query.strip()) if word.strip()]
+    if not search_words:
+        return df.head(0)
+
+    results = []
+
+    for idx, row in df.iterrows():
+        # Combine all searchable field content for this profile
+        profile_text = ' '.join([
+            str(row.get(col, '')).lower().strip()
+            for col in available_columns
+        ]).strip()
+
+        if not profile_text:
+            continue
+
+        # Split combined text into words for comparison
+        profile_words = re.split(r'\s+', profile_text)
+
+        # Calculate relevance score using multi-strategy matching
+        # Each search word is matched against the combined profile text
+        total_score = 0
+        matched_words = 0
+
+        for search_word in search_words:
+            best_score = 0
+            best_match_type = 'none'
+
+            for profile_word in profile_words:
+                profile_word_lower = profile_word.lower()
+
+                # Strategy 1: Exact match (highest priority)
+                # "ana" exactly matches "ana" → 100 points
+                if search_word == profile_word_lower:
+                    best_score = 100
+                    best_match_type = 'exact'
+                    break
+
+                # Strategy 2: Partial substring match
+                # "izq" is substring of "izquierdo" → 80 points scaled by length ratio
+                elif search_word in profile_word_lower:
+                    score = 80 * (len(search_word) / len(profile_word_lower))
+                    if score > best_score:
+                        best_score = score
+                        best_match_type = 'partial'
+
+                # Strategy 3: Fuzzy matching for typos/similar words
+                else:
+                    # Use difflib for sequence similarity (handles typos like "izq" ≈ "izqu")
+                    ratio = difflib.SequenceMatcher(None, search_word, profile_word_lower).ratio()
+                    if ratio > 0.8:  # Only high similarity matches
+                        score = 60 * ratio
+                        if score > best_score:
+                            best_score = score
+                            best_match_type = 'fuzzy'
+
+                    # Strategy 4: Prefix matching for abbreviations
+                    # "ana" matches start of "ana maría" → 70 points scaled by coverage
+                    if len(search_word) >= 2 and len(profile_word_lower) > len(search_word):
+                        if profile_word_lower.startswith(search_word):
+                            score = 70 * (len(search_word) / len(profile_word_lower))
+                            if score > best_score:
+                                best_score = score
+                                best_match_type = 'prefix'
+
+            # Accumulate score if we found any match for this search word
+            if best_score > 0:
+                total_score += best_score
+                matched_words += 1
+
+        # Only include results that match at least one search word
+        if matched_words > 0:
+            # Apply final scoring bonuses for better ranking:
+
+            # Bonus for matching multiple search words (encourages comprehensive matches)
+            word_match_bonus = matched_words * 10
+
+            # Bonus for having at least one exact word match (prioritizes precision)
+            exact_bonus = 20 if any(
+                any(search_word == profile_word.lower() for profile_word in profile_words)
+                for search_word in search_words
+            ) else 0
+
+            final_score = total_score + word_match_bonus + exact_bonus
+            results.append((idx, final_score, row))
+
+    # Sort by score (descending) and return top results
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    # Extract the rows and return as DataFrame
+    if results:
+        indices = [idx for idx, score, row in results[:max_results]]
+        return df.loc[indices].copy()
+    else:
+        return df.head(0)
 
 def load_config():
     """Load configuration from the JSON file in the same directory."""
@@ -175,8 +309,43 @@ def main(df_filtered, df_all):
 
     st.markdown("---")
 
+    # Search section for uncontacted profiles
+    col_search, col_filter = st.columns([2, 1])
+
+    with col_search:
+        search_uncontacted = st.text_input(
+            "🔍 Search uncontacted profiles (name, job title, or location):",
+            placeholder="Type a name, job title, or location to search...",
+            help="Smart search: supports partial matches, multiple words, and fuzzy matching (e.g., 'ana izq' finds 'ana izquierdo')",
+            key="search_uncontacted"
+        )
+
+    with col_filter:
+        # Auto-uncheck "show all" when there's search input
+        if 'show_all_uncontacted' not in st.session_state:
+            st.session_state.show_all_uncontacted = True
+
+        # If search input has content and "show all" is checked, uncheck it
+        if search_uncontacted.strip() and st.session_state.show_all_uncontacted:
+            st.session_state.show_all_uncontacted = False
+
+        show_all_uncontacted = st.checkbox("Show all uncontacted", value=st.session_state.show_all_uncontacted, key="show_all_uncontacted")
+
+    # Apply search filtering to uncontacted profiles
+    if search_uncontacted and not show_all_uncontacted:
+        # Use intelligent fuzzy search that handles partial matches, multiple words,
+        # and similarity matching across name, job_title, and location
+        filtered_uncontacted_df = fuzzy_search_profiles(uncontacted_df, search_uncontacted)
+    elif show_all_uncontacted:
+        filtered_uncontacted_df = uncontacted_df
+    else:
+        filtered_uncontacted_df = uncontacted_df.head(0)  # Empty dataframe when no search criteria
+
     # Display filtered count
-    st.subheader(f"📋 Uncontacted Profiles ({len(uncontacted_df)} total)")
+    if search_uncontacted or show_all_uncontacted:
+        st.subheader(f"📋 Uncontacted Profiles ({len(filtered_uncontacted_df)} filtered from {len(uncontacted_df)} total)")
+    else:
+        st.subheader(f"📋 Uncontacted Profiles ({len(uncontacted_df)} total)")
 
     # Initialize session state for selected record
     if 'reachout_selected_record' not in st.session_state:
@@ -186,8 +355,11 @@ def main(df_filtered, df_all):
     if 'reachout_editing' not in st.session_state:
         st.session_state.reachout_editing = False
 
-    if uncontacted_df.empty:
-        st.info("No profiles match the selected filters.")
+    if filtered_uncontacted_df.empty:
+        if search_uncontacted:
+            st.info("No uncontacted profiles found matching your search.")
+        else:
+            st.info("No profiles match the selected filters.")
         return
 
     # Create two columns layout
@@ -197,7 +369,7 @@ def main(df_filtered, df_all):
         st.subheader("👥 Select Profile")
 
         # Create selectable list
-        for idx, row in uncontacted_df.iterrows():
+        for idx, row in filtered_uncontacted_df.iterrows():
             name = row.get('name', 'Unknown')
             job_title = row.get('job_title', '')
             company = row.get('company', '')
@@ -449,13 +621,13 @@ def main(df_filtered, df_all):
     st.markdown("---")
     st.subheader("📊 Reachout Summary")
 
-    if not uncontacted_df.empty:
+    if not filtered_uncontacted_df.empty:
         # Display summary table with the requested columns
         display_cols = ['name', 'job_title', 'follows_from', 'company', 'location']
-        available_cols = [col for col in display_cols if col in uncontacted_df.columns]
+        available_cols = [col for col in filtered_uncontacted_df.columns]
 
         if available_cols:
-            summary_df = uncontacted_df[available_cols].copy()
+            summary_df = filtered_uncontacted_df[available_cols].copy()
             st.dataframe(summary_df, width='stretch')
         else:
             st.warning("Required columns not found in data.")
