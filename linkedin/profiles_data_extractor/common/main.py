@@ -12,6 +12,7 @@ sys.path.insert(0, str(current_dir))
 from dashboard import main as dashboard_main
 from dataentry import main as dataentry_main
 from reachout import main as reachout_main
+from extract_data import main as extract_data_main
 
 def load_config():
     """Load configuration from the JSON file in the same directory."""
@@ -149,7 +150,7 @@ def main():
         df_filtered = df_filtered[df_filtered['date connected'].isna()]
 
     # Create tabs for navigation
-    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager", "📥 Extract Data"])
 
     with tab1:
         # Prepare filter parameters for dashboard
@@ -168,6 +169,9 @@ def main():
 
     with tab3:
         reachout_main(df_filtered, df)  # Pass both filtered and full datasets
+
+    with tab4:
+        extract_data_main()
 
 if __name__ == "__main__":
     main()
