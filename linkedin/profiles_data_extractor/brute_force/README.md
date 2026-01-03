@@ -1,6 +1,10 @@
 # Brute Force Version
 
-Main copy-paste workflow for LinkedIn profile data extraction.
+Keyboard simulation and clipboard-based LinkedIn profile data extraction with simple setup and minimal dependencies.
+
+## 📋 Summary
+
+The brute force extraction method uses keyboard shortcuts and clipboard operations to collect LinkedIn profile data from search results. While less reliable than DevTools-based methods, it offers the simplest setup and works with any browser, making it ideal for quick testing or small-scale extraction tasks.
 
 ## Overview
 
