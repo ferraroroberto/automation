@@ -5,7 +5,9 @@ sounddevice>=0.4.4
 pyperclip>=1.8.0
 pynput>=1.7.0
 openai-whisper>=20230314
-torch>=2.6.0
+# PyTorch with CUDA support for RTX 50xx series GPUs (sm_120)
+# Install with: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+torch>=2.11.0.dev
 imageio-ffmpeg>=0.4.5
 
 # Optional: for GUI interface
