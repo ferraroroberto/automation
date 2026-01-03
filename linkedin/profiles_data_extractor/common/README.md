@@ -1,6 +1,10 @@
 # LinkedIn Reachout Hub - Common Components
 
-Shared utilities, dashboard, and data entry interface for LinkedIn profiles data extraction and management.
+Shared utilities, intelligent data entry interface, and visualization dashboard for LinkedIn profile data extraction and management workflows.
+
+## 📋 Summary
+
+The common components provide the core infrastructure and user interface for the LinkedIn Profiles Data Extractor. This includes a powerful Streamlit dashboard for data visualization, an intelligent data entry system with fuzzy search capabilities, Excel formatting utilities, and centralized configuration management. These shared components ensure consistency across all extraction methods while providing a user-friendly interface for data management and analysis.
 
 ## 📁 Files Overview
 
