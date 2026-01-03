@@ -48,6 +48,60 @@ def load_excel_data(file_path):
         st.error(f"Error loading Excel file: {e}")
         return None
 
+def get_current_theme_mode():
+    """Determine if the current theme is light or dark based on config.toml."""
+    config_path = Path(__file__).parent / ".streamlit" / "config.toml"
+    
+    # Default to dark if file doesn't exist or can't be read
+    if not config_path.exists():
+        return "dark"
+        
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            # Simple check for background color
+            if 'backgroundColor = "#FFFFFF"' in content:
+                return "light"
+            else:
+                return "dark"
+    except:
+        return "dark"
+
+def toggle_theme():
+    """Toggle between light and dark mode by updating config.toml."""
+    config_dir = Path(__file__).parent / ".streamlit"
+    config_path = config_dir / "config.toml"
+    
+    # Ensure directory exists
+    config_dir.mkdir(exist_ok=True)
+    
+    current_mode = get_current_theme_mode()
+    
+    if current_mode == "light":
+        # Switch to Dark
+        new_config = """[theme]
+primaryColor = "#1E88E5"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#262730"
+textColor = "#FAFAFA"
+font = "sans serif"
+"""
+    else:
+        # Switch to Light
+        new_config = """[theme]
+primaryColor = "#1E88E5"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+"""
+    
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(new_config)
+        
+    # Trigger a rerun to apply changes
+    st.rerun()
+
 def main():
     """Main navigation hub for LinkedIn Reachout Dashboard."""
 
@@ -78,6 +132,14 @@ def main():
         return
 
     # Shared Sidebar Filters
+    st.sidebar.header("App Settings")
+    
+    # Theme Toggle
+    current_mode = get_current_theme_mode()
+    if st.sidebar.button(f"Switch to {'Light' if current_mode == 'dark' else 'Dark'} Mode"):
+        toggle_theme()
+        
+    st.sidebar.divider()
     st.sidebar.header("Filters")
 
     # Note about Data Editor
