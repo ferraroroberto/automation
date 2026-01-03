@@ -85,7 +85,9 @@ Application exits automatically
 
 ### Hardware
 - **Microphone**: Any Windows-compatible audio input device
-- **GPU**: NVIDIA GeForce GTX 1070+ (recommended for CUDA acceleration)
+- **GPU**: NVIDIA GeForce GTX 1050+ (CUDA acceleration supported)
+  - Tested with GTX 1080, GTX 1070, RTX 2000 Ada, RTX 40 series
+  - Automatic compatibility mapping for newer GPUs (e.g., sm_89 → sm_86/sm_90)
 - **RAM**: 8GB+ recommended
 
 ### Software
@@ -228,10 +230,10 @@ $VenvPath = (Get-Content .env | Select-String "VENV_FOLDER" | ForEach-Object { $
 ## 🎯 CUDA Setup and GPU Acceleration
 
 ### Overview
-This guide will help you activate CUDA on your Windows system with NVIDIA GeForce GTX 1070 GPU and configure it for use with Python virtual environments.
+This guide will help you activate CUDA on your Windows system with NVIDIA GPUs and configure it for use with Python virtual environments. The application automatically handles GPU compatibility across different NVIDIA architectures.
 
 ### Prerequisites
-- NVIDIA GeForce GTX 1070 GPU (8GB VRAM)
+- NVIDIA GeForce GPU (2GB+ VRAM recommended)
 - Windows 10/11 with PowerShell
 - Python virtual environment at `E:\automation\automation\.venv`
 
@@ -291,8 +293,8 @@ cd E:\automation\automation
 
 #### Install CUDA-enabled PyTorch
 ```powershell
-# Install PyTorch with CUDA 12.1 support
-& ".\.venv\Scripts\python.exe" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# Install PyTorch with CUDA 12.4 support (recommended for latest compatibility)
+& ".\.venv\Scripts\python.exe" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
 ### Step 5: Verify CUDA Activation
@@ -309,13 +311,13 @@ print('GPU name:', torch.cuda.get_device_name(0) if torch.cuda.is_available() el
 "
 ```
 
-Expected output:
+Expected output (varies by GPU):
 ```
-PyTorch version: 2.8.0+cu121
+PyTorch version: 2.6.0+cu124
 CUDA available: True
-CUDA version: 12.1
+CUDA version: 12.4
 GPU count: 1
-GPU name: NVIDIA GeForce GTX 1070
+GPU name: [Your GPU model - GTX 1070, GTX 1080, RTX 2000 Ada, etc.]
 ```
 
 #### GPU Memory Test
@@ -349,16 +351,27 @@ Path += %CUDA_PATH%\libnvvp
 
 #### Automatic compatibility checks
 
-The launcher now inspects your GPU’s compute capability and the CUDA kernels bundled inside the current PyTorch wheel before loading Whisper. The behavior is:
+The launcher now inspects your GPU's compute capability and includes automatic compatibility mapping for newer GPUs. The behavior is:
 
-1. **Compatible wheel available but not installed** (e.g., CPU-only PyTorch on a supported GPU).  
+1. **Direct compatibility** (e.g., GTX 1080 with sm_61, GTX 1070 with sm_61)  
+   - GPU architecture directly supported in current PyTorch build
+   - CUDA acceleration enabled automatically
+
+2. **Compatible wheel available but not installed** (e.g., CPU-only PyTorch on a supported GPU).  
    - The console session shows a prompt offering to install the CUDA wheel via  
      `python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121`.  
-   - Choose “yes” to run the command immediately; otherwise the session continues on CPU.
-2. **GPU newer than published wheels** (e.g., RTX 50-series with `sm_120`).  
-   - The tool logs that no compatible PyTorch build exists yet and automatically switches Whisper to CPU mode so you can keep working.
+   - Choose "yes" to run the command immediately; otherwise the session continues on CPU.
 
-You can always re-run the recommended pip command manually once PyTorch ships support for your GPU. After upgrading, restart the launcher so the new CUDA kernels are picked up.
+3. **Forward compatibility mapping** (e.g., RTX 40 series with sm_89)  
+   - Newer GPUs compatible with existing kernels (sm_89 → sm_86/sm_90)
+   - Automatically detected and enabled for CUDA acceleration
+   - No manual intervention required
+
+4. **GPU newer than published wheels** (e.g., future GPUs with sm_120+)  
+   - Falls back to CPU mode with clear messaging
+   - Can be upgraded when PyTorch adds support
+
+The compatibility mapping ensures RTX 40 series and similar newer GPUs work automatically. You can always re-run the recommended pip command manually once PyTorch ships support for your GPU. After upgrading, restart the launcher so the new CUDA kernels are picked up.
 
 #### Common Issues
 
@@ -373,7 +386,7 @@ You can always re-run the recommended pip command manually once PyTorch ships su
 
 3. **Version compatibility issues**
    - Ensure CUDA toolkit version matches PyTorch CUDA version
-   - GTX 1070 supports CUDA 12.x
+   - GTX 1070/1080 and RTX series support CUDA 12.x
 
 #### Check GPU Memory Usage
 ```powershell
@@ -481,5 +494,5 @@ For issues and questions:
 & "$env:VENV_FOLDER\Scripts\python.exe" transcribe_voice_gui.py
 ```
 
-*Last updated: September 2024*
-*Tested on: Windows 11, NVIDIA GeForce GTX 1070, CUDA 12.1*
+*Last updated: January 2026*
+*Tested on: Windows 11, NVIDIA GeForce GTX 1070/GTX 1080/RTX 2000 Ada, CUDA 12.1/12.4*
