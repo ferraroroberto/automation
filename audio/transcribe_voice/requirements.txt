@@ -5,7 +5,7 @@ sounddevice>=0.4.4
 pyperclip>=1.8.0
 pynput>=1.7.0
 openai-whisper>=20230314
-torch>=1.12.0
+torch>=2.6.0
 imageio-ffmpeg>=0.4.5
 
 # Optional: for GUI interface

@@ -7,6 +7,7 @@ This module can be used standalone from the command line or imported by the GUI 
 import json
 import logging
 import os
+import platform
 import queue
 import shutil
 import subprocess
@@ -30,6 +31,20 @@ from pynput import keyboard
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
+
+def get_machine_name() -> str:
+    """Get the machine name (hostname) for device-specific configuration.
+
+    Returns:
+        str: The machine name in lowercase.
+    """
+    try:
+        machine_name = platform.node().lower()
+        logger.debug(f"🖥️ Detected machine name: {machine_name}")
+        return machine_name
+    except Exception as e:
+        logger.warning(f"⚠️ Could not determine machine name: {e}")
+        return "unknown"
 
 # Known CUDA architectures that official PyTorch GPU wheels currently support
 TORCH_KNOWN_COMPATIBLE_ARCHES = {
@@ -93,6 +108,7 @@ class TranscriptionConfig:
     language: str = "Spanish"
     translate: bool = True
     preferred_mics: Optional[List[str]] = None
+    machine_specific_mics: Optional[Dict[str, List[str]]] = None
     model_size: str = "small"
     clean_temp: bool = True
     ffmpeg_path: Optional[str] = None
@@ -100,11 +116,19 @@ class TranscriptionConfig:
 
     def __post_init__(self) -> None:
         """Initialize default values for optional fields."""
+        # Set machine-specific microphones if available
         if self.preferred_mics is None:
-            self.preferred_mics = [
-                "el gato wave XLR (Elgato Wave XLR)",
-                "Wave Link Stream (Elgato Wave:XLR)"
-            ]
+            machine_name = get_machine_name()
+            if self.machine_specific_mics and machine_name in self.machine_specific_mics:
+                self.preferred_mics = self.machine_specific_mics[machine_name]
+                logger.info(f"🎙️ Using machine-specific microphones for '{machine_name}': {self.preferred_mics}")
+            else:
+                # Default fallback microphones
+                self.preferred_mics = [
+                    "el gato wave XLR (Elgato Wave XLR)",
+                    "Wave Link Stream (Elgato Wave:XLR)"
+                ]
+                logger.info(f"🎙️ Using default microphones (machine: '{machine_name}')")
 
     @classmethod
     def from_json(cls, config_path: Optional[str] = None) -> "TranscriptionConfig":
@@ -192,6 +216,7 @@ class TranscriptionConfig:
             "language": self.language,
             "translate": self.translate,
             "preferred_mics": self.preferred_mics,
+            "machine_specific_mics": self.machine_specific_mics,
             "model_size": self.model_size,
             "clean_temp": self.clean_temp,
             "ffmpeg_path": self.ffmpeg_path,
@@ -345,11 +370,27 @@ class AudioRecorder:
             except Exception as exc:
                 compatibility_reason = f"Unable to inspect GPU details: {exc}"
 
-            if capability_str and (not build_arches or capability_str in build_arches):
+            # Check for direct compatibility or known compatible architectures
+            is_compatible = False
+            if capability_str:
+                if not build_arches or capability_str in build_arches:
+                    is_compatible = True
+                else:
+                    # Check for known compatible architectures
+                    # sm_89 (RTX 40 series Ada) is compatible with sm_86/sm_90 kernels
+                    compatibility_map = {
+                        'sm_89': ['sm_86', 'sm_90'],  # RTX 40 Ada can use sm_86/sm_90 kernels
+                    }
+                    compatible_arches = compatibility_map.get(capability_str, [])
+                    if any(arch in build_arches for arch in compatible_arches):
+                        is_compatible = True
+                        logger.info(f"✅ GPU {capability_str} compatible with available kernels")
+
+            if is_compatible:
                 self.gpu_available = True
                 return True
 
-            if capability_str and build_arches and capability_str not in build_arches:
+            if capability_str and build_arches and not is_compatible:
                 supported_arches = ", ".join(build_arches) if build_arches else "unknown"
                 compatibility_reason = (
                     f"GPU capability {capability_str} is not included in the current PyTorch build "

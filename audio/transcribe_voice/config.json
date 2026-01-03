@@ -3,9 +3,19 @@
   "language": "Spanish",
   "translate": true,
   "preferred_mics": [
-    "el gato wave XLR (Elgato Wave XLR)",
-    "Wave Link Stream (Elgato Wave:XLR)"
+    "Micrófono (Realtek(R) Audio)",
+    "Microphone (SplitCam Audio Mixer)"
   ],
+  "machine_specific_mics": {
+    "laptop": [
+      "Micrófono (Realtek(R) Audio)",
+      "Microphone (SplitCam Audio Mixer)"
+    ],
+    "tower": [
+      "el gato wave XLR (Elgato Wave XLR)",
+      "Wave Link Stream (Elgato Wave:XLR)"
+    ]
+  },
   "model_size": "small",
   "clean_temp": true,
   "ffmpeg_path": null,
