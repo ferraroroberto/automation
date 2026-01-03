@@ -99,28 +99,54 @@ def main():
     - LinkedIn profile tabs should be open with the data you want to extract
     """)
 
-    if st.button("🚀 Run DevTools Orchestrator", type="primary", use_container_width=True):
-        with st.spinner("Launching DevTools Orchestrator..."):
+    col_orch1, col_orch2 = st.columns(2)
+
+    with col_orch1:
+        if st.button("🚀 Run DevTools Orchestrator", type="primary", use_container_width=True):
+            with st.spinner("Launching DevTools Orchestrator..."):
+                try:
+                    # Path to the orchestrator batch file - use absolute path from project root
+                    current_file = Path(__file__).resolve()
+                    project_root = current_file.parent.parent.parent.parent  # Go up to automation/automation/
+                    orchestrator_bat_path = project_root / "linkedin" / "profiles_data_extractor" / "devtools" / "linkedin_profiles_data_orchestrator_devtools.bat"
+
+                    if not orchestrator_bat_path.exists():
+                        st.error(f"Orchestrator batch file not found: {orchestrator_bat_path}")
+                        return
+
+                    # Launch the orchestrator in a new command prompt window
+                    # This allows user interaction with the console prompts
+                    subprocess.Popen(
+                        [str(orchestrator_bat_path)],
+                        cwd=str(orchestrator_bat_path.parent),
+                        creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                    )
+
+                    st.success("✅ DevTools Orchestrator launched!")
+                    st.info("🔍 A new command prompt window has opened. Follow the prompts in that window to run the extraction.")
+
+                except Exception as e:
+                    st.error(f"❌ Error launching orchestrator: {e}")
+
+    with col_orch2:
+        if st.button("📊 Open Excel File", use_container_width=True):
             try:
-                # Path to the orchestrator batch file - use absolute path from project root
-                current_file = Path(__file__).resolve()
-                project_root = current_file.parent.parent.parent.parent  # Go up to automation/automation/
-                orchestrator_bat_path = project_root / "linkedin" / "profiles_data_extractor" / "devtools" / "linkedin_profiles_data_orchestrator_devtools.bat"
+                # Get the Excel file path from config
+                config_path = Path(__file__).parent / "linkedin_profiles_data.json"
+                if config_path.exists():
+                    import json
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        config = json.load(f)
+                    excel_path = config.get("destination_file")
 
-                if not orchestrator_bat_path.exists():
-                    st.error(f"Orchestrator batch file not found: {orchestrator_bat_path}")
-                    return
-
-                # Launch the orchestrator in a new command prompt window
-                # This allows user interaction with the console prompts
-                subprocess.Popen(
-                    [str(orchestrator_bat_path)],
-                    cwd=str(orchestrator_bat_path.parent),
-                    creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
-                )
-
-                st.success("✅ DevTools Orchestrator launched!")
-                st.info("🔍 A new command prompt window has opened. Follow the prompts in that window to run the extraction.")
+                    if excel_path and Path(excel_path).exists():
+                        # Open the Excel file with default application
+                        subprocess.run(["start", "", excel_path], shell=True, check=True)
+                        st.success("✅ Excel file opened!")
+                    else:
+                        st.error(f"❌ Excel file not found: {excel_path}")
+                else:
+                    st.error("❌ Configuration file not found")
 
             except Exception as e:
-                st.error(f"❌ Error launching orchestrator: {e}")
+                st.error(f"❌ Error opening Excel file: {e}")
