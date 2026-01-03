@@ -7,8 +7,6 @@ import time
 def main():
     """Main function for the LinkedIn Data Extraction tab."""
 
-    st.header("📥 LinkedIn Data Extraction")
-
     # Chrome Debug Section
     st.subheader("🌐 1. Start Chrome Debug Mode")
 
