@@ -22,9 +22,14 @@ automation/
 
 ## 📚 **Reference Documents**
 
-- **`RULES.md`** - Project coding standards and organizational principles
-- **`RULES_PR.md`** - Template for creating pull requests
-- **`RULES_CLI.md`** - Comprehensive guide for building command line interfaces
+- **`AGENTS.md`** - Master Onboarding & Context Map (Read this first!)
+- **`AGENTS_PYTHON.md`** - Python Coding Standards & Patterns
+- **`AGENTS_POWERSHELL.md`** - PowerShell & Shell Standards
+- **`AGENTS_STRUCTURE.md`** - Project Structure & Refactoring Rules
+- **`AGENTS_CLI.md`** - Guide for building CLI tools
+- **`AGENTS_PR.md`** - Template for creating pull requests
+
+> Guidelines adapted from [HumanLayer's "Writing a good CLAUDE.md"](https://www.humanlayer.dev/blog/writing-a-good-claude-md).
 ```
 
 ## 🔧 Core Modules
