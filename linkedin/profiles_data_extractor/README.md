@@ -135,6 +135,7 @@ pip install pandas pynput requests websocket-client streamlit openpyxl
 - **Excel File Locked**: Close Excel application before running extraction
 - **Configuration Errors**: Verify JSON files are valid and paths exist
 - **Browser Focus**: For brute force method, keep browser window active
+- **Limits**: see this conversation for a review on total limits of reachout connections > https://gemini.google.com/app/11b97204c7f26bd7
 
 ### Debug Mode
 Enable detailed logging by checking console output when running applications. Test scripts provide step-by-step validation of functionality.
