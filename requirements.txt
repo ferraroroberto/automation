@@ -195,6 +195,10 @@ rarfile>=4.0
 # Source: system/word_to_markdown.py
 python-docx>=0.8.11
 
+# YAML serialization and parsing
+# Source: linkedin/profiles_data_extractor/obsidian/ (Obsidian frontmatter handling)
+PyYAML>=6.0.0
+
 # =============================================================================
 # DEVELOPMENT AND TESTING (OPTIONAL)
 # =============================================================================
