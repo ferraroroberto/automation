@@ -34,9 +34,9 @@ def get_history_file_path():
 def migrate_history_columns(history_df):
     """Migrate existing history file to new column structure."""
     expected_columns = [
-        'timestamp', 'action', 'day', 'search_type', 'search_url', 'name',
-        'url', 'job_title', 'follows_from', 'company', 'location',
-        'reach out type', 'chat_url', 'date connected', 'answered', 'revocation_date'
+        'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
+        'url_profile', 'job_title', 'follows_from', 'company', 'location',
+        'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
     ]
 
     # Add missing columns with None values
@@ -61,9 +61,9 @@ def ensure_history_file_exists():
             # Create a new DataFrame with all base columns plus history columns
             # History columns come first: timestamp, action, then all base columns
             df = pd.DataFrame(columns=[
-                'timestamp', 'action', 'day', 'search_type', 'search_url', 'name',
-                'url', 'job_title', 'follows_from', 'company', 'location',
-                'reach out type', 'chat_url', 'date connected', 'answered', 'revocation_date'
+                'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
+                'url_profile', 'job_title', 'follows_from', 'company', 'location',
+                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
             ])
 
             # Save empty dataframe
@@ -81,9 +81,9 @@ def ensure_history_file_exists():
             original_columns = list(history_df.columns)
 
             expected_columns = [
-                'timestamp', 'action', 'day', 'search_type', 'search_url', 'name',
-                'url', 'job_title', 'follows_from', 'company', 'location',
-                'reach out type', 'chat_url', 'date connected', 'answered', 'revocation_date'
+                'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
+                'url_profile', 'job_title', 'follows_from', 'company', 'location',
+                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
             ]
 
             # Check if migration is needed
@@ -126,9 +126,9 @@ def log_history(record_data, action="update", original_data=None):
 
         # Define all expected columns
         expected_columns = [
-            'timestamp', 'action', 'day', 'search_type', 'search_url', 'name',
-            'url', 'job_title', 'follows_from', 'company', 'location',
-            'reach out type', 'chat_url', 'date connected', 'answered', 'revocation_date'
+            'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
+            'url_profile', 'job_title', 'follows_from', 'company', 'location',
+            'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
         ]
 
         # Ensure history_df has all expected columns

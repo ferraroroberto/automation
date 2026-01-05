@@ -122,7 +122,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             Tuple of (inserted_count, skipped_count).
         """
         # Columns to use from the profiles (as specified in requirements)
-        columns_to_use = ['name', 'url', 'job_title', 'follows_from', 'company', 'location']
+        columns_to_use = ['name', 'url_profile', 'job_title', 'follows_from', 'company', 'location']
 
         # Filter new profiles to only include specified columns
         filtered_profiles = []

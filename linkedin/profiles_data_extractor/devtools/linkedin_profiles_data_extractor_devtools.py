@@ -407,7 +407,7 @@ class LinkedInProfileExtractorDevTools:
 
         return {
             'name': name or "",
-            'url': url,
+            'url_profile': url,
             'job_title': job_title or "",
             'follows_from': follows_from,
             'company': company or "",
@@ -449,7 +449,7 @@ class LinkedInProfileExtractorDevTools:
                         const href = link.getAttribute('href');
                         if (href && href.includes('linkedin.com/in/')) {
                             // Clean URL by removing query parameters after ?
-                            profile.url = href.split('?')[0];
+                            profile.url_profile = href.split('?')[0];
                             break;
                         }
                     }
@@ -512,7 +512,7 @@ class LinkedInProfileExtractorDevTools:
                     profile.follows_from = null;
 
                     // Only add profile if we have at least a name or URL
-                    if (profile.name || profile.url) {
+                    if (profile.name || profile.url_profile) {
                         profiles.push(profile);
                     }
 
