@@ -38,8 +38,10 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['day', 'date connected']
+        date_columns = ['day', 'date connected', 'revocation_date']
         for col in date_columns:
+            if col not in df.columns:
+                df[col] = pd.NaT  # Create missing column
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
 

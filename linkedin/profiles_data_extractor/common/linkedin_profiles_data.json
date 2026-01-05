@@ -12,6 +12,7 @@
   ],
   "output_path": "E:\\onedrive\\Documentos\\Roberto\\areas\\work\\contacts reachout",
   "destination_file": "E:\\onedrive\\Documentos\\Roberto\\areas\\work\\contacts reachout\\contacts.xlsx",
+  "history_file": "E:\\onedrive\\Documentos\\Roberto\\areas\\work\\contacts reachout\\contacts_history.xlsx",
   "max_tabs": 50,
   "wait_time_seconds": 5,
   "tab_switch_delay": 1.5,

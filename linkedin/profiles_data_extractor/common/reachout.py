@@ -11,6 +11,7 @@ import plotly.express as px
 
 # Import Excel formatting functions
 from excel_format_manager import convert_url_columns_to_hyperlinks, apply_format_from_json
+from history_manager import log_history
 
 def generate_color_gradient(start_hex, end_hex, n):
     """Generate a gradient of n colors between start_hex and end_hex."""
@@ -186,8 +187,10 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['day', 'date connected']
+        date_columns = ['day', 'date connected', 'revocation_date']
         for col in date_columns:
+            if col not in df.columns:
+                df[col] = pd.NaT  # Create missing column
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
 
@@ -260,14 +263,62 @@ def main(df_filtered, df_all):
         return
 
     # Filter to only show uncontacted profiles (day is null) from the already filtered data
-    uncontacted_df = df_filtered[df_filtered['day'].isna()].copy() if 'day' in df_filtered.columns else df_filtered.copy()
+    # Create view selector
+    view_mode = st.radio("View Mode", ["Uncontacted Profiles", "Revoked Contacts"], horizontal=True)
+
+    if view_mode == "Uncontacted Profiles":
+        uncontacted_df = df_filtered[df_filtered['day'].isna()].copy() if 'day' in df_filtered.columns else df_filtered.copy()
+        
+        # Filter out records that are actually revoked (have a revocation date)
+        if 'revocation_date' in uncontacted_df.columns:
+             # Just to be safe, though they shouldn't have a 'day' anyway
+             pass
+             
+    else: # Revoked Contacts
+        if 'revocation_date' in df_filtered.columns and 'day' in df_filtered.columns:
+            # Filter where revocation_date is present AND revocation_date > day
+            # Note: We must handle cases where 'day' might be NaT or populated.
+            # Logic: A contact is "revoked" if it HAS been contacted (day is not null) 
+            # AND it has a revocation date that is AFTER the contact date.
+            
+            mask = (df_filtered['day'].notna()) & (df_filtered['revocation_date'].notna()) & (df_filtered['revocation_date'] > df_filtered['day'])
+            uncontacted_df = df_filtered[mask].copy()
+            
+            # Aging Filters for Revoked Contacts
+            st.write("🕒 **Aging Filter** (Time since revocation)")
+            col_age1, col_age2, col_age3, col_age4 = st.columns(4)
+            
+            age_filter = st.radio(
+                "Show profiles revoked at least:",
+                ["All Revoked", "4 Weeks Ago", "8 Weeks Ago", "12 Weeks Ago"],
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+            
+            if age_filter != "All Revoked":
+                now = pd.Timestamp.now()
+                weeks = 0
+                if age_filter == "4 Weeks Ago": weeks = 4
+                elif age_filter == "8 Weeks Ago": weeks = 8
+                elif age_filter == "12 Weeks Ago": weeks = 12
+                
+                cutoff_date = now - pd.Timedelta(weeks=weeks)
+                uncontacted_df = uncontacted_df[uncontacted_df['revocation_date'] <= cutoff_date]
+                
+        else:
+            uncontacted_df = pd.DataFrame()
+            st.warning("Revocation date column missing from data.")
 
     if uncontacted_df.empty:
-        st.info("🎉 All profiles have been contacted! No reachout targets remaining.")
+        if view_mode == "Uncontacted Profiles":
+            st.info("🎉 All profiles have been contacted! No reachout targets remaining.")
+        else:
+            st.info("No revoked contacts found matching criteria.")
         return
 
     # Add horizontal bar chart showing uncontacted people by company at the top
-    st.subheader("📈 Uncontacted Profiles by Company")
+    chart_title = "Uncontacted Profiles" if view_mode == "Uncontacted Profiles" else "Revoked Contacts"
+    st.subheader(f"📈 {chart_title} by Company")
 
     # Create stacked bar chart by company and search_type
     if 'company' in uncontacted_df.columns and 'search_type' in uncontacted_df.columns:
@@ -290,14 +341,14 @@ def main(df_filtered, df_all):
             fig = px.bar(
                 company_search_counts,
                 orientation='h',
-                title='Number of Uncontacted Profiles by Company and Search Type',
-                labels={'value': 'Number of Uncontacted Profiles', 'company': 'Company'},
+                title=f'Number of {chart_title} by Company and Search Type',
+                labels={'value': f'Number of {chart_title}', 'company': 'Company'},
                 color_discrete_map={search_type: colors[i] for i, search_type in enumerate(search_types)}
             )
 
             # Customize layout
             fig.update_layout(
-                xaxis_title="Number of Uncontacted Profiles",
+                xaxis_title=f"Number of {chart_title}",
                 yaxis_title="Company",
                 showlegend=True,
                 legend_title="Search Type",
@@ -318,7 +369,7 @@ def main(df_filtered, df_all):
 
     with col_search:
         search_uncontacted = st.text_input(
-            "🔍 Search uncontacted profiles (name, job title, or location):",
+            f"🔍 Search {view_mode.lower()} (name, job title, or location):",
             placeholder="Type a name, job title, or location to search...",
             help="Smart search: supports partial matches, multiple words, and fuzzy matching (e.g., 'ana izq' finds 'ana izquierdo')",
             key="search_uncontacted"
@@ -333,7 +384,7 @@ def main(df_filtered, df_all):
         if search_uncontacted.strip() and st.session_state.show_all_uncontacted:
             st.session_state.show_all_uncontacted = False
 
-        show_all_uncontacted = st.checkbox("Show all uncontacted", value=st.session_state.show_all_uncontacted, key="show_all_uncontacted")
+        show_all_uncontacted = st.checkbox(f"Show all {view_mode.lower()}", value=st.session_state.show_all_uncontacted, key="show_all_uncontacted")
 
     # Apply search filtering to uncontacted profiles
     if search_uncontacted and not show_all_uncontacted:
@@ -347,9 +398,9 @@ def main(df_filtered, df_all):
 
     # Display filtered count
     if search_uncontacted or show_all_uncontacted:
-        st.subheader(f"📋 Uncontacted Profiles ({len(filtered_uncontacted_df)} filtered from {len(uncontacted_df)} total)")
+        st.subheader(f"📋 {chart_title} ({len(filtered_uncontacted_df)} filtered from {len(uncontacted_df)} total)")
     else:
-        st.subheader(f"📋 Uncontacted Profiles ({len(uncontacted_df)} total)")
+        st.subheader(f"📋 {chart_title} ({len(uncontacted_df)} total)")
 
     # Initialize session state for selected record
     if 'reachout_selected_record' not in st.session_state:
@@ -361,7 +412,7 @@ def main(df_filtered, df_all):
 
     if filtered_uncontacted_df.empty:
         if search_uncontacted:
-            st.info("No uncontacted profiles found matching your search.")
+            st.info(f"No {view_mode.lower()} found matching your search.")
         else:
             st.info("No profiles match the selected filters.")
         return
@@ -405,7 +456,8 @@ def main(df_filtered, df_all):
                     'location': location,
                     'search_type': row.get('search_type', ''),
                     'url': row.get('url', ''),
-                    'reach out type': row.get('reach out type', '')
+                    'reach out type': row.get('reach out type', ''),
+                    'revocation_date': row.get('revocation_date', None)
                 }
                 st.session_state.reachout_original_name = name
                 st.session_state.reachout_editing = True
@@ -454,6 +506,12 @@ def main(df_filtered, df_all):
                     value=day_value,
                     help="Date when this profile was contacted (leave empty if not contacted yet)"
                 )
+                
+                # Show revocation info if present
+                revocation_val = record.get('revocation_date')
+                if pd.notna(revocation_val):
+                    rev_str = revocation_val.strftime('%Y-%m-%d') if hasattr(revocation_val, 'strftime') else str(revocation_val)
+                    st.warning(f"⚠️ This contact was revoked on {rev_str}. Updating the 'Day Contacted' will clear the revocation date.")
 
                 # Get distinct reach out types from the full dataframe
                 reachout_types = ['']  # Start with empty option
@@ -512,16 +570,31 @@ def main(df_filtered, df_all):
                         return
 
                     # Prepare record data
+                    final_day = pd.Timestamp(day) if day else pd.NaT
+                    
+                    # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
+                    original_day = st.session_state.reachout_selected_record.get('day')
+                    # Handle NaT comparison
+                    original_day_ts = pd.Timestamp(original_day) if pd.notna(original_day) else pd.NaT
+                    
+                    # Check if day has changed to a new valid date (re-contact logic)
+                    revocation_update = st.session_state.reachout_selected_record.get('revocation_date')
+                    if day and (pd.isna(original_day_ts) or final_day != original_day_ts):
+                         revocation_update = None
+                         # We don't need to show a message here as the save success message is enough, 
+                         # but we ensure the dict sends None for revocation_date
+
                     record_data = {
                         'name': name.strip(),
-                        'day': pd.Timestamp(day) if day else pd.NaT,
+                        'day': final_day,
                         'job_title': job_title.strip(),
                         'follows_from': follows_from.strip(),
                         'company': company.strip(),
                         'location': location.strip(),
                         'search_type': search_type.strip(),
                         'url': url.strip(),
-                        'reach out type': reach_out_type.strip() if reach_out_type else ''
+                        'reach out type': reach_out_type.strip() if reach_out_type else '',
+                        'revocation_date': revocation_update
                     }
 
                     # Update existing record
@@ -534,6 +607,9 @@ def main(df_filtered, df_all):
                     # Save to Excel
                     if save_to_excel(updated_df, data_path):
                         st.success("✅ Profile updated successfully!")
+                        
+                        # Log history
+                        log_history(record_data, action="update")
 
                         # Automatically apply Excel formatting after saving
                         json_path = Path(__file__).parent / "excel_format_spec.json"
@@ -584,12 +660,18 @@ def main(df_filtered, df_all):
                             mask = df_all['name'].str.lower() == name_to_delete.lower() if 'name' in df_all.columns else pd.Series([False] * len(df_all))
 
                             if mask.any():
+                                # Get record data for history before deleting
+                                record_to_delete = df_all[mask].iloc[0].to_dict()
+
                                 # Remove the record
                                 df_all = df_all[~mask].copy()
 
                                 # Save to Excel
                                 if save_to_excel(df_all, data_path):
                                     st.success(f"✅ Profile '{name_to_delete}' deleted successfully!")
+                                    
+                                    # Log history
+                                    log_history(record_to_delete, action="delete")
 
                                     # Automatically apply Excel formatting after saving
                                     json_path = Path(__file__).parent / "excel_format_spec.json"

@@ -10,6 +10,7 @@ import streamlit as st
 
 # Import Excel formatting functions
 from excel_format_manager import convert_url_columns_to_hyperlinks, apply_format_from_json
+from history_manager import log_history
 
 def load_config():
     """Load configuration from the JSON file in the same directory."""
@@ -35,8 +36,10 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['day', 'date connected']
+        date_columns = ['day', 'date connected', 'revocation_date']
         for col in date_columns:
+            if col not in df.columns:
+                df[col] = pd.NaT  # Create missing column
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
 
@@ -345,6 +348,7 @@ def main():
                     'job_title': job_title_value,
                     'location': selected_row.get('location', ''),
                     'day': selected_row.get('day', None),
+                    'revocation_date': selected_row.get('revocation_date', None),
                     'reach out type': reachout_type_value
                 }
                 st.session_state.original_name = selected_row.get('name', '')
@@ -419,12 +423,29 @@ def main():
                     help="Clear the date connected field"
                 )
 
-            # Third row: LinkedIn Chat URL (full line)
-            chat_url = st.text_input(
-                "LinkedIn Chat URL",
-                value=st.session_state.selected_record.get('chat_url', ''),
-                help="URL to the LinkedIn chat/messaging thread"
-            )
+            # Third row: Revocation Date (new) and LinkedIn Chat URL
+            col_revocation, col_clear_revocation, col_chat_url = st.columns([2, 1, 3])
+            
+            with col_revocation:
+                revocation_date = st.date_input(
+                    "Revocation Date",
+                    value=st.session_state.selected_record.get('revocation_date') if pd.notna(st.session_state.selected_record.get('revocation_date')) else None,
+                    help="Date when the contact was revoked"
+                )
+
+            with col_clear_revocation:
+                clear_revocation = st.checkbox(
+                    "Clear",
+                    key="clear_revocation",
+                    help="Clear the revocation date"
+                )
+
+            with col_chat_url:
+                chat_url = st.text_input(
+                    "LinkedIn Chat URL",
+                    value=st.session_state.selected_record.get('chat_url', ''),
+                    help="URL to the LinkedIn chat/messaging thread"
+                )
 
             # Fourth row: Company and Reachout Type (same line)
             col_company, col_reachout = st.columns(2)
@@ -491,6 +512,15 @@ def main():
                 # Handle clear checkboxes - if checked, set date to None
                 final_date_connected = None if clear_connected else (pd.Timestamp(date_connected) if date_connected else None)
                 final_day_contacted = None if clear_contacted else (pd.Timestamp(day_contacted) if day_contacted else None)
+                final_revocation_date = None if clear_revocation else (pd.Timestamp(revocation_date) if revocation_date else None)
+
+                # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
+                original_day = st.session_state.selected_record.get('day')
+                # Check if day has changed to a new valid date (re-contact logic)
+                if final_day_contacted is not None and (pd.isna(original_day) or final_day_contacted != original_day):
+                     final_revocation_date = None
+                     if revocation_date is not None or clear_revocation:
+                         st.info("ℹ️ Revocation date automatically cleared because a new contact date was set.")
 
                 record_data = {
                     'name': name.strip(),
@@ -501,6 +531,7 @@ def main():
                     'job_title': job_title.strip() if job_title else None,
                     'location': location.strip() if location else None,
                     'day': final_day_contacted,
+                    'revocation_date': final_revocation_date,
                     'reach out type': reach_out_type.strip() if reach_out_type else None
                 }
 
@@ -514,6 +545,9 @@ def main():
                 # Save to Excel
                 if save_to_excel(updated_df, data_path):
                     st.success("✅ Record updated successfully!")
+                    
+                    # Log history
+                    log_history(record_data, action="update")
 
                     # Automatically apply Excel formatting after saving
                     json_path = Path(__file__).parent / "excel_format_spec.json"
