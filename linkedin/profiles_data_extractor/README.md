@@ -7,11 +7,10 @@ Automated LinkedIn profile data extraction with multiple implementation approach
 This project provides automated tools to extract LinkedIn profile data from search results, offering both reliability and flexibility through multiple extraction methods. Whether you need robust DevTools-based extraction or simple clipboard-based workflows, this suite provides everything needed for efficient LinkedIn data collection and management.
 
 **Key Features:**
-- Multiple extraction methods (DevTools, Brute Force, Manual)
+- DevTools-based extraction for reliability
 - Intelligent data entry and search interface
 - Excel formatting and hyperlink management
 - Real-time dashboard for data visualization
-- Comprehensive testing suite
 - Cross-platform compatibility
 
 ## 🏗️ Project Structure
@@ -31,20 +30,6 @@ Chrome DevTools Protocol-based extraction (recommended for reliability).
 - **Cons**: Requires Chrome debugging setup
 - **Best for**: Production use, large-scale extraction
 
-### 📁 [`brute_force/`](./brute_force/)
-Keyboard simulation and clipboard-based extraction.
-
-- **Pros**: Simple setup, works with any browser, minimal dependencies
-- **Cons**: Requires window focus, timing-dependent, less reliable
-- **Best for**: Quick testing, simple workflows
-
-### 📁 [`tests/`](./tests/)
-Comprehensive testing suite for Excel formatting and functionality.
-
-- **Test Coverage**: Format saving, file copying, hyperlink conversion
-- **Validation**: Excel operations, configuration loading, error handling
-- **Debug Tools**: Step-by-step testing with user interaction
-
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -60,22 +45,10 @@ start_chrome_debug.bat
 linkedin_profiles_data_orchestrator_devtools.bat
 ```
 
-### Brute Force Version
-```bash
-cd brute_force
-linkedin_profiles_data.bat
-```
-
 ### Dashboard & Data Management
 ```bash
 cd common
 dashboard.bat
-```
-
-### Testing
-```bash
-cd tests
-test_excel_format.bat
 ```
 
 ## ⚙️ Configuration
@@ -123,10 +96,9 @@ pip install pandas pynput requests websocket-client streamlit openpyxl
 ## 🔍 Workflow Overview
 
 1. **Setup**: Configure extraction parameters in `common/linkedin_profiles_data.json`
-2. **Choose Method**: Select DevTools (recommended) or Brute Force based on needs
-3. **Extract**: Run extraction scripts on LinkedIn search results
-4. **Manage**: Use dashboard for data visualization and editing
-5. **Format**: Automatic Excel formatting with hyperlinks and styling
+2. **Extract**: Run DevTools extraction scripts on LinkedIn search results
+3. **Manage**: Use dashboard for data visualization and editing
+4. **Format**: Automatic Excel formatting with hyperlinks and styling
 
 ## 🐛 Troubleshooting
 
@@ -143,7 +115,6 @@ Enable detailed logging by checking console output when running applications. Te
 ## 📈 Performance Tips
 
 - **DevTools Method**: Most reliable for large-scale extraction
-- **Brute Force Method**: Best for small batches or testing
 - **Dashboard**: Use for data review and manual corrections
 - **Batch Processing**: Configure appropriate delays for system performance
 
