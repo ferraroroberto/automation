@@ -29,3 +29,4 @@ system/foldersearcher/folder_structure.txt
 notion/build_newsletter.html
 system/textexpander/text_expander_config.json
 notion/articles_sync/notion_articles_sync_last_time.txt
+tmp*
