@@ -13,6 +13,7 @@ from dashboard import main as dashboard_main
 from dataentry import main as dataentry_main
 from reachout import main as reachout_main
 from extract_data import main as extract_data_main
+from history import main as history_main
 
 def load_config():
     """Load configuration from the JSON file in the same directory."""
@@ -73,12 +74,12 @@ def toggle_theme():
     """Toggle between light and dark mode by updating config.toml."""
     config_dir = Path(__file__).parent / ".streamlit"
     config_path = config_dir / "config.toml"
-    
+
     # Ensure directory exists
     config_dir.mkdir(exist_ok=True)
-    
+
     current_mode = get_current_theme_mode()
-    
+
     if current_mode == "light":
         # Switch to Dark
         new_config = """[theme]
@@ -97,12 +98,13 @@ secondaryBackgroundColor = "#F0F2F6"
 textColor = "#262730"
 font = "sans serif"
 """
-    
+
     with open(config_path, "w", encoding="utf-8") as f:
         f.write(new_config)
-        
+
     # Trigger a rerun to apply changes
     st.rerun()
+
 
 def main():
     """Main navigation hub for LinkedIn Reachout Dashboard."""
@@ -214,7 +216,7 @@ def main():
         df_filtered = df_filtered[df_filtered['date connected'].isna()]
 
     # Create tabs for navigation
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager", "📥 Extract Data"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager", "📥 Extract Data", "📜 History"])
 
     with tab1:
         # Prepare filter parameters for dashboard
@@ -236,6 +238,9 @@ def main():
 
     with tab4:
         extract_data_main()
+
+    with tab5:
+        history_main()
 
 if __name__ == "__main__":
     main()
