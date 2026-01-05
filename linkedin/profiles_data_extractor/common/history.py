@@ -235,7 +235,7 @@ def main():
             valid_timestamps = pd.to_datetime(recent_df['timestamp'], errors='coerce')
             mask = valid_timestamps.notna()
             recent_df.loc[mask, 'timestamp'] = valid_timestamps.loc[mask].dt.strftime("%Y-%m-%d %H:%M")
-            st.dataframe(recent_df, use_container_width=True)
+            st.dataframe(recent_df, width='stretch')
 
     else:
         if search_name:
@@ -268,6 +268,8 @@ def main():
                     # Convert to datetime and format valid dates only
                     valid_dates = pd.to_datetime(display_df[col], errors='coerce')
                     mask = valid_dates.notna()
+                    # Ensure column is object dtype before assignment to avoid dtype warnings
+                    display_df[col] = display_df[col].astype(object)
                     display_df.loc[mask, col] = valid_dates.loc[mask].dt.strftime("%Y-%m-%d")
 
             # Rename columns for better readability
@@ -322,4 +324,4 @@ def main():
 
             # Apply highlighting and display the styled table
             styled_df = display_df.style.apply(highlight_changes, axis=None)
-            st.dataframe(styled_df, use_container_width=True)
+            st.dataframe(styled_df, width='stretch')
