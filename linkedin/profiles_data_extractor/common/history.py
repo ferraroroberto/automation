@@ -273,6 +273,44 @@ def main():
             }
 
             display_df = display_df.rename(columns=column_names)
+            # Reset index so styling compares rows in displayed order
+            display_df = display_df.reset_index(drop=True)
 
-            # Display the table
-            st.dataframe(display_df, use_container_width=True)
+            # Function to highlight cells that changed from previous row
+            def highlight_changes(data):
+                """
+                Highlight cells that have changed compared to the previous row.
+                Excludes the 'When Changed' column since timestamps are always different.
+                Returns a DataFrame of styles with blue background for changed cells.
+                """
+                # Create a DataFrame to store styles with aligned positional index
+                styles = pd.DataFrame('', index=data.index, columns=data.columns)
+
+                # Compare each row to the next (older) row since data is sorted desc
+                for idx in range(0, len(data) - 1):
+                    curr_row = data.iloc[idx]
+                    older_row = data.iloc[idx + 1]
+
+                    # Compare each column except 'When Changed' (timestamp)
+                    for col in data.columns:
+                        if col == 'When Changed':
+                            continue  # Skip timestamp column
+
+                        curr_val = curr_row[col]
+                        older_val = older_row[col]
+
+                        # Check if values are different (handle NaN values)
+                        if pd.isna(curr_val) and pd.isna(older_val):
+                            continue  # Both NaN, no change
+                        elif pd.isna(curr_val) != pd.isna(older_val):
+                            # One is NaN and other isn't - this is a change
+                            styles.iloc[idx, styles.columns.get_loc(col)] = 'background-color: rgba(30, 136, 229, 0.3);'
+                        elif str(curr_val).strip() != str(older_val).strip():
+                            # Values are different (as strings for comparison)
+                            styles.iloc[idx, styles.columns.get_loc(col)] = 'background-color: rgba(30, 136, 229, 0.3);'
+
+                return styles
+
+            # Apply highlighting and display the styled table
+            styled_df = display_df.style.apply(highlight_changes, axis=None)
+            st.dataframe(styled_df, use_container_width=True)

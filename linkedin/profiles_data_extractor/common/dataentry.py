@@ -546,8 +546,8 @@ def main():
                 if save_to_excel(updated_df, data_path):
                     st.success("✅ Record updated successfully!")
                     
-                    # Log history
-                    log_history(record_data, action="update")
+                    # Log history with original data for initial record
+                    log_history(record_data, action="update", original_data=st.session_state.selected_record)
 
                     # Automatically apply Excel formatting after saving
                     json_path = Path(__file__).parent / "excel_format_spec.json"
