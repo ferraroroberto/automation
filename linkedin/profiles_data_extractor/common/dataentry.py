@@ -36,7 +36,7 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['day', 'date connected', 'revocation_date']
+        date_columns = ['date_contacted', 'date_connected', 'date_revocation']
         for col in date_columns:
             if col not in df.columns:
                 df[col] = pd.NaT  # Create missing column
@@ -296,7 +296,7 @@ def main():
             record_options = []
             for idx, row in filtered_df.iterrows():
                 name = row.get('name', 'Unknown')
-                date_connected = row.get('date connected')
+                date_connected = row.get('date_connected')
                 if pd.notna(date_connected):
                     date_str = date_connected.strftime('%Y-%m-%d')
                 else:
@@ -341,15 +341,15 @@ def main():
 
                 st.session_state.selected_record = {
                     'name': selected_row.get('name', ''),
-                    'date_connected': selected_row.get('date connected', None),
-                    'answered': answered_value,
-                    'chat_url': selected_row.get('chat_url', ''),
+                    'date_connected': selected_row.get('date_connected', None),
+                    'ind_answered': answered_value,
+                    'url_chat': selected_row.get('url_chat', ''),
                     'company': selected_row.get('company', ''),
                     'job_title': job_title_value,
                     'location': selected_row.get('location', ''),
-                    'day': selected_row.get('day', None),
-                    'revocation_date': selected_row.get('revocation_date', None),
-                    'reach out type': reachout_type_value
+                    'date_contacted': selected_row.get('date_contacted', None),
+                    'date_revocation': selected_row.get('date_revocation', None),
+                    'reach_out_type': reachout_type_value
                 }
                 st.session_state.original_name = selected_row.get('name', '')
 
@@ -380,7 +380,7 @@ def main():
 
             with col_answered:
                 # Handle NaN values and ensure valid index
-                answered_value = st.session_state.selected_record.get('answered', 0)
+                answered_value = st.session_state.selected_record.get('ind_answered', 0)
                 if pd.isna(answered_value):
                     answered_value = 0
                 answered_index = int(answered_value) if answered_value in [0, 1] else 0
@@ -398,7 +398,7 @@ def main():
             with col_contacted:
                 day_contacted = st.date_input(
                     "Date Contacted",
-                    value=st.session_state.selected_record.get('day') if pd.notna(st.session_state.selected_record.get('day')) else None,
+                    value=st.session_state.selected_record.get('date_contacted') if pd.notna(st.session_state.selected_record.get('date_contacted')) else None,
                     help="Date when the contact was made"
                 )
 
@@ -429,7 +429,7 @@ def main():
             with col_revocation:
                 revocation_date = st.date_input(
                     "Revocation Date",
-                    value=st.session_state.selected_record.get('revocation_date') if pd.notna(st.session_state.selected_record.get('revocation_date')) else None,
+                    value=st.session_state.selected_record.get('date_revocation') if pd.notna(st.session_state.selected_record.get('date_revocation')) else None,
                     help="Date when the contact was revoked"
                 )
 
@@ -443,7 +443,7 @@ def main():
             with col_chat_url:
                 chat_url = st.text_input(
                     "LinkedIn Chat URL",
-                    value=st.session_state.selected_record.get('chat_url', ''),
+                    value=st.session_state.selected_record.get('url_chat', ''),
                     help="URL to the LinkedIn chat/messaging thread"
                 )
 
@@ -461,12 +461,12 @@ def main():
                 # Reachout Type dropdown
                 # Get distinct reach out types from the full dataframe
                 reachout_types = ['']  # Start with empty option
-                if 'reach out type' in df.columns:
-                    distinct_types = df['reach out type'].dropna().unique().tolist()
+                if 'reach_out_type' in df.columns:
+                    distinct_types = df['reach_out_type'].dropna().unique().tolist()
                     reachout_types.extend(sorted(distinct_types))
 
                 # Ensure current record's reachout type is in the options list
-                current_reachout_type = st.session_state.selected_record.get('reach out type', '')
+                current_reachout_type = st.session_state.selected_record.get('reach_out_type', '')
                 if current_reachout_type and current_reachout_type not in reachout_types:
                     reachout_types.append(current_reachout_type)
                     reachout_types.sort()  # Keep sorted after adding
@@ -515,7 +515,7 @@ def main():
                 final_revocation_date = None if clear_revocation else (pd.Timestamp(revocation_date) if revocation_date else None)
 
                 # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
-                original_day = st.session_state.selected_record.get('day')
+                original_day = st.session_state.selected_record.get('date_contacted')
                 # Check if day has changed to a new valid date (re-contact logic)
                 if final_day_contacted is not None and (pd.isna(original_day) or final_day_contacted != original_day):
                      final_revocation_date = None
@@ -524,15 +524,15 @@ def main():
 
                 record_data = {
                     'name': name.strip(),
-                    'date connected': final_date_connected,
-                    'answered': answered,
-                    'chat_url': chat_url.strip() if chat_url else None,
+                    'date_connected': final_date_connected,
+                    'ind_answered': answered,
+                    'url_chat': chat_url.strip() if chat_url else None,
                     'company': company.strip() if company else None,
                     'job_title': job_title.strip() if job_title else None,
                     'location': location.strip() if location else None,
-                    'day': final_day_contacted,
-                    'revocation_date': final_revocation_date,
-                    'reach out type': reach_out_type.strip() if reach_out_type else None
+                    'date_contacted': final_day_contacted,
+                    'date_revocation': final_revocation_date,
+                    'reach_out_type': reach_out_type.strip() if reach_out_type else None
                 }
 
                 # Update existing record

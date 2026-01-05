@@ -39,7 +39,7 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['day', 'date connected', 'revocation_date']
+        date_columns = ['date_contacted', 'date_connected', 'date_revocation']
         for col in date_columns:
             if col not in df.columns:
                 df[col] = pd.NaT  # Create missing column
@@ -170,9 +170,9 @@ def main():
     st.sidebar.subheader("Contact Filters")
 
     # Date contacted range filter
-    if 'day' in df.columns:
-        min_date = df['day'].min()
-        max_date = df['day'].max()
+    if 'date_contacted' in df.columns:
+        min_date = df['date_contacted'].min()
+        max_date = df['date_contacted'].max()
 
         if pd.notna(min_date) and pd.notna(max_date):
             # Convert to date objects for streamlit
@@ -187,8 +187,8 @@ def main():
 
             # Apply date filter
             df_filtered = df_filtered[
-                (df_filtered['day'].isna()) |
-                ((df_filtered['day'].dt.date >= start_date) & (df_filtered['day'].dt.date <= end_date))
+                (df_filtered['date_contacted'].isna()) |
+                ((df_filtered['date_contacted'].dt.date >= start_date) & (df_filtered['date_contacted'].dt.date <= end_date))
             ]
 
     # Contacted Yes/No filter
@@ -199,9 +199,9 @@ def main():
     )
 
     if contacted_filter == "Contacted Only":
-        df_filtered = df_filtered[df_filtered['day'].notna()]
+        df_filtered = df_filtered[df_filtered['date_contacted'].notna()]
     elif contacted_filter == "Uncontacted Only":
-        df_filtered = df_filtered[df_filtered['day'].isna()]
+        df_filtered = df_filtered[df_filtered['date_contacted'].isna()]
 
     # Connected Yes/No filter
     connected_filter = st.sidebar.selectbox(
@@ -211,9 +211,9 @@ def main():
     )
 
     if connected_filter == "Connected Only":
-        df_filtered = df_filtered[df_filtered['date connected'].notna()]
+        df_filtered = df_filtered[df_filtered['date_connected'].notna()]
     elif connected_filter == "Unconnected Only":
-        df_filtered = df_filtered[df_filtered['date connected'].isna()]
+        df_filtered = df_filtered[df_filtered['date_connected'].isna()]
 
     # Create tabs for navigation
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager", "📥 Extract Data", "📜 History"])
@@ -223,8 +223,8 @@ def main():
         filter_params = {
             'selected_company': selected_company,
             'selected_type': selected_type,
-            'start_date': start_date if 'day' in df.columns and pd.notna(df['day'].min()) else None,
-            'end_date': end_date if 'day' in df.columns and pd.notna(df['day'].max()) else None,
+            'start_date': start_date if 'date_contacted' in df.columns and pd.notna(df['date_contacted'].min()) else None,
+            'end_date': end_date if 'date_contacted' in df.columns and pd.notna(df['date_contacted'].max()) else None,
             'contacted_filter': contacted_filter,
             'connected_filter': connected_filter
         }

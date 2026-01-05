@@ -195,18 +195,18 @@ def main():
                     with col1:
                         st.metric("Total Changes", len(contact_history))
                     with col2:
-                        if pd.notna(latest_record.get('day')):
-                            st.metric("Last Contacted", latest_record['day'].strftime("%Y-%m-%d"))
+                        if pd.notna(latest_record.get('date_contacted')):
+                            st.metric("Last Contacted", latest_record['date_contacted'].strftime("%Y-%m-%d"))
                         else:
                             st.metric("Last Contacted", "Never")
                     with col3:
-                        if pd.notna(latest_record.get('date connected')):
-                            st.metric("Last Connected", latest_record['date connected'].strftime("%Y-%m-%d"))
+                        if pd.notna(latest_record.get('date_connected')):
+                            st.metric("Last Connected", latest_record['date_connected'].strftime("%Y-%m-%d"))
                         else:
                             st.metric("Last Connected", "Never")
                     with col4:
-                        if pd.notna(latest_record.get('revocation_date')):
-                            st.metric("Last Revoked", latest_record['revocation_date'].strftime("%Y-%m-%d"))
+                        if pd.notna(latest_record.get('date_revocation')):
+                            st.metric("Last Revoked", latest_record['date_revocation'].strftime("%Y-%m-%d"))
                         else:
                             st.metric("Last Revoked", "Active")
 
@@ -231,7 +231,10 @@ def main():
             # Show recent activity
             st.subheader("🕐 Recent Activity")
             recent_df = history_df.head(10)[['timestamp', 'action', 'name', 'company']].copy()
-            recent_df['timestamp'] = recent_df['timestamp'].dt.strftime("%Y-%m-%d %H:%M")
+            # Convert to datetime and format valid timestamps only
+            valid_timestamps = pd.to_datetime(recent_df['timestamp'], errors='coerce')
+            mask = valid_timestamps.notna()
+            recent_df.loc[mask, 'timestamp'] = valid_timestamps.loc[mask].dt.strftime("%Y-%m-%d %H:%M")
             st.dataframe(recent_df, use_container_width=True)
 
     else:
@@ -247,27 +250,33 @@ def main():
             st.subheader("📅 Change History")
 
             # Prepare display columns
-            display_cols = ['timestamp', 'action', 'day', 'date connected', 'revocation_date', 'company', 'job_title']
+            display_cols = ['timestamp', 'action', 'date_contacted', 'date_connected', 'date_revocation', 'company', 'job_title']
             available_cols = [col for col in display_cols if col in contact_history.columns]
 
             display_df = contact_history[available_cols].copy()
 
             # Format timestamps and dates
             if 'timestamp' in display_df.columns:
-                display_df['timestamp'] = display_df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
+                # Convert to datetime and format valid timestamps only
+                valid_timestamps = pd.to_datetime(display_df['timestamp'], errors='coerce')
+                mask = valid_timestamps.notna()
+                display_df.loc[mask, 'timestamp'] = valid_timestamps.loc[mask].dt.strftime("%Y-%m-%d %H:%M:%S")
 
-            date_cols = ['day', 'date connected', 'revocation_date']
+            date_cols = ['date_contacted', 'date_connected', 'date_revocation']
             for col in date_cols:
                 if col in display_df.columns:
-                    display_df[col] = display_df[col].dt.strftime("%Y-%m-%d")
+                    # Convert to datetime and format valid dates only
+                    valid_dates = pd.to_datetime(display_df[col], errors='coerce')
+                    mask = valid_dates.notna()
+                    display_df.loc[mask, col] = valid_dates.loc[mask].dt.strftime("%Y-%m-%d")
 
             # Rename columns for better readability
             column_names = {
                 'timestamp': 'When Changed',
                 'action': 'Action Type',
-                'day': 'Contact Date',
-                'date connected': 'Connected Date',
-                'revocation_date': 'Revoked Date',
+                'date_contacted': 'Contact Date',
+                'date_connected': 'Connected Date',
+                'date_revocation': 'Revoked Date',
                 'company': 'Company',
                 'job_title': 'Job Title'
             }

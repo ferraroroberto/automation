@@ -187,7 +187,7 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['day', 'date connected', 'revocation_date']
+        date_columns = ['date_contacted', 'date_connected', 'date_revocation']
         for col in date_columns:
             if col not in df.columns:
                 df[col] = pd.NaT  # Create missing column
@@ -267,21 +267,21 @@ def main(df_filtered, df_all):
     view_mode = st.radio("View Mode", ["Uncontacted Profiles", "Revoked Contacts"], horizontal=True)
 
     if view_mode == "Uncontacted Profiles":
-        uncontacted_df = df_filtered[df_filtered['day'].isna()].copy() if 'day' in df_filtered.columns else df_filtered.copy()
+        uncontacted_df = df_filtered[df_filtered['date_contacted'].isna()].copy() if 'date_contacted' in df_filtered.columns else df_filtered.copy()
         
         # Filter out records that are actually revoked (have a revocation date)
-        if 'revocation_date' in uncontacted_df.columns:
-             # Just to be safe, though they shouldn't have a 'day' anyway
+        if 'date_revocation' in uncontacted_df.columns:
+             # Just to be safe, though they shouldn't have a 'date_contacted' anyway
              pass
              
     else: # Revoked Contacts
-        if 'revocation_date' in df_filtered.columns and 'day' in df_filtered.columns:
-            # Filter where revocation_date is present AND revocation_date > day
-            # Note: We must handle cases where 'day' might be NaT or populated.
-            # Logic: A contact is "revoked" if it HAS been contacted (day is not null) 
+        if 'date_revocation' in df_filtered.columns and 'date_contacted' in df_filtered.columns:
+            # Filter where date_revocation is present AND date_revocation > date_contacted
+            # Note: We must handle cases where 'date_contacted' might be NaT or populated.
+            # Logic: A contact is "revoked" if it HAS been contacted (date_contacted is not null)
             # AND it has a revocation date that is AFTER the contact date.
-            
-            mask = (df_filtered['day'].notna()) & (df_filtered['revocation_date'].notna()) & (df_filtered['revocation_date'] > df_filtered['day'])
+
+            mask = (df_filtered['date_contacted'].notna()) & (df_filtered['date_revocation'].notna()) & (df_filtered['date_revocation'] > df_filtered['date_contacted'])
             uncontacted_df = df_filtered[mask].copy()
             
             # Aging Filters for Revoked Contacts
@@ -303,7 +303,7 @@ def main(df_filtered, df_all):
                 elif age_filter == "12 Weeks Ago": weeks = 12
                 
                 cutoff_date = now - pd.Timedelta(weeks=weeks)
-                uncontacted_df = uncontacted_df[uncontacted_df['revocation_date'] <= cutoff_date]
+                uncontacted_df = uncontacted_df[uncontacted_df['date_revocation'] <= cutoff_date]
                 
         else:
             uncontacted_df = pd.DataFrame()
@@ -449,15 +449,15 @@ def main(df_filtered, df_all):
                 # Store selected record data
                 st.session_state.reachout_selected_record = {
                     'name': name,
-                    'day': row.get('day', ''),
+                    'date_contacted': row.get('date_contacted', ''),
                     'job_title': job_title,
                     'follows_from': row.get('follows_from', ''),
                     'company': company,
                     'location': location,
                     'search_type': row.get('search_type', ''),
-                    'url': row.get('url', ''),
-                    'reach out type': row.get('reach out type', ''),
-                    'revocation_date': row.get('revocation_date', None)
+                    'url_profile': row.get('url_profile', ''),
+                    'reach_out_type': row.get('reach_out_type', ''),
+                    'date_revocation': row.get('date_revocation', None)
                 }
                 st.session_state.reachout_original_name = name
                 st.session_state.reachout_editing = True
@@ -470,7 +470,7 @@ def main(df_filtered, df_all):
             st.subheader("✏️ Edit Profile")
         with col_link:
             if st.session_state.reachout_editing and st.session_state.reachout_selected_record:
-                profile_url = st.session_state.reachout_selected_record.get('url', '')
+                profile_url = st.session_state.reachout_selected_record.get('url_profile', '')
                 if profile_url:
                     st.markdown(f'<a href="{profile_url}" target="_blank" style="text-decoration: none;"><button style="background-color: #0077b5; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">🔗 Open Profile</button></a>', unsafe_allow_html=True)
 
@@ -487,42 +487,42 @@ def main(df_filtered, df_all):
                     help="Full name of the LinkedIn profile"
                 )
 
-                # Handle day field - convert to date if it's not None/NaT
-                day_value = record.get('day', '')
-                if pd.notna(day_value) and day_value != '':
+                # Handle date_contacted field - convert to date if it's not None/NaT
+                date_contacted_value = record.get('date_contacted', '')
+                if pd.notna(date_contacted_value) and date_contacted_value != '':
                     try:
                         # Convert to datetime.date if it's a pandas Timestamp
-                        if hasattr(day_value, 'date'):
-                            day_value = day_value.date()
-                        elif isinstance(day_value, str):
-                            day_value = pd.to_datetime(day_value).date()
+                        if hasattr(date_contacted_value, 'date'):
+                            date_contacted_value = date_contacted_value.date()
+                        elif isinstance(date_contacted_value, str):
+                            date_contacted_value = pd.to_datetime(date_contacted_value).date()
                     except:
-                        day_value = None
+                        date_contacted_value = None
                 else:
-                    day_value = None
+                    date_contacted_value = None
 
                 day = st.date_input(
                     "Day Contacted",
-                    value=day_value,
+                    value=date_contacted_value,
                     help="Date when this profile was contacted (leave empty if not contacted yet)"
                 )
-                
+
                 # Show revocation info if present
-                revocation_val = record.get('revocation_date')
+                revocation_val = record.get('date_revocation')
                 if pd.notna(revocation_val):
                     rev_str = revocation_val.strftime('%Y-%m-%d') if hasattr(revocation_val, 'strftime') else str(revocation_val)
                     st.warning(f"⚠️ This contact was revoked on {rev_str}. Updating the 'Day Contacted' will clear the revocation date.")
 
                 # Get distinct reach out types from the full dataframe
                 reachout_types = ['']  # Start with empty option
-                if 'reach out type' in df_all.columns:
-                    distinct_types = df_all['reach out type'].dropna().unique().tolist()
+                if 'reach_out_type' in df_all.columns:
+                    distinct_types = df_all['reach_out_type'].dropna().unique().tolist()
                     reachout_types.extend(sorted(distinct_types))
 
                 reach_out_type = st.selectbox(
                     "Reachout Type",
                     options=reachout_types,
-                    index=reachout_types.index(record.get('reach out type', '')) if record.get('reach out type', '') in reachout_types else 0,
+                    index=reachout_types.index(record.get('reach_out_type', '')) if record.get('reach_out_type', '') in reachout_types else 0,
                     help="Type of reachout made to this profile"
                 )
 
@@ -558,7 +558,7 @@ def main(df_filtered, df_all):
 
                 url = st.text_input(
                     "Profile URL",
-                    value=record.get('url', ''),
+                    value=record.get('url_profile', ''),
                     help="LinkedIn profile URL"
                 )
 
@@ -573,28 +573,28 @@ def main(df_filtered, df_all):
                     final_day = pd.Timestamp(day) if day else pd.NaT
                     
                     # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
-                    original_day = st.session_state.reachout_selected_record.get('day')
+                    original_day = st.session_state.reachout_selected_record.get('date_contacted')
                     # Handle NaT comparison
                     original_day_ts = pd.Timestamp(original_day) if pd.notna(original_day) else pd.NaT
-                    
+
                     # Check if day has changed to a new valid date (re-contact logic)
-                    revocation_update = st.session_state.reachout_selected_record.get('revocation_date')
+                    revocation_update = st.session_state.reachout_selected_record.get('date_revocation')
                     if day and (pd.isna(original_day_ts) or final_day != original_day_ts):
                          revocation_update = None
-                         # We don't need to show a message here as the save success message is enough, 
-                         # but we ensure the dict sends None for revocation_date
+                         # We don't need to show a message here as the save success message is enough,
+                         # but we ensure the dict sends None for date_revocation
 
                     record_data = {
                         'name': name.strip(),
-                        'day': final_day,
+                        'date_contacted': final_day,
                         'job_title': job_title.strip(),
                         'follows_from': follows_from.strip(),
                         'company': company.strip(),
                         'location': location.strip(),
                         'search_type': search_type.strip(),
-                        'url': url.strip(),
-                        'reach out type': reach_out_type.strip() if reach_out_type else '',
-                        'revocation_date': revocation_update
+                        'url_profile': url.strip(),
+                        'reach_out_type': reach_out_type.strip() if reach_out_type else '',
+                        'date_revocation': revocation_update
                     }
 
                     # Update existing record

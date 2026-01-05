@@ -34,11 +34,11 @@ def load_data(file_path):
         df = pd.read_excel(file_path)
         
         # Ensure date columns are datetime
-        if 'day' in df.columns:
-            df['day'] = pd.to_datetime(df['day'], errors='coerce')
-        
-        if 'date connected' in df.columns:
-            df['date connected'] = pd.to_datetime(df['date connected'], errors='coerce')
+        if 'date_contacted' in df.columns:
+            df['date_contacted'] = pd.to_datetime(df['date_contacted'], errors='coerce')
+
+        if 'date_connected' in df.columns:
+            df['date_connected'] = pd.to_datetime(df['date_connected'], errors='coerce')
             
         return df
     except Exception as e:
@@ -56,8 +56,8 @@ def create_performance_chart(df_filtered, df_all, group_col):
 
     # Get contacted/connected from FILTERED data
     filtered_stats = df_filtered.groupby(group_col).agg(
-        Contacted=('day', 'count'),  # Count of rows with contact date in filtered data
-        Connected=('date connected', 'count')
+        Contacted=('date_contacted', 'count'),  # Count of rows with contact date in filtered data
+        Connected=('date_connected', 'count')
     ).reset_index()
 
     # Merge the stats
@@ -103,7 +103,7 @@ def create_contact_chart(df_filtered, df_all, group_col):
 
     # Get contacted from FILTERED data
     filtered_stats = df_filtered.groupby(group_col).agg(
-        Contacted=('day', 'count')  # Count rows where 'day' is not null in filtered data
+        Contacted=('date_contacted', 'count')  # Count rows where 'date_contacted' is not null in filtered data
     ).reset_index()
 
     # Merge the stats
@@ -191,8 +191,8 @@ def main(df_filtered, df_all, filter_params=None):
 
     # --- Performance Section ---
     
-    total_contacts = df_filtered['day'].notna().sum()
-    connected_count = df_filtered['date connected'].notna().sum()
+    total_contacts = df_filtered['date_contacted'].notna().sum()
+    connected_count = df_filtered['date_connected'].notna().sum()
     conversion_rate = (connected_count / total_contacts * 100) if total_contacts > 0 else 0
     total_records = len(df_all)
     contacted_percentage = (total_contacts / total_records * 100) if total_records > 0 else 0
@@ -213,17 +213,17 @@ def main(df_filtered, df_all, filter_params=None):
 
     with col_activity_left:
         st.subheader("📅 Activity Over Time")
-        if 'day' in df_filtered.columns:
+        if 'date_contacted' in df_filtered.columns:
             # Group by day
-            daily_counts = df_filtered.groupby(df_filtered['day'].dt.date).size().reset_index(name='Contacted')
-            daily_connected = df_filtered[df_filtered['date connected'].notna()].groupby(df_filtered['day'].dt.date).size().reset_index(name='Connected')
+            daily_counts = df_filtered.groupby(df_filtered['date_contacted'].dt.date).size().reset_index(name='Contacted')
+            daily_connected = df_filtered[df_filtered['date_connected'].notna()].groupby(df_filtered['date_contacted'].dt.date).size().reset_index(name='Connected')
             
             # Merge data for plotting
-            daily_stats = pd.merge(daily_counts, daily_connected, on='day', how='left').fillna(0)
+            daily_stats = pd.merge(daily_counts, daily_connected, on='date_contacted', how='left').fillna(0)
             
             fig_timeline = go.Figure()
-            fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Contacted'], name='Contacted', marker_color='#808080'))
-            fig_timeline.add_trace(go.Bar(x=daily_stats['day'], y=daily_stats['Connected'], name='Connected', marker_color='#0B65C3'))
+            fig_timeline.add_trace(go.Bar(x=daily_stats['date_contacted'], y=daily_stats['Contacted'], name='Contacted', marker_color='#808080'))
+            fig_timeline.add_trace(go.Bar(x=daily_stats['date_contacted'], y=daily_stats['Connected'], name='Connected', marker_color='#0B65C3'))
             
             fig_timeline.update_layout(
                 barmode='overlay', 
@@ -237,10 +237,10 @@ def main(df_filtered, df_all, filter_params=None):
 
     with col_activity_right:
         st.subheader("⏱️ Response Time Distribution")
-        if 'day' in df_filtered.columns and 'date connected' in df_filtered.columns:
-            # Calculate days to respond - only for records where day is not null (contacted records)
-            df_resp = df_filtered[df_filtered['day'].notna()].copy()
-            df_resp['days_diff'] = (df_resp['date connected'] - df_resp['day']).dt.days
+        if 'date_contacted' in df_filtered.columns and 'date_connected' in df_filtered.columns:
+            # Calculate days to respond - only for records where date_contacted is not null (contacted records)
+            df_resp = df_filtered[df_filtered['date_contacted'].notna()].copy()
+            df_resp['days_diff'] = (df_resp['date_connected'] - df_resp['date_contacted']).dt.days
             
             def get_label(x):
                 if pd.isna(x):
@@ -353,9 +353,9 @@ def main(df_filtered, df_all, filter_params=None):
     # Determine which data to show in raw data table
     # If date contacted filter is applied, show only contacted records
     date_filter_applied = False
-    if start_date and end_date and 'day' in df_all.columns:
-        min_date_all = df_all['day'].min()
-        max_date_all = df_all['day'].max()
+    if start_date and end_date and 'date_contacted' in df_all.columns:
+        min_date_all = df_all['date_contacted'].min()
+        max_date_all = df_all['date_contacted'].max()
         if pd.notna(min_date_all) and pd.notna(max_date_all):
             min_date_all = min_date_all.date()
             max_date_all = max_date_all.date()
@@ -364,7 +364,7 @@ def main(df_filtered, df_all, filter_params=None):
 
     if date_filter_applied:
         # Show metrics for contacted records when date filter is applied
-        contacted_records = df_filtered[df_filtered['day'].notna()]
+        contacted_records = df_filtered[df_filtered['date_contacted'].notna()]
         filtered_records = len(contacted_records)
         filter_percentage = (filtered_records / total_records * 100) if total_records > 0 else 0
     else:
@@ -396,10 +396,10 @@ def main(df_filtered, df_all, filter_params=None):
             filters_applied.append("Search Type")
 
         # Show date contacted filter if applied
-        if start_date and end_date and 'day' in df_all.columns:
+        if start_date and end_date and 'date_contacted' in df_all.columns:
             # Check if date range is different from min/max to determine if filter is applied
-            min_date_all = df_all['day'].min()
-            max_date_all = df_all['day'].max()
+            min_date_all = df_all['date_contacted'].min()
+            max_date_all = df_all['date_contacted'].max()
             if pd.notna(min_date_all) and pd.notna(max_date_all):
                 min_date_all = min_date_all.date()
                 max_date_all = max_date_all.date()
@@ -429,9 +429,9 @@ def main(df_filtered, df_all, filter_params=None):
     # Determine which data to show in raw data table
     # If date contacted filter is applied, show only contacted records
     date_filter_applied = False
-    if start_date and end_date and 'day' in df_all.columns:
-        min_date_all = df_all['day'].min()
-        max_date_all = df_all['day'].max()
+    if start_date and end_date and 'date_contacted' in df_all.columns:
+        min_date_all = df_all['date_contacted'].min()
+        max_date_all = df_all['date_contacted'].max()
         if pd.notna(min_date_all) and pd.notna(max_date_all):
             min_date_all = min_date_all.date()
             max_date_all = max_date_all.date()
@@ -440,7 +440,7 @@ def main(df_filtered, df_all, filter_params=None):
 
     if date_filter_applied:
         # Show only contacted records when date filter is applied
-        contacted_records = df_filtered[df_filtered['day'].notna()].copy()
+        contacted_records = df_filtered[df_filtered['date_contacted'].notna()].copy()
         raw_data_count = len(contacted_records)
         raw_data_title = f"Show {raw_data_count:,} contacted records (filtered by date)"
         display_df = contacted_records
