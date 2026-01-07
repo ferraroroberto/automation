@@ -389,6 +389,124 @@ def render_export_mode(df: pd.DataFrame) -> None:
         st.metric("Need Shopping", shopping_items)
 
 
+def render_edit_item_mode(df: pd.DataFrame) -> pd.DataFrame:
+    """Render the edit item mode interface for searching and editing individual items."""
+    st.header(MODES["edit_item"])
+
+    # Search functionality
+    search_term = st.text_input(
+        "🔍 Search by item name",
+        placeholder="Type item name to search...",
+        help="Search for items by name to edit their details"
+    ).strip().lower()
+
+    # Filter items based on search
+    if search_term:
+        filtered_df = df[df[COLUMNS["comida"]].str.lower().str.contains(search_term, na=False)].copy()
+    else:
+        filtered_df = df.copy()
+
+    if filtered_df.empty:
+        if search_term:
+            st.info(f"No items found matching '{search_term}'")
+        else:
+            st.info("No items to display. Try searching for an item.")
+        return df
+
+    # Show search results count
+    st.write(f"Found {len(filtered_df)} item(s)")
+
+    # Display each matching item with editable fields
+    for idx in filtered_df.index:
+        item_name = filtered_df.at[idx, COLUMNS["comida"]]
+
+        with st.expander(f"🔧 Edit: {item_name}", expanded=len(filtered_df) == 1):
+            # Create form for editing
+            with st.form(key=f"edit_form_{idx}"):
+                st.subheader(f"Editing: {item_name}")
+
+                # Create two columns for better layout
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    # Supermarket field
+                    current_super = filtered_df.at[idx, COLUMNS["super"]]
+                    new_super = st.text_input(
+                        "🏪 Supermarket",
+                        value=current_super if pd.notna(current_super) else "",
+                        help="Supermarket where this item is purchased"
+                    )
+
+                    # Location field
+                    current_lugar = filtered_df.at[idx, COLUMNS["lugar"]]
+                    new_lugar = st.text_input(
+                        "🏠 Location/Zone",
+                        value=current_lugar if pd.notna(current_lugar) else "",
+                        help="Location or zone in your home where this item is stored"
+                    )
+
+                    # Item name field
+                    current_comida = filtered_df.at[idx, COLUMNS["comida"]]
+                    new_comida = st.text_input(
+                        "🥘 Item Name",
+                        value=current_comida if pd.notna(current_comida) else "",
+                        help="Name of the grocery item"
+                    )
+
+                with col2:
+                    # Target quantity field
+                    current_cantidad = int(filtered_df.at[idx, COLUMNS["cantidad"]])
+                    new_cantidad = st.number_input(
+                        "🎯 Target Quantity",
+                        value=current_cantidad,
+                        min_value=0,
+                        step=1,
+                        help="Desired quantity to keep in stock"
+                    )
+
+                    # Current quantity field
+                    current_tenemos = int(filtered_df.at[idx, COLUMNS["tenemos"]])
+                    new_tenemos = st.number_input(
+                        "📦 Current Quantity",
+                        value=current_tenemos,
+                        min_value=0,
+                        step=1,
+                        help="Current quantity you have in stock"
+                    )
+
+                    # Search URL field
+                    current_buscador = filtered_df.at[idx, COLUMNS["buscador"]]
+                    new_buscador = st.text_input(
+                        "🔗 Search URL",
+                        value=current_buscador if pd.notna(current_buscador) else "",
+                        help="URL to search for this item online"
+                    )
+
+                # Submit button
+                if st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True):
+                    # Update the dataframe with new values
+                    df.at[idx, COLUMNS["super"]] = new_super
+                    df.at[idx, COLUMNS["lugar"]] = new_lugar
+                    df.at[idx, COLUMNS["comida"]] = new_comida
+                    df.at[idx, COLUMNS["cantidad"]] = new_cantidad
+                    df.at[idx, COLUMNS["tenemos"]] = new_tenemos
+                    df.at[idx, COLUMNS["buscador"]] = new_buscador
+
+                    # Recalculate comprar column
+                    df.at[idx, COLUMNS["comprar"]] = max(0, new_cantidad - new_tenemos)
+
+                    # Save to Excel
+                    if save_inventory_data(df):
+                        st.success(f"✅ Changes saved for '{new_comida}'!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to save changes")
+
+            st.divider()
+
+    return df
+
+
 def main():
     """Main application entry point."""
     # Configure page
@@ -444,6 +562,8 @@ def main():
         st.session_state.inventory_data = render_audit_mode(df)
     elif st.session_state.current_mode == "edit":
         st.session_state.inventory_data = render_edit_mode(df)
+    elif st.session_state.current_mode == "edit_item":
+        st.session_state.inventory_data = render_edit_item_mode(df)
     elif st.session_state.current_mode == "shopping":
         render_shopping_mode(df)
     elif st.session_state.current_mode == "export":

@@ -36,6 +36,7 @@
     "modes": {
       "audit": "🔍 Audit Inventory",
       "edit": "✏️ Edit Targets",
+      "edit_item": "🔧 Edit Item",
       "shopping": "🛒 Shopping List",
       "export": "💾 Save/Export"
     }
