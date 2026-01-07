@@ -1,11 +1,39 @@
 # Household Inventory & Shopping Helper
 
-Mobile-responsive Streamlit application for managing household grocery inventory with intelligent shopping list generation.
+Mobile-responsive Streamlit application for managing household grocery inventory with intelligent shopping list generation and automated purchase tracking.
+
+## 📋 Project Summary
+
+This project provides a comprehensive solution for household inventory management, offering both reliability and flexibility through multiple operational modes. Whether you need to audit your current stock, edit target quantities, generate shopping lists, or export data, this application provides everything needed for efficient grocery management and shopping workflows.
+
+**Key Features:**
+- Mobile-optimized interface with touch-friendly controls
+- Room-by-room inventory auditing with auto-save
+- Intelligent shopping list generation grouped by supermarket
+- Real-time purchase tracking with visual feedback
+- Excel-based data storage with automatic calculations
+- Cross-platform compatibility (works on any device with a browser)
+
+## 🏗️ Project Structure
+
+### 📁 [`.`](./)
+Main application files and configuration.
+
+- **app.py**: Main Streamlit application with all operational modes
+- **config.json**: Application configuration and UI settings
+- **laucher.bat**: Windows batch file for easy app launching
+- **.streamlit/config.toml**: Streamlit theme customization
+- **README.md**: This documentation file
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Python 3.8+
+- Microsoft Excel (for data storage)
+- Required Python packages: `streamlit`, `pandas`, `openpyxl`
+
 ### Method 1: Using the Batch File (Recommended)
-Simply double-click `dashboard.bat` in the grocery folder to launch the app.
+Simply double-click `laucher.bat` in the grocery folder to launch the app.
 
 ### Method 2: Manual Launch
 ```bash
@@ -19,12 +47,57 @@ cd E:\automation\automation\system\grocery
 streamlit run app.py
 ```
 
-## 📁 File Location
+## ⚙️ Configuration
 
-Your Excel inventory file should be located at:
+Edit `config.json` to customize:
+- **UI Settings**: Page configuration, mode labels, and layout options
+- **Data Paths**: Excel file location and column mappings
+- **Logging**: Log level and format configuration
+- **Display Options**: UI labels and styling preferences
+
+## 📊 Data Format
+
+The system expects and produces Excel files with these standard columns:
+
+| Column | Description | Required | Excel Column |
+|--------|-------------|----------|--------------|
+| `super` | Supermarket name (e.g., "mercadona", "ametller") | Yes | A |
+| `buscador` | Product URL for online shopping | Optional | B |
+| `lugar` | Location in house (e.g., "fridge", "pantry", "garage") | Yes | C |
+| `comida` | Item name | Yes | D |
+| `cantidad` | Target quantity (how many you want to maintain) | Yes | E |
+| `tenemos` | Current quantity (how many you actually have) | Yes | F |
+| `comprar` | Auto-calculated: max(0, cantidad - tenemos) | Auto | G |
+
+## 🔧 Dependencies
+
+### Required Python Packages
+```bash
+pip install streamlit pandas openpyxl
 ```
-C:\Users\rober\Downloads\list.xlsx
-```
+
+### System Requirements
+- **Python**: Version 3.8 or higher
+- **Excel**: Microsoft Excel or compatible spreadsheet application
+- **Browser**: Any modern web browser (Chrome, Firefox, Safari, Edge)
+
+## 🏛️ Architecture Notes
+
+- **Streamlit Framework**: Web-based interface for cross-platform compatibility
+- **Excel Integration**: Direct read/write operations with auto-save functionality
+- **Mobile-First Design**: Touch-optimized controls and responsive layouts
+- **Session Management**: Persistent state for shopping progress tracking
+- **Error Handling**: Comprehensive validation and user feedback
+- **Configuration-Driven**: Centralized settings for easy customization
+
+## 🔍 Workflow Overview
+
+1. **Setup**: Configure your Excel file with inventory data and place it in the expected location
+2. **Edit Targets**: Set desired quantities for items you want to track
+3. **Audit Inventory**: Walk through your home and update current stock levels
+4. **Generate Shopping List**: View items grouped by supermarket with purchase tracking
+5. **Shop**: Use direct links to product pages and mark items as purchased
+6. **Export**: Save changes and export data as needed
 
 ## 📱 Features
 
@@ -51,20 +124,6 @@ C:\Users\rober\Downloads\list.xlsx
 - Manual save to Excel file
 - Download updated inventory as CSV
 - Summary statistics and reports
-
-## 📊 Data Structure
-
-Your `list.xlsx` file must contain these columns:
-
-| Column | Description | Excel Column |
-|--------|-------------|--------------|
-| `super` | Supermarket name (e.g., "mercadona", "ametller") | A |
-| `buscador` | Product URL for online shopping | B |
-| `lugar` | Location in house (e.g., "fridge", "pantry", "garage") | C |
-| `comida` | Item name | D |
-| `cantidad` | Target quantity (how many you want to maintain) | E |
-| `tenemos` | Current quantity (how many you actually have) | F |
-| `comprar` | Auto-calculated: max(0, cantidad - tenemos) | G |
 
 ## 🖥️ Usage Guide
 
@@ -115,3 +174,25 @@ Every time you update any quantity (target or current), the app automatically sa
 - Visual indicators for completed purchases
 - Strikethrough formatting for bought items
 - Summary statistics in export mode
+
+## 🐛 Troubleshooting
+
+### Common Issues
+- **Excel File Not Found**: Ensure your Excel file is in the correct location (see File Location section)
+- **Permission Errors**: Close Excel application before running the app
+- **Configuration Errors**: Verify `config.json` is valid JSON and paths exist
+- **Browser Issues**: Clear browser cache if interface appears broken
+
+### Debug Mode
+Enable detailed logging by checking the console output when running the application. Error messages provide specific details about any issues encountered.
+
+## 📈 Performance Tips
+
+- **Auto-Save**: Changes are saved immediately - no need to worry about losing data
+- **Mobile Use**: Best experience on mobile devices with touch controls
+- **Batch Updates**: Use the shopping mode for efficient purchase tracking
+- **Regular Audits**: Frequent inventory checks keep your data accurate
+
+---
+
+*Built for efficient household inventory management and grocery shopping workflows.*
