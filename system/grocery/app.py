@@ -93,6 +93,44 @@ def get_unique_supermarkets(df: pd.DataFrame) -> List[str]:
     return sorted(df[COLUMNS["super"]].unique().tolist())
 
 
+def get_supermarket_stats(shopping_items: pd.DataFrame, bought_items: set) -> Dict[str, Dict[str, int]]:
+    """Calculate statistics for each supermarket from shopping items.
+
+    Args:
+        shopping_items: DataFrame with items that need shopping (comprar > 0)
+        bought_items: Set of item indices that have been marked as bought
+
+    Returns:
+        Dict mapping supermarket name to stats dict with keys:
+        - total_unique: total unique items needed
+        - total_quantity: total quantity needed
+        - got_it_unique: unique items already bought
+        - got_it_quantity: total quantity already bought
+    """
+    stats = {}
+    supermarkets = get_unique_supermarkets(shopping_items)
+
+    for supermarket in supermarkets:
+        supermarket_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket]
+
+        total_unique = len(supermarket_items)
+        total_quantity = supermarket_items[COLUMNS["comprar"]].sum()
+
+        # Count "got it" items for this supermarket
+        bought_items_in_supermarket = supermarket_items[supermarket_items.index.isin(bought_items)]
+        got_it_unique = len(bought_items_in_supermarket)
+        got_it_quantity = bought_items_in_supermarket[COLUMNS["comprar"]].sum()
+
+        stats[supermarket] = {
+            "total_unique": total_unique,
+            "total_quantity": total_quantity,
+            "got_it_unique": got_it_unique,
+            "got_it_quantity": got_it_quantity
+        }
+
+    return stats
+
+
 def update_item_quantity(df: pd.DataFrame, item_index: int, delta: int) -> pd.DataFrame:
     """Update the tenemos quantity for an item and recalculate comprar."""
     current_qty = df.at[item_index, COLUMNS["tenemos"]]
@@ -275,18 +313,16 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
                 st.session_state.bought_items.clear()
                 st.rerun()
 
+    # Get supermarket statistics
+    supermarket_stats = get_supermarket_stats(shopping_items, st.session_state.bought_items)
+
     for supermarket in supermarkets:
+        stats = supermarket_stats[supermarket]
         supermarket_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket]
-        supermarket_quantity = supermarket_items[COLUMNS["comprar"]].sum()
 
-        # Calculate progress for this supermarket
-        supermarket_bought_items = supermarket_items[supermarket_items.index.isin(st.session_state.bought_items)]
-        supermarket_bought_unique = len(supermarket_bought_items)
-        supermarket_bought_quantity = supermarket_bought_items[COLUMNS["comprar"]].sum()
+        progress_text = f" | ✅ {stats['got_it_unique']} unique ({stats['got_it_quantity']} total) got it" if stats['got_it_unique'] > 0 else ""
 
-        progress_text = f" | ✅ {supermarket_bought_unique} unique ({supermarket_bought_quantity} total) got it" if supermarket_bought_unique > 0 else ""
-
-        with st.expander(f"🏪 {supermarket.title()} ({len(supermarket_items)} unique items, {supermarket_quantity} total){progress_text}", expanded=True):
+        with st.expander(f"🏪 {supermarket.title()} ({stats['total_unique']} unique items, {stats['total_quantity']} total){progress_text}", expanded=True):
             for idx in supermarket_items.index:
                 item_name = supermarket_items.at[idx, COLUMNS["comida"]]
                 qty_to_buy = supermarket_items.at[idx, COLUMNS["comprar"]]
@@ -552,8 +588,24 @@ def main():
             df = st.session_state.inventory_data
             total_items = len(df)
             shopping_needed = len(df[df[COLUMNS["comprar"]] > 0])
+
+            # Initialize bought items tracking if not exists
+            if "bought_items" not in st.session_state:
+                st.session_state.bought_items = set()
+
             st.write(f"Total items: {total_items}")
             st.write(f"Need shopping: {shopping_needed}")
+
+            # Supermarket breakdown
+            shopping_items = df[df[COLUMNS["comprar"]] > 0].copy()
+            if not shopping_items.empty:
+                supermarket_stats = get_supermarket_stats(shopping_items, st.session_state.bought_items)
+
+                st.write("---")
+                st.write("🏪 **Supermarket Breakdown:**")
+
+                for supermarket, stats in supermarket_stats.items():
+                    st.write(f"**{supermarket.title()}:** {stats['got_it_unique']}/{stats['total_unique']} unique ({stats['got_it_quantity']}/{stats['total_quantity']} total) got it")
 
     # Main content area
     df = st.session_state.inventory_data
