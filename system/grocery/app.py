@@ -262,8 +262,10 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
     supermarkets = get_unique_supermarkets(shopping_items)
 
     total_items = len(shopping_items)
+    total_quantity = shopping_items[COLUMNS["comprar"]].sum()
     bought_count = len([idx for idx in shopping_items.index if idx in st.session_state.bought_items])
-    st.info(f"🛒 {total_items} items to buy from {len(supermarkets)} supermarket(s) | ✅ {bought_count} bought")
+    bought_quantity = shopping_items[shopping_items.index.isin(st.session_state.bought_items)][COLUMNS["comprar"]].sum()
+    st.info(f"🛒 {total_items} unique items ({total_quantity} total) to buy from {len(supermarkets)} supermarket(s) | ✅ {bought_count} unique items ({bought_quantity} total) bought")
 
     # Clear all bought items button
     if bought_count > 0:
@@ -275,8 +277,16 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
 
     for supermarket in supermarkets:
         supermarket_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket]
+        supermarket_quantity = supermarket_items[COLUMNS["comprar"]].sum()
 
-        with st.expander(f"🏪 {supermarket.title()} ({len(supermarket_items)} items)", expanded=True):
+        # Calculate progress for this supermarket
+        supermarket_bought_items = supermarket_items[supermarket_items.index.isin(st.session_state.bought_items)]
+        supermarket_bought_unique = len(supermarket_bought_items)
+        supermarket_bought_quantity = supermarket_bought_items[COLUMNS["comprar"]].sum()
+
+        progress_text = f" | ✅ {supermarket_bought_unique} unique ({supermarket_bought_quantity} total) got it" if supermarket_bought_unique > 0 else ""
+
+        with st.expander(f"🏪 {supermarket.title()} ({len(supermarket_items)} unique items, {supermarket_quantity} total){progress_text}", expanded=True):
             for idx in supermarket_items.index:
                 item_name = supermarket_items.at[idx, COLUMNS["comida"]]
                 qty_to_buy = supermarket_items.at[idx, COLUMNS["comprar"]]
