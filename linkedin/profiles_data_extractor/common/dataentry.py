@@ -326,7 +326,7 @@ def main():
                 selected_row = filtered_df.iloc[selected_idx]
 
                 # Store in session state - handle NaN values
-                answered_value = selected_row.get('answered', 0)
+                answered_value = selected_row.get('ind_answered', 0)
                 if pd.isna(answered_value):
                     answered_value = 0
 
@@ -335,7 +335,7 @@ def main():
                 if pd.isna(job_title_value):
                     job_title_value = ''
 
-                reachout_type_value = selected_row.get('reach out type', '')
+                reachout_type_value = selected_row.get('reach_out_type', '')
                 if pd.isna(reachout_type_value):
                     reachout_type_value = ''
 
