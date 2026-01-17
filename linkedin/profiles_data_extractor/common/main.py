@@ -186,9 +186,12 @@ def main():
                 end_date = st.sidebar.date_input("Contacted To", value=max_date, min_value=min_date, max_value=max_date)
 
             # Apply date filter
+            # Convert date objects to pandas Timestamps for proper comparison
+            start_ts = pd.Timestamp(start_date)  # Start of day
+            end_ts = pd.Timestamp(end_date) + pd.Timedelta(days=1)  # Start of next day (exclusive)
             df_filtered = df_filtered[
                 (df_filtered['date_contacted'].isna()) |
-                ((df_filtered['date_contacted'].dt.date >= start_date) & (df_filtered['date_contacted'].dt.date <= end_date))
+                ((df_filtered['date_contacted'] >= start_ts) & (df_filtered['date_contacted'] < end_ts))
             ]
 
     # Contacted Yes/No filter
