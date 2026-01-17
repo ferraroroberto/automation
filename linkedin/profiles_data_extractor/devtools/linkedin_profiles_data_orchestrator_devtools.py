@@ -3,13 +3,23 @@ LinkedIn Profiles Data Orchestrator Module - Chrome DevTools Version
 
 Orchestrates the LinkedIn profile data extraction and Excel file merging using DevTools.
 Extracts data from Chrome tabs and merges new records into an existing Excel file.
+
+Usage:
+    python linkedin_profiles_data_orchestrator_devtools.py [--run] [--save-format]
+    
+Options:
+    --run, -r           Run full extraction and merge to Excel (default if no options)
+    --save-format, -s   Save Excel format to JSON before extraction
+    --test, -t          Run quick test (single profile)
+    --help, -h          Show this help message
 """
 
+import argparse
 import logging
 import json
 import os
 import sys
-import threading
+import time
 from typing import List, Dict, Tuple
 import pandas as pd
 from pynput import keyboard
@@ -48,17 +58,19 @@ logger = logging.getLogger(__name__)
 class LinkedInProfilesDataOrchestratorDevTools:
     """Orchestrates LinkedIn profile data extraction and Excel file merging using DevTools."""
 
-    def __init__(self, config_path: str, debug_port: int = 9222):
+    def __init__(self, config_path: str, debug_port: int = 9222, save_format: bool = False):
         """Initialize orchestrator with configuration.
 
         Args:
             config_path: Path to the JSON configuration file.
             debug_port: Chrome remote debugging port
+            save_format: Whether to save Excel format to JSON before extraction
         """
         self.config = self.load_config(config_path)
         self.extractor = LinkedInProfileExtractorDevTools(debug_port)
         self.exit_requested = False  # Flag to track if 'x' key was pressed
         self.keyboard_listener = None  # Keyboard listener for 'x' keypress
+        self.save_format = save_format
 
     def load_config(self, config_path: str) -> Dict:
         """Load configuration from JSON file.
@@ -94,21 +106,25 @@ class LinkedInProfilesDataOrchestratorDevTools:
         except (PermissionError, OSError):
             return False
 
-    def wait_for_file_access(self, file_path: str) -> bool:
-        """Wait for user to close the file if it's open.
+    def wait_for_file_access(self, file_path: str, max_retries: int = 30, retry_delay: float = 1.0) -> bool:
+        """Wait for file to become accessible (auto-retry).
 
         Args:
             file_path: Path to the file that might be open.
+            max_retries: Maximum number of retries before giving up.
+            retry_delay: Delay in seconds between retries.
 
         Returns:
-            True if user wants to continue, False if they want to exit.
+            True if file is accessible, False if max retries exceeded.
         """
+        retries = 0
         while not self.check_file_accessible(file_path):
-            print(f"\n⚠️  The file '{os.path.basename(file_path)}' appears to be open in another application.")
-            print("Please close the file and press ENTER to continue, or type 'x' to exit:")
-            user_input = input().strip().lower()
-            if user_input == 'x':
+            retries += 1
+            if retries > max_retries:
+                logger.error(f"❌ File '{os.path.basename(file_path)}' is not accessible after {max_retries} retries")
                 return False
+            logger.warning(f"⚠️  File '{os.path.basename(file_path)}' is open. Retrying in {retry_delay}s... ({retries}/{max_retries})")
+            time.sleep(retry_delay)
         return True
 
     def merge_to_excel(self, new_profiles: List[Dict[str, str]], destination_file: str) -> Tuple[int, int, int]:
@@ -262,28 +278,18 @@ class LinkedInProfilesDataOrchestratorDevTools:
         format_json_path = os.path.join(common_dir, "excel_format_spec.json")
 
         try:
-            # STEP 0: Ask if user wants to save format to JSON
-            logger.info("")
-            logger.info("=" * 80)
-            logger.info("STEP 0: Format saving option")
-            logger.info("=" * 80)
-            if os.path.exists(destination_file):
-                try:
-                    print("\nDo you want to save the Excel format to JSON? (y/n) [n]: \n", end='')
-                    user_input = input().strip().lower()
-                    if user_input == 'y':
-                        logger.info("💾 Saving Excel format to JSON...")
-                        success = save_excel_format_to_json(destination_file, format_json_path)
-                        if success:
-                            logger.info("✅ Format saved successfully")
-                        else:
-                            logger.warning("⚠️  Failed to save format, continuing anyway...")
-                    else:
-                        logger.info("⏭️  Skipping format save")
-                except EOFError:
-                    logger.info("⏭️  No input available - defaulting to 'n' (skip format save)")
-            else:
-                logger.info("ℹ️  Destination file doesn't exist yet - skipping format save")
+            # STEP 0: Optionally save format to JSON (controlled by --save-format flag)
+            if self.save_format and os.path.exists(destination_file):
+                logger.info("")
+                logger.info("=" * 80)
+                logger.info("STEP 0: Saving Excel format to JSON")
+                logger.info("=" * 80)
+                logger.info("💾 Saving Excel format to JSON...")
+                success = save_excel_format_to_json(destination_file, format_json_path)
+                if success:
+                    logger.info("✅ Format saved successfully")
+                else:
+                    logger.warning("⚠️  Failed to save format, continuing anyway...")
 
             # Setup keyboard listener for exit
             self.setup_keyboard_listener()
@@ -393,6 +399,39 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
 def main() -> None:
     """Main execution function."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="LinkedIn Profiles Data Orchestrator (DevTools Version)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    python linkedin_profiles_data_orchestrator_devtools.py --run
+    python linkedin_profiles_data_orchestrator_devtools.py --run --save-format
+    python linkedin_profiles_data_orchestrator_devtools.py --test
+        """
+    )
+    parser.add_argument(
+        '--run', '-r',
+        action='store_true',
+        help='Run full extraction and merge to Excel'
+    )
+    parser.add_argument(
+        '--save-format', '-s',
+        action='store_true',
+        help='Save Excel format to JSON before extraction'
+    )
+    parser.add_argument(
+        '--test', '-t',
+        action='store_true',
+        help='Run quick test (single profile)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Default to --run if no action specified
+    if not args.run and not args.test:
+        args.run = True
+    
     # Load configuration from the common directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     common_dir = os.path.join(os.path.dirname(script_dir), "common")
@@ -404,88 +443,19 @@ def main() -> None:
         logger.error(f"   Script directory: {script_dir}")
         return
 
-    # Initialize orchestrator
-    orchestrator = LinkedInProfilesDataOrchestratorDevTools(config_path)
+    # Initialize orchestrator with save_format option
+    orchestrator = LinkedInProfilesDataOrchestratorDevTools(config_path, save_format=args.save_format)
 
-    # Ask user what they want to do initially (with option 1 as default)
-    print("\nLinkedIn Profiles Data Orchestrator (DevTools Version)")
-    print("=" * 55)
-    print("1. Run full extraction and merge to Excel")
-    print("2. Run quick test (single profile)")
-    print("3. Exit")
-    print()
-
-    choice = None
     try:
-        user_input = input("Enter your choice (1-3) [1]: ").strip()
-        if not user_input:  # If user just presses Enter, default to '1'
-            choice = '1'
-        else:
-            choice = user_input
-
-        if choice == '1':
-            # Main loop for extraction with repeat option
-            while True:
-                print("\nRunning full extraction and merge to Excel...")
-                print()
-
-                try:
-                    # Run the full extraction and merge process
-                    orchestrator.run_extraction_and_merge()
-
-                    # Ask if user wants to repeat
-                    print("\n" + "="*80)
-                    print("EXTRACTION COMPLETE")
-                    print("="*80)
-
-                    # Loop until valid input (Enter to continue, 'x' to exit)
-                    while True:
-                        print("Press Enter to run another extraction, or 'x' to exit: ", end='')
-                        try:
-                            user_input = input().strip().lower()
-                            if user_input == 'x':
-                                print("Exiting...")
-                                return
-                            elif not user_input:  # Empty string (just Enter)
-                                break  # Continue the loop (run another extraction)
-                            else:
-                                # Invalid input, ask again
-                                continue
-                        except (KeyboardInterrupt, EOFError):
-                            print("\nExiting...")
-                            return
-
-                except KeyboardInterrupt:
-                    print("\nExiting...")
-                    return
-                except Exception as e:
-                    logger.error(f"❌ An error occurred: {e}")
-
-                    # Loop until valid input (Enter to continue, 'x' to exit)
-                    while True:
-                        print("Press Enter to try again, or 'x' to exit: ", end='')
-                        try:
-                            user_input = input().strip().lower()
-                            if user_input == 'x':
-                                print("Exiting...")
-                                return
-                            elif not user_input:  # Empty string (just Enter)
-                                break  # Continue the loop (try again)
-                            else:
-                                # Invalid input, ask again
-                                continue
-                        except (KeyboardInterrupt, EOFError):
-                            print("\nExiting...")
-                            return
-
-        elif choice == '2':
+        if args.run:
+            logger.info("🚀 Running full extraction and merge to Excel...")
+            orchestrator.run_extraction_and_merge()
+        elif args.test:
             orchestrator.run_quick_test()
-        elif choice == '3':
-            print("Exiting...")
-        else:
-            print("Invalid choice. Please enter 1, 2, or 3.")
-    except (KeyboardInterrupt, EOFError):
-        print("\nExiting...")
+    except KeyboardInterrupt:
+        logger.info("⏹️  Interrupted by user")
+    except Exception as e:
+        logger.error(f"❌ An error occurred: {e}")
 
 
 if __name__ == "__main__":

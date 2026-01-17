@@ -26,9 +26,15 @@ Shared utilities, dashboard, and configuration files used by all extraction meth
 ### 📁 [`devtools/`](./devtools/)
 Chrome DevTools Protocol-based extraction (recommended for reliability).
 
-- **Pros**: Direct DOM access, no clipboard operations, highly reliable
+- **Pros**: Direct DOM access, no clipboard operations, highly reliable, command-line interface
 - **Cons**: Requires Chrome debugging setup
-- **Best for**: Production use, large-scale extraction
+- **Best for**: Production use, large-scale extraction, automated workflows
+- **Recent Updates**: 
+  - Updated selectors for LinkedIn's new HTML structure (2026)
+  - Filters out hidden tracking pages (merchantpool, analytics)
+  - Command-line arguments (`--run`, `--save-format`, `--test`) instead of interactive prompts
+  - Direct tab iteration via DevTools API (no keyboard simulation)
+  - Streamlit integration with dedicated buttons for extraction and format saving
 
 ## 🚀 Quick Start
 
@@ -96,9 +102,19 @@ pip install pandas pynput requests websocket-client streamlit openpyxl
 ## 🔍 Workflow Overview
 
 1. **Setup**: Configure extraction parameters in `common/linkedin_profiles_data.json`
-2. **Extract**: Run DevTools extraction scripts on LinkedIn search results
-3. **Manage**: Use dashboard for data visualization and editing
-4. **Format**: Automatic Excel formatting with hyperlinks and styling
+2. **Launch Chrome**: Start Chrome in debug mode with `start_chrome_debug.bat`
+3. **Open LinkedIn Tabs**: Open multiple LinkedIn search result pages in Chrome tabs
+4. **Extract**: Run DevTools orchestrator - automatically processes all tabs
+5. **Auto-Merge**: Profiles are deduplicated and merged into Excel automatically
+6. **Format**: Automatic Excel formatting with hyperlinks and styling applied
+7. **Manage**: Use dashboard for data visualization and editing
+
+### Extraction Features
+- **Command-Line Interface**: Use `--run` and `--save-format` flags for non-interactive operation
+- **Smart filtering**: Automatically skips LinkedIn tracking/analytics pages
+- **Deduplication**: Skips profiles already in your Excel file (by name)
+- **Direct API access**: Connects to tabs via DevTools API (no keyboard simulation needed)
+- **Streamlit Integration**: Buttons in the dashboard for easy extraction and format saving
 
 ## 🐛 Troubleshooting
 
