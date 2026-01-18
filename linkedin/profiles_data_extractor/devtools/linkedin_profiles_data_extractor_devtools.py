@@ -20,12 +20,27 @@ import pandas as pd
 import win32gui
 import win32con
 from pynput import keyboard
+from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Configure logging to file only (INFO level) and console (WARNING+ only)
+log_file = Path(__file__).parent.parent / "logging.log"
+log_file.parent.mkdir(parents=True, exist_ok=True)
+
+# Create file handler for detailed logs
+file_handler = logging.FileHandler(log_file, encoding='utf-8')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+# Create console handler for warnings and errors only
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.WARNING)
+console_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+
+# Configure logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 
 class ChromeDevToolsClient:

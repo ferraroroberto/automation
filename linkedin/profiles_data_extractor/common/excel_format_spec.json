@@ -38,19 +38,19 @@
     "border": {
       "left": {
         "style": "thin",
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "right": {
         "style": "thin",
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "top": {
         "style": "thin",
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "bottom": {
         "style": "thin",
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       }
     },
     "number_format": "mm-dd-yy"
@@ -63,7 +63,7 @@
         "bold": false,
         "italic": false,
         "underline": null,
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "alignment": {
         "horizontal": "center",
@@ -81,7 +81,7 @@
         "top": null,
         "bottom": null
       },
-      "number_format": "mm-dd-yy"
+      "number_format": "dd/mm/yyyy"
     },
     "B": {
       "font": {
@@ -90,7 +90,7 @@
         "bold": false,
         "italic": false,
         "underline": null,
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "alignment": {
         "horizontal": "left",
@@ -112,10 +112,10 @@
     "C": {
       "font": {
         "name": "Calibri",
-        "size": 11.0,
+        "size": 12.0,
         "bold": false,
         "italic": false,
-        "underline": "single",
+        "underline": null,
         "color": "Values must be of type <class 'str'>"
       },
       "alignment": {
@@ -142,7 +142,7 @@
         "bold": false,
         "italic": false,
         "underline": null,
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "alignment": {
         "horizontal": "left",
@@ -164,10 +164,10 @@
     "E": {
       "font": {
         "name": "Calibri",
-        "size": 11.0,
+        "size": 12.0,
         "bold": false,
         "italic": false,
-        "underline": "single",
+        "underline": null,
         "color": "Values must be of type <class 'str'>"
       },
       "alignment": {
@@ -194,7 +194,7 @@
         "bold": false,
         "italic": false,
         "underline": null,
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "alignment": {
         "horizontal": "left",
@@ -213,33 +213,6 @@
         "bottom": null
       }
     },
-    "G": {
-      "font": {
-        "name": "Calibri",
-        "size": 11.0,
-        "bold": false,
-        "italic": false,
-        "underline": null,
-        "color": "Values must be of type <class 'str'>"
-      },
-      "alignment": {
-        "horizontal": "center",
-        "vertical": null,
-        "wrap_text": null
-      },
-      "fill": {
-        "fill_type": null,
-        "start_color": "00000000",
-        "end_color": "00000000"
-      },
-      "border": {
-        "left": null,
-        "right": null,
-        "top": null,
-        "bottom": null
-      },
-      "number_format": "mm/yyyy"
-    },
     "H": {
       "font": {
         "name": "Calibri",
@@ -247,7 +220,7 @@
         "bold": false,
         "italic": false,
         "underline": null,
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "alignment": {
         "horizontal": null,
@@ -273,7 +246,7 @@
         "bold": false,
         "italic": false,
         "underline": null,
-        "color": "Values must be of type <class 'str'>"
+        "color": null
       },
       "alignment": {
         "horizontal": null,
@@ -299,6 +272,32 @@
         "bold": false,
         "italic": false,
         "underline": null,
+        "color": null
+      },
+      "alignment": {
+        "horizontal": null,
+        "vertical": null,
+        "wrap_text": null
+      },
+      "fill": {
+        "fill_type": null,
+        "start_color": "00000000",
+        "end_color": "00000000"
+      },
+      "border": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      }
+    },
+    "K": {
+      "font": {
+        "name": "Calibri",
+        "size": 12.0,
+        "bold": false,
+        "italic": false,
+        "underline": null,
         "color": "Values must be of type <class 'str'>"
       },
       "alignment": {
@@ -319,6 +318,30 @@
       }
     },
     "L": {
+      "font": {
+        "name": "Calibri",
+        "size": 11.0,
+        "bold": false,
+        "italic": false,
+        "underline": null,
+        "color": "Values must be of type <class 'str'>"
+      },
+      "alignment": {
+        "horizontal": null,
+        "vertical": null,
+        "wrap_text": null
+      },
+      "fill": {
+        "fill_type": null,
+        "start_color": "00000000",
+        "end_color": "00000000"
+      },
+      "border": {
+        "left": null,
+        "right": null,
+        "top": null,
+        "bottom": null
+      },
       "number_format": "dd/mm/yyyy"
     },
     "N": {
