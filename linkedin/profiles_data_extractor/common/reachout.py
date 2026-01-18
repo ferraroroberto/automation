@@ -611,20 +611,6 @@ def main(df_filtered, df_all):
                         # Log history with original data for initial record
                         log_history(record_data, action="update", original_data=st.session_state.reachout_selected_record)
 
-                        # Automatically apply Excel formatting after saving
-                        json_path = Path(__file__).parent / "excel_format_spec.json"
-                        if json_path.exists():
-                            print("🎨 Applying Excel formatting...")
-                            try:
-                                if apply_excel_formatting(data_path, str(json_path)):
-                                    print("✅ Excel formatting applied successfully!")
-                                else:
-                                    print("❌ Failed to apply Excel formatting")
-                            except Exception as e:
-                                print(f"❌ Error applying Excel formatting: {e}")
-                        else:
-                            print("⚠️ Format specification file not found. Formatting not applied.")
-
                         # Clear selection and rerun
                         st.session_state.reachout_selected_record = None
                         st.session_state.reachout_original_name = None
@@ -673,20 +659,6 @@ def main(df_filtered, df_all):
                                     # Log history
                                     log_history(record_to_delete, action="delete")
 
-                                    # Automatically apply Excel formatting after saving
-                                    json_path = Path(__file__).parent / "excel_format_spec.json"
-                                    if json_path.exists():
-                                        print("🎨 Applying Excel formatting...")
-                                        try:
-                                            if apply_excel_formatting(data_path, str(json_path)):
-                                                print("✅ Excel formatting applied successfully!")
-                                            else:
-                                                print("❌ Failed to apply Excel formatting")
-                                        except Exception as e:
-                                            print(f"❌ Error applying Excel formatting: {e}")
-                                    else:
-                                        print("⚠️ Format specification file not found. Formatting not applied.")
-
                                     # Clear session state
                                     st.session_state.reachout_selected_record = None
                                     st.session_state.reachout_original_name = None
@@ -717,6 +689,33 @@ def main(df_filtered, df_all):
             st.dataframe(summary_df, width='stretch')
         else:
             st.warning("Required columns not found in data.")
+
+    # Manual formatting button at the bottom
+    st.divider()
+    st.subheader("🎨 Excel Formatting")
+    
+    col_format_info, col_format_btn = st.columns([3, 1])
+    
+    with col_format_info:
+        st.markdown("""
+        Apply Excel formatting to convert URLs to hyperlinks and format columns.
+        **Note:** This process takes ~60 seconds. Only click when you're done editing.
+        """)
+    
+    with col_format_btn:
+        if st.button("🎨 Apply Formatting", type="primary", use_container_width=True, key="reachout_format_btn"):
+            json_path = Path(__file__).parent / "excel_format_spec.json"
+            if not json_path.exists():
+                st.error("❌ Format specification file not found!")
+            else:
+                with st.spinner("Applying Excel formatting... This may take up to 60 seconds."):
+                    try:
+                        if apply_excel_formatting(data_path, str(json_path)):
+                            st.success("✅ Excel formatting applied successfully!")
+                        else:
+                            st.error("❌ Failed to apply Excel formatting. Check the logs for details.")
+                    except Exception as e:
+                        st.error(f"❌ Error applying Excel formatting: {e}")
 
 if __name__ == "__main__":
     main()

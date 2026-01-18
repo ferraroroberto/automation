@@ -100,7 +100,7 @@ def main():
     col_orch1, col_orch2 = st.columns(2)
 
     with col_orch1:
-        if st.button("🚀 Run extractor and merger", type="primary", use_container_width=True):
+        if st.button("🚀 Run extractor and merger (max 50 tabs)", type="primary", use_container_width=True):
             with st.spinner("Launching DevTools Orchestrator..."):
                 try:
                     # Path to the orchestrator batch file - use absolute path from project root
