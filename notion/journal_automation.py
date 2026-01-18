@@ -4,16 +4,17 @@
 
 # requirements: public
 import os
-import pandas as pd
+import requests
 from datetime import datetime, timedelta
 
 # requirements: custom functions
-from utils import read_params_from_txt_file
+from utils import load_json_config, load_env_variables
 
 # Global variable to store the adjusted date
 adjusted_date = None
 
 def get_adjusted_date(timedelta_value=None):
+    """Get the adjusted date for processing."""
     global adjusted_date
     
     if adjusted_date is not None:
@@ -35,99 +36,369 @@ def get_adjusted_date(timedelta_value=None):
     
     return adjusted_date
 
-def process_journal(journal_excel_path, journal_output_path, date_column, text_column, split_comma=True, file_suffix="journal"):
+def calculate_week_range(current_date):
     """
-    This function reads an Excel file, filters rows based on the date column, processes the text column, and writes the result to text file.
-
-    Parameters:
-    - journal_excel_path: Path to the Excel file.
-    - journal_output_path: Path to the directory where the output file will be saved.
-    - date_column: Name of the date column.
-    - text_column: Name of the text column.
-    - split_comma: If True, rows in the text column are split at commas. Default is True.
-    - file_prefix: Prefix for the name of the output file. Default is "journal".
+    Calculate the date range for the previous week (Monday to Sunday).
+    If today is Sunday, use today as the end date.
+    
+    Returns:
+        tuple: (start_date, end_date) as datetime objects
     """
+    # Check if today is Sunday (weekday() returns 6 for Sunday)
+    if current_date.weekday() == 6:  # Sunday
+        end_date = current_date
+    else:
+        # Calculate the previous Sunday
+        days_since_sunday = (current_date.weekday() + 1) % 7
+        if days_since_sunday == 0:
+            days_since_sunday = 7
+        end_date = current_date - timedelta(days=days_since_sunday)
+    
+    # Calculate Monday (6 days before Sunday)
+    start_date = end_date - timedelta(days=6)
+    
+    # Set to start and end of day
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    return start_date, end_date
 
-    # Use the new function to get the adjusted date
+def query_notion_database(database_id, headers, start_date, end_date, date_property):
+    """
+    Query Notion database for journal entries in the date range.
+    
+    Args:
+        database_id: Notion database ID
+        headers: API headers with authorization
+        start_date: Start date for filtering
+        end_date: End date for filtering
+        date_property: Name of the date property in Notion
+        
+    Returns:
+        List of page objects from Notion API
+    """
+    print(f"🔍 Querying Notion database...")
+    
+    # Convert dates to ISO format for Notion API
+    start_iso = start_date.isoformat()
+    end_iso = end_date.isoformat()
+    
+    filter_body = {
+        "filter": {
+            "and": [
+                {
+                    "property": date_property,
+                    "date": {
+                        "on_or_after": start_iso
+                    }
+                },
+                {
+                    "property": date_property,
+                    "date": {
+                        "on_or_before": end_iso
+                    }
+                }
+            ]
+        },
+        "sorts": [
+            {
+                "property": date_property,
+                "direction": "ascending"
+            }
+        ]
+    }
+    
+    pages = []
+    start_cursor = None
+    
+    while True:
+        if start_cursor:
+            filter_body["start_cursor"] = start_cursor
+        
+        try:
+            response = requests.post(
+                f"https://api.notion.com/v1/databases/{database_id}/query",
+                headers=headers,
+                json=filter_body
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            results = data.get('results', [])
+            
+            if not results:
+                break
+            
+            pages.extend(results)
+            print(f"📥 Retrieved {len(results)} entries (total: {len(pages)})")
+            
+            if not data.get('has_more', False):
+                break
+            
+            start_cursor = data.get('next_cursor')
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Notion API error: {e}")
+            if hasattr(e, 'response') and e.response:
+                print(f"📊 Status: {e.response.status_code}")
+                print(f"Response: {e.response.text[:500]}")
+            raise
+    
+    return pages
+
+def extract_property_value(properties, property_name):
+    """
+    Extract value from a Notion property.
+    
+    Args:
+        properties: Properties dict from Notion page
+        property_name: Name of the property to extract
+        
+    Returns:
+        String value or empty string if not found
+    """
+    prop = properties.get(property_name, {})
+    prop_type = prop.get('type')
+    
+    if not prop_type:
+        return ""
+    
+    # Handle different property types
+    if prop_type == 'title':
+        title_content = prop.get('title', [])
+        return ''.join([segment.get('plain_text', '') for segment in title_content]).strip()
+    
+    elif prop_type == 'rich_text':
+        rich_text_content = prop.get('rich_text', [])
+        return ''.join([segment.get('plain_text', '') for segment in rich_text_content]).strip()
+    
+    elif prop_type == 'multi_select':
+        options = prop.get('multi_select', [])
+        return ', '.join([opt.get('name', '') for opt in options])
+    
+    elif prop_type == 'select':
+        option = prop.get('select', {})
+        return option.get('name', '') if option else ""
+    
+    elif prop_type == 'checkbox':
+        return "✓" if prop.get('checkbox', False) else ""
+    
+    elif prop_type == 'date':
+        date_obj = prop.get('date', {})
+        if date_obj:
+            return date_obj.get('start', '')
+        return ""
+    
+    return ""
+
+def process_field_from_pages(pages, field_config):
+    """
+    Process a single field from the list of Notion pages.
+    
+    Args:
+        pages: List of Notion page objects
+        field_config: Configuration dictionary for this field
+        
+    Returns:
+        String containing processed data for this field with frequency counts
+    """
+    column_name = field_config['column']
+    split_comma = field_config.get('split_comma', False)
+    
+    # Extract all values for this field and count frequencies
+    value_counts = {}
+    for page in pages:
+        properties = page.get('properties', {})
+        value = extract_property_value(properties, column_name)
+        
+        if value and value != '[]':
+            if split_comma:
+                # Split on comma and add individual items
+                items = [item.strip() for item in value.split(',')]
+                for item in items:
+                    if item:
+                        value_counts[item] = value_counts.get(item, 0) + 1
+            else:
+                value_counts[value] = value_counts.get(value, 0) + 1
+    
+    # Format output with frequency counts
+    output_lines = []
+    for value, count in value_counts.items():
+        if count > 1:
+            output_lines.append(f"{value} ({count}x)")
+        else:
+            output_lines.append(value)
+    
+    # Join with newlines
+    return '\n'.join(output_lines)
+
+def process_checkboxes_from_pages(pages, checkbox_configs):
+    """
+    Process checkbox fields and count how many days they were checked.
+    
+    Args:
+        pages: List of Notion page objects
+        checkbox_configs: List of checkbox configuration dictionaries
+        
+    Returns:
+        String containing checkbox summary (e.g., "self-centered: 5 days out of 7")
+    """
+    total_days = len(pages)
+    checkbox_counts = {}
+    
+    # Count checked days for each checkbox
+    for checkbox_config in checkbox_configs:
+        column_name = checkbox_config['column']
+        checkbox_counts[column_name] = 0
+        
+        for page in pages:
+            properties = page.get('properties', {})
+            value = extract_property_value(properties, column_name)
+            
+            # If checkbox is checked, value will be "✓"
+            if value == "✓":
+                checkbox_counts[column_name] += 1
+    
+    # Format output
+    output_lines = []
+    for checkbox_config in checkbox_configs:
+        column_name = checkbox_config['column']
+        display_name = checkbox_config.get('display_name', column_name)
+        count = checkbox_counts.get(column_name, 0)
+        output_lines.append(f"{display_name}: {count} days out of {total_days}")
+    
+    return '\n'.join(output_lines)
+
+def process_journal_consolidated(config, env_vars):
+    """
+    Process journal entries from Notion API and create consolidated output.
+    
+    Args:
+        config: Configuration dictionary loaded from JSON file
+        env_vars: Environment variables dictionary
+    """
+    
+    # Get the adjusted date
     current_date = get_adjusted_date()
-
-    # Load the Excel file into a pandas DataFrame
-    print(f"📂 Loading Excel file: {journal_excel_path}")
-    df = pd.read_excel(journal_excel_path)
-
-    # Calculate the date of the previous Sunday
-    days_since_sunday = (current_date.weekday() - 6) % 7
-    previous_sunday = current_date - timedelta(days=days_since_sunday)
-
-    # Calculate the date of the Monday before the previous Sunday
-    one_week_ago = previous_sunday - timedelta(days=6)
-    print(f"📅 Date range: {one_week_ago.strftime('%Y-%m-%d')} to {previous_sunday.strftime('%Y-%m-%d')}")
-
-    # Fix potential time discrepancies by setting time to start of the day
-    one_week_ago = one_week_ago.replace(hour=0, minute=0, second=0, microsecond=0)
-    previous_sunday = previous_sunday.replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Convert date column to datetime
-    df[date_column] = pd.to_datetime(df[date_column])
-
-    # Sort the DataFrame by date column, default is ascending
-    df = df.sort_values(date_column)
-
-    # Select the rows between the one week ago date and the previous sunday
-    df = df[(df[date_column] >= one_week_ago) & (df[date_column] <= previous_sunday)]
-    print(f"📊 Filtered {len(df)} rows for date range")
-
-    # Select the text column
-    df = df[text_column]
-
-    if split_comma:
-        # Split the text column rows on commas and expand into new DataFrame
-        print("🔀 Splitting text on commas...")
-        df = df.str.split(',', expand=True).stack().reset_index(drop=True)
-
-    # Filter out rows that contain only '[]'
-    df = df[df != '[]']
-
-    # Drop duplicates while preserving the original order
-    print("🔍 Removing duplicates...")
-    df = df.drop_duplicates(keep='first')
-
-    # Set max column width to None to avoid cutting off strings
-    pd.set_option('display.max_colwidth', None)
-
-    # Convert the DataFrame to a string, with rows separated by line carriages
-    # Then, remove leading and trailing spaces from each line individually
-    data_string = "\n".join(line.strip() for line in df.to_string(index=False, header=False).split('\n'))
-
-    # Handle "\n" to interpret as a line carriage
-    data_string = data_string.replace("\\n", "\n")
-
-    # Handle "NaN" to interpret as "null" and skip that text altogether
-    data_string = data_string.replace("NaN", "")
-
-    # Filter out lines that are now empty due to NaN replacement
-    data_string = "\n".join([line for line in data_string.split("\n") if line.strip()])
-
-    # Create the output file name using the start and end dates
-    output_file_name = f"{one_week_ago.strftime('%Y-%m-%d')} to {previous_sunday.strftime('%Y-%m-%d')}-{file_suffix}.txt"
-
-    # Save the data string to a text file at the specified directory, using a path.join method
-    output_path = os.path.join(journal_output_path, output_file_name)
-    print(f"📝 Writing output file: {output_file_name}")
-    with open(output_path, 'w') as file:
-        file.write(data_string)
-
+    
+    # Calculate date range
+    start_date, end_date = calculate_week_range(current_date)
+    
+    print(f"📅 Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+    
+    # Setup Notion API credentials
+    notion_api_key = env_vars.get('notion_api_token')
+    if not notion_api_key:
+        raise ValueError("❌ NOTION_API_TOKEN not found in environment variables")
+    
+    headers = {
+        'Authorization': f'Bearer {notion_api_key}',
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json'
+    }
+    
+    # Get database configuration
+    database_id = config['input']['database_id']
+    date_property = config['input'].get('date_property', 'Date')
+    
+    # Query Notion database
+    pages = query_notion_database(database_id, headers, start_date, end_date, date_property)
+    
+    print(f"📊 Retrieved {len(pages)} journal entries for date range")
+    
+    if len(pages) == 0:
+        print("⚠️  No entries found for this date range")
+        return None
+    
+    # Build consolidated output
+    output_sections = []
+    
+    # Calculate week number (ISO week number)
+    week_number = start_date.isocalendar()[1]
+    
+    # Add header
+    output_sections.append("=" * 80)
+    output_sections.append(f"WEEKLY JOURNAL SUMMARY - WEEK # {week_number}")
+    output_sections.append(f"Period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+    output_sections.append("=" * 80)
+    output_sections.append("")
+    
+    # Process each field
+    for field in config['fields']:
+        section_title = field.get('section_title', field['name'].upper())
+        description = field.get('description', '')
+        
+        print(f"🔄 Processing field: {section_title}")
+        
+        field_data = process_field_from_pages(pages, field)
+        
+        if field_data:  # Only add section if there's data
+            output_sections.append("-" * 80)
+            output_sections.append(f"{section_title}")
+            if description:
+                output_sections.append(f"({description})")
+            output_sections.append("-" * 80)
+            output_sections.append(field_data)
+            output_sections.append("")
+        else:
+            print(f"⚠️  No data found for field: {section_title}")
+    
+    # Process checkboxes if configured
+    if 'checkboxes' in config and config['checkboxes']:
+        print(f"🔄 Processing checkboxes")
+        checkbox_data = process_checkboxes_from_pages(pages, config['checkboxes'])
+        
+        if checkbox_data:
+            output_sections.append("-" * 80)
+            output_sections.append("DAILY PRACTICES")
+            output_sections.append("(Days practiced this week)")
+            output_sections.append("-" * 80)
+            output_sections.append(checkbox_data)
+            output_sections.append("")
+    
+    # Combine all sections
+    consolidated_output = "\n".join(output_sections)
+    
+    # Create output filename
+    output_dir = config['output']['directory']
+    filename_pattern = config['output']['filename_pattern']
+    output_filename = filename_pattern.format(
+        start_date=start_date.strftime('%Y-%m-%d'),
+        end_date=end_date.strftime('%Y-%m-%d')
+    )
+    
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Save to file
+    output_path = os.path.join(output_dir, output_filename)
+    print(f"📝 Writing consolidated output: {output_filename}")
+    
+    with open(output_path, 'w', encoding='utf-8') as file:
+        file.write(consolidated_output)
+    
     print(f"✅ Saved: {output_path}")
+    print(f"📄 Total characters: {len(consolidated_output)}")
+    
+    return output_path
 
 # Main execution
-params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
-print("📂 Loading parameters...")
-params = read_params_from_txt_file(params_file_path)
-print("✅ Parameters loaded")
-
-print("\n🚀 Processing journal entries...")
-process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_GRATITUDE", True, "gratitude")
-process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_WORK", False, "work")
-process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_PERSONAL", False, "personal")
-process_journal(params['journal_excel_path'], params['journal_output_path'], "D_JOURNAL", "TXT_LEARN", False, "learning")
-print("\n✅ All journal processing completed")
+if __name__ == "__main__":
+    # Load configuration
+    config_path = os.path.join(os.path.dirname(__file__), "journal_automation.json")
+    print("📂 Loading configuration...")
+    config = load_json_config(config_path)
+    
+    # Load environment variables
+    print("🔐 Loading environment variables...")
+    env_vars = load_env_variables()
+    
+    print("\n🚀 Processing journal entries...")
+    output_path = process_journal_consolidated(config, env_vars)
+    
+    if output_path:
+        print("\n✅ Journal processing completed!")
+        print(f"📁 Output file: {output_path}")
+        print("\n💡 Tip: You can now use this consolidated file to prompt an LLM for weekly summary analysis.")
+    else:
+        print("\n⚠️  No output generated (no entries found)")
