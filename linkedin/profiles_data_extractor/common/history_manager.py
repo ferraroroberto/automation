@@ -200,9 +200,18 @@ def log_history(record_data, action="update", original_data=None):
 
         # Create DataFrames for all rows to add
         if rows_to_add:
-            new_rows_df = pd.DataFrame(rows_to_add)[expected_columns]
+            # Create new_rows_df ensuring it has the same structure as history_df
+            new_rows_df = pd.DataFrame(rows_to_add, columns=expected_columns)
 
-            # Concatenate with existing history
+            # To avoid FutureWarning about empty/all-NA columns and ensure consistent dtypes,
+            # we always convert all columns to object dtype before concatenation.
+            # This ensures consistent behavior whether history_df is empty or not.
+            for col in expected_columns:
+                if col in history_df.columns:
+                    history_df[col] = history_df[col].astype('object')
+                if col in new_rows_df.columns:
+                    new_rows_df[col] = new_rows_df[col].astype('object')
+            
             updated_history_df = pd.concat([history_df, new_rows_df], ignore_index=True)
 
             # Save back to Excel
