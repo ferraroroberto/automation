@@ -187,7 +187,7 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['date_contacted', 'date_connected', 'date_revocation']
+        date_columns = ['date_contacted', 'date_connected', 'date_revocation', 'date_discarded']
         for col in date_columns:
             if col not in df.columns:
                 df[col] = pd.NaT  # Create missing column
@@ -264,16 +264,30 @@ def main(df_filtered, df_all):
 
     # Filter to only show uncontacted profiles (day is null) from the already filtered data
     # Create view selector
-    view_mode = st.radio("View Mode", ["Uncontacted Profiles", "Revoked Contacts"], horizontal=True)
+    view_mode = st.radio("View Mode", ["Uncontacted Profiles", "Revoked Contacts", "Discarded Contacts"], horizontal=True)
 
     if view_mode == "Uncontacted Profiles":
-        uncontacted_df = df_filtered[df_filtered['date_contacted'].isna()].copy() if 'date_contacted' in df_filtered.columns else df_filtered.copy()
+        # Filter for profiles that are not contacted AND not discarded
+        if 'date_contacted' in df_filtered.columns and 'date_discarded' in df_filtered.columns:
+            uncontacted_df = df_filtered[df_filtered['date_contacted'].isna() & df_filtered['date_discarded'].isna()].copy()
+        elif 'date_contacted' in df_filtered.columns:
+            uncontacted_df = df_filtered[df_filtered['date_contacted'].isna()].copy()
+        else:
+            uncontacted_df = df_filtered.copy()
         
         # Filter out records that are actually revoked (have a revocation date)
         if 'date_revocation' in uncontacted_df.columns:
              # Just to be safe, though they shouldn't have a 'date_contacted' anyway
              pass
              
+    elif view_mode == "Discarded Contacts":
+        # Filter for profiles that have been discarded (no timeframe filter)
+        if 'date_discarded' in df_filtered.columns:
+            uncontacted_df = df_filtered[df_filtered['date_discarded'].notna()].copy()
+        else:
+            uncontacted_df = pd.DataFrame()
+            st.warning("Discarded date column missing from data.")
+            
     else: # Revoked Contacts
         if 'date_revocation' in df_filtered.columns and 'date_contacted' in df_filtered.columns:
             # Filter where date_revocation is present AND date_revocation > date_contacted
@@ -284,7 +298,7 @@ def main(df_filtered, df_all):
             mask = (df_filtered['date_contacted'].notna()) & (df_filtered['date_revocation'].notna()) & (df_filtered['date_revocation'] > df_filtered['date_contacted'])
             uncontacted_df = df_filtered[mask].copy()
             
-            # Aging Filters for Revoked Contacts
+            # Aging Filters for Revoked Contacts (not for Discarded Contacts)
             st.write("🕒 **Aging Filter** (Time since revocation)")
             col_age1, col_age2, col_age3, col_age4 = st.columns(4)
             
@@ -312,12 +326,19 @@ def main(df_filtered, df_all):
     if uncontacted_df.empty:
         if view_mode == "Uncontacted Profiles":
             st.info("🎉 All profiles have been contacted! No reachout targets remaining.")
+        elif view_mode == "Discarded Contacts":
+            st.info("No discarded contacts found.")
         else:
             st.info("No revoked contacts found matching criteria.")
         return
 
     # Add horizontal bar chart showing uncontacted people by company at the top
-    chart_title = "Uncontacted Profiles" if view_mode == "Uncontacted Profiles" else "Revoked Contacts"
+    if view_mode == "Uncontacted Profiles":
+        chart_title = "Uncontacted Profiles"
+    elif view_mode == "Discarded Contacts":
+        chart_title = "Discarded Contacts"
+    else:
+        chart_title = "Revoked Contacts"
     st.subheader(f"📈 {chart_title} by Company")
 
     # Create stacked bar chart by company and search_type
@@ -457,15 +478,16 @@ def main(df_filtered, df_all):
                     'search_type': row.get('search_type', ''),
                     'url_profile': row.get('url_profile', ''),
                     'reach_out_type': row.get('reach_out_type', ''),
-                    'date_revocation': row.get('date_revocation', None)
+                    'date_revocation': row.get('date_revocation', None),
+                    'date_discarded': row.get('date_discarded', None)
                 }
                 st.session_state.reachout_original_name = name
                 st.session_state.reachout_editing = True
                 st.rerun()
 
     with col_edit:
-        # Header with Edit Profile and Open Profile link
-        col_header, col_link = st.columns([3, 1])
+        # Header with Edit Profile, Open Profile link, and Discard button
+        col_header, col_link, col_discard = st.columns([2, 1, 1])
         with col_header:
             st.subheader("✏️ Edit Profile")
         with col_link:
@@ -473,6 +495,33 @@ def main(df_filtered, df_all):
                 profile_url = st.session_state.reachout_selected_record.get('url_profile', '')
                 if profile_url:
                     st.markdown(f'<a href="{profile_url}" target="_blank" style="text-decoration: none;"><button style="background-color: #0077b5; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">🔗 Open Profile</button></a>', unsafe_allow_html=True)
+        with col_discard:
+            if st.session_state.reachout_editing and st.session_state.reachout_selected_record:
+                if st.button("🗑️ Discard", key="discard_profile_btn", help="Mark this profile as discarded", use_container_width=True):
+                    # Update date_discarded to today
+                    record_data = st.session_state.reachout_selected_record.copy()
+                    record_data['date_discarded'] = pd.Timestamp.now()
+                    
+                    # Update existing record in the dataframe
+                    updated_df, action = update_existing_record(df_all, st.session_state.reachout_original_name, record_data)
+                    
+                    if action == "not_found":
+                        st.error("❌ Original record not found. It may have been deleted.")
+                    else:
+                        # Save to Excel
+                        if save_to_excel(updated_df, data_path):
+                            st.success("✅ Profile discarded successfully!")
+                            
+                            # Log history with action "discard"
+                            log_history(record_data, action="discard", original_data=st.session_state.reachout_selected_record)
+                            
+                            # Clear selection and rerun
+                            st.session_state.reachout_selected_record = None
+                            st.session_state.reachout_original_name = None
+                            st.session_state.reachout_editing = False
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save changes!")
 
         if st.session_state.reachout_editing and st.session_state.reachout_selected_record:
             record = st.session_state.reachout_selected_record
@@ -512,6 +561,26 @@ def main(df_filtered, df_all):
                 if pd.notna(revocation_val):
                     rev_str = revocation_val.strftime('%Y-%m-%d') if hasattr(revocation_val, 'strftime') else str(revocation_val)
                     st.warning(f"⚠️ This contact was revoked on {rev_str}. Updating the 'Day Contacted' will clear the revocation date.")
+
+                # Handle date_discarded field - convert to date if it's not None/NaT
+                date_discarded_value = record.get('date_discarded', '')
+                if pd.notna(date_discarded_value) and date_discarded_value != '':
+                    try:
+                        # Convert to datetime.date if it's a pandas Timestamp
+                        if hasattr(date_discarded_value, 'date'):
+                            date_discarded_value = date_discarded_value.date()
+                        elif isinstance(date_discarded_value, str):
+                            date_discarded_value = pd.to_datetime(date_discarded_value).date()
+                    except:
+                        date_discarded_value = None
+                else:
+                    date_discarded_value = None
+
+                date_discarded = st.date_input(
+                    "Date Discarded",
+                    value=date_discarded_value,
+                    help="Date when this profile was discarded (leave empty if not discarded)"
+                )
 
                 # Get distinct reach out types from the full dataframe
                 reachout_types = ['']  # Start with empty option
@@ -571,6 +640,7 @@ def main(df_filtered, df_all):
 
                     # Prepare record data
                     final_day = pd.Timestamp(day) if day else pd.NaT
+                    final_date_discarded = pd.Timestamp(date_discarded) if date_discarded else pd.NaT
                     
                     # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
                     original_day = st.session_state.reachout_selected_record.get('date_contacted')
@@ -594,7 +664,8 @@ def main(df_filtered, df_all):
                         'search_type': search_type.strip(),
                         'url_profile': url.strip(),
                         'reach_out_type': reach_out_type.strip() if reach_out_type else '',
-                        'date_revocation': revocation_update
+                        'date_revocation': revocation_update,
+                        'date_discarded': final_date_discarded
                     }
 
                     # Update existing record
