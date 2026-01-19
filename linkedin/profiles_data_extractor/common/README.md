@@ -12,6 +12,8 @@ The common components provide the core infrastructure and user interface for the
 |------|---------|
 | `dashboard.py` | Streamlit dashboard for data visualization and analytics |
 | `dataentry.py` | Interactive data entry interface with intelligent search |
+| `reachout.py` | Reachout manager for uncontacted, revoked, and discarded contacts |
+| `history_manager.py` | History tracking and audit logging for all record changes |
 | `excel_format_manager.py` | Excel formatting, hyperlink conversion, and styling utilities |
 | `linkedin_profiles_data.json` | Configuration file with extraction settings and paths |
 | `excel_format_spec.json` | Excel formatting specifications and styling rules |
@@ -39,7 +41,7 @@ Tests Excel formatting and hyperlink functionality.
 
 ## 🔍 Data Entry Features
 
-The data entry interface (`dataentry.py`) provides powerful search and editing capabilities:
+The data entry interface (`dataentry.py`) and reachout manager (`reachout.py`) provide powerful search and editing capabilities:
 
 ### Intelligent Search
 - **Multi-word search**: Search for multiple terms simultaneously (e.g., `"ana izq"`)
@@ -54,8 +56,13 @@ The data entry interface (`dataentry.py`) provides powerful search and editing c
 
 ### Data Management
 - Edit profile names, connection dates, response status, and chat URLs
+- Manage date fields: Contacted, Connected, Revocation, and Discarded dates
+- Clear checkboxes for each date field for quick reset
+- Discard profiles to hide them from uncontacted view
+- Filter by Uncontacted, Revoked, or Discarded contacts
 - Automatic Excel formatting after saves (hyperlinks, styling)
 - Real-time validation and error handling
+- History tracking for all record changes (create, update, delete, discard)
 
 ### Search Examples
 ```
@@ -104,9 +111,16 @@ Final scores include bonuses for:
 
 Expected Excel columns:
 - `name`: Full profile name (string)
-- `date connected`: Connection date (datetime)
-- `answered`: Response status (0/1 integer)
-- `chat_url`: LinkedIn chat URL (string)
+- `date_contacted`: Date when contact was made (datetime)
+- `date_connected`: Connection date (datetime)
+- `date_revocation`: Date when contact was revoked (datetime)
+- `date_discarded`: Date when profile was discarded (datetime)
+- `ind_answered`: Response status (0/1 integer)
+- `url_chat`: LinkedIn chat URL (string)
+- `company`: Company name (string)
+- `job_title`: Job title/position (string)
+- `location`: Location/city (string)
+- `reach_out_type`: Type of reachout made (string)
 
 ## 🔧 Dependencies
 

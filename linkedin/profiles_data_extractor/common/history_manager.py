@@ -52,7 +52,8 @@ def migrate_history_columns(history_df):
     expected_columns = [
         'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
         'url_profile', 'job_title', 'follows_from', 'company', 'location',
-        'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
+        'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
+        'date_discarded'
     ]
 
     # Add missing columns with None values
@@ -79,7 +80,8 @@ def ensure_history_file_exists():
             df = pd.DataFrame(columns=[
                 'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
                 'url_profile', 'job_title', 'follows_from', 'company', 'location',
-                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
+                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
+                'date_discarded'
             ])
 
             # Save empty dataframe
@@ -99,7 +101,8 @@ def ensure_history_file_exists():
             expected_columns = [
                 'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
                 'url_profile', 'job_title', 'follows_from', 'company', 'location',
-                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
+                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
+                'date_discarded'
             ]
 
             # Check if migration is needed
@@ -144,7 +147,8 @@ def log_history(record_data, action="update", original_data=None):
         expected_columns = [
             'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
             'url_profile', 'job_title', 'follows_from', 'company', 'location',
-            'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation'
+            'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
+            'date_discarded'
         ]
 
         # Ensure history_df has all expected columns
