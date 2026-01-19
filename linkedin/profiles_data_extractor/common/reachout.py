@@ -217,8 +217,26 @@ def update_existing_record(df, original_name, record_data):
     if existing_mask.any():
         # Update existing record
         idx = df[existing_mask].index[0]
+        # Define date columns that need special handling
+        date_columns = ['date_contacted', 'date_connected', 'date_revocation', 'date_discarded']
+        
         for key, value in record_data.items():
             if key in df.columns:
+                # Handle date columns: ensure proper dtype conversion
+                if key in date_columns:
+                    # Convert value to datetime if it's not already NaT/None
+                    if pd.notna(value) and value != '':
+                        # Ensure the column is datetime dtype
+                        if not pd.api.types.is_datetime64_any_dtype(df[key]):
+                            df[key] = pd.to_datetime(df[key], errors='coerce')
+                        # Convert value to Timestamp
+                        if isinstance(value, str):
+                            value = pd.to_datetime(value, errors='coerce')
+                        elif not isinstance(value, pd.Timestamp):
+                            value = pd.Timestamp(value) if value else pd.NaT
+                    else:
+                        value = pd.NaT
+                
                 df.at[idx, key] = value
         return df, "updated"
     else:
