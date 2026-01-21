@@ -1,0 +1,17 @@
+{
+  "default_directory": "E:\\onedrive\\Documentos\\Roberto\\areas\\finance\\stripe",
+  "file_new": "unified_payments_all.csv",
+  "file_old": "unified_payments_all_old.csv",
+  "columns_to_keep": [
+    "id",
+    "Created date (UTC)",
+    "Currency",
+    "Converted Amount",
+    "Converted Amount Refunded",
+    "Description",
+    "Fee"
+  ],
+  "date_column": "Created date (UTC)",
+  "filter_by_quarter": true,
+  "output_file": "filtered_payments.xlsx"
+}

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import pandas as pd
 import streamlit as st
+import openpyxl
 
 # Import history manager functions
 from history_manager import get_history_file_path
@@ -41,6 +42,46 @@ def load_history_data():
     except Exception as e:
         st.error(f"Error loading history file: {e}")
         return None
+
+
+def delete_history_records(indices_to_delete):
+    """
+    Delete specific records from the history Excel file by their original indices.
+    
+    Args:
+        indices_to_delete: List of original DataFrame indices to delete
+        
+    Returns:
+        Tuple of (success: bool, message: str)
+    """
+    history_path = get_history_file_path()
+    if not history_path or not os.path.exists(history_path):
+        return False, "History file not found"
+    
+    try:
+        # Load the raw history file (unsorted)
+        df = pd.read_excel(history_path, engine='openpyxl')
+        
+        # Ensure we have valid indices
+        valid_indices = [idx for idx in indices_to_delete if idx in df.index]
+        
+        if not valid_indices:
+            return False, "No valid records to delete"
+        
+        # Drop the selected rows
+        df = df.drop(valid_indices)
+        
+        # Reset index after deletion
+        df = df.reset_index(drop=True)
+        
+        # Save back to Excel
+        with pd.ExcelWriter(history_path, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='History', index=False)
+        
+        return True, f"Successfully deleted {len(valid_indices)} record(s)"
+    
+    except Exception as e:
+        return False, f"Error deleting records: {e}"
 
 def fuzzy_search_names(df, search_query, max_results=50):
     """
@@ -228,14 +269,82 @@ def main():
                 if pd.notna(latest_update):
                     st.metric("Latest Update", latest_update.strftime("%Y-%m-%d %H:%M"))
 
-            # Show recent activity
+            # Show recent activity with multi-select for deletion
             st.subheader("🕐 Recent Activity")
-            recent_df = history_df.head(10)[['timestamp', 'action', 'name', 'company']].copy()
-            # Convert to datetime and format valid timestamps only
-            valid_timestamps = pd.to_datetime(recent_df['timestamp'], errors='coerce')
+            
+            # Get recent records with their original indices preserved
+            recent_df = history_df.head(50)[['timestamp', 'action', 'name', 'company']].copy()
+            
+            # Store original indices for deletion
+            original_indices = recent_df.index.tolist()
+            
+            # Format timestamps for display
+            display_recent_df = recent_df.copy()
+            valid_timestamps = pd.to_datetime(display_recent_df['timestamp'], errors='coerce')
             mask = valid_timestamps.notna()
-            recent_df.loc[mask, 'timestamp'] = valid_timestamps.loc[mask].dt.strftime("%Y-%m-%d %H:%M")
-            st.dataframe(recent_df, width='stretch')
+            # Ensure the column is object type before assigning formatted strings
+            display_recent_df['timestamp'] = display_recent_df['timestamp'].astype(object)
+            display_recent_df.loc[mask, 'timestamp'] = valid_timestamps.loc[mask].dt.strftime("%Y-%m-%d %H:%M")
+            
+            # Add a selection column at the beginning
+            display_recent_df.insert(0, 'Select', False)
+            
+            # Reset index for display but keep track of original indices
+            display_recent_df = display_recent_df.reset_index(drop=True)
+            
+            # Create the editable dataframe with checkboxes
+            edited_df = st.data_editor(
+                display_recent_df,
+                column_config={
+                    "Select": st.column_config.CheckboxColumn(
+                        "Select",
+                        help="Select rows to delete",
+                        default=False,
+                    ),
+                    "timestamp": st.column_config.TextColumn("Timestamp", disabled=True),
+                    "action": st.column_config.TextColumn("Action", disabled=True),
+                    "name": st.column_config.TextColumn("Name", disabled=True),
+                    "company": st.column_config.TextColumn("Company", disabled=True),
+                },
+                disabled=["timestamp", "action", "name", "company"],
+                hide_index=True,
+                width='stretch',
+                key="recent_activity_editor"
+            )
+            
+            # Get selected rows
+            selected_mask = edited_df['Select'] == True
+            selected_count = selected_mask.sum()
+            
+            # Delete button section
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                delete_button = st.button(
+                    f"🗑️ Delete Selected ({selected_count})",
+                    disabled=selected_count == 0,
+                    type="primary" if selected_count > 0 else "secondary",
+                    key="delete_history_button"
+                )
+            
+            with col2:
+                if selected_count > 0:
+                    st.caption(f"⚠️ {selected_count} record(s) selected for deletion")
+            
+            # Handle deletion
+            if delete_button and selected_count > 0:
+                # Get the original indices of selected rows
+                selected_display_indices = edited_df[selected_mask].index.tolist()
+                indices_to_delete = [original_indices[i] for i in selected_display_indices]
+                
+                # Confirm deletion
+                success, message = delete_history_records(indices_to_delete)
+                
+                if success:
+                    st.success(message)
+                    # Rerun to refresh the data
+                    st.rerun()
+                else:
+                    st.error(message)
 
     else:
         if search_name:

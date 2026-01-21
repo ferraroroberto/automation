@@ -36,7 +36,7 @@ def load_excel_data(file_path):
         df = pd.read_excel(file_path)
 
         # Ensure date columns are datetime
-        date_columns = ['date_contacted', 'date_connected', 'date_revocation']
+        date_columns = ['date_contacted', 'date_connected', 'date_revocation', 'date_discarded']
         for col in date_columns:
             if col not in df.columns:
                 df[col] = pd.NaT  # Create missing column
@@ -349,6 +349,7 @@ def main():
                     'location': selected_row.get('location', ''),
                     'date_contacted': selected_row.get('date_contacted', None),
                     'date_revocation': selected_row.get('date_revocation', None),
+                    'date_discarded': selected_row.get('date_discarded', None),
                     'reach_out_type': reachout_type_value
                 }
                 st.session_state.original_name = selected_row.get('name', '')
@@ -392,12 +393,12 @@ def main():
                     help="0 = Not answered, 1 = Answered"
                 )
 
-            # Second row: Date Contacted, Clear Contacted, Date Connected, Clear Connected (4 parts on same line)
-            col_contacted, col_clear_contacted, col_connected, col_clear_connected = st.columns(4)
+            # Second row: All four date fields with clear checkboxes (8 columns total)
+            col_contacted, col_clear_contacted, col_connected, col_clear_connected, col_revocation, col_clear_revocation, col_discarded, col_clear_discarded = st.columns(8)
 
             with col_contacted:
                 day_contacted = st.date_input(
-                    "Date Contacted",
+                    "Contacted",
                     value=st.session_state.selected_record.get('date_contacted') if pd.notna(st.session_state.selected_record.get('date_contacted')) else None,
                     help="Date when the contact was made"
                 )
@@ -411,7 +412,7 @@ def main():
 
             with col_connected:
                 date_connected = st.date_input(
-                    "Date Connected",
+                    "Connected",
                     value=st.session_state.selected_record.get('date_connected') if pd.notna(st.session_state.selected_record.get('date_connected')) else None,
                     help="Date when the connection was made"
                 )
@@ -423,12 +424,9 @@ def main():
                     help="Clear the date connected field"
                 )
 
-            # Third row: Revocation Date (new) and LinkedIn Chat URL
-            col_revocation, col_clear_revocation, col_chat_url = st.columns([2, 1, 3])
-            
             with col_revocation:
                 revocation_date = st.date_input(
-                    "Revocation Date",
+                    "Revocation",
                     value=st.session_state.selected_record.get('date_revocation') if pd.notna(st.session_state.selected_record.get('date_revocation')) else None,
                     help="Date when the contact was revoked"
                 )
@@ -440,12 +438,26 @@ def main():
                     help="Clear the revocation date"
                 )
 
-            with col_chat_url:
-                chat_url = st.text_input(
-                    "LinkedIn Chat URL",
-                    value=st.session_state.selected_record.get('url_chat', ''),
-                    help="URL to the LinkedIn chat/messaging thread"
+            with col_discarded:
+                date_discarded = st.date_input(
+                    "Discarded",
+                    value=st.session_state.selected_record.get('date_discarded') if pd.notna(st.session_state.selected_record.get('date_discarded')) else None,
+                    help="Date when the profile was discarded"
                 )
+
+            with col_clear_discarded:
+                clear_discarded = st.checkbox(
+                    "Clear",
+                    key="clear_discarded",
+                    help="Clear the discarded date"
+                )
+
+            # Third row: LinkedIn Chat URL
+            chat_url = st.text_input(
+                "LinkedIn Chat URL",
+                value=st.session_state.selected_record.get('url_chat', ''),
+                help="URL to the LinkedIn chat/messaging thread"
+            )
 
             # Fourth row: Company and Reachout Type (same line)
             col_company, col_reachout = st.columns(2)
@@ -513,6 +525,7 @@ def main():
                 final_date_connected = None if clear_connected else (pd.Timestamp(date_connected) if date_connected else None)
                 final_day_contacted = None if clear_contacted else (pd.Timestamp(day_contacted) if day_contacted else None)
                 final_revocation_date = None if clear_revocation else (pd.Timestamp(revocation_date) if revocation_date else None)
+                final_date_discarded = None if clear_discarded else (pd.Timestamp(date_discarded) if date_discarded else None)
 
                 # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
                 original_day = st.session_state.selected_record.get('date_contacted')
@@ -532,6 +545,7 @@ def main():
                     'location': location.strip() if location else None,
                     'date_contacted': final_day_contacted,
                     'date_revocation': final_revocation_date,
+                    'date_discarded': final_date_discarded,
                     'reach_out_type': reach_out_type.strip() if reach_out_type else None
                 }
 
@@ -549,20 +563,6 @@ def main():
                     # Log history with original data for initial record
                     log_history(record_data, action="update", original_data=st.session_state.selected_record)
 
-                    # Automatically apply Excel formatting after saving
-                    json_path = Path(__file__).parent / "excel_format_spec.json"
-                    if json_path.exists():
-                        print("🎨 Applying Excel formatting...")
-                        try:
-                            if apply_excel_formatting(data_path, str(json_path)):
-                                print("✅ Excel formatting applied successfully!")
-                            else:
-                                print("❌ Failed to apply Excel formatting")
-                        except Exception as e:
-                            print(f"❌ Error applying Excel formatting: {e}")
-                    else:
-                        print("⚠️ Format specification file not found. Formatting not applied.")
-
                     # Clear selection and rerun
                     st.session_state.selected_record = None
                     st.session_state.original_name = None
@@ -571,6 +571,33 @@ def main():
                     st.error("❌ Failed to save changes!")
     else:
         st.info("👆 Please select a record from Step 2 to edit its data.")
+
+    # Step 4: Manual formatting button
+    st.divider()
+    st.subheader("🎨 Excel Formatting")
+    
+    col_format_info, col_format_btn = st.columns([3, 1])
+    
+    with col_format_info:
+        st.markdown("""
+        Apply Excel formatting to convert URLs to hyperlinks and format columns.
+        **Note:** This process takes ~60 seconds. Only click when you're done editing.
+        """)
+    
+    with col_format_btn:
+        if st.button("🎨 Apply Formatting", type="primary", use_container_width=True):
+            json_path = Path(__file__).parent / "excel_format_spec.json"
+            if not json_path.exists():
+                st.error("❌ Format specification file not found!")
+            else:
+                with st.spinner("Applying Excel formatting... This may take up to 60 seconds."):
+                    try:
+                        if apply_excel_formatting(data_path, str(json_path)):
+                            st.success("✅ Excel formatting applied successfully!")
+                        else:
+                            st.error("❌ Failed to apply Excel formatting. Check the logs for details.")
+                    except Exception as e:
+                        st.error(f"❌ Error applying Excel formatting: {e}")
 
 
 if __name__ == "__main__":

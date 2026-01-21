@@ -39,6 +39,12 @@ def load_data(file_path):
 
         if 'date_connected' in df.columns:
             df['date_connected'] = pd.to_datetime(df['date_connected'], errors='coerce')
+        
+        if 'date_revocation' in df.columns:
+            df['date_revocation'] = pd.to_datetime(df['date_revocation'], errors='coerce')
+        
+        if 'date_discarded' in df.columns:
+            df['date_discarded'] = pd.to_datetime(df['date_discarded'], errors='coerce')
             
         return df
     except Exception as e:

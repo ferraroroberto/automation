@@ -1,0 +1,127 @@
+{
+  "description": "Configuration for journal automation - processes Notion journal database exports",
+  "date_range": {
+    "type": "weekly",
+    "description": "Calculate from Monday to Sunday of previous week"
+  },
+  "input": {
+    "database_id": "884de9f611464ca69e6028a6cbbafc00",
+    "database_url": "https://www.notion.so/robertoferraro/884de9f611464ca69e6028a6cbbafc00?v=8c31f2b691ec49ee9b31f5411b9c06c4",
+    "date_property": "Date"
+  },
+  "output": {
+    "directory": "E://automation//notion-automation-files//journal-output//",
+    "format": "single_file",
+    "filename_pattern": "{start_date} to {end_date}-journal-consolidated.txt"
+  },
+  "fields": [
+    {
+      "name": "gratitude",
+      "column": "gratitude",
+      "split_comma": true,
+      "section_title": "GRATITUDE",
+      "description": "Things I'm grateful for this week"
+    },
+    {
+      "name": "goals",
+      "column": "goals for today",
+      "split_comma": false,
+      "section_title": "GOALS FOR TODAY",
+      "description": "Daily goals and objectives"
+    },
+    {
+      "name": "values",
+      "column": "I will express",
+      "split_comma": true,
+      "section_title": "VALUES I WILL EXPRESS",
+      "description": "Core values to embody"
+    },
+    {
+      "name": "support",
+      "column": "who I will support",
+      "split_comma": false,
+      "section_title": "WHO I WILL SUPPORT",
+      "description": "People to support and help"
+    },
+    {
+      "name": "help",
+      "column": "help",
+      "split_comma": false,
+      "section_title": "HELP",
+      "description": "Who did I help"
+    },
+    {
+      "name": "initiate",
+      "column": "initiate",
+      "split_comma": false,
+      "section_title": "INITIATE",
+      "description": "What did I initiate"
+    },
+    {
+      "name": "learning",
+      "column": "learning",
+      "split_comma": false,
+      "section_title": "LEARNING",
+      "description": "Personal learning and growth"
+    },
+    {
+      "name": "personal",
+      "column": "personal",
+      "split_comma": false,
+      "section_title": "PERSONAL",
+      "description": "Family activities and experiences"
+    },
+    {
+      "name": "struggle",
+      "column": "struggle",
+      "split_comma": false,
+      "section_title": "STRUGGLE",
+      "description": "Challenges and difficulties"
+    },
+    {
+      "name": "win",
+      "column": "win",
+      "split_comma": false,
+      "section_title": "WIN",
+      "description": "Victories and successes"
+    },
+    {
+      "name": "work",
+      "column": "work",
+      "split_comma": false,
+      "section_title": "WORK",
+      "description": "Work-related activities and achievements"
+    },
+    {
+      "name": "emotion",
+      "column": "emotion",
+      "split_comma": true,
+      "section_title": "EMOTION",
+      "description": "Emotional states and feelings"
+    }
+  ],
+  "checkboxes": [
+    {
+      "column": "self-centered",
+      "display_name": "self-centered"
+    },
+    {
+      "column": "patience",
+      "display_name": "patience"
+    },
+    {
+      "column": "last day to live",
+      "display_name": "last day to live"
+    },
+    {
+      "column": "share a moment",
+      "display_name": "share a moment"
+    }
+  ],
+  "processing": {
+    "remove_duplicates": true,
+    "filter_empty_brackets": true,
+    "filter_nan": true,
+    "sort_by_date": true
+  }
+}
