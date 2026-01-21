@@ -518,8 +518,16 @@ def render_edit_item_mode(df: pd.DataFrame) -> pd.DataFrame:
                         help="URL to search for this item online"
                     )
 
-                # Submit button
-                if st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True):
+                # Submit and Delete buttons in two columns
+                col_btn1, col_btn2 = st.columns(2)
+                
+                with col_btn1:
+                    save_clicked = st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True)
+                
+                with col_btn2:
+                    delete_clicked = st.form_submit_button("🗑️ Delete Item", type="secondary", use_container_width=True)
+                
+                if save_clicked:
                     # Update the dataframe with new values
                     df.at[idx, COLUMNS["super"]] = new_super
                     df.at[idx, COLUMNS["lugar"]] = new_lugar
@@ -537,8 +545,114 @@ def render_edit_item_mode(df: pd.DataFrame) -> pd.DataFrame:
                         st.rerun()
                     else:
                         st.error("❌ Failed to save changes")
+                
+                if delete_clicked:
+                    # Delete the item from dataframe
+                    df = df.drop(idx)
+                    
+                    # Save to Excel
+                    if save_inventory_data(df):
+                        st.success(f"✅ Item '{item_name}' deleted successfully!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to delete item")
 
             st.divider()
+
+    return df
+
+
+def render_add_item_mode(df: pd.DataFrame) -> pd.DataFrame:
+    """Render the add item mode interface for creating new inventory items."""
+    st.header(MODES["add_item"])
+
+    st.markdown("Fill in the details below to add a new item to the inventory.")
+
+    # Get existing supermarkets and locations for dropdowns
+    existing_supermarkets = get_unique_supermarkets(df)
+    existing_zones = get_unique_zones(df)
+
+    # Create form for adding new item
+    with st.form(key="add_item_form"):
+        st.subheader("➕ New Item Details")
+
+        # Create two columns for better layout
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Supermarket field (dropdown)
+            new_super = st.selectbox(
+                "🏪 Supermarket",
+                options=existing_supermarkets,
+                help="Supermarket where this item is purchased"
+            )
+
+            # Location field (dropdown)
+            new_lugar = st.selectbox(
+                "🏠 Location/Zone",
+                options=existing_zones,
+                help="Location or zone in your home where this item is stored"
+            )
+
+            # Item name field
+            new_comida = st.text_input(
+                "🥘 Item Name",
+                value="",
+                help="Name of the grocery item"
+            )
+
+        with col2:
+            # Target quantity field
+            new_cantidad = st.number_input(
+                "🎯 Target Quantity",
+                value=0,
+                min_value=0,
+                step=1,
+                help="Desired quantity to keep in stock"
+            )
+
+            # Current quantity field
+            new_tenemos = st.number_input(
+                "📦 Current Quantity",
+                value=0,
+                min_value=0,
+                step=1,
+                help="Current quantity you have in stock"
+            )
+
+            # Search URL field
+            new_buscador = st.text_input(
+                "🔗 Search URL",
+                value="",
+                help="URL to search for this item online"
+            )
+
+        # Submit button
+        if st.form_submit_button("➕ Add Item", type="primary", use_container_width=True):
+            # Validate required fields
+            if not new_comida.strip():
+                st.error("❌ Item name is required!")
+            else:
+                # Create new row
+                new_row = {
+                    COLUMNS["super"]: new_super,
+                    COLUMNS["lugar"]: new_lugar,
+                    COLUMNS["comida"]: new_comida,
+                    COLUMNS["cantidad"]: new_cantidad,
+                    COLUMNS["tenemos"]: new_tenemos,
+                    COLUMNS["buscador"]: new_buscador,
+                    COLUMNS["comprar"]: max(0, new_cantidad - new_tenemos)
+                }
+
+                # Add new row to dataframe
+                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+                # Save to Excel
+                if save_inventory_data(df):
+                    st.success(f"✅ Item '{new_comida}' added successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to add item")
 
     return df
 
@@ -616,6 +730,8 @@ def main():
         st.session_state.inventory_data = render_edit_mode(df)
     elif st.session_state.current_mode == "edit_item":
         st.session_state.inventory_data = render_edit_item_mode(df)
+    elif st.session_state.current_mode == "add_item":
+        st.session_state.inventory_data = render_add_item_mode(df)
     elif st.session_state.current_mode == "shopping":
         render_shopping_mode(df)
     elif st.session_state.current_mode == "export":
