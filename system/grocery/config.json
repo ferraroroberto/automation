@@ -37,6 +37,7 @@
       "audit": "🔍 Audit Inventory",
       "edit": "✏️ Edit Targets",
       "edit_item": "🔧 Edit Item",
+      "add_item": "➕ Add Item",
       "shopping": "🛒 Shopping List",
       "export": "💾 Save/Export"
     }
