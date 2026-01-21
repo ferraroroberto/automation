@@ -2,13 +2,12 @@
 REM ============================================================================
 REM NOTION JOURNAL AUTOMATION BATCH SCRIPT
 REM ============================================================================
-REM Description: This batch file runs three Python scripts in sequence:
-REM              1. notion_databases_dump.py - Downloads databases from Notion
-REM              2. notion_databases_clean.py - Cleans the downloaded databases
-REM              3. journal_automation.py - Processes journal entries
-REM              Then opens the journal output folder in Explorer.
-REM 
+REM Description: This batch file runs the journal_automation.py script to
+REM              process Notion journal database entries into a consolidated
+REM              weekly summary optimized for LLM analysis.
+REM
 REM Usage: Simply double-click this bat file or run it from command line.
+REM        You will be prompted to enter a date offset (default is 0).
 REM ============================================================================
 
 echo [INFO] Starting Notion Journal Automation process...
@@ -18,9 +17,6 @@ set "VENV_DIR=E:\automation\automation\.venv"
 
 REM Set the path to the notion scripts
 set "SCRIPT_DIR=E:\automation\automation\notion"
-
-REM Set the path to the journal output folder
-set "JOURNAL_OUTPUT=E:\automation\notion-automation-files\journal-output"
 
 echo [INFO] Activating virtual environment...
 call "%VENV_DIR%\Scripts\activate.bat"
@@ -36,26 +32,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [INFO] Running notion_databases_dump.py...
-python notion_databases_dump.py
-if errorlevel 1 (
-    echo [WARNING] notion_databases_dump.py returned an error code. Continuing anyway...
-)
-
-echo [INFO] Running notion_databases_clean.py...
-python notion_databases_clean.py
-if errorlevel 1 (
-    echo [WARNING] notion_databases_clean.py returned an error code. Continuing anyway...
-)
-
 echo [INFO] Running journal_automation.py...
 python journal_automation.py
 if errorlevel 1 (
-    echo [WARNING] journal_automation.py returned an error code. Continuing anyway...
+    echo [ERROR] journal_automation.py failed with error code %errorlevel%
+    pause
+    exit /b 1
 )
 
-echo [INFO] Opening journal output folder in Explorer...
-explorer "%JOURNAL_OUTPUT%"
-
-echo [INFO] Process completed successfully!
+echo [INFO] Journal automation completed successfully!
 pause

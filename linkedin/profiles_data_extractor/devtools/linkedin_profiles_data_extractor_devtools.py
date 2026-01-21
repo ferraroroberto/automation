@@ -20,12 +20,27 @@ import pandas as pd
 import win32gui
 import win32con
 from pynput import keyboard
+from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Configure logging to file only (INFO level) and console (WARNING+ only)
+log_file = Path(__file__).parent.parent / "logging.log"
+log_file.parent.mkdir(parents=True, exist_ok=True)
+
+# Create file handler for detailed logs
+file_handler = logging.FileHandler(log_file, encoding='utf-8')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+# Create console handler for warnings and errors only
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.WARNING)
+console_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+
+# Configure logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 
 class ChromeDevToolsClient:
@@ -42,8 +57,81 @@ class ChromeDevToolsClient:
         self.ws = None
         self.command_id = 1
 
+    def _is_valid_linkedin_search_tab(self, tab: Dict) -> bool:
+        """Check if a tab is a valid LinkedIn search page (not a tracking/analytics page).
+
+        Args:
+            tab: Tab dictionary from Chrome DevTools
+
+        Returns:
+            True if this is a valid LinkedIn search tab
+        """
+        url = tab.get('url', '').lower()
+        tab_type = tab.get('type', '')
+
+        # Must be a 'page' type (not background_page, service_worker, etc.)
+        if tab_type != 'page':
+            return False
+
+        # Must be a LinkedIn URL
+        if 'linkedin.com' not in url:
+            return False
+
+        # Exclude tracking/analytics pages
+        excluded_patterns = [
+            'merchantpool',
+            'beacon',
+            'tracking',
+            'analytics',
+            'px.ads',
+            'platform.linkedin.com',
+        ]
+        for pattern in excluded_patterns:
+            if pattern in url:
+                return False
+
+        # Prefer search results pages
+        return True
+
+    def get_linkedin_search_tabs(self) -> List[Dict]:
+        """Get all valid LinkedIn search tabs.
+
+        Returns:
+            List of tab dictionaries for LinkedIn search pages
+        """
+        try:
+            response = requests.get(f"http://localhost:{self.debug_port}/json", timeout=5)
+            response.raise_for_status()
+            tabs = response.json()
+
+            # Filter to only valid LinkedIn search tabs
+            valid_tabs = [tab for tab in tabs if self._is_valid_linkedin_search_tab(tab)]
+            return valid_tabs
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get Chrome tabs: {e}")
+            return []
+
+    def connect_to_tab(self, tab: Dict) -> bool:
+        """Connect to a specific Chrome tab.
+
+        Args:
+            tab: Tab dictionary from Chrome DevTools
+
+        Returns:
+            True if connection successful, False otherwise
+        """
+        try:
+            self.ws_url = tab['webSocketDebuggerUrl']
+            self.ws = websocket.create_connection(self.ws_url)
+            logger.info(f"✅ Connected to: {tab.get('title', 'Unknown')[:60]}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to connect to tab: {e}")
+            return False
+
     def connect_to_chrome(self) -> bool:
-        """Connect to Chrome's debugging interface.
+        """Connect to Chrome's debugging interface (first valid LinkedIn tab).
 
         Returns:
             True if connection successful, False otherwise
@@ -54,18 +142,19 @@ class ChromeDevToolsClient:
             response.raise_for_status()
             tabs = response.json()
 
-            # Find a LinkedIn tab
+            # Find a valid LinkedIn search tab
             linkedin_tab = None
             for tab in tabs:
-                if 'linkedin.com' in tab.get('url', '').lower():
+                if self._is_valid_linkedin_search_tab(tab):
                     linkedin_tab = tab
                     break
 
             if not linkedin_tab:
-                # If no LinkedIn tab found, use the first tab
-                if tabs:
-                    linkedin_tab = tabs[0]
-                    logger.warning("⚠️  No LinkedIn tab found, using first available tab")
+                # If no valid LinkedIn tab found, use the first page tab
+                page_tabs = [t for t in tabs if t.get('type') == 'page']
+                if page_tabs:
+                    linkedin_tab = page_tabs[0]
+                    logger.warning("⚠️  No LinkedIn search tab found, using first available page")
                 else:
                     logger.error("❌ No Chrome tabs found. Make sure Chrome is running with --remote-debugging-port=9222 --remote-allow-origins=*")
                     return False
@@ -215,203 +304,106 @@ class LinkedInProfileExtractorDevTools:
         return self.chrome.connect_to_chrome()
 
     def extract_profile_data(self) -> Dict[str, str]:
-        """Extract profile data from the current LinkedIn profile page using DevTools.
+        """Extract profile data from the current LinkedIn page using DevTools.
+
+        Works for both search results (first profile) and profile pages.
 
         Returns:
             Dictionary containing profile data.
         """
-        # Extract name
-        name_js = """
+        profile_js = """
         (function() {
-            // Primary selector for profile name
-            const nameSelectors = [
-                'h1[data-test-id="hero__page__title"]',
-                '.pv-text-details__left-panel h1',
-                'h1.text-heading-xlarge'
-            ];
+            const profile = {};
 
-            for (const selector of nameSelectors) {
-                const element = document.querySelector(selector);
-                if (element) {
-                    return element.textContent?.trim();
+            // Try search results first
+            const searchResult = document.querySelector('div[data-view-name="people-search-result"]');
+            if (searchResult) {
+                // Extract name from the title link
+                const nameLink = searchResult.querySelector('a[data-view-name="search-result-lockup-title"]');
+                if (nameLink) {
+                    profile.name = nameLink.textContent?.trim();
                 }
-            }
 
-            // Fallback: look for name in the specific span structure from search results
-            const profileSpans = document.querySelectorAll('span[dir="ltr"] span[aria-hidden="true"]');
-            for (const span of profileSpans) {
-                const name = span.textContent?.trim();
-                if (name && name.split(' ').length >= 2) {
-                    return name;
-                }
-            }
-
-            return null;
-        })();
-        """
-        name = self.chrome.evaluate_javascript(name_js)
-
-        # Extract URL from profile link
-        url_js = """
-        (function() {
-            // Get the profile URL from the link's href attribute
-            const profileLinks = document.querySelectorAll('a[href*="linkedin.com/in/"]');
-            for (const link of profileLinks) {
-                const href = link.getAttribute('href');
-                if (href && href.includes('linkedin.com/in/')) {
-                    // Clean up the URL - remove query parameters after profile name if needed
-                    // But keep the miniProfileUrn parameter as it contains the profile ID
-                    return href;
-                }
-            }
-
-            return null;
-        })();
-        """
-        url = self.chrome.evaluate_javascript(url_js)
-
-        # Extract job title
-        job_title_js = """
-        (function() {
-            // Strategy 1: Search Results List (Robust)
-            // Iterate over each profile card to find the first valid job title
-            const searchResults = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
-            for (const result of searchResults) {
-                // Orient based on entity-result__insights
-                const insights = result.querySelector('.entity-result__insights');
-                if (insights) {
-                    // The profile info is in the previous sibling container
-                    const profileContainer = insights.previousElementSibling;
-                    if (profileContainer) {
-                        // Look for the job title div.
-                        // Based on analysis:
-                        // - Job Title: t-14 t-black t-normal
-                        
-                        // Iterate over direct children of the profile container
-                        for (const child of profileContainer.children) {
-                            if (child.classList.contains('t-14') && 
-                                child.classList.contains('t-black') && 
-                                child.classList.contains('t-normal')) {
-                                
-                                const text = child.textContent?.trim();
-                                if (text) return text;
-                            }
+                // Extract URL
+                const profileLink = searchResult.querySelector('a[href*="/in/"]');
+                if (profileLink) {
+                    let href = profileLink.getAttribute('href');
+                    if (href) {
+                        if (href.startsWith('/in/')) {
+                            href = 'https://www.linkedin.com' + href;
                         }
+                        profile.url_profile = href.split('?')[0];
                     }
                 }
-            }
 
-            // Fallback to profile page selectors
-            const profileSelectors = [
-                '.pv-text-details__left-panel .text-body-medium',
-                '.pv-text-details__left-panel div[data-test-id="profile-card__primary-headline"]'
-            ];
+                // Extract job title and location from paragraphs
+                const paragraphs = searchResult.querySelectorAll('p');
+                let jobTitleFound = false;
 
-            for (const selector of profileSelectors) {
-                const element = document.querySelector(selector);
-                if (element) {
-                    return element.textContent?.trim();
-                }
-            }
+                for (const p of paragraphs) {
+                    const text = p.textContent?.trim();
+                    if (!text) continue;
+                    if (profile.name && text.includes(profile.name)) continue;
+                    if (text.match(/^[•\\s]*[123](?:st|nd|rd)$/)) continue;
+                    if (text.includes('followers')) continue;
+                    if (text.includes('mutual connection')) continue;
 
-            return null;
-        })();
-        """
-        job_title = self.chrome.evaluate_javascript(job_title_js)
-
-        # Extract location
-        location_js = """
-        (function() {
-            // Strategy 1: Search Results List (Robust)
-            // Iterate over each profile card to find the first valid location
-            // We use the data-view-name to identify the profile card container
-            const searchResults = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
-            for (const result of searchResults) {
-                // Orient based on entity-result__insights as requested
-                const insights = result.querySelector('.entity-result__insights');
-                if (insights) {
-                    // The profile info is in the previous sibling container
-                    const profileContainer = insights.previousElementSibling;
-                    if (profileContainer) {
-                        // Look for the location div.
-                        // Based on analysis:
-                        // - Job Title: t-14 t-black t-normal
-                        // - Location: t-14 t-normal (and usually NOT t-black)
-                        
-                        // Iterate over direct children of the profile container
-                        for (const child of profileContainer.children) {
-                            // Check for t-14 and t-normal
-                            if (child.classList.contains('t-14') && child.classList.contains('t-normal')) {
-                                // Exclude Job Title (which has t-black)
-                                if (!child.classList.contains('t-black')) {
-                                    const text = child.textContent?.trim();
-                                    if (text) return text;
-                                }
-                            }
-                        }
+                    if (!jobTitleFound) {
+                        profile.job_title = text;
+                        jobTitleFound = true;
+                        continue;
                     }
+
+                    profile.location = text;
+                    break;
                 }
+            } else {
+                // Fallback: Profile page selectors
+                const nameEl = document.querySelector('h1.text-heading-xlarge') ||
+                               document.querySelector('h1[data-test-id="hero__page__title"]');
+                if (nameEl) profile.name = nameEl.textContent?.trim();
+
+                const jobEl = document.querySelector('.pv-text-details__left-panel .text-body-medium');
+                if (jobEl) profile.job_title = jobEl.textContent?.trim();
+
+                const locEl = document.querySelector('.pv-text-details__left-panel .text-body-small');
+                if (locEl) profile.location = locEl.textContent?.trim();
+
+                profile.url_profile = window.location.href.split('?')[0];
             }
 
-            // Fallback to profile page selectors
-            const profileSelectors = [
-                '.pv-text-details__left-panel .text-body-small.inline.t-black--light.break-words',
-                '.pv-text-details__left-panel span[data-test-id="profile-card__location"]',
-                '.VlSKoXSzfRCLBjvFdhXHtrnCCaNHklv span.text-body-small'
-            ];
-
-            for (const selector of profileSelectors) {
-                const element = document.querySelector(selector);
-                if (element) {
-                    return element.textContent?.trim();
-                }
-            }
-
-            return null;
-        })();
-        """
-        location = self.chrome.evaluate_javascript(location_js)
-
-        # Extract company from search filter pill (as shown in user's example)
-        company_js = """
-        (function() {
+            // Extract company from search filter pill
             const companySelectors = [
                 'button[id="searchFilter_currentCompany"]',
-                '.artdeco-pill[aria-label*="Current company"]',
-                '.search-reusables__filter-pill-button[aria-label*="company"]'
+                '.artdeco-pill[aria-label*="Current company"]'
             ];
 
             for (const selector of companySelectors) {
                 const element = document.querySelector(selector);
                 if (element) {
-                    // Look for the company name, excluding the count
                     const text = element.textContent?.trim();
                     if (text) {
-                        // Remove the count (e.g., "HP 1" -> "HP")
-                        return text.replace(/\s+\d+$/, '');
+                        profile.company = text.replace(/\\s+\\d+$/, '');
+                        break;
                     }
                 }
             }
 
-            return null;
+            profile.follows_from = null;
+
+            return profile;
         })();
         """
-        company = self.chrome.evaluate_javascript(company_js)
 
-        # follows_from is always null as requested
-        follows_from = None
-
-        # Clean URL by removing query parameters after ?
-        if url:
-            url = url.split('?')[0]
+        result = self.chrome.evaluate_javascript(profile_js) or {}
 
         return {
-            'name': name or "",
-            'url_profile': url,
-            'job_title': job_title or "",
-            'follows_from': follows_from,
-            'company': company or "",
-            'location': location or ""
+            'name': result.get('name') or "",
+            'url_profile': result.get('url_profile') or "",
+            'job_title': result.get('job_title') or "",
+            'follows_from': result.get('follows_from'),
+            'company': result.get('company') or "",
+            'location': result.get('location') or ""
         }
 
     def extract_search_results_profiles(self) -> List[Dict[str, str]]:
@@ -425,85 +417,81 @@ class LinkedInProfileExtractorDevTools:
         (function() {
             const profiles = [];
 
-            // Find all search result containers
-            const searchResults = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
+            // Find all search result containers using the new LinkedIn structure
+            const searchResults = document.querySelectorAll('div[data-view-name="people-search-result"]');
 
             for (let i = 0; i < searchResults.length; i++) {
                 const result = searchResults[i];
                 try {
                     const profile = {};
 
-                    // Extract name - look for spans with aria-hidden="true" within this result
-                    const nameSpans = result.querySelectorAll('span[aria-hidden="true"]');
-                    for (const span of nameSpans) {
-                        const name = span.textContent?.trim();
-                        if (name && name.split(' ').length >= 2) {
-                            profile.name = name;
-                            break;
-                        }
+                    // Extract name from the title link
+                    const nameLink = result.querySelector('a[data-view-name="search-result-lockup-title"]');
+                    if (nameLink) {
+                        profile.name = nameLink.textContent?.trim();
                     }
 
-                    // Extract URL from LinkedIn profile links within this result
-                    const profileLinks = result.querySelectorAll('a[href*="linkedin.com/in/"]');
-                    for (const link of profileLinks) {
-                        const href = link.getAttribute('href');
-                        if (href && href.includes('linkedin.com/in/')) {
-                            // Clean URL by removing query parameters after ?
+                    // Extract URL from LinkedIn profile link
+                    const profileLink = result.querySelector('a[href*="/in/"]');
+                    if (profileLink) {
+                        let href = profileLink.getAttribute('href');
+                        if (href) {
+                            // Make sure it's a full URL
+                            if (href.startsWith('/in/')) {
+                                href = 'https://www.linkedin.com' + href;
+                            }
+                            // Clean URL by removing query parameters
                             profile.url_profile = href.split('?')[0];
+                        }
+                    }
+
+                    // Find all <p> tags that end content blocks (followed by </p>)
+                    // The structure after the name is: job_title in first p, location in second p
+                    const paragraphs = result.querySelectorAll('p');
+                    let jobTitleFound = false;
+                    let locationFound = false;
+
+                    for (const p of paragraphs) {
+                        const text = p.textContent?.trim();
+                        if (!text) continue;
+
+                        // Skip if it contains the name (already extracted)
+                        if (profile.name && text.includes(profile.name)) continue;
+
+                        // Skip connection degree indicators and social proof
+                        if (text.match(/^[•\\s]*[123](?:st|nd|rd)$/)) continue;
+                        if (text.includes('followers')) continue;
+                        if (text.includes('mutual connection')) continue;
+
+                        // First non-name paragraph is job title
+                        if (!jobTitleFound) {
+                            profile.job_title = text;
+                            jobTitleFound = true;
+                            continue;
+                        }
+
+                        // Second is location
+                        if (!locationFound) {
+                            profile.location = text;
+                            locationFound = true;
                             break;
                         }
                     }
 
-                    // Extract job title - use robust selectors like in extract_profile_data()
-                    const insights = result.querySelector('.entity-result__insights');
-                    if (insights) {
-                        const profileContainer = insights.previousElementSibling;
-                        if (profileContainer) {
-                            // Extract job title: look for elements with t-14 t-black t-normal classes
-                            for (const child of profileContainer.children) {
-                                if (child.classList.contains('t-14') &&
-                                    child.classList.contains('t-black') &&
-                                    child.classList.contains('t-normal')) {
-                                    const jobTitleText = child.textContent?.trim();
-                                    if (jobTitleText) {
-                                        profile.job_title = jobTitleText;
-                                        break;
-                                    }
-                                }
-                            }
+                    // Extract company from search filter pill
+                    const companySelectors = [
+                        'button[id="searchFilter_currentCompany"]',
+                        '.artdeco-pill[aria-label*="Current company"]',
+                        '.search-reusables__filter-pill-button[aria-label*="company"]'
+                    ];
 
-                            // Extract location: look for elements with t-14 t-normal but NOT t-black
-                            for (const child of profileContainer.children) {
-                                if (child.classList.contains('t-14') &&
-                                    child.classList.contains('t-normal') &&
-                                    !child.classList.contains('t-black')) {
-                                    const locationText = child.textContent?.trim();
-                                    if (locationText && locationText !== profile.job_title) {
-                                        profile.location = locationText;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Fallback: extract company from search filter pill if job title was found
-                    if (profile.job_title && !profile.company) {
-                        const companySelectors = [
-                            'button[id="searchFilter_currentCompany"]',
-                            '.artdeco-pill[aria-label*="Current company"]',
-                            '.search-reusables__filter-pill-button[aria-label*="company"]'
-                        ];
-
-                        for (const selector of companySelectors) {
-                            const element = document.querySelector(selector);
-                            if (element) {
-                                const text = element.textContent?.trim();
-                                if (text) {
-                                    // Remove the count (e.g., "HP 1" -> "HP")
-                                    profile.company = text.replace(/\s+\d+$/, '');
-                                    break;
-                                }
+                    for (const selector of companySelectors) {
+                        const element = document.querySelector(selector);
+                        if (element) {
+                            const text = element.textContent?.trim();
+                            if (text) {
+                                profile.company = text.replace(/\\s+\\d+$/, '');
+                                break;
                             }
                         }
                     }
@@ -542,18 +530,11 @@ class LinkedInProfileExtractorDevTools:
             logger.error(f"❌ Failed to extract profiles from search results: {e}")
             return []
 
-    def switch_to_next_tab_devtools(self) -> None:
-        """Switch to the next tab using keyboard simulation (Ctrl+Tab)."""
-
-        logger.info("🔄 Switching to next tab...")
-        self.keyboard_controller.press(keyboard.Key.ctrl)
-        self.keyboard_controller.press(keyboard.Key.tab)
-        self.keyboard_controller.release(keyboard.Key.tab)
-        self.keyboard_controller.release(keyboard.Key.ctrl)
-        time.sleep(1.5)  # Wait for tab switch to complete
-
     def extract_all_tabs_devtools(self, max_tabs: int = 50, exit_check=None) -> Tuple[List[Dict[str, str]], int]:
         """Extract profile data from all Chrome tabs using DevTools.
+
+        Iterates directly through valid LinkedIn search tabs via DevTools API,
+        avoiding hidden tracking/analytics pages.
 
         Args:
             max_tabs: Maximum number of tabs to process.
@@ -564,89 +545,52 @@ class LinkedInProfileExtractorDevTools:
         """
         logger.info("🚀 Starting DevTools extraction from all Chrome tabs")
 
-        # Wait for user to switch to Chrome
-        logger.info("⏳ Waiting 5 seconds for you to switch to Chrome window...")
-        time.sleep(5)
-
-        # Activate Chrome window
-        if not self.activate_chrome():
-            logger.error("❌ Could not activate Chrome. Please make sure Chrome is open.")
+        # Get all valid LinkedIn search tabs directly from DevTools
+        valid_tabs = self.chrome.get_linkedin_search_tabs()
+        if not valid_tabs:
+            logger.error("❌ No valid LinkedIn search tabs found")
             return [], 0
 
-        # Connect to Chrome DevTools
-        if not self.connect_to_chrome():
-            logger.error("❌ Could not connect to Chrome DevTools")
-            return [], 0
+        logger.info(f"📑 Found {len(valid_tabs)} valid LinkedIn search tabs")
+
+        # Limit to max_tabs
+        tabs_to_process = valid_tabs[:max_tabs]
+
+        all_profiles = []
+        content_hashes = set()  # Track content to detect duplicates
+        actual_tabs_processed = 0
 
         try:
-            all_profiles = []
-            processed_urls = set()  # Track processed URLs to avoid duplicates
-            content_hashes = set()  # Track content to detect cycling
-            previous_content_hash = None
-            consecutive_no_progress = 0
-            actual_tabs_processed = 0
-
-            for tab_num in range(max_tabs):
+            for tab_num, tab in enumerate(tabs_to_process):
                 # Check if exit was requested
                 if exit_check and exit_check():
                     logger.info("⏹️  Extraction stopped by user (exit requested)")
                     break
 
                 actual_tabs_processed = tab_num + 1
-                logger.info(f"📄 Processing tab {actual_tabs_processed} (max: {max_tabs})")
+                logger.info(f"📄 Processing tab {actual_tabs_processed}/{len(tabs_to_process)}")
 
-                # Get current URL first
-                current_url = self.chrome.get_current_url()
+                # Close previous connection if any
+                self.chrome.close()
 
-                if not current_url:
-                    logger.warning(f"⚠️  Could not get URL from tab {tab_num + 1}")
-                    consecutive_no_progress += 1
-                    if consecutive_no_progress >= 2:
-                        logger.info("⏹️  No URL found for 2 consecutive tabs - stopping")
-                        break
-                    if tab_num < max_tabs - 1:
-                        self.switch_to_next_tab_devtools()
-                        # Reconnect to the new active tab
-                        self.chrome.close()  # Close current connection
-                        time.sleep(0.5)  # Brief pause for tab switch to settle
-                        if not self.chrome.connect_to_chrome():  # Reconnect to new active tab
-                            logger.warning("⚠️  Could not reconnect to new tab - stopping")
-                            break
+                # Connect directly to this tab
+                if not self.chrome.connect_to_tab(tab):
+                    logger.warning(f"⚠️  Could not connect to tab {tab_num + 1} - skipping")
                     continue
 
-                # Check if this is a LinkedIn page (search results or profile)
-                if 'linkedin.com' not in current_url:
-                    logger.warning(f"⚠️  Not a LinkedIn page: {current_url}")
-                    consecutive_no_progress += 1
-                    if consecutive_no_progress >= 2:
-                        logger.info("⏹️  Non-LinkedIn pages detected - stopping")
-                        break
-                    if tab_num < max_tabs - 1:
-                        self.switch_to_next_tab_devtools()
-                        # Reconnect to the new active tab
-                        self.chrome.close()  # Close current connection
-                        time.sleep(0.5)  # Brief pause for tab switch to settle
-                        if not self.chrome.connect_to_chrome():  # Reconnect to new active tab
-                            logger.warning("⚠️  Could not reconnect to new tab - stopping")
-                            break
-                    continue
-
-                # Check for duplicate URLs (but allow processing same URL if content is different)
-                # We'll use content hash to detect actual duplicates
+                # Get content hash to detect duplicates
                 content_hash_js = """
                 (function() {
-                    // Get a hash of the search results content
-                    const results = document.querySelectorAll('div[data-view-name="search-entity-result-universal-template"]');
+                    const results = document.querySelectorAll('div[data-view-name="people-search-result"]');
                     let content = '';
                     for (const result of results) {
                         content += result.textContent || '';
                     }
-                    // Simple hash function
                     let hash = 0;
                     for (let i = 0; i < content.length; i++) {
                         const char = content.charCodeAt(i);
                         hash = ((hash << 5) - hash) + char;
-                        hash = hash & hash; // Convert to 32-bit integer
+                        hash = hash & hash;
                     }
                     return Math.abs(hash).toString();
                 })();
@@ -654,40 +598,25 @@ class LinkedInProfileExtractorDevTools:
                 content_hash = self.chrome.evaluate_javascript(content_hash_js)
 
                 if content_hash in content_hashes:
-                    logger.info(f"🔄 Content already processed (hash: {content_hash}) - cycled back to start, stopping extraction")
-                    break
+                    logger.info(f"🔄 Duplicate content detected - skipping tab")
+                    continue
 
-                # Extract multiple profiles from search results
+                # Extract profiles from this tab
                 profiles_data = self.extract_search_results_profiles()
 
-                # Validate that we got some data
                 if not profiles_data:
                     logger.warning(f"⚠️  No profiles extracted from tab {tab_num + 1}")
-                    consecutive_no_progress += 1
-                    if consecutive_no_progress >= 2:
-                        logger.info("⏹️  No profiles found for 2 consecutive tabs - stopping")
-                        break
-                else:
-                    consecutive_no_progress = 0
-                    processed_urls.add(current_url)
-                    content_hashes.add(content_hash)
+                    continue
 
-                    # Add all extracted profiles
-                    for profile_data in profiles_data:
-                        all_profiles.append(profile_data)
-                        logger.info(f"✅ Extracted: {profile_data.get('name', 'Unknown')} - {profile_data.get('job_title', 'Unknown')}")
+                # Track content hash
+                content_hashes.add(content_hash)
 
-                    logger.info(f"📊 Extracted {len(profiles_data)} profiles from tab {actual_tabs_processed}")
+                # Add all extracted profiles
+                for profile_data in profiles_data:
+                    all_profiles.append(profile_data)
+                    logger.info(f"✅ Extracted: {profile_data.get('name', 'Unknown')} - {profile_data.get('job_title', 'Unknown')}")
 
-                # Switch to next tab
-                if tab_num < max_tabs - 1:
-                    self.switch_to_next_tab_devtools()
-                    # Reconnect to the new active tab
-                    self.chrome.close()  # Close current connection
-                    time.sleep(0.5)  # Brief pause for tab switch to settle
-                    if not self.chrome.connect_to_chrome():  # Reconnect to new active tab
-                        logger.warning("⚠️  Could not reconnect to new tab - stopping")
-                        break
+                logger.info(f"📊 Extracted {len(profiles_data)} profiles from tab {actual_tabs_processed}")
 
             logger.info(f"✅ DevTools extraction completed: {len(all_profiles)} profiles extracted from {actual_tabs_processed} tabs")
             return all_profiles, actual_tabs_processed

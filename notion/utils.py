@@ -11,6 +11,8 @@ import pickle
 from pathlib import Path
 from datetime import datetime
 from zipfile import BadZipFile
+import json
+from dotenv import load_dotenv
 
 
 # Custom function to replace special characters
@@ -96,7 +98,7 @@ def get_first_explorer_folder_path():
 
     return None
 
-# Function to read the parameters from the txt file
+# Function to read the parameters from the txt file (legacy support)
 def read_params_from_txt_file(file_path):
     params = {}
     with open(file_path, 'r') as f:
@@ -105,6 +107,54 @@ def read_params_from_txt_file(file_path):
                 key, value = line.strip().split(" = ", 1)
                 params[key.strip()] = value.strip()
     return params
+
+# Function to load JSON configuration file
+def load_json_config(config_path):
+    """
+    Load configuration from a JSON file.
+    
+    Parameters:
+    - config_path: Path to the JSON configuration file
+    
+    Returns:
+    - Dictionary containing configuration data
+    """
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        print(f"✅ Configuration loaded from {config_path}")
+        return config
+    except FileNotFoundError:
+        print(f"❌ Configuration file not found: {config_path}")
+        raise
+    except json.JSONDecodeError as e:
+        print(f"❌ Error parsing JSON configuration: {e}")
+        raise
+
+# Function to load environment variables from .env file
+def load_env_variables(env_path=None):
+    """
+    Load environment variables from .env file.
+    
+    Parameters:
+    - env_path: Optional path to .env file. If None, searches in current directory
+    
+    Returns:
+    - Dictionary containing environment variables
+    """
+    if env_path:
+        load_dotenv(env_path)
+    else:
+        load_dotenv()
+    
+    env_vars = {
+        'notion_api_token': os.getenv('NOTION_API_TOKEN'),
+        'notion_token_v2': os.getenv('NOTION_TOKEN_V2'),
+        'notion_workspace_url': os.getenv('NOTION_WORKSPACE_URL')
+    }
+    
+    print("✅ Environment variables loaded")
+    return env_vars
 
 # Function to open an excel file or a pickle, if found. If not found, creates the pickle
 def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, usecols=None, engine=None):

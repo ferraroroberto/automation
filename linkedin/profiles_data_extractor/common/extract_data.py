@@ -100,7 +100,7 @@ def main():
     col_orch1, col_orch2 = st.columns(2)
 
     with col_orch1:
-        if st.button("🚀 Run DevTools Orchestrator", type="primary", use_container_width=True):
+        if st.button("🚀 Run extractor and merger (max 50 tabs)", type="primary", use_container_width=True):
             with st.spinner("Launching DevTools Orchestrator..."):
                 try:
                     # Path to the orchestrator batch file - use absolute path from project root
@@ -148,3 +148,42 @@ def main():
 
             except Exception as e:
                 st.error(f"❌ Error opening Excel file: {e}")
+
+    # Additional action buttons
+    col_orch3, col_orch4 = st.columns(2)
+
+    with col_orch3:
+        if st.button("💾 Save JSON format and run", use_container_width=True):
+            with st.spinner("Launching orchestrator with format save..."):
+                try:
+                    # Path to the orchestrator Python script
+                    current_file = Path(__file__).resolve()
+                    project_root = current_file.parent.parent.parent.parent  # Go up to automation/automation/
+                    orchestrator_py_path = project_root / "linkedin" / "profiles_data_extractor" / "devtools" / "linkedin_profiles_data_orchestrator_devtools.py"
+                    venv_python = project_root / ".venv" / "Scripts" / "python.exe"
+
+                    if not orchestrator_py_path.exists():
+                        st.error(f"Orchestrator script not found: {orchestrator_py_path}")
+                    elif not venv_python.exists():
+                        st.error(f"Python interpreter not found: {venv_python}")
+                    else:
+                        # Launch the orchestrator with --run --save-format flags in a new command prompt
+                        # Use subprocess.Popen with proper argument handling
+                        cmd_args = [
+                            'cmd.exe',
+                            '/k',
+                            str(venv_python),
+                            str(orchestrator_py_path),
+                            '--run',
+                            '--save-format'
+                        ]
+                        subprocess.Popen(
+                            cmd_args,
+                            cwd=str(orchestrator_py_path.parent),
+                            creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+                        )
+                        st.success("✅ Orchestrator launched with format save!")
+                        st.info("🔍 A new command prompt window has opened. Format will be saved before extraction.")
+
+                except Exception as e:
+                    st.error(f"❌ Error launching orchestrator: {e}")
