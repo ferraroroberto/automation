@@ -5,7 +5,7 @@
     "description": "Mobile-responsive app for managing household grocery inventory"
   },
   "data": {
-    "xlsx_file": "C:\\Users\\rober\\Downloads\\list.xlsx",
+    "xlsx_file": "E:\\OneDrive\\Documentos\\Roberto\\areas\\groceries\\list.xlsx",
     "columns": {
       "super": "super",
       "buscador": "buscador",
