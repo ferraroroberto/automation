@@ -265,19 +265,46 @@ class NotionNewsletterBuilder:
     def generate_complete_html(self, grouped_articles: Dict[str, List[Tuple[str, str]]]) -> str:
         """Generate complete HTML document with proper structure."""
         html_content = self.generate_html_lists(grouped_articles)
-        
+
         html_document = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Newsletter Content</title>
+    <style>
+        body {{
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }}
+        h2 {{
+            color: #ffffff;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }}
+        a {{
+            color: #4a9eff;
+            text-decoration: none;
+        }}
+        a:hover {{
+            text-decoration: underline;
+        }}
+        ul {{
+            margin: 0;
+            padding-left: 20px;
+        }}
+        li {{
+            margin: 8px 0;
+        }}
+    </style>
 </head>
 <body>
 {html_content}
 </body>
 </html>"""
-        
+
         return html_document
     
     def build_newsletter(self, newsletter_title: str) -> Tuple[str, Dict[str, List[Tuple[str, str]]]]:
