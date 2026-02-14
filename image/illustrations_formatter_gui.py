@@ -65,6 +65,7 @@ class IllustrationsFormatterGUI:
         self.dest_folder = tk.StringVar(value=self.config.get('destination_folder', ''))
         self.aspect_ratio = tk.StringVar(value=self.config.get('aspect_ratio', '3:4'))
         self.bg_color = tk.StringVar(value=self.config.get('background_color', ''))
+        self.save_settings_to_config = tk.BooleanVar(value=False)
         self.processing = False
         self.process_thread = None
         
@@ -248,6 +249,11 @@ class IllustrationsFormatterGUI:
         color_entry.grid(row=0, column=0, sticky=tk.W)
         ttk.Label(color_frame, text="(Optional: #RRGGBB or R,G,B)").grid(row=0, column=1, padx=(10, 0))
         
+        # Save settings checkbox
+        save_cb = ttk.Checkbutton(settings_frame, text="Save current settings to config file when processing completes",
+                                  variable=self.save_settings_to_config)
+        save_cb.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        
         # Process button
         self.process_btn = ttk.Button(main_frame, text="Process Images", 
                                      command=self.process_images, style='Accent.TButton')
@@ -427,8 +433,9 @@ class IllustrationsFormatterGUI:
                     self.process_btn.config(state='normal')
                     self.progress_var.set(100)
                     
-                    # Save current settings to config
-                    self.save_config()
+                    # Save current settings to config only if user opted in
+                    if self.save_settings_to_config.get():
+                        self.save_config()
                     
                     # Show summary
                     summary = (f"\nProcessing Complete!\n"
