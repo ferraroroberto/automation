@@ -1,0 +1,9 @@
+[
+  {
+    "name": "luz despacho",
+    "id": "YOUR_DEVICE_ID",
+    "key": "YOUR_LOCAL_KEY",
+    "ip": "192.168.1.XXX",
+    "version": "3.3"
+  }
+]
