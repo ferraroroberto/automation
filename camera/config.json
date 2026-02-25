@@ -1,0 +1,22 @@
+{
+    "cameras": [
+        {
+            "name": "Luca",
+            "rtsp_url": "rtsp://192.168.1.100:554/stream1",
+            "enabled": true
+        },
+        {
+            "name": "Living Room",
+            "rtsp_url": "rtsp://192.168.1.101:554/stream1",
+            "enabled": true
+        }
+    ],
+    "grid_columns": 2,
+    "snapshot_dir": "snapshots",
+    "recording_dir": "recordings",
+    "reconnect_interval_sec": 5,
+    "max_reconnect_attempts": 0,
+    "stream_timeout_sec": 10,
+    "window_width": 1280,
+    "window_height": 720
+}
