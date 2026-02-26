@@ -1,9 +1,66 @@
 [
-  {
-    "name": "luz despacho",
-    "id": "YOUR_DEVICE_ID",
-    "key": "YOUR_LOCAL_KEY",
-    "ip": "192.168.1.XXX",
-    "version": "3.3"
-  }
+    {
+        "name": "example socket",
+        "id": "YOUR_DEVICE_ID_HERE",
+        "key": "YOUR_DEVICE_KEY_HERE",
+        "mac": "xx:xx:xx:xx:xx:xx",
+        "uuid": "YOUR_DEVICE_UUID_HERE",
+        "category": "cz",
+        "product_name": "Smart socket",
+        "product_id": "example_product_id",
+        "biz_type": 18,
+        "model": "SP21-FTY",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/152956414744qw5qx565_0.jpg",
+        "mapping": {
+            "1": {
+                "code": "switch_1",
+                "type": "Boolean",
+                "values": {}
+            },
+            "11": {
+                "code": "countdown_1",
+                "type": "Integer",
+                "values": {
+                    "unit": "s",
+                    "min": 0,
+                    "max": 86400,
+                    "scale": 0,
+                    "step": 1
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    },
+    {
+        "name": "example curtain",
+        "id": "YOUR_DEVICE_ID_HERE",
+        "key": "YOUR_DEVICE_KEY_HERE",
+        "mac": "xx:xx:xx:xx:xx:xx",
+        "uuid": "YOUR_DEVICE_UUID_HERE",
+        "sn": "",
+        "category": "qt",
+        "product_name": "Curtain switch",
+        "product_id": "example_product_id",
+        "biz_type": 18,
+        "model": "",
+        "sub": false,
+        "icon": "https://images.tuyaeu.com/smart/icon/qt.png",
+        "mapping": {
+            "1": {
+                "code": "control",
+                "type": "Enum",
+                "values": {
+                    "range": [
+                        "open",
+                        "stop",
+                        "close"
+                    ]
+                }
+            }
+        },
+        "ip": "",
+        "version": ""
+    }
 ]
