@@ -8,6 +8,8 @@ google/client_secret.json
 google/token*.json
 system/quickdeck/quickdeck.json
 linkedin/open_profiles/linkedin_open.json
+smart_life/devices.json
+tinytuya.json
 
 # application settings
 text_expander_config.json
