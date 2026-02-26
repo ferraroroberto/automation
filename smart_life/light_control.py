@@ -6,7 +6,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import tinytuya
 
@@ -23,11 +23,15 @@ DPS_SWITCH_PLUG = "1"
 
 
 def _load_devices(path: Path) -> List[Dict[str, Any]]:
-    """Load device list from JSON file."""
+    """Load device list from JSON file.
+
+    Accepts both the raw tinytuya scan format ``{"devices": [...]}``
+    and a plain ``[...]`` array.
+    """
     if not path.exists():
         logger.error(f"❌ Devices file not found: {path}")
         logger.info(
-            "ℹ️  Run 'python -m tinytuya wizard' to generate devices.json, "
+            "ℹ️  Run 'python -m tinytuya scan' to generate devices.json, "
             "then copy it to the smart_life/ folder.  See README for setup steps."
         )
         sys.exit(1)
@@ -35,8 +39,11 @@ def _load_devices(path: Path) -> List[Dict[str, Any]]:
     with open(path, "r", encoding="utf-8") as fh:
         data = json.load(fh)
 
+    if isinstance(data, dict):
+        data = data.get("devices", [])
+
     if not isinstance(data, list) or len(data) == 0:
-        logger.error("❌ devices.json is empty or not a list")
+        logger.error("❌ devices.json contains no devices")
         sys.exit(1)
 
     return data
@@ -59,12 +66,17 @@ def _find_device(devices: List[Dict[str, Any]], query: str) -> Dict[str, Any]:
     sys.exit(1)
 
 
+def _get_version(device_info: Dict[str, Any]) -> float:
+    """Extract protocol version, accepting both 'version' and 'ver' keys."""
+    return float(device_info.get("version", device_info.get("ver", "3.3")))
+
+
 def _connect(device_info: Dict[str, Any]) -> tinytuya.Device:
     """Create a tinytuya Device connection."""
     dev_id = device_info["id"]
     ip = device_info.get("ip", "Auto")
     local_key = device_info["key"]
-    version = float(device_info.get("version", "3.3"))
+    version = _get_version(device_info)
 
     dev = tinytuya.Device(dev_id, ip, local_key, version=version)
     dev.set_socketPersistent(False)
@@ -136,7 +148,7 @@ def list_devices(devices: List[Dict[str, Any]]) -> None:
     logger.info(f"📋 {len(devices)} device(s) in {DEVICES_FILE.name}:\n")
     for dev in devices:
         ip = dev.get("ip", "?")
-        ver = dev.get("version", "?")
+        ver = dev.get("version", dev.get("ver", "?"))
         logger.info(f"   • {dev.get('name', '?'):30s}  ip={ip:15s}  ver={ver}")
 
 
