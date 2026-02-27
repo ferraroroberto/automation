@@ -143,6 +143,25 @@ def get_status(device_info: Dict[str, Any]) -> None:
     logger.debug(f"📂 Full DPS: {json.dumps(dps, indent=2)}")
 
 
+def switch_toggle(device_info: Dict[str, Any]) -> None:
+    """Toggle device: if ON turn OFF, if OFF turn ON."""
+    dev = _connect(device_info)
+    name = device_info.get("name", device_info["id"])
+
+    status = dev.status()
+    if "Error" in str(status):
+        logger.error(f"❌ Cannot reach '{name}': {status}")
+        sys.exit(1)
+
+    dps_key = _detect_switch_dps(status)
+    dps = status.get("dps", {})
+    is_on = dps.get(dps_key, False)
+    new_state = not is_on
+    dev.set_value(dps_key, new_state)
+    state_label = "ON" if new_state else "OFF"
+    logger.info(f"✅ '{name}' switched to {state_label}")
+
+
 def list_devices(devices: List[Dict[str, Any]]) -> None:
     """Print all configured devices."""
     logger.info(f"📋 {len(devices)} device(s) in {DEVICES_FILE.name}:\n")
@@ -163,8 +182,9 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Control Smart Life / Tuya lights from the command line.",
         epilog=(
             "Examples:\n"
-            "  python light_control.py on  --light \"luz despacho\"\n"
-            "  python light_control.py off --light \"luz despacho\"\n"
+            "  python light_control.py on     --light \"luz despacho\"\n"
+            "  python light_control.py off    --light \"luz despacho\"\n"
+            "  python light_control.py switch --light \"luz despacho\"\n"
             "  python light_control.py status --light despacho\n"
             "  python light_control.py list\n"
             "  python light_control.py scan\n"
@@ -173,7 +193,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "action",
-        choices=["on", "off", "status", "list", "scan"],
+        choices=["on", "off", "switch", "status", "list", "scan"],
         help="Action to perform",
     )
     parser.add_argument(
@@ -218,7 +238,7 @@ def main() -> int:
         return 0
 
     if not args.light:
-        logger.error("❌ --light is required for on/off/status actions")
+        logger.error("❌ --light is required for on/off/switch/status actions")
         parser.print_help()
         return 1
 
@@ -227,6 +247,7 @@ def main() -> int:
     actions = {
         "on": turn_on,
         "off": turn_off,
+        "switch": switch_toggle,
         "status": get_status,
     }
     actions[args.action](device_info)
