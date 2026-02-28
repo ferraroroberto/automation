@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ### 3. Run the app
 
 ```bash
-streamlit run app.py
+streamlit run main_menu.py
 ```
 
 Or on **Windows**, simply double-click **`run_app.bat`** (it activates the venv and launches the app automatically).
@@ -40,7 +40,7 @@ Or on **Windows**, simply double-click **`run_app.bat`** (it activates the venv 
 
 ```
 streamlit_demo/
-├── app.py                    # Main entry point – page config & sidebar routing
+├── main_menu.py              # Main entry point – page config & sidebar routing
 ├── menu.py                   # Page registry + home page renderer
 ├── pages/                    # One module per demo (each exposes a render() function)
 │   ├── __init__.py

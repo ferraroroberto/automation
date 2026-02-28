@@ -85,3 +85,7 @@ def render() -> None:
                a subprocess or async task and poll for output.
             """
         )
+
+
+if __name__ == "__main__":
+    render()

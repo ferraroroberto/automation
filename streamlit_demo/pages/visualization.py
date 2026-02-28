@@ -102,3 +102,7 @@ def render() -> None:
         c2.metric("Avg Unit Price", f"${avg_price:,.2f}", delta="-2.1%")
         c3.metric("Total Units Sold", f"{total_units:,}")
         c4.metric("Active Employees", active_employees, delta="+3")
+
+
+if __name__ == "__main__":
+    render()
