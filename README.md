@@ -12,15 +12,22 @@ This repository contains a diverse set of automation tools designed to streamlin
 automation/
 ├── 📁 audio/           # Audio recording, transcription, and conversion tools
 ├── 📁 email/           # Outlook automation and email management
+├── 📁 excel/           # Excel automation (e.g. Stripe accounting)
+├── 📁 google/          # Gmail, Drive, and Google Photos automation
+├── 📁 html/            # HTML utilities (e.g. countdown timer)
 ├── 📁 image/           # Image processing, formatting, and Instagram tools
-├── 📁 linkedin/        # LinkedIn automation and IP checking tools
+├── 📁 linkedin/        # LinkedIn automation, IP checking, and profile data extraction
 ├── 📁 notion/          # Notion API integration and database management
+├── 📁 smart_life/      # Smart Life / IoT device automation
+├── 📁 streamlit_demo/  # Streamlit reference app and demo playground
 ├── 📁 system/          # System utilities and virtual environment management
 ├── 📁 text/            # Text processing and PDF conversion tools
-├── 📁 video/           # Screen recording and video processing tools
-└── 📁 config/          # Configuration files and environment variables
+└── 📁 video/           # Screen recording and video processing tools
+```
 
-## 📚 **Reference Documents**
+Configuration uses a root `.env` file (see [Configuration](#️-configuration)); copy from `.env.sample` if present.
+
+### 📚 Reference Documents
 
 - **`AGENTS.md`** - Master Onboarding & Context Map (Read this first!)
 - **`AGENTS_PYTHON.md`** - Python Coding Standards & Patterns
@@ -30,18 +37,17 @@ automation/
 - **`AGENTS_PR.md`** - Template for creating pull requests
 
 > Guidelines adapted from [HumanLayer's "Writing a good CLAUDE.md"](https://www.humanlayer.dev/blog/writing-a-good-claude-md).
-```
 
 ## 🔧 Core Modules
 
 ### 🎵 Audio Processing (`audio/`)
 
 **Voice Transcription & Recording**
-- **`transcribe_voice_core.py`** - Core audio recording and OpenAI Whisper transcription
-- **`transcribe_voice_gui.py`** - GUI interface for voice transcription
-- **`transcribe_voice_launcher.py`** - Launcher script for transcription tools
-- **`audio_extractor_core.py`** - Audio extraction and processing utilities
+- **`transcribe_voice/`** - Core recording and OpenAI Whisper transcription (`transcribe_voice_core.py`), GUI launcher, and batch helpers
+- **`audio_extractor_core.py`** / **`audio_extractor_gui.py`** - Audio extraction and processing
 - **`convert_ogg_mp3.py`** - Audio format conversion (OGG to MP3)
+- **`transcript_collate.py`** - Collate and manage transcripts
+- **`audio_normalize.py`** - Audio normalization
 
 **Features:**
 - Real-time audio recording with configurable duration
@@ -65,6 +71,10 @@ automation/
 **Utilities**
 - **`screenshot.py`** - Automated screenshot capture
 - **`collage_image.py`** - Create image collages from multiple files
+- **`gif_unpacker.py`** - Extract frames from GIFs
+- **`illustrations_formatter.py`** - Illustration formatting and batch processing
+- **`transparency_variants.py`** - Generate transparency variants
+- **`pdf_to_jpg/`** - PDF to JPG conversion (see `README_PDF_Converter.md`)
 
 ### 📹 Video Processing (`video/`)
 
@@ -76,6 +86,7 @@ automation/
 **Download & Processing**
 - **`video_download_youtube.py`** - YouTube video downloader
 - **`video_download_youtube_list.py`** - Batch YouTube video downloading
+- **`video_download_html.py`** - Download video from HTML pages
 - **`video_reencoder.py`** - Video format conversion and re-encoding
 
 ### 📧 Email Automation (`email/`)
@@ -98,7 +109,9 @@ automation/
 - **`build_newsletter.py`** - Newsletter builder from Notion articles
 - **`notion_databases_dump.py`** - Export Notion databases to Excel
 - **`notion_databases_clean.py`** - Clean and normalize Notion data
+- **`notion_databases_add_editorial.py`** - Add editorial metadata to Notion databases
 - **`notion_excel_sync.py`** - Excel-Notion synchronization
+- **`articles_sync/`** - Notion articles sync and incremental sync
 
 **Content Processing**
 - **`normalize_names.py`** - Name normalization and standardization
@@ -107,15 +120,23 @@ automation/
 
 ### 💻 System Utilities (`system/`)
 
-**Environment Management**
+**Environment & Input**
 - **`venv_manager.py`** - Virtual environment management and monitoring
 - **`mouse_mover.py`** - Automated mouse movement and clicking
 - **`keycaster.py`** - Keyboard input automation and monitoring
+- **`quickdeck/`** - Quick Deck / Stream Deck integration
+- **`textexpander/`** - Text expander and prompt templates
+- **`wifi/`** - Wi‑Fi password retrieval and connection scripts
+- **`apple/`** - Apple-related conversion and utilities
 
-**File Operations**
+**File & Document Operations**
 - **`unzip_with_password.py`** - Password-protected archive extraction
 - **`rename_files.py`** - Batch file renaming utilities
 - **`copy_git_project.py`** - Git project copying and setup
+- **`base64_encode_decode.py`** - Base64 encode/decode utility
+- **`word_to_markdown.py`** - Word to Markdown conversion
+- **`foldersearcher/`**, **`treesize/`** - Folder search and size utilities
+- **`grocery/`** - Grocery list / app (Streamlit)
 
 ### 📝 Text Processing (`text/`)
 
@@ -125,9 +146,33 @@ automation/
 
 ### 🔗 LinkedIn Tools (`linkedin/`)
 
-**IP Management**
+**IP & Profile Automation**
 - **`check_ip/`** - IP address checking and management tools
-- **`open_profiles/`** - LinkedIn profile automation utilities
+- **`open_profiles/`** - LinkedIn profile opening automation
+- **`profiles_data_extractor/`** - DevTools-based profile data extraction, Streamlit dashboard, Excel formatting, and data entry tools
+
+### 📊 Streamlit Demo (`streamlit_demo/`)
+
+**Reference application** demonstrating Streamlit patterns (data input, visualization, CRUD, file upload, process runner, state management). Self-contained; run with `streamlit run main_menu.py` or `run_app.bat` on Windows. See `streamlit_demo/README.md` for details.
+
+### ☁️ Google Integration (`google/`)
+
+**Gmail, Drive & Photos**
+- **`gmail_drive_automation.py`** - Gmail and Google Drive automation
+- **`weekly_photo_automation.py`** - Weekly photo automation (e.g. Google Photos)
+- **`setup_helper_script.py`** - Setup and configuration helpers
+
+### 📊 Excel Automation (`excel/`)
+
+- **`accounting_stripe/`** - Stripe accounting and Excel workflows
+
+### 🌐 HTML Utilities (`html/`)
+
+- **`countdown_timer.html`** - Countdown timer and similar utilities
+
+### 🏠 Smart Life / IoT (`smart_life/`)
+
+- Device automation (e.g. **`despacho_switch.bat`**) and configuration via `devices.sample.json`
 
 ## 🚀 Quick Start
 
@@ -218,6 +263,15 @@ python email/email-automation-save.py
 
 # Archive emails
 python email/email-automation-archive.py
+```
+
+### **Streamlit Demo**
+```bash
+# From repo root (with streamlit_demo deps installed)
+cd streamlit_demo
+streamlit run main_menu.py
+
+# Or on Windows: double-click streamlit_demo/run_app.bat
 ```
 
 ## ⚙️ Configuration
@@ -355,9 +409,9 @@ Each module includes:
 ### **Development Setup**
 1. Fork the repository
 2. Create a feature branch
-3. Follow the coding standards in `RULES.md`
+3. Follow the coding standards in `AGENTS_PYTHON.md` and related `AGENTS_*.md` docs
 4. Include comprehensive documentation
-5. Submit a pull request with `PULL_REQUEST.md`
+5. Submit a pull request using the template in `AGENTS_PR.md`
 
 ### **Code Quality**
 - All code must pass linting checks
@@ -378,6 +432,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-*Last updated: August 2025*
+*Last updated: February 2026*
 *Python version: 3.8+*
 *Platform: Windows, Linux, macOS*
