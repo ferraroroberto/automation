@@ -184,7 +184,7 @@ class MainWindow(QMainWindow):
             logger.error(f"❌ Failed to save config: {e}")
 
     def _setup_window(self) -> None:
-        self.setWindowTitle("Xiaomi Camera Monitor")
+        self.setWindowTitle("YI Camera Monitor")
         w = self._config.get("window_width", 1280)
         h = self._config.get("window_height", 720)
         self.resize(w, h)
@@ -212,7 +212,7 @@ class MainWindow(QMainWindow):
         toolbar.setIconSize(QSize(20, 20))
         self.addToolBar(toolbar)
 
-        title = QLabel("  📹 Xiaomi Cam Monitor  ")
+        title = QLabel("  📹 YI Cam Monitor  ")
         title.setStyleSheet("color: #00bcd4; font-size: 16px; font-weight: bold;")
         toolbar.addWidget(title)
         toolbar.addSeparator()

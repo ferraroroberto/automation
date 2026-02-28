@@ -1,5 +1,5 @@
 """
-Xiaomi Camera Monitor — custom desktop app for viewing RTSP camera streams.
+YI Camera Monitor — custom desktop app for viewing RTSP camera streams.
 
 Usage:
     python monitor.py [--config CONFIG_PATH]
@@ -20,7 +20,7 @@ DEFAULT_CONFIG = Path(__file__).parent / "config.json"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Xiaomi Camera Monitor — RTSP multi-camera viewer"
+        description="YI Camera Monitor — RTSP multi-camera viewer"
     )
     parser.add_argument(
         "--config",
@@ -43,11 +43,11 @@ def main() -> None:
     logging.basicConfig(level=level, format=LOG_FORMAT)
     logger = logging.getLogger(__name__)
 
-    logger.info("🚀 Starting Xiaomi Camera Monitor")
+    logger.info("🚀 Starting YI Camera Monitor")
     logger.info(f"📂 Config: {args.config}")
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Xiaomi Camera Monitor")
+    app.setApplicationName("YI Camera Monitor")
     app.setStyle("Fusion")
 
     app.setStyleSheet(

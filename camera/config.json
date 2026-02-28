@@ -2,12 +2,17 @@
     "cameras": [
         {
             "name": "Luca",
-            "rtsp_url": "rtsp://192.168.1.100:554/stream1",
+            "rtsp_url": "rtsp://192.168.1.100/ch0_0.h264",
+            "enabled": true
+        },
+        {
+            "name": "Outdoor",
+            "rtsp_url": "rtsp://192.168.1.101/ch0_0.h264",
             "enabled": true
         },
         {
             "name": "Living Room",
-            "rtsp_url": "rtsp://192.168.1.101:554/stream1",
+            "rtsp_url": "rtsp://192.168.1.102/ch0_0.h264",
             "enabled": true
         }
     ],
