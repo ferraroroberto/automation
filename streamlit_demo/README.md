@@ -6,18 +6,20 @@ A self-contained reference application that demonstrates every major Streamlit c
 
 ## Quick Start
 
-### 1. Create & activate a virtual environment
+### 1. Create & activate a virtual environment (in repo root)
+
+The virtual environment (`.venv`) lives in the **parent** directory (repo root), not inside `streamlit_demo`.
 
 ```bash
-# Windows
-cd streamlit_demo
+# Windows – from repo root (automation/)
 python -m venv .venv
 .venv\Scripts\activate
-
-# macOS / Linux
 cd streamlit_demo
+
+# macOS / Linux – from repo root (automation/)
 python3 -m venv .venv
 source .venv/bin/activate
+cd streamlit_demo
 ```
 
 ### 2. Install dependencies
@@ -26,22 +28,28 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+(Run from `streamlit_demo/` so it finds `requirements.txt`.)
+
 ### 3. Run the app
 
 ```bash
 streamlit run main_menu.py
 ```
 
-Or on **Windows**, simply double-click **`run_app.bat`** (it activates the venv and launches the app automatically).
+Or on **Windows**, simply double-click **`run_app.bat`** (it activates the parent `.venv` and launches the app automatically).
 
 ---
 
 ## Project Structure
 
+The virtual environment (`.venv`) is in the **parent** directory (repo root), not under `streamlit_demo/`.
+
 ```
 streamlit_demo/
 ├── main_menu.py              # Main entry point – page config & sidebar routing
 ├── menu.py                   # Page registry + home page renderer
+├── .streamlit/
+│   └── config.toml           # Streamlit app config (theme, server, etc.)
 ├── pages/                    # One module per demo (each exposes a render() function)
 │   ├── __init__.py
 │   ├── data_input.py         # Input widgets demo
