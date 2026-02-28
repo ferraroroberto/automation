@@ -1,9 +1,22 @@
 #!/usr/bin/env python3
 """
-illustrations_formatter_gui.py - GUI module for image formatting
+illustrations_formatter_gui.py - Tkinter GUI for image formatting
 
-This module provides a tkinter-based graphical user interface for the
-image formatter with support for Instagram and 1920x1080 formats.
+Layout
+------
+A notebook with two tabs sits above a shared progress / log panel.
+
+Batch Processing tab
+    Convert an entire folder of images to Instagram aspect ratios or
+    1920 × 1080.  An *Extend border* checkbox replaces the flat-colour
+    padding fill with a pixel-replication technique — useful when the
+    image has a coloured border that differs from the auto-detected
+    corner colour.
+
+Single Image → 1920 × 1080 tab
+    Pick a single file (typically a 1:1 square illustration) and export
+    a 1920 × 1080 version immediately.  The same *Extend border* option
+    is available.
 """
 
 import tkinter as tk
@@ -12,469 +25,641 @@ import threading
 import queue
 import logging
 import json
+import time
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 import sys
 import os
 
-# Import the core module
 try:
     from illustrations_formatter import IllustrationsFormatter, ProcessingResult, parse_color
 except ImportError:
-    # If running as standalone, try to import from same directory
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from illustrations_formatter import IllustrationsFormatter, ProcessingResult, parse_color
 
 
 class TextHandler(logging.Handler):
-    """Custom logging handler that writes to a tkinter Text widget"""
-    
+    """Logging handler that writes to a tkinter Text widget via a thread-safe queue."""
+
     def __init__(self, text_widget, queue_obj):
         super().__init__()
         self.text_widget = text_widget
         self.queue = queue_obj
-    
+
     def emit(self, record):
-        msg = self.format(record)
-        # Put message in queue to be processed by GUI thread
-        self.queue.put(('log', msg))
+        self.queue.put(('log', self.format(record)))
 
 
 class IllustrationsFormatterGUI:
-    """GUI application for image formatting"""
-    
+    """
+    Tkinter GUI for :class:`~illustrations_formatter.IllustrationsFormatter`.
+
+    The window is divided into:
+
+    * A :class:`ttk.Notebook` with two tabs:
+
+      - **Batch Processing** – folder-level workflow (Instagram or 1920×1080)
+        with an *Extend border* checkbox.
+      - **Single Image → 1920×1080** – convert one file immediately, also
+        with an *Extend border* checkbox.
+
+    * A shared **Progress / log** panel at the bottom showing a progress bar,
+      a status line, and a scrollable log.
+    """
+
     CONFIG_FILE = 'illustrations_formatter_config.json'
-    DEFAULT_1920X1080_FOLDER = r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_1920x1080'
-    DEFAULT_INSTAGRAM_FOLDER = r'C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\archived_IGformat'
-    
-    def __init__(self, root):
+    DEFAULT_1920X1080_FOLDER = (
+        r'C:\Users\rober\iCloudDrive'
+        r'\6LVTQB9699~com~seriflabs~affinitydesigner'
+        r'\Roberto\archived_1920x1080'
+    )
+    DEFAULT_INSTAGRAM_FOLDER = (
+        r'C:\Users\rober\iCloudDrive'
+        r'\6LVTQB9699~com~seriflabs~affinitydesigner'
+        r'\Roberto\archived_IGformat'
+    )
+
+    def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Illustrations Formatter")
-        self.root.geometry("800x650")
-        
-        # Configure style
+        self.root.geometry("840x780")
+
         self.style = ttk.Style()
         self.style.theme_use('clam')
-        
-        # Load configuration
+
         self.config = self.load_config()
-        
-        # Variables with config defaults
-        self.format_type = tk.StringVar(value=self.config.get('format_type', 'instagram'))
-        self.source_folder = tk.StringVar(value=self.config.get('source_folder', ''))
-        self.dest_folder = tk.StringVar(value=self.config.get('destination_folder', ''))
-        self.aspect_ratio = tk.StringVar(value=self.config.get('aspect_ratio', '3:4'))
-        self.bg_color = tk.StringVar(value=self.config.get('background_color', ''))
-        self.save_settings_to_config = tk.BooleanVar(value=False)
+
+        # ── Batch tab variables ───────────────────────────────────────────
+        self.format_type    = tk.StringVar(value=self.config.get('format_type', 'instagram'))
+        self.source_folder  = tk.StringVar(value=self.config.get('source_folder', ''))
+        self.dest_folder    = tk.StringVar(value=self.config.get('destination_folder', ''))
+        self.aspect_ratio   = tk.StringVar(value=self.config.get('aspect_ratio', '3:4'))
+        self.bg_color       = tk.StringVar(value=self.config.get('background_color', ''))
+        self.extend_border  = tk.BooleanVar(value=self.config.get('extend_border', False))
+        self.save_to_config = tk.BooleanVar(value=False)
+
+        # ── Single-image tab variables ────────────────────────────────────
+        self.single_input   = tk.StringVar()
+        self.single_out_dir = tk.StringVar(
+            value=self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER)
+        )
+        self.single_bg      = tk.StringVar(value=self.config.get('background_color', ''))
+        self.single_extend  = tk.BooleanVar(value=self.config.get('extend_border', False))
+
         self.processing = False
-        self.process_thread = None
-        
-        # Queue for thread communication
-        self.queue = queue.Queue()
-        
-        # Setup UI
-        self.setup_ui()
-        
-        # Setup formatter with custom logger
+        self.queue: queue.Queue = queue.Queue()
+
+        self._build_ui()
         self.setup_formatter()
-        
-        # Update destination folder based on format type
         self.update_destination_folder()
-        
-        # Start queue monitoring
-        self.root.after(100, self.process_queue)
-    
+        self.root.after(100, self._process_queue)
+
+    # ------------------------------------------------------------------
+    # Config persistence
+    # ------------------------------------------------------------------
+
     def load_config(self) -> Dict[str, Any]:
-        """Load configuration from JSON file"""
+        """Load settings from the JSON config file, merging with built-in defaults."""
         config_path = Path(__file__).parent / self.CONFIG_FILE
-        
-        # Default configuration
-        default_config = {
+        defaults: Dict[str, Any] = {
             'source_folder': '',
             'destination_folder': '',
             'destination_folder_instagram': self.DEFAULT_INSTAGRAM_FOLDER,
             'destination_folder_1920x1080': self.DEFAULT_1920X1080_FOLDER,
             'aspect_ratio': '3:4',
             'background_color': '',
-            'format_type': 'instagram'
+            'format_type': 'instagram',
+            'extend_border': False,
         }
-        
         try:
             if config_path.exists():
                 with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                # Merge with defaults to ensure all keys exist
-                default_config.update(config)
-                return default_config
+                    defaults.update(json.load(f))
         except (json.JSONDecodeError, IOError) as e:
             print(f"Warning: Could not load config file: {e}")
-        
-        return default_config
-    
+        return defaults
+
     def save_config(self):
-        """Save current settings to configuration file"""
+        """Persist current batch-tab settings to the JSON config file."""
+        fmt = self.format_type.get()
         config = {
             'source_folder': self.source_folder.get(),
             'destination_folder': self.dest_folder.get(),
-            'destination_folder_instagram': self.config.get('destination_folder_instagram', self.DEFAULT_INSTAGRAM_FOLDER),
-            'destination_folder_1920x1080': self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER),
+            'destination_folder_instagram': self.config.get(
+                'destination_folder_instagram', self.DEFAULT_INSTAGRAM_FOLDER
+            ),
+            'destination_folder_1920x1080': self.config.get(
+                'destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER
+            ),
             'aspect_ratio': self.aspect_ratio.get(),
             'background_color': self.bg_color.get(),
-            'format_type': self.format_type.get()
+            'format_type': fmt,
+            'extend_border': self.extend_border.get(),
         }
-        
-        # Update config based on format type
-        if self.format_type.get() == '1920x1080':
+        if fmt == '1920x1080':
             config['destination_folder_1920x1080'] = self.dest_folder.get()
         else:
             config['destination_folder_instagram'] = self.dest_folder.get()
             config['destination_folder'] = self.dest_folder.get()
-        
+
         config_path = Path(__file__).parent / self.CONFIG_FILE
         try:
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=4)
         except IOError as e:
             print(f"Warning: Could not save config file: {e}")
-    
-    def update_destination_folder(self):
-        """Update destination folder based on format type"""
-        if self.format_type.get() == '1920x1080':
-            default_dest = self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER)
-            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get('destination_folder_instagram', ''):
-                self.dest_folder.set(default_dest)
-        else:
-            default_dest = self.config.get('destination_folder_instagram', self.DEFAULT_INSTAGRAM_FOLDER)
-            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get('destination_folder_1920x1080', ''):
-                self.dest_folder.set(default_dest)
-    
-    def on_format_change(self):
-        """Handle format type change"""
-        self.update_destination_folder()
-        # Show/hide format-specific fields
-        if self.format_type.get() == '1920x1080':
-            self.aspect_ratio_frame.grid_remove()
-            self.aspect_ratio_label.grid_remove()
-            self.size_info_frame.grid()
-            self.size_info_label.grid()
-        else:
-            self.aspect_ratio_frame.grid()
-            self.aspect_ratio_label.grid()
-            self.size_info_frame.grid_remove()
-            self.size_info_label.grid_remove()
-    
-    def setup_ui(self):
-        """Setup the user interface"""
-        # Main container
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Configure grid weights
+
+    # ------------------------------------------------------------------
+    # UI construction
+    # ------------------------------------------------------------------
+
+    def _build_ui(self):
+        """Construct all widgets."""
+        outer = ttk.Frame(self.root, padding="10")
+        outer.grid(row=0, column=0, sticky='nsew')
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(6, weight=1)
-        
-        # Title
-        title_label = ttk.Label(main_frame, text="Illustrations Formatter", 
-                               font=('Arial', 16, 'bold'))
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
-        
-        # Format type selection
-        format_frame = ttk.LabelFrame(main_frame, text="Format Type", padding="10")
-        format_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        instagram_radio = ttk.Radiobutton(format_frame, text="Instagram", 
-                                         variable=self.format_type, value='instagram',
-                                         command=self.on_format_change)
-        instagram_radio.grid(row=0, column=0, padx=(0, 20))
-        
-        hd_radio = ttk.Radiobutton(format_frame, text="1920x1080", 
-                                   variable=self.format_type, value='1920x1080',
-                                   command=self.on_format_change)
-        hd_radio.grid(row=0, column=1)
-        
-        # Source folder selection
-        ttk.Label(main_frame, text="Source Folder:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        source_entry = ttk.Entry(main_frame, textvariable=self.source_folder, width=50)
-        source_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 5))
-        ttk.Button(main_frame, text="Browse", 
-                  command=self.browse_source).grid(row=2, column=2, pady=5)
-        
-        # Destination folder selection
-        ttk.Label(main_frame, text="Destination Folder:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        dest_entry = ttk.Entry(main_frame, textvariable=self.dest_folder, width=50)
-        dest_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=5, padx=(5, 5))
-        ttk.Button(main_frame, text="Browse", 
-                  command=self.browse_dest).grid(row=3, column=2, pady=5)
-        
-        # Settings frame
-        settings_frame = ttk.LabelFrame(main_frame, text="Settings", padding="10")
-        settings_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
-        settings_frame.columnconfigure(1, weight=1)
-        
-        # Aspect ratio (only for Instagram format)
-        self.aspect_ratio_label = ttk.Label(settings_frame, text="Aspect Ratio:")
-        self.aspect_ratio_label.grid(row=0, column=0, sticky=tk.W, pady=5)
-        
-        ratio_frame = ttk.Frame(settings_frame)
-        ratio_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5)
-        self.aspect_ratio_frame = ratio_frame
-        
-        # Aspect ratio dropdown
-        ratio_combo = ttk.Combobox(ratio_frame, textvariable=self.aspect_ratio, width=15)
-        ratio_combo['values'] = ['3:4', '4:5', '9:16', '1:1', '16:9']
-        ratio_combo.grid(row=0, column=0, sticky=tk.W)
-        
-        ttk.Label(ratio_frame, text="(Instagram: 4:5, Stories: 9:16)").grid(row=0, column=1, padx=(10, 0))
-        
-        # Fixed size info (only for 1920x1080 format)
-        self.size_info_label = ttk.Label(settings_frame, text="Target Size:", state='disabled')
-        self.size_info_label.grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.size_info_label.grid_remove()
-        
-        size_info_frame = ttk.Frame(settings_frame)
-        size_info_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5)
-        self.size_info_frame = size_info_frame
-        size_info_frame.grid_remove()
-        
-        ttk.Label(size_info_frame, text="1920 x 1080 pixels").grid(row=0, column=0, sticky=tk.W)
-        
-        # Background color
-        ttk.Label(settings_frame, text="Background Color:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        color_frame = ttk.Frame(settings_frame)
-        color_frame.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5)
-        
-        color_entry = ttk.Entry(color_frame, textvariable=self.bg_color, width=20)
-        color_entry.grid(row=0, column=0, sticky=tk.W)
-        ttk.Label(color_frame, text="(Optional: #RRGGBB or R,G,B)").grid(row=0, column=1, padx=(10, 0))
-        
-        # Save settings checkbox
-        save_cb = ttk.Checkbutton(settings_frame, text="Save current settings to config file when processing completes",
-                                  variable=self.save_settings_to_config)
-        save_cb.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
-        
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            outer, text="Illustrations Formatter", font=('Arial', 16, 'bold')
+        ).grid(row=0, column=0, pady=(0, 8))
+
+        nb = ttk.Notebook(outer)
+        nb.grid(row=0, column=0, sticky='ew', pady=(32, 0))
+
+        batch_tab  = ttk.Frame(nb, padding="12")
+        single_tab = ttk.Frame(nb, padding="12")
+        nb.add(batch_tab,  text="  Batch Processing  ")
+        nb.add(single_tab, text="  Single Image → 1920×1080  ")
+
+        self._build_batch_tab(batch_tab)
+        self._build_single_tab(single_tab)
+        self._build_progress_panel(outer, row=1)
+
+    # ── Batch tab ──────────────────────────────────────────────────────
+
+    def _build_batch_tab(self, parent: ttk.Frame):
+        """Widgets for the Batch Processing tab."""
+        parent.columnconfigure(1, weight=1)
+
+        # Format type
+        fmt_frame = ttk.LabelFrame(parent, text="Format Type", padding="8")
+        fmt_frame.grid(row=0, column=0, columnspan=3, sticky='ew', pady=(0, 8))
+        ttk.Radiobutton(
+            fmt_frame, text="Instagram",
+            variable=self.format_type, value='instagram',
+            command=self.on_format_change,
+        ).grid(row=0, column=0, padx=(0, 20))
+        ttk.Radiobutton(
+            fmt_frame, text="1920 × 1080",
+            variable=self.format_type, value='1920x1080',
+            command=self.on_format_change,
+        ).grid(row=0, column=1)
+
+        # Source folder
+        ttk.Label(parent, text="Source Folder:").grid(
+            row=1, column=0, sticky='w', pady=4)
+        ttk.Entry(parent, textvariable=self.source_folder).grid(
+            row=1, column=1, sticky='ew', pady=4, padx=(5, 5))
+        ttk.Button(parent, text="Browse", command=self._browse_source).grid(
+            row=1, column=2, pady=4)
+
+        # Destination folder
+        ttk.Label(parent, text="Destination Folder:").grid(
+            row=2, column=0, sticky='w', pady=4)
+        ttk.Entry(parent, textvariable=self.dest_folder).grid(
+            row=2, column=1, sticky='ew', pady=4, padx=(5, 5))
+        ttk.Button(parent, text="Browse", command=self._browse_dest).grid(
+            row=2, column=2, pady=4)
+
+        # Settings
+        sf = ttk.LabelFrame(parent, text="Settings", padding="8")
+        sf.grid(row=3, column=0, columnspan=3, sticky='ew', pady=8)
+        sf.columnconfigure(1, weight=1)
+
+        # Aspect ratio row (shown for Instagram)
+        self._ar_label = ttk.Label(sf, text="Aspect Ratio:")
+        self._ar_label.grid(row=0, column=0, sticky='w', pady=4)
+        self._ar_frame = ttk.Frame(sf)
+        self._ar_frame.grid(row=0, column=1, sticky='ew', pady=4)
+        ratio_cb = ttk.Combobox(self._ar_frame, textvariable=self.aspect_ratio, width=12)
+        ratio_cb['values'] = ['3:4', '4:5', '9:16', '1:1', '16:9']
+        ratio_cb.grid(row=0, column=0)
+        ttk.Label(self._ar_frame, text="(Instagram: 4:5  |  Stories: 9:16)").grid(
+            row=0, column=1, padx=(10, 0))
+
+        # Fixed-size label (shown for 1920x1080)
+        self._sz_label = ttk.Label(sf, text="Target Size:")
+        self._sz_label.grid(row=0, column=0, sticky='w', pady=4)
+        self._sz_label.grid_remove()
+        self._sz_frame = ttk.Frame(sf)
+        self._sz_frame.grid(row=0, column=1, sticky='ew', pady=4)
+        ttk.Label(self._sz_frame, text="1920 × 1080 pixels").grid(row=0, column=0, sticky='w')
+        self._sz_frame.grid_remove()
+
+        # Background colour
+        ttk.Label(sf, text="Background Color:").grid(row=1, column=0, sticky='w', pady=4)
+        cf = ttk.Frame(sf)
+        cf.grid(row=1, column=1, sticky='ew', pady=4)
+        ttk.Entry(cf, textvariable=self.bg_color, width=18).grid(row=0, column=0)
+        ttk.Label(cf, text="Optional: #RRGGBB or R,G,B").grid(
+            row=0, column=1, padx=(10, 0))
+
+        # Extend border
+        ttk.Checkbutton(
+            sf,
+            text="Extend border  –  replicate edge pixels instead of flat fill",
+            variable=self.extend_border,
+        ).grid(row=2, column=0, columnspan=2, sticky='w', pady=(8, 0))
+
+        # Save settings
+        ttk.Checkbutton(
+            sf,
+            text="Save current settings to config file on completion",
+            variable=self.save_to_config,
+        ).grid(row=3, column=0, columnspan=2, sticky='w', pady=(4, 0))
+
         # Process button
-        self.process_btn = ttk.Button(main_frame, text="Process Images", 
-                                     command=self.process_images, style='Accent.TButton')
-        self.process_btn.grid(row=5, column=0, columnspan=3, pady=20)
-        
-        # Progress frame
-        progress_frame = ttk.LabelFrame(main_frame, text="Progress", padding="10")
-        progress_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        progress_frame.columnconfigure(0, weight=1)
-        progress_frame.rowconfigure(2, weight=1)  # Only the log area should expand
-        
-        # Progress bar
-        self.progress_var = tk.DoubleVar()
-        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, 
-                                           maximum=100)
-        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
-        
-        # Status label below progress bar - fixed height, left aligned
-        self.status_label = ttk.Label(progress_frame, text="Ready to process images", anchor='w')
-        self.status_label.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
-        
-        # Log text area - this will expand when window is resized
-        self.log_text = scrolledtext.ScrolledText(progress_frame, height=10, wrap=tk.WORD)
-        self.log_text.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Configure tags for log formatting
-        self.log_text.tag_config('INFO', foreground='black')
-        self.log_text.tag_config('WARNING', foreground='orange')
-        self.log_text.tag_config('ERROR', foreground='red')
-        self.log_text.tag_config('SUCCESS', foreground='green')
-        
-        # Initialize format-specific UI elements
+        self.process_btn = ttk.Button(
+            parent, text="Process Images", command=self._start_batch)
+        self.process_btn.grid(row=4, column=0, columnspan=3, pady=16)
+
         self.on_format_change()
-    
+
+    # ── Single image tab ───────────────────────────────────────────────
+
+    def _build_single_tab(self, parent: ttk.Frame):
+        """
+        Widgets for the Single Image → 1920 × 1080 tab.
+
+        The user selects one source image file and an output folder.  The
+        image is scaled (preserving aspect ratio) to fit within 1920 × 1080
+        and saved with the same filename.  The *Extend border* option
+        replicates the outermost edge pixels into the padding strips —
+        especially valuable for square illustrations whose border colour
+        is not a plain background shade.
+        """
+        parent.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            parent,
+            text=(
+                "Convert a single image to 1920 × 1080.  "
+                "The image is scaled to fit and centred; "
+                "padding strips fill the remaining space."
+            ),
+            foreground='gray',
+            wraplength=640,
+            justify='left',
+        ).grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 10))
+
+        # Input image
+        ttk.Label(parent, text="Input Image:").grid(
+            row=1, column=0, sticky='w', pady=4)
+        ttk.Entry(parent, textvariable=self.single_input).grid(
+            row=1, column=1, sticky='ew', pady=4, padx=(5, 5))
+        ttk.Button(parent, text="Browse…", command=self._browse_single_input).grid(
+            row=1, column=2, pady=4)
+
+        # Output folder
+        ttk.Label(parent, text="Output Folder:").grid(
+            row=2, column=0, sticky='w', pady=4)
+        ttk.Entry(parent, textvariable=self.single_out_dir).grid(
+            row=2, column=1, sticky='ew', pady=4, padx=(5, 5))
+        ttk.Button(parent, text="Browse…", command=self._browse_single_output).grid(
+            row=2, column=2, pady=4)
+
+        # Settings
+        sf = ttk.LabelFrame(parent, text="Settings", padding="8")
+        sf.grid(row=3, column=0, columnspan=3, sticky='ew', pady=8)
+        sf.columnconfigure(1, weight=1)
+
+        ttk.Label(sf, text="Background Color:").grid(row=0, column=0, sticky='w', pady=4)
+        cf = ttk.Frame(sf)
+        cf.grid(row=0, column=1, sticky='ew', pady=4)
+        ttk.Entry(cf, textvariable=self.single_bg, width=18).grid(row=0, column=0)
+        ttk.Label(cf, text="Optional: #RRGGBB or R,G,B").grid(
+            row=0, column=1, padx=(10, 0))
+
+        ttk.Checkbutton(
+            sf,
+            text=(
+                "Extend border  –  replicate edge pixels instead of flat fill\n"
+                "  Recommended when the image has a coloured border that differs\n"
+                "  from the detected background (e.g. a coloured ocean edge)."
+            ),
+            variable=self.single_extend,
+        ).grid(row=1, column=0, columnspan=2, sticky='w', pady=(8, 0))
+
+        # Convert button
+        self.convert_btn = ttk.Button(
+            parent, text="Convert Image", command=self._start_single)
+        self.convert_btn.grid(row=4, column=0, columnspan=3, pady=16)
+
+    # ── Shared progress panel ──────────────────────────────────────────
+
+    def _build_progress_panel(self, parent: ttk.Frame, row: int):
+        """Progress bar, status label, and scrollable log — shared by both tabs."""
+        pf = ttk.LabelFrame(parent, text="Progress", padding="10")
+        pf.grid(row=row, column=0, sticky='nsew', pady=(8, 0))
+        pf.columnconfigure(0, weight=1)
+        pf.rowconfigure(2, weight=1)
+        parent.rowconfigure(row, weight=1)
+
+        self.progress_var = tk.DoubleVar()
+        ttk.Progressbar(pf, variable=self.progress_var, maximum=100).grid(
+            row=0, column=0, sticky='ew', pady=(0, 4))
+
+        self.status_label = ttk.Label(pf, text="Ready", anchor='w')
+        self.status_label.grid(row=1, column=0, sticky='ew', pady=(0, 4))
+
+        self.log_text = scrolledtext.ScrolledText(pf, height=10, wrap=tk.WORD)
+        self.log_text.grid(row=2, column=0, sticky='nsew')
+        self.log_text.tag_config('SUCCESS', foreground='green')
+        self.log_text.tag_config('ERROR',   foreground='red')
+
+    # ------------------------------------------------------------------
+    # Formatter setup
+    # ------------------------------------------------------------------
+
     def setup_formatter(self):
-        """Setup the image formatter with custom logger"""
-        # Create logger
+        """Create the :class:`IllustrationsFormatter` and attach a GUI log handler."""
         logger = logging.getLogger('IllustrationsFormatter')
         logger.setLevel(logging.INFO)
-        
-        # Add our custom handler
-        text_handler = TextHandler(self.log_text, self.queue)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', 
-                                    datefmt='%H:%M:%S')
-        text_handler.setFormatter(formatter)
-        logger.addHandler(text_handler)
-        
-        # Create formatter instance
+        handler = TextHandler(self.log_text, self.queue)
+        handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s', datefmt='%H:%M:%S'
+        ))
+        logger.addHandler(handler)
         self.formatter = IllustrationsFormatter(logger)
-    
-    def browse_source(self):
-        """Browse for source folder"""
+
+    # ------------------------------------------------------------------
+    # Batch tab helpers
+    # ------------------------------------------------------------------
+
+    def update_destination_folder(self):
+        """Swap the destination entry to the saved folder for the current format."""
+        if self.format_type.get() == '1920x1080':
+            default = self.config.get('destination_folder_1920x1080', self.DEFAULT_1920X1080_FOLDER)
+            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get(
+                    'destination_folder_instagram', ''):
+                self.dest_folder.set(default)
+        else:
+            default = self.config.get('destination_folder_instagram', self.DEFAULT_INSTAGRAM_FOLDER)
+            if not self.dest_folder.get() or self.dest_folder.get() == self.config.get(
+                    'destination_folder_1920x1080', ''):
+                self.dest_folder.set(default)
+
+    def on_format_change(self):
+        """Show / hide aspect-ratio or fixed-size info based on the selected format."""
+        self.update_destination_folder()
+        if self.format_type.get() == '1920x1080':
+            self._ar_label.grid_remove()
+            self._ar_frame.grid_remove()
+            self._sz_label.grid()
+            self._sz_frame.grid()
+        else:
+            self._sz_label.grid_remove()
+            self._sz_frame.grid_remove()
+            self._ar_label.grid()
+            self._ar_frame.grid()
+
+    def _browse_source(self):
         folder = filedialog.askdirectory(title="Select Source Folder")
         if folder:
             self.source_folder.set(folder)
-    
-    def browse_dest(self):
-        """Browse for destination folder"""
+
+    def _browse_dest(self):
         folder = filedialog.askdirectory(title="Select Destination Folder")
         if folder:
             self.dest_folder.set(folder)
-    
-    def validate_inputs(self) -> Optional[str]:
-        """Validate user inputs and return error message if invalid"""
+
+    def _validate_batch(self) -> Optional[str]:
         if not self.source_folder.get():
-            return "Please select a source folder"
-        
+            return "Please select a source folder."
         if not self.dest_folder.get():
-            return "Please select a destination folder"
-        
+            return "Please select a destination folder."
         if not Path(self.source_folder.get()).exists():
-            return "Source folder does not exist"
-        
-        # Validate aspect ratio only for Instagram format
+            return "Source folder does not exist."
         if self.format_type.get() == 'instagram':
             if not self.aspect_ratio.get():
-                return "Please specify an aspect ratio"
-            
-            # Validate aspect ratio
+                return "Please specify an aspect ratio."
             try:
                 self.formatter.parse_aspect_ratio(self.aspect_ratio.get())
             except ValueError:
-                return "Invalid aspect ratio format"
-        
-        # Validate color if provided
+                return "Invalid aspect ratio format."
         if self.bg_color.get():
             try:
                 parse_color(self.bg_color.get())
             except ValueError:
-                return "Invalid color format. Use #RRGGBB or R,G,B"
-        
+                return "Invalid color format. Use #RRGGBB or R,G,B."
         return None
-    
-    def process_images(self):
-        """Start processing images in a separate thread"""
+
+    def _start_batch(self):
+        """Validate inputs and launch batch processing in a background thread."""
         if self.processing:
-            messagebox.showwarning("Processing", "Already processing images!")
+            messagebox.showwarning("Busy", "Already processing images!")
             return
-        
-        # Validate inputs
-        error = self.validate_inputs()
-        if error:
-            messagebox.showerror("Validation Error", error)
+        err = self._validate_batch()
+        if err:
+            messagebox.showerror("Validation Error", err)
             return
-        
-        # Clear log
-        self.log_text.delete(1.0, tk.END)
-        
-        # Start processing
+        self._reset_progress("Processing batch…")
         self.processing = True
         self.process_btn.config(state='disabled')
-        self.progress_var.set(0)
-        self.status_label.config(text="Processing...")
-        
-        # Start processing thread
-        self.process_thread = threading.Thread(target=self.process_thread_func)
-        self.process_thread.start()
-    
-    def process_thread_func(self):
-        """Function to run in processing thread"""
+        threading.Thread(target=self._run_batch, daemon=True).start()
+
+    def _run_batch(self):
+        """Worker for batch processing (runs in a background thread)."""
         try:
-            # Parse background color
-            bg_color = None
-            if self.bg_color.get():
-                bg_color = parse_color(self.bg_color.get())
-            
-            # Process images based on format type
+            bg = parse_color(self.bg_color.get()) if self.bg_color.get() else None
             if self.format_type.get() == '1920x1080':
                 result = self.formatter.process_folder_fixed_size(
                     self.source_folder.get(),
                     self.dest_folder.get(),
-                    1920,
-                    1080,
-                    bg_color,
-                    progress_callback=self.progress_callback
+                    1920, 1080,
+                    bg,
+                    extend_border=self.extend_border.get(),
+                    progress_callback=self._progress_cb,
                 )
             else:
                 result = self.formatter.process_folder(
                     self.source_folder.get(),
                     self.dest_folder.get(),
                     self.aspect_ratio.get(),
-                    bg_color,
-                    progress_callback=self.progress_callback
+                    bg,
+                    extend_border=self.extend_border.get(),
+                    progress_callback=self._progress_cb,
                 )
-              # Send completion message
-            self.queue.put(('complete', result))
-            
+            self.queue.put(('complete_batch', result))
         except Exception as e:
             self.queue.put(('error', str(e)))
-    
-    def progress_callback(self, current: int, total: int, message: str):
-        """Callback for progress updates from processing thread"""
-        progress = (current / total) * 100 if total > 0 else 0
-        self.queue.put(('progress', (progress, f"{current}/{total} - {message}")))
-    
-    def process_queue(self):
-        """Process messages from the queue"""
+
+    # ------------------------------------------------------------------
+    # Single-image tab helpers
+    # ------------------------------------------------------------------
+
+    def _browse_single_input(self):
+        """Open a file picker for the single input image."""
+        path = filedialog.askopenfilename(
+            title="Select Input Image",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.webp *.bmp"),
+                ("All files", "*.*"),
+            ],
+        )
+        if path:
+            self.single_input.set(path)
+
+    def _browse_single_output(self):
+        folder = filedialog.askdirectory(title="Select Output Folder")
+        if folder:
+            self.single_out_dir.set(folder)
+
+    def _validate_single(self) -> Optional[str]:
+        if not self.single_input.get():
+            return "Please select an input image."
+        if not Path(self.single_input.get()).exists():
+            return "Input image file does not exist."
+        if not self.single_out_dir.get():
+            return "Please select an output folder."
+        if self.single_bg.get():
+            try:
+                parse_color(self.single_bg.get())
+            except ValueError:
+                return "Invalid color format. Use #RRGGBB or R,G,B."
+        return None
+
+    def _start_single(self):
+        """Validate inputs and launch single-image conversion in a background thread."""
+        if self.processing:
+            messagebox.showwarning("Busy", "Already processing an image!")
+            return
+        err = self._validate_single()
+        if err:
+            messagebox.showerror("Validation Error", err)
+            return
+        self._reset_progress("Converting single image…")
+        self.processing = True
+        self.convert_btn.config(state='disabled')
+        threading.Thread(target=self._run_single, daemon=True).start()
+
+    def _run_single(self):
+        """Worker for single-image conversion (runs in a background thread)."""
+        try:
+            t0 = time.time()
+            input_path  = Path(self.single_input.get())
+            output_path = Path(self.single_out_dir.get()) / input_path.name
+            bg = parse_color(self.single_bg.get()) if self.single_bg.get() else None
+
+            self.formatter.convert_single_to_1920x1080(
+                input_path,
+                output_path,
+                background_color=bg,
+                extend_border=self.single_extend.get(),
+            )
+            elapsed = time.time() - t0
+            self.queue.put(('complete_single', (str(output_path), elapsed)))
+        except Exception as e:
+            self.queue.put(('error', str(e)))
+
+    # ------------------------------------------------------------------
+    # Shared progress / queue helpers
+    # ------------------------------------------------------------------
+
+    def _reset_progress(self, status: str = "Ready"):
+        self.log_text.delete('1.0', tk.END)
+        self.progress_var.set(0)
+        self.status_label.config(text=status)
+
+    def _progress_cb(self, current: int, total: int, message: str):
+        pct = (current / total * 100) if total > 0 else 0
+        self.queue.put(('progress', (pct, f"{current}/{total} – {message}")))
+
+    def _process_queue(self):
+        """Drain the inter-thread queue and update all GUI elements."""
         try:
             while True:
-                msg_type, msg_data = self.queue.get_nowait()
-                
-                if msg_type == 'log':
-                    # Add log message
-                    self.log_text.insert(tk.END, msg_data + '\n')
+                kind, data = self.queue.get_nowait()
+
+                if kind == 'log':
+                    self.log_text.insert(tk.END, data + '\n')
                     self.log_text.see(tk.END)
-                    
-                elif msg_type == 'progress':
-                    # Update progress
-                    progress, status = msg_data
-                    self.progress_var.set(progress)
-                    self.status_label.config(text=status)
-                    
-                elif msg_type == 'complete':
-                    # Processing complete
-                    result: ProcessingResult = msg_data
+
+                elif kind == 'progress':
+                    pct, msg = data
+                    self.progress_var.set(pct)
+                    self.status_label.config(text=msg)
+
+                elif kind == 'complete_batch':
+                    self._on_batch_complete(data)
+
+                elif kind == 'complete_single':
+                    out_path, elapsed = data
+                    self._on_single_complete(out_path, elapsed)
+
+                elif kind == 'error':
                     self.processing = False
                     self.process_btn.config(state='normal')
-                    self.progress_var.set(100)
-                    
-                    # Save current settings to config only if user opted in
-                    if self.save_settings_to_config.get():
-                        self.save_config()
-                    
-                    # Show summary
-                    summary = (f"\nProcessing Complete!\n"
-                             f"Total images: {result.total_images}\n"
-                             f"Successful: {result.successful}\n"
-                             f"Failed: {result.failed}\n"
-                             f"Time elapsed: {result.elapsed_time:.2f} seconds")
-                    
-                    self.log_text.insert(tk.END, summary, 'SUCCESS')
-                    self.log_text.see(tk.END)
-                    self.status_label.config(text="Processing complete!")
-                    
-                    # Show message box
-                    if result.failed == 0:
-                        messagebox.showinfo("Success", 
-                                          f"Successfully processed {result.successful} images!")
-                    else:
-                        messagebox.showwarning("Completed with errors", 
-                                             f"Processed {result.successful} images.\n"
-                                             f"{result.failed} images failed.")
-                    
-                elif msg_type == 'error':
-                    # Error occurred
-                    self.processing = False
-                    self.process_btn.config(state='normal')
+                    self.convert_btn.config(state='normal')
                     self.status_label.config(text="Error occurred!")
-                    messagebox.showerror("Processing Error", msg_data)
-                    
+                    messagebox.showerror("Processing Error", data)
+
         except queue.Empty:
             pass
-        
-        # Schedule next check
-        self.root.after(100, self.process_queue)
+
+        self.root.after(100, self._process_queue)
+
+    def _on_batch_complete(self, result: ProcessingResult):
+        self.processing = False
+        self.process_btn.config(state='normal')
+        self.progress_var.set(100)
+
+        if self.save_to_config.get():
+            self.save_config()
+
+        summary = (
+            f"\nBatch complete!\n"
+            f"Total: {result.total_images}  |  "
+            f"Done: {result.successful}  |  "
+            f"Skipped: {result.skipped}  |  "
+            f"Failed: {result.failed}\n"
+            f"Time: {result.elapsed_time:.2f} s\n"
+        )
+        self.log_text.insert(tk.END, summary, 'SUCCESS')
+        self.log_text.see(tk.END)
+        self.status_label.config(text="Done!")
+
+        if result.failed == 0:
+            messagebox.showinfo(
+                "Success",
+                f"Successfully processed {result.successful} image(s).",
+            )
+        else:
+            messagebox.showwarning(
+                "Done with errors",
+                f"{result.successful} image(s) processed.\n"
+                f"{result.failed} failed — see log for details.",
+            )
+
+    def _on_single_complete(self, out_path: str, elapsed: float):
+        self.processing = False
+        self.convert_btn.config(state='normal')
+        self.progress_var.set(100)
+
+        msg = f"\nConverted in {elapsed:.2f} s → {out_path}\n"
+        self.log_text.insert(tk.END, msg, 'SUCCESS')
+        self.log_text.see(tk.END)
+        self.status_label.config(text="Done!")
+        messagebox.showinfo("Success", f"Image saved to:\n{out_path}")
 
 
 def main():
-    """Main entry point for GUI application"""
+    """Launch the Illustrations Formatter GUI application."""
     root = tk.Tk()
-    app = IllustrationsFormatterGUI(root)
+    IllustrationsFormatterGUI(root)
     root.mainloop()
 
 

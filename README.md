@@ -19,7 +19,6 @@ automation/
 ├── 📁 linkedin/        # LinkedIn automation, IP checking, and profile data extraction
 ├── 📁 notion/          # Notion API integration and database management
 ├── 📁 smart_life/      # Smart Life / IoT device automation
-├── 📁 streamlit_demo/  # Streamlit reference app and demo playground
 ├── 📁 system/          # System utilities and virtual environment management
 ├── 📁 text/            # Text processing and PDF conversion tools
 └── 📁 video/           # Screen recording and video processing tools
@@ -151,10 +150,6 @@ Configuration uses a root `.env` file (see [Configuration](#️-configuration));
 - **`open_profiles/`** - LinkedIn profile opening automation
 - **`profiles_data_extractor/`** - DevTools-based profile data extraction, Streamlit dashboard, Excel formatting, and data entry tools
 
-### 📊 Streamlit Demo (`streamlit_demo/`)
-
-**Reference application** demonstrating Streamlit patterns (data input, visualization, CRUD, file upload, process runner, state management). Self-contained; run with `streamlit run main_menu.py` or `run_app.bat` on Windows. See `streamlit_demo/README.md` for details.
-
 ### ☁️ Google Integration (`google/`)
 
 **Gmail, Drive & Photos**
@@ -263,15 +258,6 @@ python email/email-automation-save.py
 
 # Archive emails
 python email/email-automation-archive.py
-```
-
-### **Streamlit Demo**
-```bash
-# From repo root (with streamlit_demo deps installed)
-cd streamlit_demo
-streamlit run main_menu.py
-
-# Or on Windows: double-click streamlit_demo/run_app.bat
 ```
 
 ## ⚙️ Configuration
