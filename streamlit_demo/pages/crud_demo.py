@@ -139,3 +139,7 @@ def render() -> None:
         st.session_state[_STATE_KEY] = load_employees()
         st.info("Dataset reset to original mock data.")
         st.rerun()
+
+
+if __name__ == "__main__":
+    render()

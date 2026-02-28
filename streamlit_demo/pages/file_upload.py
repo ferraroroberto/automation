@@ -107,3 +107,7 @@ def render() -> None:
         st.markdown("---")
         st.dataframe(df.head(10), use_container_width=True)
         st.caption("Preview of the dataset available for download.")
+
+
+if __name__ == "__main__":
+    render()

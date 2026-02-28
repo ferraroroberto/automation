@@ -116,3 +116,7 @@ st.metric("Counter", st.session_state["demo_counter"])
                 state_dict[key] = str(value)
 
         st.json(state_dict)
+
+
+if __name__ == "__main__":
+    render()

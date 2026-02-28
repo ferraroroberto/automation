@@ -29,37 +29,37 @@ from pages import (
 PAGES: list[dict] = [
     {
         "label": "Data Input",
-        "icon": "keyboard",
+        "icon": "⌨",
         "description": "Text fields, sliders, selects, forms with submit buttons.",
         "module": data_input,
     },
     {
         "label": "Visualization",
-        "icon": "bar_chart",
+        "icon": "📊",
         "description": "Tables, editable dataframes, line/bar/scatter charts, KPI metrics.",
         "module": visualization,
     },
     {
         "label": "CRUD Operations",
-        "icon": "table_rows",
+        "icon": "🗂",
         "description": "Create, read, update and delete records from an in-memory dataset.",
         "module": crud_demo,
     },
     {
         "label": "File Handling",
-        "icon": "upload_file",
+        "icon": "📁",
         "description": "Upload CSV / TXT / JSON files and download generated files.",
         "module": file_upload,
     },
     {
         "label": "Process Runner",
-        "icon": "terminal",
+        "icon": "💻",
         "description": "Execute a long-running task with live logs, progress bars and status.",
         "module": process_runner,
     },
     {
         "label": "State Management",
-        "icon": "memory",
+        "icon": "🧠",
         "description": "Demonstrate st.session_state and cross-module shared state.",
         "module": state_management,
     },
@@ -90,7 +90,7 @@ def render_home() -> None:
     cols = st.columns(3)
     for idx, page in enumerate(PAGES):
         with cols[idx % 3]:
-            st.markdown(f"#### :{page['icon']}: {page['label']}")
+            st.markdown(f"#### {page['icon']} {page['label']}")
             st.write(page["description"])
 
     st.markdown("---")

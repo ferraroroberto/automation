@@ -117,3 +117,7 @@ def render() -> None:
                     "expected_salary": form_salary,
                 }
             )
+
+
+if __name__ == "__main__":
+    render()
