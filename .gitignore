@@ -9,6 +9,7 @@ google/token*.json
 system/quickdeck/quickdeck.json
 linkedin/open_profiles/linkedin_open.json
 smart_life/devices.json
+smart_life/snapshot.json
 tinytuya.json
 
 # application settings
@@ -33,3 +34,4 @@ system/textexpander/text_expander_config.json
 notion/articles_sync/notion_articles_sync_last_time.txt
 tmp*
 streamlit_demo/data/*
+
