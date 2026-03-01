@@ -69,6 +69,10 @@ pyautogui>=0.9.54
 # Source: video/screen_recorder.py
 screeninfo>=0.8.1
 
+# YouTube and video site downloads
+# Source: video/video_download.py
+yt-dlp>=2024.1.0
+
 # =============================================================================
 # PDF AND DOCUMENT PROCESSING
 # =============================================================================
