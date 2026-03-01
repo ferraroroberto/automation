@@ -83,9 +83,7 @@ Configuration uses a root `.env` file (see [Configuration](#️-configuration));
 - **`video_concatenator.py`** - Combine multiple video files
 
 **Download & Processing**
-- **`video_download_youtube.py`** - YouTube video downloader
-- **`video_download_youtube_list.py`** - Batch YouTube video downloading
-- **`video_download_html.py`** - Download video from HTML pages
+- **`video_download.py`** - Unified video downloader (YouTube, HLS/M3U8, direct URL) with GUI
 - **`video_reencoder.py`** - Video format conversion and re-encoding
 
 ### 📧 Email Automation (`email/`)
