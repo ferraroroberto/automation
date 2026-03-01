@@ -4,14 +4,17 @@
 import argparse
 import json
 import logging
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import tinytuya
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVICES_FILE = SCRIPT_DIR / "devices.json"
+SNAPSHOT_FILE = SCRIPT_DIR / "snapshot.json"
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +28,8 @@ DPS_SWITCH_PLUG = "1"
 def _load_devices(path: Path) -> List[Dict[str, Any]]:
     """Load device list from JSON file.
 
-    Accepts both the raw tinytuya scan format ``{"devices": [...]}``
-    and a plain ``[...]`` array.
+    Accepts snapshot format ``{"timestamp": ..., "devices": [...]}``
+    and legacy plain ``[...]`` array.
     """
     if not path.exists():
         logger.error(f"❌ Devices file not found: {path}")
@@ -83,6 +86,27 @@ def _connect(device_info: Dict[str, Any]) -> tinytuya.Device:
     return dev
 
 
+def _format_status_error(status: Dict[str, Any]) -> str:
+    """Turn Tuya status error dict into a short readable message."""
+    err = status.get("Err", "")
+    msg = status.get("Error", "")
+    if err or msg:
+        return f"Err={err!r}  Error={msg!r}"
+    return str(status)
+
+
+def _connect_and_status(device_info: Dict[str, Any]) -> Tuple[tinytuya.Device, str, Dict[str, Any]]:
+    """Connect to device and fetch status; exit with message on error. Returns (dev, name, status)."""
+    dev = _connect(device_info)
+    name = device_info.get("name", device_info["id"])
+    status = dev.status()
+    if "Error" in str(status):
+        logger.error(f"❌ Cannot reach '{name}': {_format_status_error(status)}")
+        logger.info("ℹ️  Run 'python light_control.py update' to refresh IPs; check key/ver if it still fails.")
+        sys.exit(1)
+    return dev, name, status
+
+
 def _detect_switch_dps(status: Dict[str, Any]) -> str:
     """Auto-detect whether the device uses DPS 20 (bulb) or DPS 1 (plug)."""
     dps = status.get("dps", {})
@@ -96,14 +120,7 @@ def _detect_switch_dps(status: Dict[str, Any]) -> str:
 
 def turn_on(device_info: Dict[str, Any]) -> None:
     """Turn a light/device ON."""
-    dev = _connect(device_info)
-    name = device_info.get("name", device_info["id"])
-
-    status = dev.status()
-    if "Error" in str(status):
-        logger.error(f"❌ Cannot reach '{name}': {status}")
-        sys.exit(1)
-
+    dev, name, status = _connect_and_status(device_info)
     dps_key = _detect_switch_dps(status)
     dev.set_value(dps_key, True)
     logger.info(f"✅ '{name}' turned ON")
@@ -111,14 +128,7 @@ def turn_on(device_info: Dict[str, Any]) -> None:
 
 def turn_off(device_info: Dict[str, Any]) -> None:
     """Turn a light/device OFF."""
-    dev = _connect(device_info)
-    name = device_info.get("name", device_info["id"])
-
-    status = dev.status()
-    if "Error" in str(status):
-        logger.error(f"❌ Cannot reach '{name}': {status}")
-        sys.exit(1)
-
+    dev, name, status = _connect_and_status(device_info)
     dps_key = _detect_switch_dps(status)
     dev.set_value(dps_key, False)
     logger.info(f"✅ '{name}' turned OFF")
@@ -126,14 +136,7 @@ def turn_off(device_info: Dict[str, Any]) -> None:
 
 def get_status(device_info: Dict[str, Any]) -> None:
     """Print current device status."""
-    dev = _connect(device_info)
-    name = device_info.get("name", device_info["id"])
-
-    status = dev.status()
-    if "Error" in str(status):
-        logger.error(f"❌ Cannot reach '{name}': {status}")
-        sys.exit(1)
-
+    dev, name, status = _connect_and_status(device_info)
     dps = status.get("dps", {})
     dps_key = _detect_switch_dps(status)
     is_on = dps.get(dps_key, None)
@@ -145,14 +148,7 @@ def get_status(device_info: Dict[str, Any]) -> None:
 
 def switch_toggle(device_info: Dict[str, Any]) -> None:
     """Toggle device: if ON turn OFF, if OFF turn ON."""
-    dev = _connect(device_info)
-    name = device_info.get("name", device_info["id"])
-
-    status = dev.status()
-    if "Error" in str(status):
-        logger.error(f"❌ Cannot reach '{name}': {status}")
-        sys.exit(1)
-
+    dev, name, status = _connect_and_status(device_info)
     dps_key = _detect_switch_dps(status)
     dps = status.get("dps", {})
     is_on = dps.get(dps_key, False)
@@ -172,9 +168,68 @@ def list_devices(devices: List[Dict[str, Any]]) -> None:
 
 
 def scan_network() -> None:
-    """Run tinytuya network scan to discover devices."""
+    """Run tinytuya network scan to discover devices (via CLI)."""
     logger.info("🔍 Scanning local network for Tuya devices …")
-    tinytuya.scanner.scan()
+    subprocess.run(
+        [sys.executable, "-m", "tinytuya", "scan"],
+        check=False,
+    )
+
+
+def update_devices(devices_path: Path, snapshot_path: Path) -> None:
+    """Run tinytuya snapshot (using devices.json) then overwrite devices.json with result.
+
+    Snapshot discovers current IPs and DPS for each device in devices.json;
+    writing the result back keeps devices.json in sync with snapshot format.
+    Tinytuya expects the device file to be a JSON array of devices, so we write
+    a temp file with just the devices list when our file is {timestamp, devices}.
+    """
+    with open(devices_path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    devices_list = data.get("devices", data) if isinstance(data, dict) else data
+    if not isinstance(devices_list, list):
+        logger.error("❌ devices.json must be a list of devices or {timestamp, devices}")
+        sys.exit(1)
+
+    logger.info("🔄 Running tinytuya snapshot to refresh IPs and status …")
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".json",
+        delete=False,
+        encoding="utf-8",
+    ) as tmp:
+        json.dump(devices_list, tmp, indent=2)
+        tmp_path = tmp.name
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "tinytuya",
+                "snapshot",
+                "-y",
+                "-device-file",
+                tmp_path,
+                "-snapshot-file",
+                str(snapshot_path),
+            ],
+            cwd=str(devices_path.parent),
+            check=False,
+        )
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    if result.returncode != 0:
+        logger.error("❌ Snapshot failed; devices.json was not updated")
+        sys.exit(1)
+    if not snapshot_path.exists():
+        logger.error("❌ Snapshot file was not created")
+        sys.exit(1)
+    with open(snapshot_path, "r", encoding="utf-8") as fh:
+        snapshot = json.load(fh)
+    with open(devices_path, "w", encoding="utf-8") as fh:
+        json.dump(snapshot, fh, indent=4)
+    logger.info(f"✅ Updated {devices_path.name} with snapshot ({len(snapshot.get('devices', []))} devices)")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -188,12 +243,13 @@ def _build_parser() -> argparse.ArgumentParser:
             "  python light_control.py status --light despacho\n"
             "  python light_control.py list\n"
             "  python light_control.py scan\n"
+            "  python light_control.py update\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "action",
-        choices=["on", "off", "switch", "status", "list", "scan"],
+        choices=["on", "off", "switch", "status", "list", "scan", "update"],
         help="Action to perform",
     )
     parser.add_argument(
@@ -229,6 +285,10 @@ def main() -> int:
 
     if args.action == "scan":
         scan_network()
+        return 0
+
+    if args.action == "update":
+        update_devices(DEVICES_FILE, SNAPSHOT_FILE)
         return 0
 
     devices = _load_devices(DEVICES_FILE)
