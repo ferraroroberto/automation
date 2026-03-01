@@ -27,15 +27,15 @@ Copy (or move) the generated `devices.json` into the `smart_life/` folder:
 cp devices.json smart_life/devices.json
 ```
 
-### 3. (Optional) Find Device IPs
+### 3. (Optional) Refresh IPs and status
 
-If `devices.json` does not include IP addresses, run:
+`devices.json` uses the same format as tinytuya’s snapshot (top-level `timestamp` and `devices` array). To refresh IPs and live status from the network, run:
 
 ```bash
-python -m tinytuya scan
+python smart_life/light_control.py update
 ```
 
-Then update the `ip` fields in `devices.json`.
+This runs `tinytuya snapshot` (feeding it a temporary list of devices so it works with our snapshot-format file) and overwrites `devices.json` with the result. You can also run `python -m tinytuya scan` to discover devices; add new ones to `devices.json` (id, key, name, ip, ver) as needed.
 
 ## Usage
 
@@ -55,33 +55,42 @@ python smart_life/light_control.py list
 # Scan network for Tuya devices
 python smart_life/light_control.py scan
 
+# Refresh devices.json from snapshot (update IPs and status; same format as snapshot.json)
+python smart_life/light_control.py update
+
 # Debug mode (verbose output)
 python smart_life/light_control.py status --light despacho --debug
 ```
 
-The `--light` parameter accepts partial, case-insensitive matches, so `--light despacho` will find "luz despacho".
+The `--light` parameter accepts a **device name** (partial, case-insensitive) or **full device ID**. Examples: `--light despacho`, `--light "luz despacho"`, `--light bfc158aece14a52035diwf`.
 
 ## devices.json Format
 
-Each entry needs at minimum:
+The file uses **snapshot format**: `{"timestamp": ..., "devices": [...]}`. Each device needs at least `id`, `key`, `name`, `ip`, and `ver` (or `version`):
 
 ```json
 {
-  "name": "luz despacho",
-  "id": "DEVICE_ID_FROM_TUYA",
-  "key": "LOCAL_KEY_FROM_WIZARD",
-  "ip": "192.168.1.100",
-  "version": "3.3"
+  "timestamp": 1234567890.0,
+  "devices": [
+    {
+      "id": "DEVICE_ID_FROM_TUYA",
+      "key": "LOCAL_KEY_FROM_WIZARD",
+      "name": "luz despacho",
+      "ip": "192.168.1.100",
+      "ver": "3.3"
+    }
+  ]
 }
 ```
 
-See `devices.sample.json` for a template.
+Run `python smart_life/light_control.py update` to refresh IPs and fill in extra fields (e.g. `dps`, `origin`) from the network.
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| `Cannot reach device` | Verify the device IP is correct and reachable (`ping 192.168.1.XXX`). Make sure your PC is on the same WiFi network. |
-| `devices.json not found` | Run `python -m tinytuya wizard` and copy the output file here. |
-| Wrong device toggled | Use `list` to check names, then use a more specific `--light` query. |
-| Protocol errors | Try changing `"version"` in devices.json to `"3.1"`, `"3.4"`, or `"3.5"`. |
+| `Cannot reach device` | Run `python smart_life/light_control.py update` to refresh IPs. Check key/ver; ensure the device is on the same WiFi and reachable (`ping <ip>`). |
+| `devices.json not found` | Run `python -m tinytuya wizard` and copy the output file into `smart_life/`. Convert to snapshot format (see below) or run `update` after. |
+| `Snapshot failed` / `TypeError` | Ensure `devices.json` is snapshot format `{"timestamp", "devices": [...]}`; the script writes a temp list for tinytuya automatically. |
+| Wrong device toggled | Use `list` to check names/IDs, then use a more specific `--light` query or the device ID. |
+| Protocol errors | Try changing `ver` in devices.json to `"3.1"`, `"3.4"`, or `"3.5"`. |
