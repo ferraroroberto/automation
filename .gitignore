@@ -10,6 +10,7 @@ system/quickdeck/quickdeck.json
 linkedin/open_profiles/linkedin_open.json
 smart_life/devices.json
 smart_life/snapshot.json
+smart_life/cloud.json
 tinytuya.json
 
 # application settings

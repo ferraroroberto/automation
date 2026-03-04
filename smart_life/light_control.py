@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smart Life / Tuya light controller via local network using tinytuya."""
+"""Smart Life / Tuya light controller: cloud-first, local fallback (tinytuya)."""
 
 import argparse
 import json
@@ -8,13 +8,14 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import tinytuya
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVICES_FILE = SCRIPT_DIR / "devices.json"
 SNAPSHOT_FILE = SCRIPT_DIR / "snapshot.json"
+CLOUD_CONFIG_FILES = [SCRIPT_DIR / "cloud.json", SCRIPT_DIR / "tinytuya.json"]
 
 logger = logging.getLogger(__name__)
 
@@ -52,21 +53,35 @@ def _load_devices(path: Path) -> List[Dict[str, Any]]:
     return data
 
 
+def _has_valid_ip(device_info: Dict[str, Any]) -> bool:
+    """True if the device has a non-empty IP that looks like a local address (not 'Auto' or error)."""
+    ip = device_info.get("ip") or ""
+    if not ip or not isinstance(ip, str):
+        return False
+    ip = ip.strip()
+    if ip in ("Auto", "") or "No IP" in ip or "Error" in ip:
+        return False
+    parts = ip.split(".")
+    return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+
+
 def _find_device(devices: List[Dict[str, Any]], query: str) -> Dict[str, Any]:
-    """Find a device by name (case-insensitive partial match) or by ID."""
+    """Find a device by name (case-insensitive partial match) or by ID.
+    When multiple devices share the same name, prefer the one with a valid IP.
+    """
     query_lower = query.lower()
     for dev in devices:
         if dev.get("id", "").lower() == query_lower:
             return dev
-    for dev in devices:
-        if query_lower in dev.get("name", "").lower():
-            return dev
-
-    logger.error(f"❌ No device matching '{query}' found in devices.json")
-    logger.info("ℹ️  Available devices:")
-    for dev in devices:
-        logger.info(f"   • {dev.get('name', '?')}  (id={dev.get('id', '?')})")
-    sys.exit(1)
+    name_matches = [d for d in devices if query_lower in d.get("name", "").lower()]
+    if not name_matches:
+        logger.error(f"❌ No device matching '{query}' found in devices.json")
+        logger.info("ℹ️  Available devices:")
+        for dev in devices:
+            logger.info(f"   • {dev.get('name', '?'):30s}  (id={dev.get('id', '?')})")
+        sys.exit(1)
+    with_ip = [d for d in name_matches if _has_valid_ip(d)]
+    return with_ip[0] if with_ip else name_matches[0]
 
 
 def _get_version(device_info: Dict[str, Any]) -> float:
@@ -74,8 +89,56 @@ def _get_version(device_info: Dict[str, Any]) -> float:
     return float(device_info.get("version", device_info.get("ver", "3.3")))
 
 
-def _connect(device_info: Dict[str, Any]) -> tinytuya.Device:
-    """Create a tinytuya Device connection."""
+def _get_cloud() -> Optional[tinytuya.Cloud]:
+    """Load Tuya Cloud client from smart_life/cloud.json or tinytuya.json if present."""
+    for path in CLOUD_CONFIG_FILES:
+        if not path.exists():
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                config = json.load(fh)
+            api_region = config.get("apiRegion") or config.get("api_region")
+            api_key = config.get("apiKey") or config.get("api_key")
+            api_secret = config.get("apiSecret") or config.get("api_secret")
+            if api_key and api_secret and api_region:
+                return tinytuya.Cloud(api_region, api_key, api_secret)
+        except Exception as e:
+            logger.debug("Could not load cloud config from %s: %s", path, e)
+    return None
+
+
+def _cloud_status_to_dps(cloud_response: Dict[str, Any]) -> Optional[Tuple[Dict[str, Any], str]]:
+    """Convert Cloud getstatus() result to (status_dict with 'dps', switch_code).
+    Cloud returns result: [{"code": "switch_1", "value": true}, ...].
+    Returns ({"dps": {"1": True}}, "switch_1") or None on failure.
+    """
+    if not cloud_response.get("success") or "result" not in cloud_response:
+        return None
+    items = cloud_response.get("result") or []
+    if not isinstance(items, list):
+        return None
+    dps = {}
+    switch_code = None
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        code = item.get("code") or ""
+        value = item.get("value")
+        if code in ("switch_1", "switch", "switch_led"):
+            switch_code = code
+            dps["1" if code in ("switch_1", "switch") else "20"] = value
+    if switch_code is None:
+        return None
+    return ({"dps": dps}, switch_code)
+
+
+def _connect(
+    device_info: Dict[str, Any],
+    *,
+    socket_timeout: float = 1.0,
+    retry_limit: int = 1,
+) -> tinytuya.Device:
+    """Create a tinytuya Device connection (1s timeout, 1 retry for local attempt)."""
     dev_id = device_info["id"]
     ip = device_info.get("ip", "Auto")
     local_key = device_info["key"]
@@ -83,6 +146,9 @@ def _connect(device_info: Dict[str, Any]) -> tinytuya.Device:
 
     dev = tinytuya.Device(dev_id, ip, local_key, version=version)
     dev.set_socketPersistent(False)
+    dev.set_socketTimeout(socket_timeout)
+    dev.set_socketRetryLimit(retry_limit)
+    dev.set_sendWait(1)
     return dev
 
 
@@ -95,16 +161,31 @@ def _format_status_error(status: Dict[str, Any]) -> str:
     return str(status)
 
 
-def _connect_and_status(device_info: Dict[str, Any]) -> Tuple[tinytuya.Device, str, Dict[str, Any]]:
-    """Connect to device and fetch status; exit with message on error. Returns (dev, name, status)."""
-    dev = _connect(device_info)
+def _connect_and_status(
+    device_info: Dict[str, Any],
+) -> Tuple[Optional[tinytuya.Device], str, Dict[str, Any], Optional[Dict[str, Any]]]:
+    """Connect to device and fetch status. Prefer Cloud (fast, reliable); if not configured or fails, try local (1s)."""
     name = device_info.get("name", device_info["id"])
+
+    # Cloud first — fast and reliable when device is cloud-linked
+    cloud = _get_cloud()
+    if cloud:
+        device_id = device_info["id"]
+        resp = cloud.getstatus(device_id)
+        parsed = _cloud_status_to_dps(resp)
+        if parsed:
+            status_dict, switch_code = parsed
+            return None, name, status_dict, {"cloud": cloud, "device_id": device_id, "switch_code": switch_code}
+
+    # No cloud or cloud failed — try local with 1s timeout so we don't wait long
+    dev = _connect(device_info)
     status = dev.status()
-    if "Error" in str(status):
-        logger.error(f"❌ Cannot reach '{name}': {_format_status_error(status)}")
-        logger.info("ℹ️  Run 'python light_control.py update' to refresh IPs; check key/ver if it still fails.")
-        sys.exit(1)
-    return dev, name, status
+    if "Error" not in str(status):
+        return dev, name, status, None
+
+    logger.error(f"❌ Cannot reach '{name}': {_format_status_error(status)}")
+    logger.info("ℹ️  Run 'python light_control.py update' to refresh IPs; add smart_life/cloud.json for cloud control.")
+    sys.exit(1)
 
 
 def _detect_switch_dps(status: Dict[str, Any]) -> str:
@@ -118,25 +199,42 @@ def _detect_switch_dps(status: Dict[str, Any]) -> str:
     return DPS_SWITCH_PLUG
 
 
+def _set_switch_via_cloud(cloud_ctx: Dict[str, Any], value: bool) -> bool:
+    """Send switch command via Tuya Cloud. Returns True if success."""
+    body = {"commands": [{"code": cloud_ctx["switch_code"], "value": value}]}
+    resp = cloud_ctx["cloud"].sendcommand(cloud_ctx["device_id"], body)
+    return bool(resp and resp.get("success"))
+
+
 def turn_on(device_info: Dict[str, Any]) -> None:
     """Turn a light/device ON."""
-    dev, name, status = _connect_and_status(device_info)
-    dps_key = _detect_switch_dps(status)
-    dev.set_value(dps_key, True)
+    dev, name, status, cloud_ctx = _connect_and_status(device_info)
+    if cloud_ctx:
+        if not _set_switch_via_cloud(cloud_ctx, True):
+            logger.error("❌ Cloud command failed for '%s'", name)
+            sys.exit(1)
+    else:
+        dps_key = _detect_switch_dps(status)
+        dev.set_value(dps_key, True)
     logger.info(f"✅ '{name}' turned ON")
 
 
 def turn_off(device_info: Dict[str, Any]) -> None:
     """Turn a light/device OFF."""
-    dev, name, status = _connect_and_status(device_info)
-    dps_key = _detect_switch_dps(status)
-    dev.set_value(dps_key, False)
+    dev, name, status, cloud_ctx = _connect_and_status(device_info)
+    if cloud_ctx:
+        if not _set_switch_via_cloud(cloud_ctx, False):
+            logger.error("❌ Cloud command failed for '%s'", name)
+            sys.exit(1)
+    else:
+        dps_key = _detect_switch_dps(status)
+        dev.set_value(dps_key, False)
     logger.info(f"✅ '{name}' turned OFF")
 
 
 def get_status(device_info: Dict[str, Any]) -> None:
     """Print current device status."""
-    dev, name, status = _connect_and_status(device_info)
+    _dev, name, status, _cloud_ctx = _connect_and_status(device_info)
     dps = status.get("dps", {})
     dps_key = _detect_switch_dps(status)
     is_on = dps.get(dps_key, None)
@@ -148,12 +246,17 @@ def get_status(device_info: Dict[str, Any]) -> None:
 
 def switch_toggle(device_info: Dict[str, Any]) -> None:
     """Toggle device: if ON turn OFF, if OFF turn ON."""
-    dev, name, status = _connect_and_status(device_info)
-    dps_key = _detect_switch_dps(status)
+    dev, name, status, cloud_ctx = _connect_and_status(device_info)
     dps = status.get("dps", {})
+    dps_key = _detect_switch_dps(status)
     is_on = dps.get(dps_key, False)
     new_state = not is_on
-    dev.set_value(dps_key, new_state)
+    if cloud_ctx:
+        if not _set_switch_via_cloud(cloud_ctx, new_state):
+            logger.error("❌ Cloud command failed for '%s'", name)
+            sys.exit(1)
+    else:
+        dev.set_value(dps_key, new_state)
     state_label = "ON" if new_state else "OFF"
     logger.info(f"✅ '{name}' switched to {state_label}")
 
@@ -227,9 +330,19 @@ def update_devices(devices_path: Path, snapshot_path: Path) -> None:
         sys.exit(1)
     with open(snapshot_path, "r", encoding="utf-8") as fh:
         snapshot = json.load(fh)
+    devices = snapshot.get("devices", [])
+    # Deduplicate by name: when multiple devices share a name, keep the one with a valid IP
+    seen_names: Dict[str, Dict[str, Any]] = {}
+    for dev in devices:
+        name = (dev.get("name") or "").strip() or dev.get("id", "")
+        if name not in seen_names:
+            seen_names[name] = dev
+        elif _has_valid_ip(dev) and not _has_valid_ip(seen_names[name]):
+            seen_names[name] = dev
+    snapshot["devices"] = list(seen_names.values())
     with open(devices_path, "w", encoding="utf-8") as fh:
         json.dump(snapshot, fh, indent=4)
-    logger.info(f"✅ Updated {devices_path.name} with snapshot ({len(snapshot.get('devices', []))} devices)")
+    logger.info(f"✅ Updated {devices_path.name} with snapshot ({len(snapshot['devices'])} devices)")
 
 
 def _build_parser() -> argparse.ArgumentParser:

@@ -1,12 +1,12 @@
 # Smart Life / Tuya Light Controller
 
-Control Smart Life lights from the command line using local network (no cloud latency).
+Control Smart Life / Tuya lights and plugs from the command line. Uses **Tuya Cloud first** (when configured) for fast, reliable control; falls back to **local network** (1s timeout) if cloud is not set up or the device is only on LAN.
 
 ## Setup
 
 ### 1. Create a Tuya IoT Cloud Project (one-time)
 
-This is needed **only to obtain the local keys** for your devices. Once configured, the script talks directly to your devices over WiFi — no internet required.
+You need this to get device keys and (optionally) to use cloud control. Create a project to obtain **Access ID** and **Access Secret** and to link your Smart Life app.
 
 1. Go to [iot.tuya.com](https://iot.tuya.com) and create an account.
 2. Create a **Cloud Project** (select your data center, e.g. *Central Europe*).
@@ -85,11 +85,31 @@ The file uses **snapshot format**: `{"timestamp": ..., "devices": [...]}`. Each 
 
 Run `python smart_life/light_control.py update` to refresh IPs and fill in extra fields (e.g. `dps`, `origin`) from the network.
 
+## Cloud (recommended)
+
+With `cloud.json` configured, the script uses the **Tuya Cloud API first** — typically a few seconds per command. If cloud is not configured or the API call fails, it tries **local** control with a 1s timeout so it doesn’t hang.
+
+1. Create `smart_life/cloud.json` (or copy `tinytuya.json` from the wizard into `smart_life/` as `cloud.json`) with your Tuya IoT credentials:
+
+```json
+{
+  "apiRegion": "eu",
+  "apiKey": "YOUR_ACCESS_ID",
+  "apiSecret": "YOUR_ACCESS_SECRET"
+}
+```
+
+2. Use **Access ID** and **Access Secret** from your [Tuya IoT project](https://iot.tuya.com) (project > Overview). Set `apiRegion` to your data center: `eu`, `us`, `cn`, `in`, etc.
+
+3. Commands then run via cloud when the device is linked to your project. No extra message — it just works. Without `cloud.json`, only local control is tried (1s timeout).
+
+`cloud.json` is in `.gitignore` so secrets are not committed.
+
 ## Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| `Cannot reach device` | Run `python smart_life/light_control.py update` to refresh IPs. Check key/ver; ensure the device is on the same WiFi and reachable (`ping <ip>`). |
+| `Cannot reach device` | Run `python smart_life/light_control.py update` to refresh IPs. If the device works in the Smart Life app but not locally, add `smart_life/cloud.json` (see **Cloud** above) for cloud control. |
 | `devices.json not found` | Run `python -m tinytuya wizard` and copy the output file into `smart_life/`. Convert to snapshot format (see below) or run `update` after. |
 | `Snapshot failed` / `TypeError` | Ensure `devices.json` is snapshot format `{"timestamp", "devices": [...]}`; the script writes a temp list for tinytuya automatically. |
 | Wrong device toggled | Use `list` to check names/IDs, then use a more specific `--light` query or the device ID. |
