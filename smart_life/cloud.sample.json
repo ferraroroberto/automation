@@ -1,0 +1,5 @@
+{
+  "apiRegion": "eu",
+  "apiKey": "YOUR_ACCESS_ID_FROM_TUYA_IOT_PROJECT",
+  "apiSecret": "YOUR_ACCESS_SECRET_FROM_TUYA_IOT_PROJECT"
+}
