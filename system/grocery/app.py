@@ -16,7 +16,7 @@ Data Structure:
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import pandas as pd
 import streamlit as st
@@ -35,6 +35,49 @@ logger = logging.getLogger(__name__)
 COLUMNS = CONFIG["data"]["columns"]
 MODES = CONFIG["ui"]["modes"]
 UI_LABELS = CONFIG["data"]["ui_labels"]
+
+# Injected CSS: tighter padding, compact buttons, reduced gaps
+_CSS = """
+<style>
+/* Shrink top/bottom padding of main area */
+.main .block-container {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.5rem !important;
+}
+/* Tighter column cell padding */
+[data-testid="column"] {
+    padding-left: 0.15rem !important;
+    padding-right: 0.15rem !important;
+}
+/* Smaller buttons */
+.stButton > button {
+    padding: 0.2rem 0.55rem !important;
+    font-size: 0.92rem !important;
+    line-height: 1.3 !important;
+    min-height: 0 !important;
+}
+/* Compact link buttons */
+.stLinkButton > a {
+    padding: 0.2rem 0.55rem !important;
+    font-size: 0.85rem !important;
+}
+/* Compact dividers */
+hr { margin: 0.2rem 0 !important; }
+/* Compact expander header */
+details > summary {
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.9rem !important;
+}
+/* Sidebar compactness */
+section[data-testid="stSidebar"] .block-container {
+    padding-top: 0.5rem !important;
+}
+/* Compact radio buttons */
+.stRadio > div { gap: 0.1rem !important; }
+/* Compact selectbox */
+[data-testid="stSelectbox"] { margin-bottom: 0.2rem !important; }
+</style>
+"""
 
 
 def load_inventory_data() -> Optional[pd.DataFrame]:
@@ -55,11 +98,8 @@ def load_inventory_data() -> Optional[pd.DataFrame]:
             logger.error(f"Missing columns in data: {missing_cols}")
             return None
 
-        # Ensure numeric columns are integers
         df[COLUMNS["cantidad"]] = df[COLUMNS["cantidad"]].astype(int)
         df[COLUMNS["tenemos"]] = df[COLUMNS["tenemos"]].astype(int)
-
-        # Calculate comprar column
         df[COLUMNS["comprar"]] = (df[COLUMNS["cantidad"]] - df[COLUMNS["tenemos"]]).clip(lower=0)
 
         logger.info(f"✅ Loaded inventory data: {len(df)} items")
@@ -94,546 +134,379 @@ def get_unique_supermarkets(df: pd.DataFrame) -> List[str]:
 
 
 def get_supermarket_stats(shopping_items: pd.DataFrame, bought_items: set) -> Dict[str, Dict[str, int]]:
-    """Calculate statistics for each supermarket from shopping items.
-
-    Args:
-        shopping_items: DataFrame with items that need shopping (comprar > 0)
-        bought_items: Set of item indices that have been marked as bought
-
-    Returns:
-        Dict mapping supermarket name to stats dict with keys:
-        - total_unique: total unique items needed
-        - total_quantity: total quantity needed
-        - got_it_unique: unique items already bought
-        - got_it_quantity: total quantity already bought
-    """
+    """Calculate statistics for each supermarket from shopping items."""
     stats = {}
-    supermarkets = get_unique_supermarkets(shopping_items)
-
-    for supermarket in supermarkets:
-        supermarket_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket]
-
-        total_unique = len(supermarket_items)
-        total_quantity = supermarket_items[COLUMNS["comprar"]].sum()
-
-        # Count "got it" items for this supermarket
-        bought_items_in_supermarket = supermarket_items[supermarket_items.index.isin(bought_items)]
-        got_it_unique = len(bought_items_in_supermarket)
-        got_it_quantity = bought_items_in_supermarket[COLUMNS["comprar"]].sum()
-
+    for supermarket in get_unique_supermarkets(shopping_items):
+        sm_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket]
+        bought_in_sm = sm_items[sm_items.index.isin(bought_items)]
         stats[supermarket] = {
-            "total_unique": total_unique,
-            "total_quantity": total_quantity,
-            "got_it_unique": got_it_unique,
-            "got_it_quantity": got_it_quantity
+            "total_unique": len(sm_items),
+            "total_quantity": int(sm_items[COLUMNS["comprar"]].sum()),
+            "got_it_unique": len(bought_in_sm),
+            "got_it_quantity": int(bought_in_sm[COLUMNS["comprar"]].sum()),
         }
-
     return stats
 
 
 def update_item_quantity(df: pd.DataFrame, item_index: int, delta: int) -> pd.DataFrame:
     """Update the tenemos quantity for an item and recalculate comprar."""
-    current_qty = df.at[item_index, COLUMNS["tenemos"]]
-    new_qty = max(0, current_qty + delta)  # Prevent negative quantities
-
+    new_qty = max(0, df.at[item_index, COLUMNS["tenemos"]] + delta)
     df.at[item_index, COLUMNS["tenemos"]] = new_qty
     df.at[item_index, COLUMNS["comprar"]] = max(0, df.at[item_index, COLUMNS["cantidad"]] - new_qty)
-
-    # Auto-save to Excel after each change
     save_inventory_data(df)
-
-    logger.debug(f"Updated item {item_index}: tenemos={new_qty}, comprar={df.at[item_index, COLUMNS['comprar']]}")
+    logger.debug(f"Updated item {item_index}: tenemos={new_qty}")
     return df
 
 
 def update_target_quantity(df: pd.DataFrame, item_index: int, delta: int) -> pd.DataFrame:
     """Update the cantidad (target) quantity for an item and recalculate comprar."""
-    current_target = df.at[item_index, COLUMNS["cantidad"]]
-    new_target = max(0, current_target + delta)  # Prevent negative quantities
-
+    new_target = max(0, df.at[item_index, COLUMNS["cantidad"]] + delta)
     df.at[item_index, COLUMNS["cantidad"]] = new_target
     df.at[item_index, COLUMNS["comprar"]] = max(0, new_target - df.at[item_index, COLUMNS["tenemos"]])
-
-    # Auto-save to Excel after each change
     save_inventory_data(df)
-
-    logger.debug(f"Updated target for item {item_index}: cantidad={new_target}, comprar={df.at[item_index, COLUMNS['comprar']]}")
+    logger.debug(f"Updated target for item {item_index}: cantidad={new_target}")
     return df
+
+
+def _qty_html(current: int, target: int) -> str:
+    """Compact inline HTML for current/target display with color coding."""
+    color = "#21c354" if current >= target else ("#ffa500" if current > 0 else "#ff4b4b")
+    return (
+        f"<div style='text-align:center;padding-top:6px;font-size:0.93rem'>"
+        f"<span style='color:{color};font-weight:600'>{current}</span>"
+        f"<span style='color:#666'>/{target}</span></div>"
+    )
+
+
+def _buy_html(qty: int) -> str:
+    """Compact inline HTML for buy quantity display."""
+    if qty > 0:
+        return (
+            f"<div style='text-align:center;padding-top:6px;font-size:0.93rem;"
+            f"color:#ff4b4b;font-weight:600'>↓{qty}</div>"
+        )
+    return "<div style='text-align:center;padding-top:6px;font-size:0.93rem;color:#21c354'>✓</div>"
 
 
 def render_audit_mode(df: pd.DataFrame) -> pd.DataFrame:
     """Render the audit mode interface."""
-    st.header(MODES["audit"])
-
     zones = get_unique_zones(df)
-    selected_zone = st.selectbox(
-        "🏠 Select Zone",
-        zones,
-        help="Choose the area of your home to audit"
-    )
+    selected_zone = st.selectbox("Zone", zones, label_visibility="collapsed")
 
-    # Filter data for selected zone and only show items with target > 0
-    zone_data = df[(df[COLUMNS["lugar"]] == selected_zone) & (df[COLUMNS["cantidad"]] > 0)].copy()
+    zone_data = df[
+        (df[COLUMNS["lugar"]] == selected_zone) & (df[COLUMNS["cantidad"]] > 0)
+    ].copy().sort_values(COLUMNS["comida"], key=lambda s: s.str.lower())
 
     if zone_data.empty:
-        st.info(f"No items with target > 0 found in {selected_zone}")
+        st.info(f"No tracked items in {selected_zone}")
         return df
 
-    st.subheader(f"Items in {selected_zone.title()}")
+    st.caption(f"{selected_zone.title()} · {len(zone_data)} items")
 
-    # Display items in a single-line mobile layout
+    # Header row — cols [4,1,1,2,1,1,2] = 12 parts, merged as [4,2,2,2,2]
+    _, hv, hd, ht, hb = st.columns([4, 2, 2, 2, 2])
+    with hv:
+        st.markdown("<div style='text-align:center;font-size:0.72rem;color:#888;padding-bottom:0'>➖ have ➕</div>", unsafe_allow_html=True)
+    with hd:
+        st.markdown("<div style='text-align:center;font-size:0.72rem;color:#888'>have/tgt</div>", unsafe_allow_html=True)
+    with ht:
+        st.markdown("<div style='text-align:center;font-size:0.72rem;color:#888;padding-bottom:0'>⊖ target ⊕</div>", unsafe_allow_html=True)
+    with hb:
+        st.markdown("<div style='text-align:center;font-size:0.72rem;color:#888'>buy</div>", unsafe_allow_html=True)
+
     for idx in zone_data.index:
         item_name = zone_data.at[idx, COLUMNS["comida"]]
         current_qty = zone_data.at[idx, COLUMNS["tenemos"]]
         target_qty = zone_data.at[idx, COLUMNS["cantidad"]]
         buy_qty = zone_data.at[idx, COLUMNS["comprar"]]
 
-        # Single line layout: item name | target | current | (+ - buttons) | buy
-        with st.container():
-            col1, col2, col3, col4, col5, col6 = st.columns([3, 1, 1, 1, 1, 1])
-
-            with col1:
-                st.write(f"**{item_name}**")
-
-            with col2:
-                st.metric("target", target_qty)
-
-            with col3:
-                st.metric("current", current_qty)
-
-            with col4:
-                # Large minus button for mobile
-                if st.button("➖", key=f"minus_{idx}", help="Decrease quantity"):
-                    df = update_item_quantity(df, idx, -1)
-                    st.rerun()
-
-            with col5:
-                # Large plus button for mobile
-                if st.button("➕", key=f"plus_{idx}", help="Increase quantity"):
-                    df = update_item_quantity(df, idx, 1)
-                    st.rerun()
-
-            with col6:
-                st.metric("buy", buy_qty)
-
-        st.divider()
+        col1, col2, col3, col4, col5, col6, col7 = st.columns([4, 1, 1, 2, 1, 1, 2])
+        with col1:
+            st.markdown(f"**{item_name}**")
+        with col2:
+            if st.button("➖", key=f"minus_{idx}", help="Decrease stock"):
+                df = update_item_quantity(df, idx, -1)
+                st.rerun()
+        with col3:
+            if st.button("➕", key=f"plus_{idx}", help="Increase stock"):
+                df = update_item_quantity(df, idx, 1)
+                st.rerun()
+        with col4:
+            st.markdown(_qty_html(current_qty, target_qty), unsafe_allow_html=True)
+        with col5:
+            if st.button("⊖", key=f"target_minus_{idx}", help="Decrease target"):
+                df = update_target_quantity(df, idx, -1)
+                st.rerun()
+        with col6:
+            if st.button("⊕", key=f"target_plus_{idx}", help="Increase target"):
+                df = update_target_quantity(df, idx, 1)
+                st.rerun()
+        with col7:
+            st.markdown(_buy_html(buy_qty), unsafe_allow_html=True)
 
     return df
 
 
 def render_edit_mode(df: pd.DataFrame) -> pd.DataFrame:
     """Render the edit mode interface for changing target quantities."""
-    st.header(MODES["edit"])
-
     zones = get_unique_zones(df)
-    selected_zone = st.selectbox(
-        "🏠 Select Zone",
-        zones,
-        help="Choose the area of your home to edit targets"
-    )
+    selected_zone = st.selectbox("Zone", zones, label_visibility="collapsed")
 
-    # Filter data for selected zone
-    zone_data = df[df[COLUMNS["lugar"]] == selected_zone].copy()
+    zone_data = df[df[COLUMNS["lugar"]] == selected_zone].copy().sort_values(COLUMNS["comida"], key=lambda s: s.str.lower())
 
     if zone_data.empty:
         st.info(f"No items found in {selected_zone}")
         return df
 
-    st.subheader(f"Edit Targets in {selected_zone.title()}")
+    st.caption(f"{selected_zone.title()} · {len(zone_data)} items · have / target · buy")
 
-    # Display items in a single-line mobile layout for editing
     for idx in zone_data.index:
         item_name = zone_data.at[idx, COLUMNS["comida"]]
         current_qty = zone_data.at[idx, COLUMNS["tenemos"]]
         target_qty = zone_data.at[idx, COLUMNS["cantidad"]]
         buy_qty = zone_data.at[idx, COLUMNS["comprar"]]
 
-        # Single line layout: item name | target | current | (+ - buttons) | buy
-        with st.container():
-            col1, col2, col3, col4, col5, col6 = st.columns([3, 1, 1, 1, 1, 1])
-
-            with col1:
-                st.write(f"**{item_name}**")
-
-            with col2:
-                st.metric("target", target_qty)
-
-            with col3:
-                st.metric("current", current_qty)
-
-            with col4:
-                # Large minus button for target
-                if st.button("➖", key=f"target_minus_{idx}", help="Decrease target quantity"):
-                    df = update_target_quantity(df, idx, -1)
-                    st.rerun()
-
-            with col5:
-                # Large plus button for target
-                if st.button("➕", key=f"target_plus_{idx}", help="Increase target quantity"):
-                    df = update_target_quantity(df, idx, 1)
-                    st.rerun()
-
-            with col6:
-                st.metric("buy", buy_qty)
-
-        st.divider()
+        col1, col2, col3, col4, col5 = st.columns([4, 1, 2, 1, 2])
+        with col1:
+            st.markdown(f"**{item_name}**")
+        with col2:
+            if st.button("➖", key=f"target_minus_{idx}"):
+                df = update_target_quantity(df, idx, -1)
+                st.rerun()
+        with col3:
+            st.markdown(_qty_html(current_qty, target_qty), unsafe_allow_html=True)
+        with col4:
+            if st.button("➕", key=f"target_plus_{idx}"):
+                df = update_target_quantity(df, idx, 1)
+                st.rerun()
+        with col5:
+            st.markdown(_buy_html(buy_qty), unsafe_allow_html=True)
 
     return df
 
 
 def render_shopping_mode(df: pd.DataFrame) -> None:
     """Render the shopping list mode interface."""
-    st.header(MODES["shopping"])
-
-    # Initialize bought items tracking if not exists
     if "bought_items" not in st.session_state:
         st.session_state.bought_items = set()
 
-    # Filter items that need to be purchased
     shopping_items = df[df[COLUMNS["comprar"]] > 0].copy()
 
     if shopping_items.empty:
-        st.success("🎉 All items are in stock! No shopping needed.")
+        st.success("🎉 All stocked up — nothing to buy!")
         return
 
-    # Group by supermarket
     supermarkets = get_unique_supermarkets(shopping_items)
-
     total_items = len(shopping_items)
-    total_quantity = shopping_items[COLUMNS["comprar"]].sum()
-    bought_count = len([idx for idx in shopping_items.index if idx in st.session_state.bought_items])
-    bought_quantity = shopping_items[shopping_items.index.isin(st.session_state.bought_items)][COLUMNS["comprar"]].sum()
-    st.info(f"🛒 {total_items} unique items ({total_quantity} total) to buy from {len(supermarkets)} supermarket(s) | ✅ {bought_count} unique items ({bought_quantity} total) bought")
+    total_qty = int(shopping_items[COLUMNS["comprar"]].sum())
+    bought_count = len([i for i in shopping_items.index if i in st.session_state.bought_items])
+    bought_qty = int(
+        shopping_items[shopping_items.index.isin(st.session_state.bought_items)][COLUMNS["comprar"]].sum()
+    )
 
-    # Clear all bought items button
-    if bought_count > 0:
-        col1, col2 = st.columns([4, 1])
-        with col2:
-            if st.button("🗑️ Clear All", help="Unmark all purchased items"):
-                st.session_state.bought_items.clear()
-                st.rerun()
+    # Compact one-line summary with inline clear button
+    c1, c2 = st.columns([6, 1])
+    with c1:
+        progress = f" · ✅ {bought_count}/{total_items} unique · {bought_qty}/{total_qty} units" if bought_count > 0 else ""
+        st.caption(f"🛒 {total_items} unique · {total_qty} units · {len(supermarkets)} store(s){progress}")
+    with c2:
+        if bought_count > 0 and st.button("🗑️", help="Unmark all"):
+            st.session_state.bought_items.clear()
+            st.rerun()
 
-    # Get supermarket statistics
     supermarket_stats = get_supermarket_stats(shopping_items, st.session_state.bought_items)
 
     for supermarket in supermarkets:
         stats = supermarket_stats[supermarket]
-        supermarket_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket]
+        sm_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket].sort_values(COLUMNS["comida"], key=lambda s: s.str.lower())
 
-        progress_text = f" | ✅ {stats['got_it_unique']} unique ({stats['got_it_quantity']} total) got it" if stats['got_it_unique'] > 0 else ""
+        done_txt = f" · ✅ {stats['got_it_unique']}/{stats['total_unique']}" if stats["got_it_unique"] > 0 else ""
+        label = f"🏪 {supermarket.title()} — {stats['total_unique']} items · {stats['total_quantity']} units{done_txt}"
 
-        with st.expander(f"🏪 {supermarket.title()} ({stats['total_unique']} unique items, {stats['total_quantity']} total){progress_text}", expanded=True):
-            for idx in supermarket_items.index:
-                item_name = supermarket_items.at[idx, COLUMNS["comida"]]
-                qty_to_buy = supermarket_items.at[idx, COLUMNS["comprar"]]
-                buy_url = supermarket_items.at[idx, COLUMNS["buscador"]]
+        with st.expander(label, expanded=True):
+            for idx in sm_items.index:
+                item_name = sm_items.at[idx, COLUMNS["comida"]]
+                qty_to_buy = sm_items.at[idx, COLUMNS["comprar"]]
+                buy_url = sm_items.at[idx, COLUMNS["buscador"]]
                 is_bought = idx in st.session_state.bought_items
 
-                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                col1, col2, col3 = st.columns([5, 2, 2])
 
                 with col1:
                     if is_bought:
-                        st.write(f"~~{item_name}~~")  # Strike through for bought items
+                        st.markdown(f"~~{item_name}~~ · {qty_to_buy}×")
                     else:
-                        st.write(f"**{item_name}**")
+                        st.markdown(f"**{item_name}** · {qty_to_buy}×")
 
                 with col2:
-                    if is_bought:
-                        st.write(f"✅ {qty_to_buy}")
-                    else:
-                        st.write(f"buy: {qty_to_buy}")
+                    st.link_button(
+                        "🔄 Again" if is_bought else "🛒 Buy",
+                        buy_url,
+                        use_container_width=True,
+                    )
 
                 with col3:
-                    # Buy now link button
                     if is_bought:
-                        st.link_button(
-                            "🔄 Buy Again",
-                            buy_url,
-                            help=f"Open {supermarket} product page",
-                            use_container_width=True
-                        )
-                    else:
-                        st.link_button(
-                            "🛒 Buy Now",
-                            buy_url,
-                            help=f"Open {supermarket} product page",
-                            use_container_width=True
-                        )
-
-                with col4:
-                    # Mark as bought/not bought button
-                    if is_bought:
-                        if st.button(
-                            "↩️ Unmark",
-                            key=f"unmark_{idx}",
-                            help="Mark as not bought yet",
-                            use_container_width=True
-                        ):
+                        if st.button("↩️ Undo", key=f"unmark_{idx}", use_container_width=True):
                             st.session_state.bought_items.remove(idx)
                             st.rerun()
                     else:
                         if st.button(
-                            "✅ Got It",
+                            "✅ Got it",
                             key=f"mark_{idx}",
-                            help="Mark as purchased",
                             use_container_width=True,
-                            type="secondary"
+                            type="secondary",
                         ):
                             st.session_state.bought_items.add(idx)
                             st.rerun()
 
-            st.divider()
-
 
 def render_export_mode(df: pd.DataFrame) -> None:
     """Render the save/export mode interface."""
-    st.header(MODES["export"])
-
     col1, col2 = st.columns(2)
 
     with col1:
         if st.button("💾 Save to File", type="primary", use_container_width=True):
             if save_inventory_data(df):
-                st.success("✅ Inventory saved successfully!")
+                st.success("✅ Saved!")
             else:
-                st.error("❌ Failed to save inventory")
+                st.error("❌ Save failed")
 
     with col2:
-        # Create download button
-        csv_data = df.to_csv(index=False)
         st.download_button(
             "📥 Download CSV",
-            csv_data,
+            df.to_csv(index=False),
             "inventory_updated.csv",
             "text/csv",
             use_container_width=True,
-            help="Download updated inventory as CSV file"
         )
 
-    # Show summary statistics
     st.subheader("📊 Summary")
     total_items = len(df)
     stocked_items = len(df[df[COLUMNS["comprar"]] == 0])
     shopping_items = len(df[df[COLUMNS["comprar"]] > 0])
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Items", total_items)
-    with col2:
-        st.metric("Fully Stocked", stocked_items)
-    with col3:
-        st.metric("Need Shopping", shopping_items)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("Total", total_items)
+    with c2:
+        st.metric("Stocked", stocked_items)
+    with c3:
+        st.metric("Need Buy", shopping_items)
 
 
 def render_edit_item_mode(df: pd.DataFrame) -> pd.DataFrame:
     """Render the edit item mode interface for searching and editing individual items."""
-    st.header(MODES["edit_item"])
-
-    # Search functionality
     search_term = st.text_input(
-        "🔍 Search by item name",
-        placeholder="Type item name to search...",
-        help="Search for items by name to edit their details"
+        "🔍 Search",
+        placeholder="Type item name...",
     ).strip().lower()
 
-    # Filter items based on search
     if search_term:
         filtered_df = df[df[COLUMNS["comida"]].str.lower().str.contains(search_term, na=False)].copy()
     else:
         filtered_df = df.copy()
+    filtered_df = filtered_df.sort_values(COLUMNS["comida"], key=lambda s: s.str.lower())
 
     if filtered_df.empty:
-        if search_term:
-            st.info(f"No items found matching '{search_term}'")
-        else:
-            st.info("No items to display. Try searching for an item.")
+        st.info(f"No items found matching '{search_term}'" if search_term else "No items to display.")
         return df
 
-    # Show search results count
-    st.write(f"Found {len(filtered_df)} item(s)")
+    st.caption(f"{len(filtered_df)} item(s)")
 
-    # Display each matching item with editable fields
     for idx in filtered_df.index:
         item_name = filtered_df.at[idx, COLUMNS["comida"]]
 
-        with st.expander(f"🔧 Edit: {item_name}", expanded=len(filtered_df) == 1):
-            # Create form for editing
+        with st.expander(f"🔧 {item_name}", expanded=len(filtered_df) == 1):
             with st.form(key=f"edit_form_{idx}"):
-                st.subheader(f"Editing: {item_name}")
-
-                # Create two columns for better layout
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    # Supermarket field
                     current_super = filtered_df.at[idx, COLUMNS["super"]]
                     new_super = st.text_input(
                         "🏪 Supermarket",
                         value=current_super if pd.notna(current_super) else "",
-                        help="Supermarket where this item is purchased"
                     )
 
-                    # Location field
                     current_lugar = filtered_df.at[idx, COLUMNS["lugar"]]
                     new_lugar = st.text_input(
-                        "🏠 Location/Zone",
+                        "🏠 Zone",
                         value=current_lugar if pd.notna(current_lugar) else "",
-                        help="Location or zone in your home where this item is stored"
                     )
 
-                    # Item name field
                     current_comida = filtered_df.at[idx, COLUMNS["comida"]]
                     new_comida = st.text_input(
                         "🥘 Item Name",
                         value=current_comida if pd.notna(current_comida) else "",
-                        help="Name of the grocery item"
                     )
 
                 with col2:
-                    # Target quantity field
                     current_cantidad = int(filtered_df.at[idx, COLUMNS["cantidad"]])
-                    new_cantidad = st.number_input(
-                        "🎯 Target Quantity",
-                        value=current_cantidad,
-                        min_value=0,
-                        step=1,
-                        help="Desired quantity to keep in stock"
-                    )
+                    new_cantidad = st.number_input("🎯 Target", value=current_cantidad, min_value=0, step=1)
 
-                    # Current quantity field
                     current_tenemos = int(filtered_df.at[idx, COLUMNS["tenemos"]])
-                    new_tenemos = st.number_input(
-                        "📦 Current Quantity",
-                        value=current_tenemos,
-                        min_value=0,
-                        step=1,
-                        help="Current quantity you have in stock"
-                    )
+                    new_tenemos = st.number_input("📦 Current", value=current_tenemos, min_value=0, step=1)
 
-                    # Search URL field
                     current_buscador = filtered_df.at[idx, COLUMNS["buscador"]]
                     new_buscador = st.text_input(
-                        "🔗 Search URL",
+                        "🔗 URL",
                         value=current_buscador if pd.notna(current_buscador) else "",
-                        help="URL to search for this item online"
                     )
 
-                # Submit and Delete buttons in two columns
                 col_btn1, col_btn2 = st.columns(2)
-                
                 with col_btn1:
-                    save_clicked = st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True)
-                
+                    save_clicked = st.form_submit_button("💾 Save", type="primary", use_container_width=True)
                 with col_btn2:
-                    delete_clicked = st.form_submit_button("🗑️ Delete Item", type="secondary", use_container_width=True)
-                
+                    delete_clicked = st.form_submit_button("🗑️ Delete", type="secondary", use_container_width=True)
+
                 if save_clicked:
-                    # Update the dataframe with new values
                     df.at[idx, COLUMNS["super"]] = new_super
                     df.at[idx, COLUMNS["lugar"]] = new_lugar
                     df.at[idx, COLUMNS["comida"]] = new_comida
                     df.at[idx, COLUMNS["cantidad"]] = new_cantidad
                     df.at[idx, COLUMNS["tenemos"]] = new_tenemos
                     df.at[idx, COLUMNS["buscador"]] = new_buscador
-
-                    # Recalculate comprar column
                     df.at[idx, COLUMNS["comprar"]] = max(0, new_cantidad - new_tenemos)
 
-                    # Save to Excel
                     if save_inventory_data(df):
-                        st.success(f"✅ Changes saved for '{new_comida}'!")
+                        st.success(f"✅ Saved '{new_comida}'")
                         st.rerun()
                     else:
-                        st.error("❌ Failed to save changes")
-                
-                if delete_clicked:
-                    # Delete the item from dataframe
-                    df = df.drop(idx)
-                    
-                    # Save to Excel
-                    if save_inventory_data(df):
-                        st.success(f"✅ Item '{item_name}' deleted successfully!")
-                        st.rerun()
-                    else:
-                        st.error("❌ Failed to delete item")
+                        st.error("❌ Save failed")
 
-            st.divider()
+                if delete_clicked:
+                    df = df.drop(idx)
+                    if save_inventory_data(df):
+                        st.success(f"✅ Deleted '{item_name}'")
+                        st.rerun()
+                    else:
+                        st.error("❌ Delete failed")
 
     return df
 
 
 def render_add_item_mode(df: pd.DataFrame) -> pd.DataFrame:
     """Render the add item mode interface for creating new inventory items."""
-    st.header(MODES["add_item"])
-
-    st.markdown("Fill in the details below to add a new item to the inventory.")
-
-    # Get existing supermarkets and locations for dropdowns
     existing_supermarkets = get_unique_supermarkets(df)
     existing_zones = get_unique_zones(df)
 
-    # Create form for adding new item
     with st.form(key="add_item_form"):
-        st.subheader("➕ New Item Details")
-
-        # Create two columns for better layout
         col1, col2 = st.columns(2)
 
         with col1:
-            # Supermarket field (dropdown)
-            new_super = st.selectbox(
-                "🏪 Supermarket",
-                options=existing_supermarkets,
-                help="Supermarket where this item is purchased"
-            )
-
-            # Location field (dropdown)
-            new_lugar = st.selectbox(
-                "🏠 Location/Zone",
-                options=existing_zones,
-                help="Location or zone in your home where this item is stored"
-            )
-
-            # Item name field
-            new_comida = st.text_input(
-                "🥘 Item Name",
-                value="",
-                help="Name of the grocery item"
-            )
+            new_super = st.selectbox("🏪 Supermarket", options=existing_supermarkets)
+            new_lugar = st.selectbox("🏠 Zone", options=existing_zones)
+            new_comida = st.text_input("🥘 Item Name")
 
         with col2:
-            # Target quantity field
-            new_cantidad = st.number_input(
-                "🎯 Target Quantity",
-                value=0,
-                min_value=0,
-                step=1,
-                help="Desired quantity to keep in stock"
-            )
+            new_cantidad = st.number_input("🎯 Target", value=0, min_value=0, step=1)
+            new_tenemos = st.number_input("📦 Current", value=0, min_value=0, step=1)
+            new_buscador = st.text_input("🔗 URL")
 
-            # Current quantity field
-            new_tenemos = st.number_input(
-                "📦 Current Quantity",
-                value=0,
-                min_value=0,
-                step=1,
-                help="Current quantity you have in stock"
-            )
-
-            # Search URL field
-            new_buscador = st.text_input(
-                "🔗 Search URL",
-                value="",
-                help="URL to search for this item online"
-            )
-
-        # Submit button
         if st.form_submit_button("➕ Add Item", type="primary", use_container_width=True):
-            # Validate required fields
             if not new_comida.strip():
                 st.error("❌ Item name is required!")
             else:
-                # Create new row
                 new_row = {
                     COLUMNS["super"]: new_super,
                     COLUMNS["lugar"]: new_lugar,
@@ -641,15 +514,12 @@ def render_add_item_mode(df: pd.DataFrame) -> pd.DataFrame:
                     COLUMNS["cantidad"]: new_cantidad,
                     COLUMNS["tenemos"]: new_tenemos,
                     COLUMNS["buscador"]: new_buscador,
-                    COLUMNS["comprar"]: max(0, new_cantidad - new_tenemos)
+                    COLUMNS["comprar"]: max(0, new_cantidad - new_tenemos),
                 }
-
-                # Add new row to dataframe
                 df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 
-                # Save to Excel
                 if save_inventory_data(df):
-                    st.success(f"✅ Item '{new_comida}' added successfully!")
+                    st.success(f"✅ Added '{new_comida}'")
                     st.rerun()
                 else:
                     st.error("❌ Failed to add item")
@@ -659,12 +529,11 @@ def render_add_item_mode(df: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     """Main application entry point."""
-    # Configure page
     st.set_page_config(**CONFIG["ui"]["page_config"])
+    st.markdown(_CSS, unsafe_allow_html=True)
 
-    # Title and description
-    st.title(CONFIG["app"]["title"])
-    st.markdown(CONFIG["app"]["description"])
+    # Compact header
+    st.markdown("### 🛒 Inventory & Shopping Helper")
 
     # Initialize session state
     if "inventory_data" not in st.session_state:
@@ -675,53 +544,46 @@ def main():
     if "current_mode" not in st.session_state:
         st.session_state.current_mode = "audit"
 
-    # Sidebar navigation
-    with st.sidebar:
-        st.header("📱 Navigation")
+    if "bought_items" not in st.session_state:
+        st.session_state.bought_items = set()
 
-        # Mode selection
+    # Sidebar: navigation + compact stats
+    with st.sidebar:
         mode_options = list(MODES.keys())
         mode_labels = list(MODES.values())
 
         selected_mode = st.radio(
-            "Choose Mode:",
+            "Mode",
             mode_labels,
-            index=mode_options.index(st.session_state.current_mode)
+            index=mode_options.index(st.session_state.current_mode),
+            label_visibility="collapsed",
         )
 
-        # Update current mode
         current_mode_key = mode_options[mode_labels.index(selected_mode)]
         if current_mode_key != st.session_state.current_mode:
             st.session_state.current_mode = current_mode_key
             st.rerun()
 
-        # Data status
-        st.divider()
-        st.subheader("📊 Data Status")
+        # Compact stats
         if st.session_state.inventory_data is not None:
-            df = st.session_state.inventory_data
-            total_items = len(df)
-            shopping_needed = len(df[df[COLUMNS["comprar"]] > 0])
+            df_stats = st.session_state.inventory_data
+            sm_shopping = df_stats[df_stats[COLUMNS["comprar"]] > 0].copy()
+            shopping_needed = len(sm_shopping)
+            units_to_buy = int(sm_shopping[COLUMNS["comprar"]].sum()) if not sm_shopping.empty else 0
 
-            # Initialize bought items tracking if not exists
-            if "bought_items" not in st.session_state:
-                st.session_state.bought_items = set()
+            st.divider()
+            st.caption(f"**{len(df_stats)}** items · **{shopping_needed}** unique / **{units_to_buy}** units to buy")
 
-            st.write(f"Total items: {total_items}")
-            st.write(f"Need shopping: {shopping_needed}")
+            if not sm_shopping.empty:
+                for sm, stats in get_supermarket_stats(sm_shopping, st.session_state.bought_items).items():
+                    done_u = stats["got_it_unique"]
+                    total_u = stats["total_unique"]
+                    done_q = stats["got_it_quantity"]
+                    total_q = stats["total_quantity"]
+                    bar = "▓" * done_u + "░" * (total_u - done_u)
+                    st.caption(f"**{sm.title()}** {bar} {done_u}/{total_u} · {done_q}/{total_q} units")
 
-            # Supermarket breakdown
-            shopping_items = df[df[COLUMNS["comprar"]] > 0].copy()
-            if not shopping_items.empty:
-                supermarket_stats = get_supermarket_stats(shopping_items, st.session_state.bought_items)
-
-                st.write("---")
-                st.write("🏪 **Supermarket Breakdown:**")
-
-                for supermarket, stats in supermarket_stats.items():
-                    st.write(f"**{supermarket.title()}:** {stats['got_it_unique']}/{stats['total_unique']} unique ({stats['got_it_quantity']}/{stats['total_quantity']} total) got it")
-
-    # Main content area
+    # Main content
     df = st.session_state.inventory_data
 
     if st.session_state.current_mode == "audit":
@@ -736,10 +598,6 @@ def main():
         render_shopping_mode(df)
     elif st.session_state.current_mode == "export":
         render_export_mode(df)
-
-    # Footer
-    st.divider()
-    st.caption(f"v{CONFIG['app']['version']} - Mobile-optimized for inventory management")
 
 
 if __name__ == "__main__":
