@@ -11,6 +11,7 @@ This automation tool:
 - Creates a single consolidated text file with all journal data
 - Includes frequency counters for duplicate entries
 - Tracks daily practice checkboxes (e.g., "patience: 5 days out of 7")
+- **Opens the output folder in Windows Explorer** when the run finishes so the file is visible immediately
 
 The system intelligently handles:
 - **Date range calculation**: Automatically gets previous week (Monday to Sunday)
@@ -42,9 +43,7 @@ When prompted, enter a number to adjust the date:
 
 ```
 📂 Loading configuration...
-✅ Configuration loaded
 🔐 Loading environment variables...
-✅ Environment variables loaded
 
 🚀 Processing journal entries...
 📅 Enter an integer number to apply a timedelta to the current date (default is 0): 
@@ -61,7 +60,10 @@ When prompted, enter a number to adjust the date:
 📄 Total characters: 3500
 
 ✅ Journal processing completed!
+📁 Output file: E://automation//notion-automation-files//journal-output//...
 ```
+
+When the script finishes successfully, **the output folder opens in Windows Explorer** so you can see the new file right away.
 
 ## 🔧 Prerequisites
 
@@ -306,7 +308,7 @@ pip install requests python-dotenv
 1. **Run script**: Double-click `journal_automation.bat` or run `python journal_automation.py`
 2. **Adjust date**: Press Enter for default (previous week) or enter offset
 3. **Wait**: Script queries Notion and processes data
-4. **Get output**: Find consolidated file in output directory
+4. **Get output**: The output folder opens in Explorer when done; the consolidated file is there
 5. **Use with LLM**: Copy entire file to ChatGPT/Claude for weekly summary
 
 ### LLM Integration
@@ -355,9 +357,11 @@ Based on the following weekly journal entries, provide a summary highlighting:
 - ✅ Single consolidated file
 - ✅ LLM-ready format
 - ✅ Automatic date calculation
+- ✅ Output folder opens in Explorer when done
 - ✅ Easy to customize
 
 ## 🔄 Version History
 
+- **v2.1** (2026-03): Open output folder in Explorer after save; logging instead of print; code cleanup and docs
 - **v2.0** (2026-01-18): Notion API integration, frequency counters, checkbox tracking
 - **v1.0** (2023-10-08): Initial Excel-based version
