@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8f6f2;
+      --bg-card: #fff;
+      --text: #1a1a1a;
+      --text-muted: #5c5c5c;
+      --border: #e5e2dc;
+      --accent: #b8860b;
+      --accent-hover: #9a7209;
+      --accent-bg: rgba(184, 134, 11, 0.08);
+      --sidebar-bg: #fff;
+      --sidebar-active: var(--accent-bg);
+      --sidebar-active-border: var(--accent);
+      --toggle-off: #c4bfb6;
+      --toggle-on: var(--accent);
+      --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    [data-theme="dark"] {
+      --bg: #1a1a1a;
+      --bg-card: #252525;
+      --text: #f2f0eb;
+      --text-muted: #a39e93;
+      --border: #3d3a35;
+      --accent-bg: rgba(184, 134, 11, 0.2);
+      --sidebar-bg: #252525;
+      --sidebar-active: var(--accent-bg);
+      --toggle-off: #4a4742;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .sidebar-header {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .sidebar-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: var(--text);
+    }
+
+    .sidebar-nav {
+      list-style: none;
+    }
+
+    .sidebar-nav a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 24px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      border-left: 3px solid transparent;
+      transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-nav a:hover {
+      color: var(--text);
+      background: var(--accent-bg);
+    }
+
+    .sidebar-nav a:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    .sidebar-nav a[aria-current="page"] {
+      color: var(--text);
+      background: var(--sidebar-active);
+      border-left-color: var(--sidebar-active-border);
+    }
+
+    .sidebar-nav .icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      opacity: 0.8;
+    }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      padding: 32px 40px 48px;
+      max-width: 720px;
+    }
+
+    .main h1 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 2rem;
+      font-weight: 400;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .main .subtitle {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .section {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .section-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Profile block */
+    .profile-block {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 24px;
+    }
+
+    .avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--accent-bg);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      flex-shrink: 0;
+    }
+
+    .profile-info {
+      flex: 1;
+    }
+
+    .profile-name {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .profile-role {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+      border: none;
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      background: var(--accent-bg);
+      color: var(--accent);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(184, 134, 11, 0.15);
+      color: var(--accent-hover);
+    }
+
+    .btn-secondary:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    /* Toggle rows */
+    .settings-list {
+      list-style: none;
+    }
+
+    .settings-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      min-height: 56px;
+    }
+
+    .settings-item:last-child {
+      border-bottom: none;
+    }
+
+    .settings-label-wrap {
+      flex: 1;
+    }
+
+    .settings-label {
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .settings-desc {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+      border: none;
+      background: var(--toggle-off);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease;
+    }
+
+    .toggle[aria-pressed="true"] {
+      background: var(--toggle-on);
+    }
+
+    .toggle[aria-pressed="true"]::after {
+      transform: translateX(20px);
+    }
+
+    .toggle:hover {
+      opacity: 0.9;
+    }
+
+    .toggle:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    /* Mobile: sidebar as top nav */
+    @media (max-width: 768px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        min-width: unset;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 0;
+      }
+
+      .sidebar-header {
+        padding: 0 16px 16px;
+        margin-bottom: 0;
+      }
+
+      .sidebar-nav {
+        display: flex;
+        overflow-x: auto;
+        gap: 0;
+        padding: 0 8px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .sidebar-nav::-webkit-scrollbar {
+        display: none;
+      }
+
+      .sidebar-nav a {
+        flex-shrink: 0;
+        padding: 10px 16px;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+      }
+
+      .sidebar-nav a[aria-current="page"] {
+        border-left: none;
+        border-bottom-color: var(--sidebar-active-border);
+      }
+
+      .sidebar-nav .icon {
+        display: none;
+      }
+
+      .main {
+        padding: 24px 16px 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" role="navigation" aria-label="Settings">
+      <div class="sidebar-header">
+        <h2 class="sidebar-title">Settings</h2>
+      </div>
+      <nav>
+        <ul class="sidebar-nav">
+          <li><a href="#profile" aria-current="page">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile
+          </a></li>
+          <li><a href="#preferences">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Preferences
+          </a></li>
+          <li><a href="#notifications">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Notifications
+          </a></li>
+          <li><a href="#privacy">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Privacy
+          </a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main" id="profile">
+      <h1>Profile</h1>
+      <p class="subtitle">Manage your account and public information.</p>
+
+      <section class="section" aria-labelledby="profile-heading">
+        <div class="section-header">
+          <h2 id="profile-heading" class="section-title">Personal information</h2>
+          <p class="section-desc">This is how you’ll appear to others.</p>
+        </div>
+        <div class="profile-block">
+          <div class="avatar" aria-hidden="true">JD</div>
+          <div class="profile-info">
+            <p class="profile-name">Jane Doe</p>
+            <p class="profile-role">jane.doe@example.com</p>
+            <button type="button" class="btn btn-secondary">Edit profile</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="preferences" aria-labelledby="prefs-heading">
+        <div class="section-header">
+          <h2 id="prefs-heading" class="section-title">Preferences</h2>
+          <p class="section-desc">These options take effect immediately.</p>
+        </div>
+        <ul class="settings-list">
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Dark mode</span>
+              <span class="settings-desc">Use a dark theme across the app.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="false" aria-label="Turn dark mode on or off" data-pref="darkMode"></button>
+          </li>
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Compact density</span>
+              <span class="settings-desc">Show more content with tighter spacing.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="false" aria-label="Turn compact density on or off" data-pref="compactDensity"></button>
+          </li>
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Reduced motion</span>
+              <span class="settings-desc">Minimize animations and transitions.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="false" aria-label="Turn reduced motion on or off" data-pref="reducedMotion"></button>
+          </li>
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Keyboard shortcuts</span>
+              <span class="settings-desc">Enable shortcut hints and quick actions.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="true" aria-label="Turn keyboard shortcuts on or off" data-pref="keyboardShortcuts"></button>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" id="notifications" aria-labelledby="notif-heading">
+        <div class="section-header">
+          <h2 id="notif-heading" class="section-title">Notifications</h2>
+          <p class="section-desc">Choose how you receive updates.</p>
+        </div>
+        <ul class="settings-list">
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Email notifications</span>
+              <span class="settings-desc">Receive updates and digests by email.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="true" aria-label="Turn email notifications on or off" data-pref="emailNotifications"></button>
+          </li>
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Push notifications</span>
+              <span class="settings-desc">Show alerts in your browser or device.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="false" aria-label="Turn push notifications on or off" data-pref="pushNotifications"></button>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" id="privacy" aria-labelledby="privacy-heading">
+        <div class="section-header">
+          <h2 id="privacy-heading" class="section-title">Privacy</h2>
+          <p class="section-desc">Control what data is shared and stored.</p>
+        </div>
+        <ul class="settings-list">
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Usage analytics</span>
+              <span class="settings-desc">Help improve the product with anonymous usage data.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="true" aria-label="Turn usage analytics on or off" data-pref="usageAnalytics"></button>
+          </li>
+          <li class="settings-item">
+            <span class="settings-label-wrap">
+              <span class="settings-label">Profile visibility</span>
+              <span class="settings-desc">Allow others to find you by email or username.</span>
+            </span>
+            <button type="button" class="toggle" aria-pressed="true" aria-label="Turn profile visibility on or off" data-pref="profileVisibility"></button>
+          </li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var storageKey = 'settings_preferences';
+
+      function loadPrefs() {
+        try {
+          return JSON.parse(localStorage.getItem(storageKey) || '{}');
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function savePref(key, value) {
+        var prefs = loadPrefs();
+        prefs[key] = value;
+        localStorage.setItem(storageKey, JSON.stringify(prefs));
+      }
+
+      document.querySelectorAll('.toggle').forEach(function (btn) {
+        var key = btn.getAttribute('data-pref');
+        if (key) {
+          var prefs = loadPrefs();
+          if (prefs[key] !== undefined) {
+            btn.setAttribute('aria-pressed', prefs[key] ? 'true' : 'false');
+            if (key === 'darkMode' && prefs[key]) {
+              document.documentElement.setAttribute('data-theme', 'dark');
+            }
+          }
+        }
+
+        btn.addEventListener('click', function () {
+          var pressed = this.getAttribute('aria-pressed') === 'true';
+          this.setAttribute('aria-pressed', !pressed ? 'true' : 'false');
+          if (key) savePref(key, !pressed);
+          if (key === 'darkMode') {
+            document.documentElement.setAttribute('data-theme', !pressed ? 'dark' : 'light');
+          }
+        });
+
+        btn.addEventListener('keydown', function (e) {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            this.click();
+          }
+        });
+      });
+
+      if (loadPrefs().darkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+
+      // Sidebar: set active page from hash
+      function setActiveNav() {
+        var hash = window.location.hash || '#profile';
+        document.querySelectorAll('.sidebar-nav a').forEach(function (a) {
+          a.setAttribute('aria-current', a.getAttribute('href') === hash ? 'page' : null);
+        });
+      }
+      window.addEventListener('hashchange', setActiveNav);
+      setActiveNav();
+
+      // Smooth scroll to section when clicking sidebar links
+      document.querySelectorAll('.sidebar-nav a').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          var href = this.getAttribute('href');
+          if (href.startsWith('#')) {
+            var el = document.querySelector(href);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
