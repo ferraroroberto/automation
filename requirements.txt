@@ -129,7 +129,8 @@ pytz==2023.3.post1  # Timezone calculations
 # =============================================================================
 
 # Windows COM interfaces (Outlook automation)
-# Source: email/email-automation-save.py, email/utils.py, linkedin/open_profiles/utils.py
+# Source: email/email-automation-save.py, email/utils.py, linkedin/open_profiles/utils.py,
+#         system/open_file_latency_diag.py
 pywin32>=306
 
 # Windows GUI automation (included in pywin32)
