@@ -17,7 +17,7 @@ import logging
 import os
 import sys
 import webbrowser
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 import requests
 from dotenv import load_dotenv
 
@@ -339,6 +339,107 @@ def setup_logging(debug: bool = False):
     )
 
 
+# Order when must-read is topic 1, 2, or 3 (indices into [topic1, topic2, topic3] tops).
+_MUST_READ_PERM: Dict[int, Tuple[int, int, int]] = {
+    1: (0, 1, 2),
+    2: (1, 0, 2),
+    3: (2, 0, 1),
+}
+
+_TOPIC_HEADINGS = [
+    "Personal development",
+    "Innovation",
+    "Leadership and management",
+]
+
+
+def top_article_names_by_topic(
+    topics: Sequence[str], grouped: Dict[str, List[Tuple[str, str]]]
+) -> Optional[List[str]]:
+    """First article title per topic, or None if any topic has no articles."""
+    names: List[str] = []
+    for topic in topics:
+        articles = grouped.get(topic) or []
+        if not articles:
+            return None
+        names.append(articles[0][0])
+    return names
+
+
+def format_must_read_line(three_names: Sequence[str], must_read: int) -> str:
+    """Join three titles with '. ' and a final period; order follows must-read choice."""
+    perm = _MUST_READ_PERM[must_read]
+    ordered = [three_names[i] for i in perm]
+    return ". ".join(ordered) + "."
+
+
+def copy_to_clipboard(text: str) -> None:
+    """Put text on the system clipboard (Windows: clip.exe with UTF-8; else tkinter)."""
+    if sys.platform == "win32":
+        import subprocess
+
+        # UTF-16LE bytes break clip; tkinter's clipboard is cleared when the root is destroyed.
+        subprocess.run(
+            ["clip"],
+            input=text,
+            text=True,
+            encoding="utf-8",
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return
+
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    root.clipboard_clear()
+    root.clipboard_append(text)
+    root.update_idletasks()
+    root.update()
+    root.after(100, root.destroy)
+    root.mainloop()
+
+
+def prompt_must_read_line(
+    topics: Sequence[str], grouped: Dict[str, List[Tuple[str, str]]]
+) -> None:
+    """Ask which topic is must-read, build ordered line, copy to clipboard, log."""
+    top_names = top_article_names_by_topic(topics, grouped)
+    if not top_names:
+        for topic in topics:
+            if not (grouped.get(topic) or []):
+                logging.warning(
+                    f'⚠️ Skipping must-read line: no articles in "{topic}"'
+                )
+        return
+
+    logging.info(
+        '📌 Top article per topic (must-read choice: 1=Personal development, '
+        "2=Innovation, 3=Leadership and management):"
+    )
+    for i, (heading, name) in enumerate(zip(_TOPIC_HEADINGS, top_names), 1):
+        logging.info(f"  {i}. [{heading}] {name}")
+
+    try:
+        raw = input('Which is the "must read"? (1/2/3): ')
+    except (EOFError, KeyboardInterrupt):
+        logging.info("⏭️ Skipping must-read line (no input)")
+        return
+
+    choice = raw.strip()
+    if choice not in ("1", "2", "3"):
+        logging.error('❌ Must read must be 1, 2, or 3')
+        sys.exit(2)
+
+    must_read = int(choice)
+    line = format_must_read_line(top_names, must_read)
+    copy_to_clipboard(line)
+    logging.info(f"📋 Must-read line (copied to clipboard): {line}")
+
+
 def main():
     """Main entry point for the script."""
     parser = argparse.ArgumentParser(
@@ -417,7 +518,9 @@ Examples:
         # Open the HTML file with default browser
         webbrowser.open(f'file://{html_filename}')
         logging.info(f"🌐 Opened HTML file with default browser: {html_filename}")
-        
+
+        prompt_must_read_line(builder.topics, grouped_articles)
+
     except (ValueError, FileNotFoundError, requests.exceptions.RequestException) as e:
         logging.error(f"❌ Failed to build newsletter: {e}")
         sys.exit(1)
