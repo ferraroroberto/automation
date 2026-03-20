@@ -6,8 +6,8 @@ This script fetches articles from a Notion database based on a newsletter number
 groups them by topic, and outputs HTML lists ready for Substack.
 
 Usage:
-    python build_newsletter.py --newsletter "057"
-    python build_newsletter.py --newsletter "001" --debug
+    python build_newsletter.py --newsletter 057
+    python build_newsletter.py --newsletter 001 --debug
 """
 
 import argparse
@@ -346,15 +346,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python build_newsletter.py --newsletter "057"
-  python build_newsletter.py --newsletter "001" --debug
+  python build_newsletter.py --newsletter 057
+  python build_newsletter.py --newsletter 001 --debug
         """
     )
     
     parser.add_argument(
         '--newsletter',
         type=str,
-        help='Newsletter number (Nxxx). If omitted, you will be prompted.'
+        help='Newsletter number (3 digits, e.g. 057). Optional N prefix still accepted. If omitted, you will be prompted.'
     )
     
     parser.add_argument(
@@ -380,19 +380,21 @@ Examples:
         newsletter_number = args.newsletter
         if not newsletter_number:
             try:
-                newsletter_number = input("Enter newsletter number (Nxxx): ")
+                newsletter_number = input("Enter newsletter number (e.g. 057): ")
             except (EOFError, KeyboardInterrupt):
                 logging.error("❌ Newsletter number input cancelled")
                 sys.exit(2)
 
         if not newsletter_number:
-            logging.error("❌ Newsletter number is required and must be in the format Nxxx (e.g., N057)")
+            logging.error("❌ Newsletter number is required (3 digits, e.g. 057)")
             sys.exit(2)
 
         newsletter_number = newsletter_number.strip().upper()
 
-        if not re.fullmatch(r'N\d{3}', newsletter_number):
-            logging.error("❌ Newsletter number must be in the format Nxxx (e.g., N057)")
+        if re.fullmatch(r'\d{3}', newsletter_number):
+            newsletter_number = f"N{newsletter_number}"
+        elif not re.fullmatch(r'N\d{3}', newsletter_number):
+            logging.error("❌ Newsletter number must be 3 digits (e.g. 057) or N + 3 digits (e.g. N057)")
             sys.exit(2)
 
         # Initialize the newsletter builder
