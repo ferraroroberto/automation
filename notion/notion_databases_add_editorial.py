@@ -1,4 +1,5 @@
 # source chatGPT > https://chatgpt.com/c/6724bbf2-a618-8009-a4e3-a1f6e6828ae0
+# Run with repo venv: ..\.venv\Scripts\python notion_databases_add_editorial.py (from this folder), or notion_databases_add_editorial.bat
 
 import pandas as pd
 from notion_client import Client
@@ -6,10 +7,11 @@ from datetime import datetime, timedelta
 from utils import read_params_from_txt_file
 
 # Initialize Notion Client using parameters file
-def init_notion_client(params_file_path):
+def init_notion_client(params_file_path, timeout_ms=180_000):
     params = read_params_from_txt_file(params_file_path)
     api_token = params['api_token']
-    return Client(auth=api_token)
+    # Default SDK timeout is 60s; large DBs or slow links often need more.
+    return Client(auth=api_token, timeout_ms=timeout_ms)
 
 # Format database ID with hyphens
 def format_database_id(database_id):
@@ -29,8 +31,8 @@ def add_missing_dates(notion, database_id, start_date, end_date):
     start = datetime.strptime(start_date, date_format)
     end = datetime.strptime(end_date, date_format)
 
-    # Retrieve all existing dates from the database
-    existing_dates = get_existing_dates(notion, database_id)
+    # Retrieve existing dates in range (filtered query = fewer pages, faster than full scan)
+    existing_dates = get_existing_dates(notion, database_id, start_date, end_date)
 
     # Debug: Confirm database existence
     if existing_dates is None:
@@ -71,62 +73,63 @@ def add_missing_dates(notion, database_id, start_date, end_date):
     for entry in new_entries:
         print(f"Record ID: {entry['id']}, day: {entry['properties']['day']['title'][0]['plain_text']}")
 
-# Helper: Retrieve existing dates
-def get_existing_dates(notion, database_id):
+# Helper: Retrieve existing dates in [range_start, range_end] (YYYY-MM-DD)
+def get_existing_dates(notion, database_id, range_start, range_end):
     try:
-        # Format database ID with hyphens if needed
         formatted_db_id = format_database_id(database_id)
-        
-        # Get database details to retrieve data source ID
+
+        # notion-client 2.x removed Client.databases.query; use data_sources.query instead.
         database_details = notion.databases.retrieve(formatted_db_id)
         data_sources = database_details.get("data_sources") or []
         if not data_sources:
-            print("Error: No data sources associated with database")
+            print("Error: No data sources on this database (Notion API 2025+). Check integration access.")
             return None
         data_source_id = data_sources[0]["id"]
-        
-        # Query database using data source with pagination
+
+        date_filter = {
+            "and": [
+                {"property": "date", "date": {"on_or_after": range_start}},
+                {"property": "date", "date": {"on_or_before": range_end}},
+            ]
+        }
+
         print("Loading database records...")
         existing_dates = set()
         has_more = True
         start_cursor = None
         cumulative_count = 0
-        
+
         while has_more:
             response = notion.data_sources.query(
                 data_source_id,
+                filter=date_filter,
+                page_size=100,
                 start_cursor=start_cursor,
             )
-            
-            # Check if response is valid
+
             if response is None or "results" not in response:
                 print("Error: No results returned. Check database permissions and structure.")
                 return None
-            
+
             results = response.get("results", [])
             start_cursor = response.get("next_cursor")
-            
-            # Log progress for each API call
+
             records_in_batch = len(results)
             cumulative_count += records_in_batch
             print(f"Fetched {records_in_batch} records (cumulative: {cumulative_count})")
-            
-            # Collect existing dates from the "date" property
+
             for item in results:
-                # Check if "date" property exists and has a "start" field
                 date_property = item["properties"].get("date", {}).get("date")
                 if date_property and date_property.get("start"):
                     date_value = date_property["start"]
-                    # Normalize date to YYYY-MM-DD format (strip time if present)
                     if "T" in date_value:
                         date_value = date_value.split("T")[0]
                     existing_dates.add(date_value)
-            
-            # Check if there are more pages to be fetched
+
             has_more = start_cursor is not None
-        
+
         return existing_dates
-    
+
     except Exception as e:
         print(f"Error retrieving existing dates: {e}")
         return None

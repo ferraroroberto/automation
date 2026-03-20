@@ -106,7 +106,7 @@ Configuration uses a root `.env` file (see [Configuration](#️-configuration));
 - **`build_newsletter.py`** - Newsletter builder from Notion articles
 - **`notion_databases_dump.py`** - Export Notion databases to Excel
 - **`notion_databases_clean.py`** - Clean and normalize Notion data
-- **`notion_databases_add_editorial.py`** - Add editorial metadata to Notion databases
+- **`notion_databases_add_editorial.py`** - Add editorial calendar rows (one day per date) to a Notion database — see [`notion/notion_databases_add_editorial.md`](notion/notion_databases_add_editorial.md)
 - **`notion_excel_sync.py`** - Excel-Notion synchronization
 - **`articles_sync/`** - Notion articles sync and incremental sync
 
