@@ -1,6 +1,6 @@
 # notion_databases_add_editorial.py
 
-Fills a Notion database with **one row per calendar day** for a date range you choose. Days that already exist (same `date` property in range) are skipped; missing days are created.
+Fills a Notion database with **one row per calendar day** for a **fixed rolling window**: from the **first day of the current calendar month** through the **last day of the following month**. Days that already exist (same `date` property in that range) are skipped; missing days are created.
 
 ## Requirements
 
@@ -28,27 +28,38 @@ From the `notion` folder:
 ..\.venv\Scripts\python notion_databases_add_editorial.py
 ```
 
-Or double-click / run:
+With **debug logging** (includes per-day “skip existing” lines and tracebacks on fatal errors):
 
 ```bat
-notion_databases_add_editorial.bat
+..\.venv\Scripts\python notion_databases_add_editorial.py --debug
 ```
 
-You will be prompted for **start** and **end** dates as `YYYYMMDD` (e.g. `20260401` … `20260430`).
+Or double-click / run **`notion_databases_add_editorial.bat`** (same layout as `normalize_url.bat`: activates `.venv`, `cd` to this folder, runs the script).
 
-## Configuration (in the script)
+### Command-line options
 
-In `if __name__ == "__main__"`:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--params` | Machine-specific path in script | Path to `notion-params.txt` |
+| `--database-id` | Value in script | 32-char or UUID database ID |
+| `--debug` | off | `logging` at DEBUG; full traceback on failure |
 
-- **`params_file_path`** — Path to your Notion API token file (default in the repo points to a machine-specific path; change it if needed).
-- **`database_id`** — 32-character Notion database ID (no hyphens), or the same ID with hyphens. You can copy it from the database URL: the segment before `?` after the last `/`, e.g.  
+Logging uses the same style as `normalize_url.py`: timestamp, level, message on stdout.
+
+## Configuration
+
+Defaults are the `argparse` defaults (override on the command line):
+
+- **`--params`** — Path to your Notion API token file.
+- **`--database-id`** — 32-character Notion database ID (no hyphens), or the same ID with hyphens. You can copy it from the database URL: the segment before `?` after the last `/`, e.g.  
   `https://www.notion.so/workspace/<database_id>?v=...`
 
 ## Behaviour
 
-1. **Retrieve** the database with `databases.retrieve`, then read the first **`data_sources`** entry (required by **notion-client 2.x**; the old `databases.query` helper was removed from the SDK).
-2. **Query** that data source with a **date filter** limited to your requested range (fewer rows than scanning the whole DB).
-3. **Create** pages for dates in range that are not already present, using `pages.create` with `parent: { database_id }`.
+1. **Date range** — Computed automatically: start = first day of this month; end = last day of next month (no prompts).
+2. **Retrieve** the database with `databases.retrieve`, then read the first **`data_sources`** entry (required by **notion-client 2.x**; the old `databases.query` helper was removed from the SDK).
+3. **Query** that data source with a **date filter** limited to that range (fewer rows than scanning the whole DB).
+4. **Create** pages for dates in range that are not already present, using `pages.create` with `parent: { database_id }`.
 
 The client uses a **180s HTTP timeout** to reduce spurious timeouts on slow responses.
 
@@ -64,4 +75,5 @@ The client uses a **180s HTTP timeout** to reduce spurious timeouts on slow resp
 ## Related
 
 - Original discussion context: [ChatGPT thread](https://chatgpt.com/c/6724bbf2-a618-8009-a4e3-a1f6e6828ae0) (referenced in the script header).
+- Logging pattern: `notion/normalize_url.py`
 - Other Notion tooling in this repo: root `README.md` → **Notion Integration** section.
