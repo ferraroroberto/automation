@@ -103,7 +103,7 @@ Configuration uses a root `.env` file (see [Configuration](#️-configuration));
 ### 📚 Notion Integration (`notion/`)
 
 **Database Management**
-- **`build_newsletter.py`** - Newsletter builder from Notion articles
+- **`build_newsletter.py`** - Newsletter builder from Notion articles — see [`notion/build_newsletter.md`](notion/build_newsletter.md)
 - **`notion_databases_dump.py`** - Export Notion databases to Excel
 - **`notion_databases_clean.py`** - Clean and normalize Notion data
 - **`notion_databases_add_editorial.py`** - Add editorial calendar rows (one day per date) to a Notion database — see [`notion/notion_databases_add_editorial.md`](notion/notion_databases_add_editorial.md)
@@ -245,9 +245,12 @@ video/screen_recorder.bat
 
 ### **Notion Newsletter Building**
 ```bash
-# Build newsletter from Notion articles
-python notion/build_newsletter.py --newsletter "057" --config "build_newsletter.json"
+# Build newsletter from Notion articles (writes notion/build_newsletter.html, opens browser,
+# then prompts for must-read 1/2/3 and copies the ordered title line to the clipboard)
+python notion/build_newsletter.py --newsletter 057 --config notion/build_newsletter.json
 ```
+
+Details: [`notion/build_newsletter.md`](notion/build_newsletter.md).
 
 ### **Email Automation**
 ```bash
