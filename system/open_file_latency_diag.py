@@ -23,6 +23,8 @@ file picker (usually bundled with Python on Windows).
 
 from __future__ import annotations
 
+# pyright: reportMissingModuleSource=false
+
 import argparse
 import statistics
 import sys
