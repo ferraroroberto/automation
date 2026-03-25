@@ -15,6 +15,9 @@ Data Structure:
 
 import json
 import logging
+import os
+import platform
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -30,6 +33,51 @@ logging.basicConfig(
     format=CONFIG["logging"]["format"]
 )
 logger = logging.getLogger(__name__)
+
+_SPREADSHEET_LOCKED_HINT = (
+    "The spreadsheet is open in Excel or locked by OneDrive. "
+    "Close it in Excel, wait for sync, then try again."
+)
+
+
+def _is_spreadsheet_lock_error(exc: BaseException) -> bool:
+    if isinstance(exc, PermissionError):
+        return True
+    if isinstance(exc, OSError):
+        errno = getattr(exc, "errno", None)
+        if errno is not None and errno in (13, 11):  # EACCES, EAGAIN (common when file is busy)
+            return True
+    lowered = str(exc).lower()
+    return any(
+        phrase in lowered
+        for phrase in (
+            "permission denied",
+            "being used by another process",
+            "access is denied",
+            "the process cannot access the file",
+        )
+    )
+
+
+def open_inventory_spreadsheet() -> None:
+    """Open the configured XLSX in the default application (e.g. Excel)."""
+    path = Path(CONFIG["data"]["xlsx_file"]).expanduser().resolve()
+    if not path.exists():
+        st.sidebar.error(f"File not found:\n`{path}`")
+        logger.error("Open spreadsheet: file missing at %s", path)
+        return
+    try:
+        if platform.system() == "Windows":
+            os.startfile(str(path))  # noqa: S606
+        elif platform.system() == "Darwin":
+            subprocess.run(["open", str(path)], check=False)
+        else:
+            subprocess.run(["xdg-open", str(path)], check=False)
+        st.sidebar.success("Opened. Close the workbook before saving changes from this app.")
+    except OSError as e:
+        st.sidebar.error(f"Could not open file: {e}")
+        logger.error("Open spreadsheet failed: %s", e)
+
 
 # Constants from config
 COLUMNS = CONFIG["data"]["columns"]
@@ -80,11 +128,12 @@ section[data-testid="stSidebar"] .block-container {
 """
 
 
-def load_inventory_data() -> Optional[pd.DataFrame]:
+def load_inventory_data(silent: bool = False) -> Optional[pd.DataFrame]:
     """Load inventory data from XLSX file."""
     xlsx_path = Path(CONFIG["data"]["xlsx_file"])
     if not xlsx_path.exists():
-        st.error(f"❌ Inventory file not found: {xlsx_path}")
+        if not silent:
+            st.error(f"❌ Inventory file not found: {xlsx_path}")
         logger.error(f"Inventory file not found: {xlsx_path}")
         return None
 
@@ -94,7 +143,8 @@ def load_inventory_data() -> Optional[pd.DataFrame]:
 
         missing_cols = [col for col in required_columns if col not in df.columns]
         if missing_cols:
-            st.error(f"❌ Missing required columns: {missing_cols}")
+            if not silent:
+                st.error(f"❌ Missing required columns: {missing_cols}")
             logger.error(f"Missing columns in data: {missing_cols}")
             return None
 
@@ -106,8 +156,12 @@ def load_inventory_data() -> Optional[pd.DataFrame]:
         return df
 
     except Exception as e:
-        st.error(f"❌ Error loading inventory data: {e}")
         logger.error(f"Error loading data: {e}")
+        if not silent:
+            if _is_spreadsheet_lock_error(e):
+                st.error(f"❌ Could not load inventory. {_SPREADSHEET_LOCKED_HINT}")
+            else:
+                st.error(f"❌ Error loading inventory data: {e}")
         return None
 
 
@@ -118,8 +172,11 @@ def save_inventory_data(df: pd.DataFrame) -> bool:
         logger.info("✅ Inventory data saved successfully")
         return True
     except Exception as e:
-        st.error(f"❌ Error saving inventory data: {e}")
         logger.error(f"Error saving data: {e}")
+        if _is_spreadsheet_lock_error(e):
+            st.warning(f"Could not save. {_SPREADSHEET_LOCKED_HINT}")
+        else:
+            st.error(f"❌ Error saving inventory data: {e}")
         return False
 
 
@@ -150,20 +207,30 @@ def get_supermarket_stats(shopping_items: pd.DataFrame, bought_items: set) -> Di
 
 def update_item_quantity(df: pd.DataFrame, item_index: int, delta: int) -> pd.DataFrame:
     """Update the tenemos quantity for an item and recalculate comprar."""
-    new_qty = max(0, df.at[item_index, COLUMNS["tenemos"]] + delta)
+    old_tenemos = int(df.at[item_index, COLUMNS["tenemos"]])
+    old_comprar = int(df.at[item_index, COLUMNS["comprar"]])
+    new_qty = max(0, old_tenemos + delta)
     df.at[item_index, COLUMNS["tenemos"]] = new_qty
     df.at[item_index, COLUMNS["comprar"]] = max(0, df.at[item_index, COLUMNS["cantidad"]] - new_qty)
-    save_inventory_data(df)
+    if not save_inventory_data(df):
+        df.at[item_index, COLUMNS["tenemos"]] = old_tenemos
+        df.at[item_index, COLUMNS["comprar"]] = old_comprar
+        return df
     logger.debug(f"Updated item {item_index}: tenemos={new_qty}")
     return df
 
 
 def update_target_quantity(df: pd.DataFrame, item_index: int, delta: int) -> pd.DataFrame:
     """Update the cantidad (target) quantity for an item and recalculate comprar."""
-    new_target = max(0, df.at[item_index, COLUMNS["cantidad"]] + delta)
+    old_target = int(df.at[item_index, COLUMNS["cantidad"]])
+    old_comprar = int(df.at[item_index, COLUMNS["comprar"]])
+    new_target = max(0, old_target + delta)
     df.at[item_index, COLUMNS["cantidad"]] = new_target
     df.at[item_index, COLUMNS["comprar"]] = max(0, new_target - df.at[item_index, COLUMNS["tenemos"]])
-    save_inventory_data(df)
+    if not save_inventory_data(df):
+        df.at[item_index, COLUMNS["cantidad"]] = old_target
+        df.at[item_index, COLUMNS["comprar"]] = old_comprar
+        return df
     logger.debug(f"Updated target for item {item_index}: cantidad={new_target}")
     return df
 
@@ -369,8 +436,6 @@ def render_export_mode(df: pd.DataFrame) -> None:
         if st.button("💾 Save to File", type="primary", use_container_width=True):
             if save_inventory_data(df):
                 st.success("✅ Saved!")
-            else:
-                st.error("❌ Save failed")
 
     with col2:
         st.download_button(
@@ -460,6 +525,7 @@ def render_edit_item_mode(df: pd.DataFrame) -> pd.DataFrame:
                     delete_clicked = st.form_submit_button("🗑️ Delete", type="secondary", use_container_width=True)
 
                 if save_clicked:
+                    snap = df.loc[idx].copy()
                     df.at[idx, COLUMNS["super"]] = new_super
                     df.at[idx, COLUMNS["lugar"]] = new_lugar
                     df.at[idx, COLUMNS["comida"]] = new_comida
@@ -472,15 +538,17 @@ def render_edit_item_mode(df: pd.DataFrame) -> pd.DataFrame:
                         st.success(f"✅ Saved '{new_comida}'")
                         st.rerun()
                     else:
-                        st.error("❌ Save failed")
+                        df.loc[idx] = snap
 
                 if delete_clicked:
+                    backup = df.copy()
                     df = df.drop(idx)
                     if save_inventory_data(df):
+                        st.session_state.inventory_data = df
                         st.success(f"✅ Deleted '{item_name}'")
                         st.rerun()
                     else:
-                        st.error("❌ Delete failed")
+                        return backup
 
     return df
 
@@ -516,13 +584,12 @@ def render_add_item_mode(df: pd.DataFrame) -> pd.DataFrame:
                     COLUMNS["buscador"]: new_buscador,
                     COLUMNS["comprar"]: max(0, new_cantidad - new_tenemos),
                 }
-                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                df_extended = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 
-                if save_inventory_data(df):
+                if save_inventory_data(df_extended):
+                    st.session_state.inventory_data = df_extended
                     st.success(f"✅ Added '{new_comida}'")
                     st.rerun()
-                else:
-                    st.error("❌ Failed to add item")
 
     return df
 
@@ -549,6 +616,15 @@ def main():
 
     # Sidebar: navigation + compact stats
     with st.sidebar:
+        if st.button(
+            "📂 Open spreadsheet",
+            help="Opens the Excel file in the default app (e.g. Excel). Useful when OneDrive has not refreshed yet.",
+            use_container_width=True,
+        ):
+            open_inventory_spreadsheet()
+
+        st.divider()
+
         mode_options = list(MODES.keys())
         mode_labels = list(MODES.values())
 
