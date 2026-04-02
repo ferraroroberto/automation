@@ -94,9 +94,27 @@ def try_extract_with_python(archive_path, password=None):
     
     return None, None, None
 
-def extract_with_7zip(archive_path, output_dir, password=None, seven_zip_path="7z"):
+SEVEN_ZIP_DEFAULT_PATHS = [
+    r"C:\Program Files\7-Zip\7z.exe",
+    r"C:\Program Files (x86)\7-Zip\7z.exe",
+]
+
+def find_7zip() -> str:
+    """Return the 7z executable path, checking PATH and common install locations."""
+    import shutil
+    if shutil.which("7z"):
+        return "7z"
+    for path in SEVEN_ZIP_DEFAULT_PATHS:
+        if os.path.isfile(path):
+            return path
+    return "7z"  # fall back; will fail with a clear error
+
+def extract_with_7zip(archive_path, output_dir, password=None, seven_zip_path=None):
     """Extract archive using 7-Zip command-line tool."""
     logger = logging.getLogger(__name__)
+
+    if seven_zip_path is None:
+        seven_zip_path = find_7zip()
     
     cmd = [seven_zip_path, 'x', archive_path, f'-o{output_dir}', '-y']
     if password:
