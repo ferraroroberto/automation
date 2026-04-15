@@ -356,41 +356,72 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
     """Render the shopping list mode interface."""
     if "bought_items" not in st.session_state:
         st.session_state.bought_items = set()
+    if "extra_shopping_items" not in st.session_state:
+        st.session_state.extra_shopping_items = {}
+    if "extra_bought_items" not in st.session_state:
+        st.session_state.extra_bought_items = {}
+    if "extra_item_counter" not in st.session_state:
+        st.session_state.extra_item_counter = 0
 
     shopping_items = df[df[COLUMNS["comprar"]] > 0].copy()
 
-    if shopping_items.empty:
+    base_supermarkets = get_unique_supermarkets(shopping_items) if not shopping_items.empty else []
+    all_supermarkets = sorted(set(base_supermarkets) | set(st.session_state.extra_shopping_items.keys()))
+
+    if shopping_items.empty and not all_supermarkets:
         st.success("🎉 All stocked up — nothing to buy!")
         return
 
-    supermarkets = get_unique_supermarkets(shopping_items)
+    # Compute totals including extra items
     total_items = len(shopping_items)
-    total_qty = int(shopping_items[COLUMNS["comprar"]].sum())
+    total_qty = int(shopping_items[COLUMNS["comprar"]].sum()) if not shopping_items.empty else 0
     bought_count = len([i for i in shopping_items.index if i in st.session_state.bought_items])
     bought_qty = int(
         shopping_items[shopping_items.index.isin(st.session_state.bought_items)][COLUMNS["comprar"]].sum()
-    )
+    ) if not shopping_items.empty else 0
+
+    for sm, extras in st.session_state.extra_shopping_items.items():
+        total_items += len(extras)
+        total_qty += sum(e["qty"] for e in extras)
+        extra_bought = st.session_state.extra_bought_items.get(sm, set())
+        for e in extras:
+            if e["id"] in extra_bought:
+                bought_count += 1
+                bought_qty += e["qty"]
 
     # Compact one-line summary with inline clear button
     c1, c2 = st.columns([6, 1])
     with c1:
         progress = f" · ✅ {bought_count}/{total_items} unique · {bought_qty}/{total_qty} units" if bought_count > 0 else ""
-        st.caption(f"🛒 {total_items} unique · {total_qty} units · {len(supermarkets)} store(s){progress}")
+        st.caption(f"🛒 {total_items} unique · {total_qty} units · {len(all_supermarkets)} store(s){progress}")
     with c2:
         if bought_count > 0 and st.button("🗑️", help="Unmark all"):
             st.session_state.bought_items.clear()
+            st.session_state.extra_bought_items.clear()
             st.rerun()
 
-    supermarket_stats = get_supermarket_stats(shopping_items, st.session_state.bought_items)
+    supermarket_stats = get_supermarket_stats(shopping_items, st.session_state.bought_items) if not shopping_items.empty else {}
 
-    for supermarket in supermarkets:
-        stats = supermarket_stats[supermarket]
-        sm_items = shopping_items[shopping_items[COLUMNS["super"]] == supermarket].sort_values(COLUMNS["comida"], key=lambda s: s.str.lower())
+    for supermarket in all_supermarkets:
+        stats = supermarket_stats.get(supermarket, {"total_unique": 0, "total_quantity": 0, "got_it_unique": 0, "got_it_quantity": 0})
+        sm_items = (
+            shopping_items[shopping_items[COLUMNS["super"]] == supermarket]
+            .sort_values(COLUMNS["comida"], key=lambda s: s.str.lower())
+            if not shopping_items.empty else pd.DataFrame()
+        )
+        extras = st.session_state.extra_shopping_items.get(supermarket, [])
+        extra_bought_set = st.session_state.extra_bought_items.get(supermarket, set())
 
-        done_txt = f" · ✅ {stats['got_it_unique']}/{stats['total_unique']}" if stats["got_it_unique"] > 0 else ""
-        label = f"🏪 {supermarket.title()} — {stats['total_unique']} items · {stats['total_quantity']} units{done_txt}"
+        total_u = stats["total_unique"] + len(extras)
+        total_q = stats["total_quantity"] + sum(e["qty"] for e in extras)
+        done_u = stats["got_it_unique"] + len([e for e in extras if e["id"] in extra_bought_set])
+        done_q = stats["got_it_quantity"] + sum(e["qty"] for e in extras if e["id"] in extra_bought_set)
+
+        done_txt = f" · ✅ {done_u}/{total_u}" if done_u > 0 else ""
+        label = f"🏪 {supermarket.title()} — {total_u} items · {total_q} units{done_txt}"
 
         with st.expander(label, expanded=True):
+            # Inventory items
             for idx in sm_items.index:
                 item_name = sm_items.at[idx, COLUMNS["comida"]]
                 qty_to_buy = sm_items.at[idx, COLUMNS["comprar"]]
@@ -425,6 +456,56 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
                             type="secondary",
                         ):
                             st.session_state.bought_items.add(idx)
+                            st.rerun()
+
+            # Extra (ad-hoc) items
+            for e in extras:
+                eid = e["id"]
+                is_extra_bought = eid in extra_bought_set
+                col1, col2, col3 = st.columns([5, 2, 2])
+                with col1:
+                    label_txt = f"~~{e['name']}~~ · {e['qty']}×" if is_extra_bought else f"**{e['name']}** · {e['qty']}×"
+                    st.markdown(f"{label_txt} _+_")
+                with col2:
+                    if st.button("🗑️ Remove", key=f"extra_del_{eid}", use_container_width=True):
+                        st.session_state.extra_shopping_items[supermarket] = [
+                            x for x in extras if x["id"] != eid
+                        ]
+                        if supermarket in st.session_state.extra_bought_items:
+                            st.session_state.extra_bought_items[supermarket].discard(eid)
+                        if not st.session_state.extra_shopping_items[supermarket]:
+                            del st.session_state.extra_shopping_items[supermarket]
+                        st.rerun()
+                with col3:
+                    if is_extra_bought:
+                        if st.button("↩️ Undo", key=f"extra_unmark_{eid}", use_container_width=True):
+                            st.session_state.extra_bought_items[supermarket].discard(eid)
+                            st.rerun()
+                    else:
+                        if st.button("✅ Got it", key=f"extra_mark_{eid}", use_container_width=True, type="secondary"):
+                            if supermarket not in st.session_state.extra_bought_items:
+                                st.session_state.extra_bought_items[supermarket] = set()
+                            st.session_state.extra_bought_items[supermarket].add(eid)
+                            st.rerun()
+
+            # Quick-add form
+            st.divider()
+            with st.form(key=f"qa_form_{supermarket}", clear_on_submit=True):
+                qa1, qa2, qa3 = st.columns([5, 1, 2])
+                with qa1:
+                    new_name = st.text_input("Item", placeholder="Item name…", label_visibility="collapsed")
+                with qa2:
+                    new_qty = st.number_input("Qty", value=1, min_value=1, step=1, label_visibility="collapsed")
+                with qa3:
+                    if st.form_submit_button("➕ Add", use_container_width=True):
+                        if new_name.strip():
+                            item_id = st.session_state.extra_item_counter
+                            st.session_state.extra_item_counter += 1
+                            if supermarket not in st.session_state.extra_shopping_items:
+                                st.session_state.extra_shopping_items[supermarket] = []
+                            st.session_state.extra_shopping_items[supermarket].append(
+                                {"id": item_id, "name": new_name.strip(), "qty": int(new_qty)}
+                            )
                             st.rerun()
 
 
@@ -614,6 +695,15 @@ def main():
     if "bought_items" not in st.session_state:
         st.session_state.bought_items = set()
 
+    if "extra_shopping_items" not in st.session_state:
+        st.session_state.extra_shopping_items = {}  # {sm: [{"id": int, "name": str, "qty": int}]}
+
+    if "extra_bought_items" not in st.session_state:
+        st.session_state.extra_bought_items = {}  # {sm: set of item ids}
+
+    if "extra_item_counter" not in st.session_state:
+        st.session_state.extra_item_counter = 0
+
     # Sidebar: navigation + compact stats
     with st.sidebar:
         if st.button(
@@ -652,12 +742,31 @@ def main():
 
             if not sm_shopping.empty:
                 for sm, stats in get_supermarket_stats(sm_shopping, st.session_state.bought_items).items():
-                    done_u = stats["got_it_unique"]
+                    offset_items = st.session_state.get(f"cart_offset_items_{sm}", 0)
+                    offset_units = st.session_state.get(f"cart_offset_units_{sm}", 0)
+                    done_u = stats["got_it_unique"] + offset_items
                     total_u = stats["total_unique"]
-                    done_q = stats["got_it_quantity"]
+                    done_q = stats["got_it_quantity"] + offset_units
                     total_q = stats["total_quantity"]
-                    bar = "▓" * done_u + "░" * (total_u - done_u)
+                    bar = "▓" * min(done_u, total_u) + "░" * max(0, total_u - done_u)
                     st.caption(f"**{sm.title()}** {bar} {done_u}/{total_u} · {done_q}/{total_q} units")
+                    oc1, oc2 = st.columns(2)
+                    with oc1:
+                        st.number_input(
+                            "＋items",
+                            value=0,
+                            min_value=0,
+                            step=1,
+                            key=f"cart_offset_items_{sm}",
+                        )
+                    with oc2:
+                        st.number_input(
+                            "＋units",
+                            value=0,
+                            min_value=0,
+                            step=1,
+                            key=f"cart_offset_units_{sm}",
+                        )
 
     # Main content
     df = st.session_state.inventory_data
