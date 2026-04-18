@@ -1,0 +1,9 @@
+{
+  "notion_api_key": "${NOTION_API_TOKEN}",
+  "illustrations_db_id": "f7008956ade24505bdc2c7faa9ed7902",
+  "visual_types_db_id": "81a8464d50af40aab88df43048495844",
+  "concepts_db_id": "569fc5035d6d434796a2e039c66829cd",
+  "source_folder": "C:/Users/rober/iCloudDrive/6LVTQB9699~com~seriflabs~affinitydesigner/Roberto/archived",
+  "dest_folder": "C:/Users/rober/iCloudDrive/6LVTQB9699~com~seriflabs~affinitydesigner/Roberto/inspiration samples",
+  "xls_output": "C:/Users/rober/iCloudDrive/6LVTQB9699~com~seriflabs~affinitydesigner/Roberto/inspiration samples/samples_index.xlsx"
+}
