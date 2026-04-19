@@ -734,30 +734,70 @@ class NotionArticlesSync:
         )
         return bool(exclude)
     
+    @staticmethod
+    def _normalize_iso_date(value: str) -> Optional[str]:
+        """Return a canonical UTC ISO string for an ISO datetime, or None if unparseable.
+
+        Notion serializes the same instant in different ways depending on the property
+        type and how the value was last written (e.g. '2025-09-20T06:55:00.000Z' vs
+        '2025-09-20T06:55:00.000+00:00'). Normalize so equality comparisons survive
+        this round-trip.
+        """
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return dt.astimezone(timezone.utc).isoformat()
+        except (ValueError, TypeError, AttributeError):
+            return None
+
+    def _values_equivalent(self, source_value: Any, target_value: Any) -> bool:
+        """Semantic equality for two extracted property values.
+
+        Handles the cases where the source and target schemas legitimately store the
+        same data in different shapes:
+          - None / "" / [] all count as empty
+          - ISO date strings differing only in 'Z' vs '+00:00' offset
+          - select ↔ multi_select (e.g. "x" vs ["x"])
+          - multi_select with the same elements in different order
+        """
+        if source_value == target_value:
+            return True
+        EMPTY = (None, "", [])
+        if source_value in EMPTY and target_value in EMPTY:
+            return True
+        if isinstance(source_value, str) and isinstance(target_value, str):
+            sn = self._normalize_iso_date(source_value)
+            tn = self._normalize_iso_date(target_value)
+            if sn is not None and tn is not None and sn == tn:
+                return True
+        if isinstance(source_value, str) and isinstance(target_value, list):
+            return len(target_value) == 1 and target_value[0] == source_value
+        if isinstance(target_value, str) and isinstance(source_value, list):
+            return len(source_value) == 1 and source_value[0] == target_value
+        if isinstance(source_value, list) and isinstance(target_value, list):
+            try:
+                return sorted(source_value) == sorted(target_value)
+            except TypeError:
+                return False
+        return False
+
     def items_are_different(self, source_item: Dict[str, Any], target_item: Dict[str, Any]) -> bool:
-        """Check if source item has changes compared to target item."""
-        # Compare last_edited_time
-        source_edited = source_item.get("last_edited_time", "")
-        target_edited = target_item.get("last_edited_time", "")
-        
-        # If source was edited after target, there are changes
-        if source_edited and target_edited:
-            source_dt = datetime.fromisoformat(source_edited.replace("Z", "+00:00"))
-            target_dt = datetime.fromisoformat(target_edited.replace("Z", "+00:00"))
-            return source_dt > target_dt
-        
-        # If we can't determine from timestamps, compare properties
-        source_props = self.map_properties(source_item.get("properties", {}))
-        target_props = target_item.get("properties", {})
-        
-        # Compare mapped fields
-        for field, value in source_props.items():
-            if field in target_props:
-                target_value = self.extract_value(target_props[field])
-                source_value = self.extract_value(value)
-                if source_value != target_value:
-                    return True
-        
+        """True iff any mapped field semantically differs between source and target.
+
+        Deliberately ignores last_edited_time: Notion bumps it for many reasons that
+        do not change the fields we sync (schema edits, formula recomputes, our own
+        write-back to `target rowid`). Trusting it produces 100% false positives
+        after any DB-wide touch.
+        """
+        src_props = source_item.get("properties", {})
+        tgt_props = target_item.get("properties", {})
+        for src_field, tgt_field in self.field_mapping.items():
+            sv = self.extract_value(src_props.get(src_field, {}))
+            tv = self.extract_value(tgt_props.get(tgt_field, {}))
+            if src_field == "rowid":
+                sv = self.normalize_rowid(sv) if sv else sv
+                tv = self.normalize_rowid(tv) if tv else tv
+            if not self._values_equivalent(sv, tv):
+                return True
         return False
     
     def detect_changes_full_sync(self) -> Tuple[List[Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]], List[Dict[str, Any]]]:
@@ -880,54 +920,53 @@ class NotionArticlesSync:
             logger.info("📋 No previous sync found - performing full sync")
             return self.detect_changes_full_sync()
         
-        # Fetch only changed items
+        # Fetch only changed items from source
         logger.info("📥 Fetching changed items from source...")
         source_items = self.fetch_all_items(self.source_db, filter_after=last_sync_time, show_progress=True)
         logger.info(f"📊 Found {len(source_items)} changed items")
-        
+
+        # Bulk-fetch the target once and index by 'source rowid' for O(1) lookup.
+        # Previous code issued one filter query per source item (3500+ × ~1.7s ≈ 100 min).
+        # Bulk fetch is ~35 pages (~90s) regardless of how many source items changed.
+        logger.info("📥 Loading target database for lookup index...")
+        target_items = self.fetch_all_items(self.target_db, show_progress=True)
+        logger.info(f"📊 Loaded {len(target_items)} target items")
+
+        target_by_rowid: Dict[str, Dict[str, Any]] = {}
+        for t in target_items:
+            srid = self.normalize_rowid(
+                self.extract_value(t.get("properties", {}).get("source rowid", {}))
+            )
+            if not srid:
+                continue
+            existing = target_by_rowid.get(srid)
+            if existing is None or t.get("last_edited_time", "") > existing.get("last_edited_time", ""):
+                target_by_rowid[srid] = t
+
         new_items: List[Dict[str, Any]] = []
         updated_items: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
-        
-        # For incremental sync, we need to check each item
-        processed_count = 0
-        total_items = len(source_items)
+        unchanged_count = 0
 
         for item in source_items:
-            processed_count += 1
-
             if self.should_exclude(item):
                 continue
 
-            # Check if exists in target
             source_rowid = self.normalize_rowid(
                 self.extract_value(item.get("properties", {}).get("rowid", {}))
             )
+            if not source_rowid:
+                continue
 
-            if source_rowid:
-                # Quick check in target
-                data = {
-                    "filter": {
-                        "property": "source rowid",
-                        "rich_text": {"contains": source_rowid}
-                    },
-                    "page_size": 1
-                }
-                result = self.api_call(f"databases/{self.target_db}/query", method="POST", data=data)
-                if result and result.get("results"):
-                    # Exists - it's an update
-                    updated_items.append((item, result["results"][0]))
-                else:
-                    # Doesn't exist - it's new
-                    new_items.append(item)
+            target_item = target_by_rowid.get(source_rowid)
+            if target_item is None:
+                new_items.append(item)
+            elif self.items_are_different(item, target_item):
+                updated_items.append((item, target_item))
+            else:
+                unchanged_count += 1
 
-            # Progress reporting - log every 100 items processed
-            if processed_count % 100 == 0:
-                progress_percent = (processed_count / total_items) * 100
-                logger.info(f"🔍 Progress: {processed_count}/{total_items} items processed ({progress_percent:.1f}%)")
-        
-        logger.info(f"🔍 Progress: {processed_count}/{total_items} items processed (100.0%)")
-        logger.info(f"📊 Changes detected: {len(new_items)} new, {len(updated_items)} updated")
-        
+        logger.info(f"📊 Changes detected: {len(new_items)} new, {len(updated_items)} updated, {unchanged_count} unchanged (skipped)")
+
         return new_items, updated_items, []
     
     def create_archive_entry(self, source_item: Dict[str, Any]) -> Optional[str]:
@@ -990,24 +1029,34 @@ class NotionArticlesSync:
         result = self.api_call(f"pages/{archive_item['id']}", method="PATCH", data=data)
         return result is not None
     
-    def update_source_tracking(self, source_id: str, archive_id: str) -> bool:
+    def update_source_tracking(self, source_id: str, archive_id: str,
+                               current_target_rowid: Optional[str] = None) -> bool:
         """Update source database with archive tracking.
-        
+
+        Skips the PATCH (and the resulting source.last_edited_time bump that fuels
+        the incremental-sync feedback loop) when the source already tracks this
+        archive id.
+
         Args:
             source_id: Source item ID to update
             archive_id: Archive item ID to track
-            
+            current_target_rowid: Existing 'target rowid' value on the source item, if known.
+                Pass to short-circuit no-op writes.
+
         Returns:
-            True if update successful, False otherwise
+            True if no write was needed or the write succeeded, False on API failure.
         """
         normalized_id = self.normalize_rowid(archive_id)
-        
+
+        if current_target_rowid and self.normalize_rowid(current_target_rowid) == normalized_id:
+            return True
+
         data = {
             "properties": {
                 "target rowid": {"rich_text": [{"text": {"content": normalized_id}}]}
             }
         }
-        
+
         result = self.api_call(f"pages/{source_id}", method="PATCH", data=data)
         return result is not None
     
@@ -1043,7 +1092,12 @@ class NotionArticlesSync:
                     elif operation_type == 'update':
                         source_item, target_item = op
                         if self.update_archive_entry(target_item, source_item):
-                            self.update_source_tracking(source_item["id"], target_item["id"])
+                            current_tracking = self.extract_value(
+                                source_item.get("properties", {}).get("target rowid", {})
+                            )
+                            self.update_source_tracking(
+                                source_item["id"], target_item["id"], current_tracking
+                            )
                             success_count += 1
                         else:
                             failed_count += 1
@@ -1105,17 +1159,22 @@ class NotionArticlesSync:
     
     def _process_update_operation(self, source_item: Dict[str, Any], target_item: Dict[str, Any]) -> bool:
         """Process a single update operation.
-        
+
         Args:
             source_item: Source item with new data
             target_item: Target archive item to update
-            
+
         Returns:
             True if operation successful, False otherwise
         """
         try:
             if self.update_archive_entry(target_item, source_item):
-                self.update_source_tracking(source_item["id"], target_item["id"])
+                current_tracking = self.extract_value(
+                    source_item.get("properties", {}).get("target rowid", {})
+                )
+                self.update_source_tracking(
+                    source_item["id"], target_item["id"], current_tracking
+                )
                 return True
         except Exception as e:
             logger.error(f"❌ Update failed: {e}")

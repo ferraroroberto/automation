@@ -87,8 +87,14 @@ class TestRateLimiter(unittest.TestCase):
         self.assertGreater(acquire_count, 0)
 
     def test_no_deadlock_under_load(self):
-        """Test that rate limiter doesn't deadlock under heavy load."""
-        limiter = RateLimiter(requests_per_second=1, burst_size=2)
+        """Test that rate limiter doesn't deadlock under heavy load.
+
+        Sized so the total work (10 threads × 5 acquires = 50 tokens at 20 req/s
+        = ~2.5s) finishes well inside the test timeout. The previous sizing
+        (1 req/s, 50 tokens = 50s required, 10s allowed) reported as a deadlock
+        when it was actually just throttled.
+        """
+        limiter = RateLimiter(requests_per_second=20, burst_size=5)
 
         # Simulate heavy concurrent load
         results = []

@@ -1,116 +1,56 @@
-# Notion Articles Sync - Debugging and Testing Suite
+# Notion Articles Sync — Unit Tests
 
-## Overview
+These tests pin down the upsert behavior of the sync module. They are
+self-contained: every test stubs `fetch_all_items` and `api_call` so no Notion
+network access is required.
 
-This directory contains unit tests and debugging tools for the Notion Articles Sync system. These tests were created to identify and resolve a performance issue where the sync appeared "stuck" during operation.
-
-## Problem Identified
-
-The sync process appeared to hang during operation, but was actually just running very slowly due to:
-
-1. **Rate limiting**: 3 API calls per second maximum
-2. **Network latency**: 200-500ms per API call
-3. **Large dataset**: Processing thousands of items sequentially
-4. **No progress feedback**: Users couldn't tell if the process was working
-
-For 3170 items, the processing time was ~16-25 minutes, which felt like the system was stuck.
-
-## Solution Implemented
-
-### 1. Progress Reporting During Fetching
-- Modified `detect_changes_incremental()` to enable progress reporting during database fetching
-- Added `show_progress=True` to `fetch_all_items()` call
-- Users now see: `"📥 Fetching page X (API calls so far: Y)..."`
-- Users now see: `"📊 Got Z items (total: W)"`
-
-### 2. Progress Reporting During Processing
-- Added progress counter in the item processing loop
-- Reports progress every 100 items processed with percentage
-- Shows completion at 100%
-- Users now see: `"🔍 Progress: 100/3170 items processed (3.2%)"`
-
-## Test Suite Organization
-
-### test01_rate_limiter.py
-**Purpose**: Test the rate limiter functionality to ensure it doesn't cause deadlocks
-- Tests basic rate limiting behavior
-- Tests timeout handling
-- Tests thread safety with concurrent access
-- Tests token regeneration over time
-
-### test02_api_calls.py
-**Purpose**: Test API call functionality and error handling
-- Tests successful API calls
-- Tests retry logic on failures
-- Tests concurrent API calls for deadlocks
-- Tests database query calls specifically
-
-### test03_incremental_sync.py
-**Purpose**: Test the incremental sync change detection logic
-- Tests basic change detection workflow
-- Tests exclusion filtering
-- Tests API timeout simulation
-- Tests helper methods (extract_value, normalize_rowid)
-
-### test04_progress_reporting.py
-**Purpose**: Test the progress reporting functionality
-- Simulates the progress reporting loop
-- Verifies progress messages are logged correctly
-- Tests completion reporting
-
-### test05_solution_demonstration.py
-**Purpose**: Demonstrate the issue and solution
-- Shows the performance bottleneck mathematically
-- Demonstrates the solution impact
-- Lists all potential solutions considered
-
-## Running the Tests
+## Running
 
 ```bash
-# Run all tests
 cd unit_tests
-python -m pytest
-
-# Run specific test
-python -m pytest test01_rate_limiter.py
-
-# Run with verbose output
 python -m pytest -v
 ```
 
-## Key Findings
+## Test files
 
-1. **No bugs in the code** - the algorithm was working correctly
-2. **Performance issue** - rate limiting + large dataset = long runtime
-3. **User experience issue** - lack of progress feedback made it seem broken
-4. **Solution** - added progress reporting to both fetching and processing phases
+### test01_rate_limiter.py
+Token-bucket `RateLimiter`: basic acquire, timeout behavior, thread safety,
+token regeneration.
 
-## Files Modified
+### test02_api_calls.py
+`api_call` retry/backoff and concurrent invocation. Validates the call
+counter is thread-safe.
 
-- `notion_articles_sync.py`: Added progress reporting to `detect_changes_incremental()`
-  - Line 885: Added `show_progress=True` to fetch_all_items call
-  - Lines 892-930: Added progress tracking and logging in processing loop
+### test03_incremental_sync.py
+The upsert loop end-to-end (with mocked Notion). Confirms that a
+`last_edited_time`-bumped candidate whose mapped fields match the target is
+**not** re-synced, that real field changes are enqueued, that missing targets
+become creates, and that excluded items short-circuit before any target lookup.
 
-## Impact
+### test04_value_equivalence.py
+The `_values_equivalent` and `items_are_different` helpers:
+- ISO date `Z` vs `+00:00` round-trip
+- empty value variants (`None`, `""`, `[]`)
+- `select` ↔ `multi_select` coercion (`"x"` ≡ `["x"]`)
+- `multi_select` order independence
+- explicit guarantee that `last_edited_time` is ignored
 
-- **Before**: Users saw "📊 Found 3170 changed items" then nothing for 16-25 minutes
-- **After**: Users see continuous progress updates during both fetching and processing phases
-- **Result**: No more "stuck" feeling, clear feedback on operation progress
+### test05_source_tracking_idempotent.py
+`update_source_tracking` skips its PATCH when the source already tracks the
+given archive id. Without this guard the sync feeds itself: every update
+bumps `source.last_edited_time`, the next incremental run re-fetches the
+same row, the comparator sees no change, but the *previous* version of the
+code wrote anyway — perpetuating the loop.
 
-## Replication
+## Why the previous test suite was wrong
 
-To replicate this solution in similar projects:
+The earlier suite (and a "solution demonstration" doc) framed the recurring
+sync slowness as a *progress reporting* / UX problem. It was not. The actual
+defect was that incremental sync trusted `last_edited_time` as a change
+signal. Notion bumps that timestamp for many reasons unrelated to mapped
+field content (schema edits, formula recomputes, our own write-back), so
+once the database was touched DB-wide the sync flagged ~100% of rows as
+"changed" on every run. The progress logs just made the symptom visible.
 
-1. Identify long-running loops that process large datasets
-2. Add progress counters and periodic logging (every N items)
-3. Enable progress reporting in data fetching operations
-4. Test with realistic data volumes to ensure feedback is helpful but not overwhelming
-
-## Future Improvements
-
-Consider these additional enhancements:
-
-1. **Increase rate limit** (if API allows): Change `requests_per_second` from 3.0 to 5.0-10.0
-2. **Parallel processing**: Use multiple threads for API calls
-3. **Checkpoint/resume**: Save progress to allow restarting interrupted syncs
-4. **Estimated completion time**: Show time remaining based on current progress
+The tests in this directory now exercise the real fix: a per-field semantic
+comparison plus an idempotent source write-back.
