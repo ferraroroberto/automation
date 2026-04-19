@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
 from notion_articles_sync import NotionArticlesSync, RateLimiter
 
 
@@ -73,7 +74,7 @@ class TestApiCalls(unittest.TestCase):
         """Test API call retry logic."""
         # First two calls fail, third succeeds
         mock_response_fail = Mock()
-        mock_response_fail.raise_for_status.side_effect = Exception("API Error")
+        mock_response_fail.raise_for_status.side_effect = requests.exceptions.RequestException("API Error")
 
         mock_response_success = Mock()
         mock_response_success.raise_for_status.return_value = None
@@ -99,7 +100,7 @@ class TestApiCalls(unittest.TestCase):
     def test_api_call_max_retries_exceeded(self, mock_sleep, mock_get):
         """Test API call when max retries exceeded."""
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = Exception("Persistent API Error")
+        mock_response.raise_for_status.side_effect = requests.exceptions.RequestException("Persistent API Error")
         mock_get.return_value = mock_response
 
         sync = NotionArticlesSync.__new__(NotionArticlesSync)
@@ -147,53 +148,49 @@ class TestApiCalls(unittest.TestCase):
             # Should have taken at least 1 second due to rate limiting
             self.assertGreaterEqual(elapsed, 0.9)
 
-    def test_concurrent_api_calls_no_deadlock(self):
-        """Test concurrent API calls don't cause deadlocks."""
+    @patch('notion_articles_sync.requests.get')
+    def test_concurrent_api_calls_no_deadlock(self, mock_get):
+        """Test concurrent API calls don't cause deadlocks.
+
+        `mock.patch` is not thread-safe, so the mock must be installed once at
+        the test boundary, not inside each worker.
+        """
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {"ok": True}
+        mock_get.return_value = mock_response
+
         sync = NotionArticlesSync.__new__(NotionArticlesSync)
         sync.api_base = "https://api.notion.com/v1"
         sync.headers = {"Authorization": "Bearer test_token"}
-        sync.rate_limiter = RateLimiter(2, 3)  # Moderate rate limiting
+        sync.rate_limiter = RateLimiter(20, 10)  # generous, this test is about deadlocks not throttling
         sync.max_retries = 1
         sync.api_call_count = 0
         sync.api_call_lock = threading.Lock()
 
         results = []
         errors = []
+        results_lock = threading.Lock()
 
         def api_call_worker(call_id):
             try:
-                with patch('notion_articles_sync.requests.get') as mock_get:
-                    mock_response = Mock()
-                    mock_response.raise_for_status.return_value = None
-                    mock_response.json.return_value = {"call_id": call_id}
-                    mock_get.return_value = mock_response
-
-                    result = sync.api_call(f"test/endpoint/{call_id}")
+                result = sync.api_call(f"test/endpoint/{call_id}")
+                with results_lock:
                     results.append((call_id, result))
             except Exception as e:
-                errors.append((call_id, str(e)))
+                with results_lock:
+                    errors.append((call_id, str(e)))
 
-        # Start concurrent API calls
-        threads = []
-        for i in range(5):
-            t = threading.Thread(target=api_call_worker, args=(i,))
-            threads.append(t)
-            t.start()
-
-        # Wait for completion with timeout
-        start_wait = time.monotonic()
+        threads = [threading.Thread(target=api_call_worker, args=(i,)) for i in range(5)]
         for t in threads:
-            remaining = max(0, 10 - (time.monotonic() - start_wait))
-            t.join(timeout=remaining)
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
 
-        # Check for deadlocks
         active_threads = [t for t in threads if t.is_alive()]
-        self.assertEqual(len(active_threads), 0, f"Deadlock detected: {len(active_threads)} threads still running")
-
-        # Should have no errors
-        self.assertEqual(len(errors), 0, f"API call errors: {errors}")
-
-        # Should have results for all calls
+        self.assertEqual(len(active_threads), 0,
+                         f"Deadlock detected: {len(active_threads)} threads still running")
+        self.assertEqual(errors, [])
         self.assertEqual(len(results), 5)
 
     @patch('notion_articles_sync.requests.post')

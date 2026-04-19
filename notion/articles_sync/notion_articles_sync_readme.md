@@ -112,7 +112,29 @@ The module maps properties by name (not encoded property IDs). Defaults shipped 
 ### Sync Rules
 - **Exclude Archive**: Items with `exclude archive = true` in the source are skipped
 - **Cascade Deletions**: When a source item disappears, the corresponding target page is archived
-- **Bidirectional Tracking**: The source item receives `target rowid` with the created/updated target page ID
+- **Bidirectional Tracking**: The source item receives `target rowid` with the created/updated target page ID. The write is skipped if the source already tracks this archive id (avoids bumping `last_edited_time` for nothing — see *Upsert semantics* below).
+
+### Upsert Semantics
+
+Incremental sync uses Notion's `last_edited_time` filter to fetch *candidates*, then performs a per-field semantic comparison and only writes items that actually differ. This makes the sync a true upsert — no-op runs touch zero pages.
+
+Why the comparison is needed:
+
+- **Notion bumps `last_edited_time` for non-content reasons**: schema edits on the database, formula recomputes, related-row changes, and our own write-back of `target rowid` all set `last_edited_time` to "now" on every row, even when none of the synced fields changed. A naive sync re-processes the entire database after any such event.
+- **Round-trip serialization differs**: Notion returns the same instant as `2025-09-20T06:55:00.000Z` from one property and `...+00:00` from another. The same select value comes back as `"x"` from a `select` and `["x"]` from a `multi_select`.
+
+The comparator [`items_are_different()`](notion_articles_sync.py) walks every mapped field and uses [`_values_equivalent()`](notion_articles_sync.py) which normalizes:
+
+- ISO datetimes via `datetime.fromisoformat` (handles `Z` ↔ `+00:00`, sub-second precision)
+- `None`, `""`, and `[]` as equivalent empty
+- `select` ↔ `multi_select` (`"x"` ≡ `["x"]`)
+- `multi_select` order-independent
+
+`last_edited_time` is intentionally ignored. It is only used as a *fetch filter*, never as a change signal.
+
+The same comparator runs in both `--full-sync` and incremental modes.
+
+**Target lookup is bulk, not per-item.** `detect_changes_incremental` fetches the target database once (paginated, ~35 pages for a 5k-row archive) and indexes it by `source rowid` in memory. The comparator then does O(1) dict lookups per candidate. The earlier implementation issued one filter query per candidate, which at 3 req/s meant a Notion-wide time-bump (3000+ candidates) would take ~90 min just to *check* the rows — even when ~all of them turned out to be skip-worthy no-ops. Bulk fetch runs in ~90 s regardless of candidate count.
 
 ### Sync Time Tracking
 The module properly tracks when the last sync actually occurred:

@@ -1,272 +1,194 @@
 #!/usr/bin/env python3
 """
-Unit tests for incremental sync change detection to identify hanging issues.
+Tests for the incremental upsert path.
+
+These cover the regression that motivated the upsert rewrite: Notion bumps
+`last_edited_time` on non-content events (schema edits, formula recomputes,
+write-back of `target rowid`), and the previous incremental loop trusted that
+timestamp blindly — re-processing the entire database every run.
+
+Specifically validates:
+  - candidates whose mapped fields are semantically identical are skipped
+  - candidates with real field differences are enqueued as updates
+  - candidates without a target page are enqueued as new
+  - excluded items are dropped before any target lookup
 """
 
-import json
-import time
-import unittest
-from unittest.mock import Mock, patch, MagicMock
 import threading
-from notion_articles_sync import NotionArticlesSync, RateLimiter
+import unittest
+from unittest.mock import Mock
+
+from notion_articles_sync import NotionArticlesSync
 
 
-class TestIncrementalSync(unittest.TestCase):
-    """Test cases for incremental sync functionality."""
+def _rich_text(value):
+    return {"type": "rich_text", "rich_text": [{"plain_text": value, "text": {"content": value}}]}
 
-    def setUp(self):
-        """Set up test fixtures."""
-        self.mock_config = {
-            "notion": {
-                "api_token": "test_token",
-                "api_base": "https://api.notion.com/v1",
-                "version": "2022-06-28",
-                "source_database": "67fbcee66711465c852ebf97303787a3",
-                "target_database": "163c4531dea649a7b2eaaf37dd95c68c"
+
+def _title(value):
+    return {"type": "title", "title": [{"plain_text": value, "text": {"content": value}}]}
+
+
+def _formula_string(value):
+    return {"type": "formula", "formula": {"type": "string", "string": value}}
+
+
+def _select(name):
+    return {"type": "select", "select": {"name": name}}
+
+
+def _multi_select(*names):
+    return {"type": "multi_select", "multi_select": [{"name": n} for n in names]}
+
+
+def _date(start):
+    return {"type": "date", "date": {"start": start}}
+
+
+def _checkbox(value):
+    return {"type": "checkbox", "checkbox": value}
+
+
+def _make_sync(field_mapping=None):
+    """Build a NotionArticlesSync without running __init__ side effects."""
+    sync = NotionArticlesSync.__new__(NotionArticlesSync)
+    sync.source_db = "source_db"
+    sync.target_db = "target_db"
+    sync.field_mapping = field_mapping or {
+        "article": "article",
+        "topic": "topic",
+        "rowid": "source rowid",
+        "created": "created",
+    }
+    sync.api_call_count = 0
+    sync.api_call_lock = threading.Lock()
+    sync._schema_cache = {}
+    return sync
+
+
+class TestIncrementalUpsert(unittest.TestCase):
+
+    def test_skips_items_whose_fields_are_semantically_identical(self):
+        """The bug: a Jan-11 mass time-bump made every item match the filter.
+        After the fix, candidates whose mapped values match the target are skipped."""
+        sync = _make_sync()
+        sync.get_last_sync_time = Mock(return_value=None)
+        # Bypass full-sync fallback by stubbing detect_changes_full_sync if called.
+        sync.detect_changes_full_sync = Mock(return_value=([], [], []))
+        sync.get_last_sync_time = Mock(return_value=Mock())  # truthy → incremental path
+
+        source_item = {
+            "id": "src_1",
+            "last_edited_time": "2026-01-11T13:42:00.000Z",  # bumped, but content unchanged
+            "properties": {
+                "rowid": _formula_string("2740f91db10680138197ce92c074876d"),
+                "article": _title("Virtual communication workshop ideas"),
+                "topic": _select("personal development"),
+                # source 'created' uses 'Z' suffix
+                "created": _date("2025-09-20T06:55:00.000Z"),
+                "exclude archive": _checkbox(False),
             },
-            "sync": {
-                "polling_interval_seconds": 300,
-                "batch_size": 100,
-                "max_retries": 3,
-                "backoff_seconds": 2.0
+        }
+        target_item = {
+            "id": "tgt_1",
+            "last_edited_time": "2025-11-23T18:00:00.000Z",
+            "properties": {
+                "source rowid": _rich_text("2740f91db10680138197ce92c074876d"),
+                "article": _title("Virtual communication workshop ideas"),
+                # target stores topic as multi_select with the same single value
+                "topic": _multi_select("personal development"),
+                # target's 'created' came back from Notion with '+00:00' offset
+                "created": _date("2025-09-20T06:55:00.000+00:00"),
             },
-            "threading": {
-                "max_workers": 5,
-                "requests_per_second": 3.0,
-                "burst_size": 10,
-                "parallel_fetching": True,
-                "parallel_operations": True,
-                "operation_batch_size": 10
-            },
-            "field_mapping": {
-                "source_to_target": {
-                    "rowid": "source rowid",
-                    "title": "title"
-                }
-            }
         }
 
-    @patch('notion_articles_sync.NotionArticlesSync.fetch_all_items')
-    @patch('notion_articles_sync.NotionArticlesSync.api_call')
-    def test_detect_changes_incremental_basic(self, mock_api_call, mock_fetch_all):
-        """Test basic incremental sync change detection."""
-        # Mock the fetch_all_items to return sample changed items
-        mock_changed_items = [
-            {
-                "id": "page_1",
-                "properties": {
-                    "rowid": {"rich_text": [{"plain_text": "rowid_1"}]},
-                    "exclude archive": {"checkbox": False}
-                }
-            },
-            {
-                "id": "page_2",
-                "properties": {
-                    "rowid": {"rich_text": [{"plain_text": "rowid_2"}]},
-                    "exclude archive": {"checkbox": False}
-                }
-            }
-        ]
-        mock_fetch_all.return_value = mock_changed_items
+        sync.fetch_all_items = Mock(side_effect=lambda db, **kw:
+            [source_item] if db == sync.source_db else [target_item])
 
-        # Mock API calls for existence checks - first exists, second doesn't
-        mock_api_call.side_effect = [
-            {"results": [{"id": "existing_page"}]},  # page_1 exists
-            {"results": []}  # page_2 doesn't exist
-        ]
-
-        # Create sync instance
-        sync = NotionArticlesSync.__new__(NotionArticlesSync)
-        sync.source_db = "source_db"
-        sync.target_db = "target_db"
-        sync.api_call = mock_api_call
-        sync.get_last_sync_time = Mock(return_value=None)  # No previous sync
-
-        # Test incremental detection
         new_items, updated_items, deleted_items = sync.detect_changes_incremental()
 
-        # Should have detected 1 new item, 1 updated item
-        self.assertEqual(len(new_items), 1)
+        self.assertEqual(new_items, [])
+        self.assertEqual(updated_items, [],
+                         "Item with no real diff should be skipped, not re-synced")
+        self.assertEqual(deleted_items, [])
+
+    def test_enqueues_real_field_changes(self):
+        sync = _make_sync()
+        sync.get_last_sync_time = Mock(return_value=Mock())
+
+        source_item = {
+            "id": "src_2",
+            "last_edited_time": "2026-04-01T00:00:00.000Z",
+            "properties": {
+                "rowid": _formula_string("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                "article": _title("New title"),
+                "topic": _select("ai"),
+                "created": _date("2025-09-20T06:55:00.000Z"),
+                "exclude archive": _checkbox(False),
+            },
+        }
+        target_item = {
+            "id": "tgt_2",
+            "last_edited_time": "2025-11-23T18:00:00.000Z",
+            "properties": {
+                "source rowid": _rich_text("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                "article": _title("Old title"),  # ← real diff
+                "topic": _multi_select("ai"),
+                "created": _date("2025-09-20T06:55:00.000+00:00"),
+            },
+        }
+
+        sync.fetch_all_items = Mock(side_effect=lambda db, **kw:
+            [source_item] if db == sync.source_db else [target_item])
+
+        new_items, updated_items, _ = sync.detect_changes_incremental()
+        self.assertEqual(new_items, [])
         self.assertEqual(len(updated_items), 1)
-        self.assertEqual(len(deleted_items), 0)
+        self.assertIs(updated_items[0][0], source_item)
+        self.assertIs(updated_items[0][1], target_item)
 
-        # Verify API calls were made correctly
-        self.assertEqual(mock_api_call.call_count, 2)
+    def test_enqueues_new_when_no_target(self):
+        sync = _make_sync()
+        sync.get_last_sync_time = Mock(return_value=Mock())
 
-    @patch('notion_articles_sync.NotionArticlesSync.fetch_all_items')
-    @patch('notion_articles_sync.NotionArticlesSync.api_call')
-    def test_detect_changes_incremental_with_exclusions(self, mock_api_call, mock_fetch_all):
-        """Test incremental sync with excluded items."""
-        # Mock items - one excluded, one not
-        mock_changed_items = [
-            {
-                "id": "page_1",
-                "properties": {
-                    "rowid": {"rich_text": [{"plain_text": "rowid_1"}]},
-                    "exclude archive": {"checkbox": True}  # Excluded
-                }
+        source_item = {
+            "id": "src_3",
+            "last_edited_time": "2026-04-10T00:00:00.000Z",
+            "properties": {
+                "rowid": _formula_string("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+                "article": _title("Brand new"),
+                "exclude archive": _checkbox(False),
             },
-            {
-                "id": "page_2",
-                "properties": {
-                    "rowid": {"rich_text": [{"plain_text": "rowid_2"}]},
-                    "exclude archive": {"checkbox": False}  # Not excluded
-                }
-            }
-        ]
-        mock_fetch_all.return_value = mock_changed_items
+        }
+        sync.fetch_all_items = Mock(side_effect=lambda db, **kw:
+            [source_item] if db == sync.source_db else [])
 
-        # Mock API call for the non-excluded item
-        mock_api_call.return_value = {"results": []}  # Doesn't exist
-
-        # Create sync instance
-        sync = NotionArticlesSync.__new__(NotionArticlesSync)
-        sync.source_db = "source_db"
-        sync.target_db = "target_db"
-        sync.api_call = mock_api_call
-        sync.get_last_sync_time = Mock(return_value=None)
-
-        # Test incremental detection
-        new_items, updated_items, deleted_items = sync.detect_changes_incremental()
-
-        # Should have only processed the non-excluded item
+        new_items, updated_items, _ = sync.detect_changes_incremental()
+        self.assertEqual(updated_items, [])
         self.assertEqual(len(new_items), 1)
-        self.assertEqual(len(updated_items), 0)
-        self.assertEqual(len(deleted_items), 0)
 
-        # Should have made only 1 API call (for the non-excluded item)
-        self.assertEqual(mock_api_call.call_count, 1)
+    def test_skips_excluded_items_without_target_lookup(self):
+        sync = _make_sync()
+        sync.get_last_sync_time = Mock(return_value=Mock())
 
-    @patch('notion_articles_sync.NotionArticlesSync.fetch_all_items')
-    @patch('notion_articles_sync.NotionArticlesSync.api_call')
-    def test_detect_changes_incremental_api_timeout_simulation(self, mock_api_call, mock_fetch_all):
-        """Test incremental sync when API calls hang (simulate timeout)."""
-        # Mock a smaller set of changed items for testing
-        mock_changed_items = [
-            {
-                "id": "page_1",
-                "properties": {
-                    "rowid": {"rich_text": [{"plain_text": "rowid_1"}]},
-                    "exclude archive": {"checkbox": False}
-                }
-            }
-        ]
-        mock_fetch_all.return_value = mock_changed_items
+        source_item = {
+            "id": "src_4",
+            "last_edited_time": "2026-04-10T00:00:00.000Z",
+            "properties": {
+                "rowid": _formula_string("cccccccccccccccccccccccccccccccc"),
+                "article": _title("excluded"),
+                "exclude archive": _checkbox(True),
+            },
+        }
+        sync.fetch_all_items = Mock(side_effect=lambda db, **kw:
+            [source_item] if db == sync.source_db else [])
+        sync.api_call = Mock()
 
-        # Mock API call that hangs/times out
-        mock_api_call.return_value = None  # Simulate timeout/failure
-
-        # Create sync instance
-        sync = NotionArticlesSync.__new__(NotionArticlesSync)
-        sync.source_db = "source_db"
-        sync.target_db = "target_db"
-        sync.api_call = mock_api_call
-        sync.get_last_sync_time = Mock(return_value=None)
-
-        # Test incremental detection - should handle API failures gracefully
-        new_items, updated_items, deleted_items = sync.detect_changes_incremental()
-
-        # Should have no changes due to API failure
-        self.assertEqual(len(new_items), 0)
-        self.assertEqual(len(updated_items), 0)
-        self.assertEqual(len(deleted_items), 0)
-
-    def test_large_dataset_processing_simulation(self):
-        """Simulate processing a large dataset like the stuck scenario."""
-        # Create a sync instance with mocked dependencies
-        sync = NotionArticlesSync.__new__(NotionArticlesSync)
-        sync.source_db = "source_db"
-        sync.target_db = "target_db"
-        sync.api_call_count = 0
-        sync.api_call_lock = threading.Lock()
-
-        # Mock rate limiter with reasonable settings
-        sync.rate_limiter = RateLimiter(requests_per_second=3.0, burst_size=10)
-
-        # Mock API call that succeeds but has some delay
-        def mock_api_call(endpoint, method="GET", data=None, retry=0):
-            time.sleep(0.01)  # Small delay to simulate network
-            return {"results": []}  # Simulate item doesn't exist
-
-        sync.api_call = mock_api_call
-
-        # Create mock items similar to the stuck scenario (but much smaller for testing)
-        mock_items = []
-        for i in range(10):  # Small number for testing, original was 3170
-            mock_items.append({
-                "id": f"page_{i}",
-                "properties": {
-                    "rowid": {"rich_text": [{"plain_text": f"rowid_{i}"}]},
-                    "exclude archive": {"checkbox": False}
-                }
-            })
-
-        # Test the processing loop logic
-        new_items = []
-        updated_items = []
-        start_time = time.monotonic()
-
-        for item in mock_items:
-            # This mimics the loop in detect_changes_incremental
-            if sync.extract_value(item.get("properties", {}).get("exclude archive", {})):
-                continue
-
-            source_rowid = sync.normalize_rowid(
-                sync.extract_value(item.get("properties", {}).get("rowid", {}))
-            )
-
-            if source_rowid:
-                # This is the API call that might hang
-                data = {
-                    "filter": {
-                        "property": "source rowid",
-                        "rich_text": {"contains": source_rowid}
-                    },
-                    "page_size": 1
-                }
-                result = sync.api_call(f"databases/{sync.target_db}/query", method="POST", data=data)
-
-                if result and result.get("results"):
-                    updated_items.append((item, result["results"][0]))
-                else:
-                    new_items.append(item)
-
-        elapsed = time.monotonic() - start_time
-
-        # Should have processed all items
-        self.assertEqual(len(new_items), 10)  # All items should be "new"
-        self.assertEqual(len(updated_items), 0)
-
-        # Should complete in reasonable time (much less than hanging)
-        self.assertLess(elapsed, 5.0)  # Should complete within 5 seconds
-
-    def test_extract_value_and_normalize_rowid(self):
-        """Test the helper methods used in the processing loop."""
-        sync = NotionArticlesSync.__new__(NotionArticlesSync)
-
-        # Test extract_value with various property types
-        test_cases = [
-            ({"checkbox": False}, False),
-            ({"rich_text": [{"plain_text": "test_text"}]}, "test_text"),
-            ({"number": 42}, 42),
-        ]
-
-        for prop, expected in test_cases:
-            result = sync.extract_value(prop)
-            self.assertEqual(result, expected)
-
-        # Test normalize_rowid
-        test_rowids = [
-            ("abc123def456", "abc123def456"),  # No dashes
-            ("abc-123-def-456", "abc123def456"),  # With dashes
-            ("", ""),  # Empty
-            (None, None),  # None
-        ]
-
-        for input_rowid, expected in test_rowids:
-            result = sync.normalize_rowid(input_rowid)
-            self.assertEqual(result, expected)
+        new_items, updated_items, _ = sync.detect_changes_incremental()
+        self.assertEqual(new_items, [])
+        self.assertEqual(updated_items, [])
+        sync.api_call.assert_not_called()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=2)

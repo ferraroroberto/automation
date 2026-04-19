@@ -37,3 +37,6 @@ tmp*
 streamlit_demo/data/*
 
 .claude/settings.local.json
+
+# notion articles sync
+notion/articles_sync/notion_articles_sync_last_time.txt
