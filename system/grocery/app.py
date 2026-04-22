@@ -762,18 +762,29 @@ def main():
             units_to_buy = int(sm_shopping[COLUMNS["comprar"]].sum()) if not sm_shopping.empty else 0
 
             st.divider()
-            st.caption(f"**{len(df_stats)}** items · **{shopping_needed}** unique / **{units_to_buy}** units to buy")
+            st.caption(f"{len(df_stats)} total tracked items")
 
             if not sm_shopping.empty:
-                for sm, stats in get_supermarket_stats(sm_shopping, st.session_state.bought_items).items():
+                stats_by_supermarket = get_supermarket_stats(sm_shopping, st.session_state.bought_items)
+                preferred_order = ["mercadona", "ametller"]
+                ordered_supermarkets = [sm for sm in preferred_order if sm in stats_by_supermarket] + [
+                    sm for sm in stats_by_supermarket if sm not in preferred_order
+                ]
+
+                for sm in ordered_supermarkets:
+                    stats = stats_by_supermarket[sm]
                     offset_items = st.session_state.get(f"cart_offset_items_{sm}", 0)
                     offset_units = st.session_state.get(f"cart_offset_units_{sm}", 0)
                     done_u = stats["got_it_unique"] + offset_items
                     total_u = stats["total_unique"]
                     done_q = stats["got_it_quantity"] + offset_units
                     total_q = stats["total_quantity"]
-                    bar = "▓" * min(done_u, total_u) + "░" * max(0, total_u - done_u)
-                    st.caption(f"**{sm.title()}** {bar} {done_u}/{total_u} · {done_q}/{total_q} units")
+                    st.markdown(f"**{sm.title()}**")
+                    pm1, pm2 = st.columns(2)
+                    with pm1:
+                        st.metric("Items got", f"{done_u}/{total_u}")
+                    with pm2:
+                        st.metric("Units got", f"{done_q}/{total_q}")
                     oc1, oc2 = st.columns(2)
                     with oc1:
                         st.number_input(
