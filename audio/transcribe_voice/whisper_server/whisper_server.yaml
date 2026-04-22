@@ -1,0 +1,50 @@
+# Shared whisper-server configuration.
+#
+# This file is the single source of truth for the local whisper.cpp server.
+# It is intentionally identical between this repository and
+# `ferraroroberto/claude-local-calls` so the server binds the same port
+# regardless of who starts it. That port collision is the intentional mutual
+# exclusion: only one instance can run at a time.
+#
+# The `project_root` is resolved at runtime by the manager (one directory
+# above the `whisper_server/` folder), so paths below are relative to the
+# project root and stay correct in both repos.
+
+server:
+  host: "127.0.0.1"        # bind/contact host
+  bind_host: "0.0.0.0"     # what whisper-server binds to
+  port: 8090               # fixed — collides on purpose if already running
+
+binary:
+  # Relative to project_root. On Windows, `.exe` is appended automatically
+  # when the bare name is not found.
+  path: "vendor/whisper.cpp/whisper-server"
+
+model:
+  # Relative to project_root. Download ggml-*.bin models with
+  # `vendor/whisper.cpp/models/download-ggml-model.sh <size>` (or the .bat).
+  path: "vendor/whisper.cpp/models/ggml-small.bin"
+
+# Extra CLI args forwarded to whisper-server after --host/--port/--model.
+# Keep these minimal — tune per-machine via the args list.
+args:
+  - "--threads"
+  - "4"
+  - "--processors"
+  - "1"
+  # GPU offload when the binary supports it (whisper.cpp CUDA/Metal builds).
+  - "--gpu"
+  - "1"
+
+# PID file path, relative to project_root. Written by whoever starts the
+# server so the other side can tell "is it mine or someone else's?".
+pid_file: ".whisper_server.pid"
+
+# Ring buffer size for captured server stdout/stderr lines.
+log_ring_size: 1000
+
+# Health check timing.
+health:
+  startup_timeout_seconds: 60
+  poll_interval_seconds: 0.5
+  request_timeout_seconds: 1.5

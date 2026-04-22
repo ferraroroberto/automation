@@ -1,0 +1,87 @@
+"""Application-level configuration loader (separate from server config)."""
+
+from __future__ import annotations
+
+# Standard library imports
+import json
+import logging
+import platform
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+VALID_LANGUAGES = ("Spanish", "English", "Italian", "French", "German", "Portuguese", "auto")
+VALID_LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+
+
+@dataclass
+class AppConfig:
+    language: str = "Spanish"
+    translate: bool = True
+    max_record_seconds: int = 300
+    sample_rate: int = 16000
+    preferred_mics: Optional[List[str]] = None
+    machine_specific_mics: Dict[str, List[str]] = field(default_factory=dict)
+    hotkey: str = "<ctrl>+<alt>+<space>"
+    auto_copy: bool = True
+    auto_start_server: bool = False
+    log_level: str = "INFO"
+
+    def resolve_preferred_mics(self) -> List[str]:
+        """Pick the mic list for the current machine (explicit > machine-map > [])."""
+        if self.preferred_mics:
+            return self.preferred_mics
+        machine = _machine_name()
+        mapped = self.machine_specific_mics.get(machine)
+        if mapped:
+            logger.info(f"🎙️  Using machine-specific mics for '{machine}': {mapped}")
+            return mapped
+        logger.info(f"🎙️  No mic preferences for '{machine}' — will use the system default")
+        return []
+
+
+def _machine_name() -> str:
+    try:
+        return platform.node().lower()
+    except Exception:
+        return "unknown"
+
+
+def load_app_config(path: Optional[Path] = None) -> AppConfig:
+    """Load `config/config.json` from next to this file (or an override)."""
+    if path is None:
+        path = Path(__file__).resolve().parent.parent / "config" / "config.json"
+    else:
+        path = Path(path).resolve()
+
+    if not path.exists():
+        logger.warning(f"📂 Config not found at {path}, using defaults")
+        return AppConfig()
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    _validate(raw)
+    return AppConfig(
+        language=raw.get("language", "Spanish"),
+        translate=bool(raw.get("translate", True)),
+        max_record_seconds=int(raw.get("max_record_seconds", 300)),
+        sample_rate=int(raw.get("sample_rate", 16000)),
+        preferred_mics=raw.get("preferred_mics") or None,
+        machine_specific_mics=raw.get("machine_specific_mics") or {},
+        hotkey=raw.get("hotkey", "<ctrl>+<alt>+<space>"),
+        auto_copy=bool(raw.get("auto_copy", True)),
+        auto_start_server=bool(raw.get("auto_start_server", False)),
+        log_level=raw.get("log_level", "INFO"),
+    )
+
+
+def _validate(raw: Dict) -> None:
+    if "language" in raw and raw["language"] not in VALID_LANGUAGES:
+        raise ValueError(f"language must be one of {VALID_LANGUAGES}")
+    if "log_level" in raw and raw["log_level"] not in VALID_LOG_LEVELS:
+        raise ValueError(f"log_level must be one of {VALID_LOG_LEVELS}")
+    if "max_record_seconds" in raw:
+        v = raw["max_record_seconds"]
+        if not isinstance(v, int) or v <= 0:
+            raise ValueError("max_record_seconds must be a positive integer")
