@@ -48,10 +48,11 @@ class RecordingPopup:
         self._center(width=320, height=130)
         self.window.protocol("WM_DELETE_WINDOW", self.stop)
 
-        # Tap Esc or Enter to stop early.
+        # Esc / Enter are local fallbacks when the popup has focus. The
+        # canonical stop is the global Ctrl+Alt+Space hotkey owned by the
+        # launching app, so both "tray" and "gui" modes behave the same way.
         self.window.bind("<Escape>", lambda _e: self.stop())
         self.window.bind("<Return>", lambda _e: self.stop())
-        self.window.bind("<space>", lambda _e: self.stop())
 
         self._start_worker()
         self.window.after(50, self._pump_queue)
@@ -74,7 +75,7 @@ class RecordingPopup:
 
         self.hint_label = tk.Label(
             frame,
-            text="Press Space / Enter / Esc to stop",
+            text="Ctrl+Alt+Space to stop (Enter/Esc also work)",
             font=("Segoe UI", 9),
             foreground="#aaaaaa",
             background="#1e1e1e",

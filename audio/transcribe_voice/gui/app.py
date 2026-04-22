@@ -16,6 +16,7 @@ from typing import Optional
 
 # Third-party imports
 import pyperclip
+from pynput import keyboard
 
 from ..core import (
     AppConfig,
@@ -36,12 +37,25 @@ class TranscriberApp:
         self.config = config
         self.tray_on_close = tray_on_close
         self.server = WhisperServerManager()
+        self._current_recorder: Optional[AudioRecorder] = None
+        self._hotkey_listener: Optional[keyboard.GlobalHotKeys] = None
 
         self.root = tk.Tk()
         self.root.title("Voice Transcription")
         self.root.geometry("420x340")
         self.root.resizable(False, False)
-        self.root.configure(background="#2E2E2E")
+        self.root.configure(background="#FFFFFF")
+
+        style = ttk.Style(self.root)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+        style.configure(".", background="#FFFFFF", foreground="#000000")
+        style.configure("TFrame", background="#FFFFFF")
+        style.configure("TLabel", background="#FFFFFF", foreground="#000000")
+        style.configure("TCheckbutton", background="#FFFFFF", foreground="#000000")
+        style.map("TCheckbutton", background=[("active", "#FFFFFF")])
 
         self.status_var = tk.StringVar(value="checking…")
         self.language_var = tk.StringVar(value=config.language)
@@ -85,7 +99,7 @@ class TranscriberApp:
         ttk.Checkbutton(lang_frame, text="Translate to English", variable=self.translate_var).pack(side=tk.LEFT, padx=8)
 
         # Primary actions
-        record_btn = ttk.Button(self.root, text="🎤 Record", command=self._record)
+        record_btn = ttk.Button(self.root, text="🎤 Record / Stop", command=self._toggle_record)
         record_btn.pack(fill=tk.X, **pad)
         record_btn.configure(padding=(0, 10))
 
@@ -119,15 +133,21 @@ class TranscriberApp:
         try:
             self.server.start()
         except RuntimeError as e:
-            logger.error(str(e))
-            self.root.after(0, lambda: messagebox.showerror("Server failed to start", str(e)))
+            msg = str(e)
+            logger.error(msg)
+            self.root.after(0, lambda m=msg: messagebox.showerror("Server failed to start", m))
 
     def _stop_server(self) -> None:
         threading.Thread(target=self.server.stop, daemon=True).start()
 
     # ---------------------------------------------------------- record flow
 
-    def _record(self) -> None:
+    def _toggle_record(self) -> None:
+        # Second press → stop the in-flight recording.
+        if self._current_recorder is not None:
+            self._current_recorder.request_stop()
+            return
+
         status = self.server.status()
         if not status.running:
             messagebox.showwarning(
@@ -140,6 +160,7 @@ class TranscriberApp:
             sample_rate=self.config.sample_rate,
             preferred_mics=self.config.resolve_preferred_mics(),
         )
+        self._current_recorder = recorder
         RecordingPopup(
             parent=self.root,
             recorder=recorder,
@@ -148,6 +169,7 @@ class TranscriberApp:
         )
 
     def _on_record_done(self, recording, error) -> None:
+        self._current_recorder = None
         if error is not None:
             messagebox.showerror("Recording error", error)
             return
@@ -169,8 +191,9 @@ class TranscriberApp:
                 translate=self.translate_var.get(),
             )
         except TranscriptionError as e:
-            logger.error(f"❌ {e}")
-            self.root.after(0, lambda: messagebox.showerror("Transcription failed", str(e)))
+            msg = str(e)
+            logger.error(f"❌ {msg}")
+            self.root.after(0, lambda m=msg: messagebox.showerror("Transcription failed", m))
             return
 
         if self.config.auto_copy:
@@ -230,7 +253,8 @@ class TranscriberApp:
                 translate=self.translate_var.get(),
             )
         except TranscriptionError as e:
-            self.root.after(0, lambda: messagebox.showerror("Transcription failed", str(e)))
+            msg = str(e)
+            self.root.after(0, lambda m=msg: messagebox.showerror("Transcription failed", m))
             return
         if self.config.auto_copy:
             try:
@@ -248,6 +272,12 @@ class TranscriberApp:
         self._quit()
 
     def _quit(self) -> None:
+        if self._hotkey_listener is not None:
+            try:
+                self._hotkey_listener.stop()
+            except Exception:
+                pass
+            self._hotkey_listener = None
         status = self.server.status()
         if status.running and status.ownership == OWNERSHIP_OURS:
             self.server.stop()
@@ -256,7 +286,22 @@ class TranscriberApp:
         except tk.TclError:
             pass
 
+    def _start_hotkey_listener(self) -> None:
+        """Global Ctrl+Alt+Space (configurable) — toggles the same recorder
+        as the Record button. Only registered in standalone gui mode; when
+        the main window is opened from the tray, the tray owns the hotkey.
+        """
+        hotkey = self.config.hotkey
+        try:
+            mapping = {hotkey: lambda: self.root.after(0, self._toggle_record)}
+            self._hotkey_listener = keyboard.GlobalHotKeys(mapping)
+            self._hotkey_listener.start()
+        except Exception as e:
+            logger.error(f"❌ Failed to register global hotkey {hotkey!r}: {e}")
+
     def run(self) -> int:
+        if not self.tray_on_close:
+            self._start_hotkey_listener()
         self.root.mainloop()
         return 0
 

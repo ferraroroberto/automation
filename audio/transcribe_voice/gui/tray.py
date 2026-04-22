@@ -13,6 +13,7 @@ from __future__ import annotations
 
 # Standard library imports
 import logging
+import os
 import queue
 import threading
 import time
@@ -76,6 +77,8 @@ class TrayApp:
         self._icon.run_detached()
         self.root.after(100, self._pump_events)
         logger.info(f"🧷 Tray ready — hotkey: {self.config.hotkey}")
+        if not self.server.status().running:
+            threading.Thread(target=self._start_server_worker, daemon=True).start()
         try:
             self.root.mainloop()
         finally:
@@ -88,14 +91,23 @@ class TrayApp:
                 self._hotkey_listener.stop()
             except Exception:
                 pass
+        status = self.server.status()
+        if status.running and status.ownership == OWNERSHIP_OURS:
+            self._notify("Whisper server", "🛑 Stopped")
+            self.server.stop()
         if self._icon is not None:
             try:
                 self._icon.stop()
             except Exception:
                 pass
-        status = self.server.status()
-        if status.running and status.ownership == OWNERSHIP_OURS:
-            self.server.stop()
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
+        # pystray's Windows message-pump thread and pynput's low-level keyboard
+        # hook sometimes fail to unwind after stop(), leaving pythonw.exe alive.
+        # Force-exit once we've cleanly stopped the server we own.
+        os._exit(0)
 
     # --------------------------------------------------------------- menu
 

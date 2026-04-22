@@ -202,7 +202,9 @@ class WhisperServerManager:
                 env=env,
             )
             if sys.platform == "win32":
-                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+                popen_kwargs["creationflags"] = (
+                    subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+                )
             self._proc = subprocess.Popen(cmd, **popen_kwargs)
         except FileNotFoundError as e:
             raise RuntimeError(
