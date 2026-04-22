@@ -16,25 +16,26 @@ server:
   port: 8090               # fixed — collides on purpose if already running
 
 binary:
-  # Relative to project_root. On Windows, `.exe` is appended automatically
-  # when the bare name is not found.
-  path: "vendor/whisper.cpp/whisper-server"
+  # Absolute path to the whisper-server built in the sibling claude-local-calls
+  # project. We share that single installation instead of duplicating the
+  # vendor tree. On Windows, `.exe` is appended automatically when the bare
+  # name is not found.
+  path: "E:/automation/claude-local-calls/vendor/whisper.cpp/whisper-server"
 
 model:
-  # Relative to project_root. Download ggml-*.bin models with
-  # `vendor/whisper.cpp/models/download-ggml-model.sh <size>` (or the .bat).
-  path: "vendor/whisper.cpp/models/ggml-small.bin"
+  # Absolute path to the ggml model downloaded by claude-local-calls.
+  path: "E:/automation/claude-local-calls/models/ggml-small.bin"
 
 # Extra CLI args forwarded to whisper-server after --host/--port/--model.
-# Keep these minimal — tune per-machine via the args list.
+# Mirrors the claude-local-calls registry entry for the `whisper` model so
+# both launchers produce the same server behaviour.
 args:
   - "--threads"
   - "4"
   - "--processors"
   - "1"
-  # GPU offload when the binary supports it (whisper.cpp CUDA/Metal builds).
-  - "--gpu"
-  - "1"
+  - "--inference-path"
+  - "/v1/audio/transcriptions"
 
 # PID file path, relative to project_root. Written by whoever starts the
 # server so the other side can tell "is it mine or someone else's?".

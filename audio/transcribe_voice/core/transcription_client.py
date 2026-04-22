@@ -1,9 +1,9 @@
 """HTTP client for the local whisper.cpp server.
 
-Calls the OpenAI-compatible `/v1/audio/transcriptions` and
-`/v1/audio/translations` endpoints that whisper.cpp's `whisper-server`
-exposes. Keeping this a thin wrapper means the transcriber doesn't care
-which process (ours or claude-local-calls') is actually hosting the server.
+Calls the OpenAI-compatible `/v1/audio/transcriptions` endpoint that
+whisper.cpp's `whisper-server` exposes. Translation is requested via the
+`translate=true` form field on the same endpoint (whisper-server does
+not expose a separate `/v1/audio/translations` route).
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 # Standard library imports
 import io
 import logging
+import re
 import wave
 from pathlib import Path
 from typing import Optional, Union
@@ -54,13 +55,14 @@ class TranscriptionClient:
         translate: bool = False,
         filename: str = "audio.wav",
     ) -> str:
-        endpoint = "/v1/audio/translations" if translate else "/v1/audio/transcriptions"
-        url = self.base_url + endpoint
+        url = self.base_url + "/v1/audio/transcriptions"
 
         iso = ISO_LANGUAGE_CODES.get(language, language) if language else None
         data = {"response_format": "json"}
-        if iso and not translate:
+        if iso:
             data["language"] = iso
+        if translate:
+            data["translate"] = "true"
 
         files = {"file": (filename, wav_bytes, "audio/wav")}
 
@@ -124,7 +126,18 @@ def _extract_text(response: requests.Response) -> str:
     try:
         payload = response.json()
     except ValueError:
-        return response.text.strip()
+        return _flatten(response.text)
     if isinstance(payload, dict) and "text" in payload:
-        return str(payload["text"]).strip()
-    return response.text.strip()
+        return _flatten(str(payload["text"]))
+    return _flatten(response.text)
+
+
+_WS_RUN = re.compile(r"\s+")
+
+
+def _flatten(text: str) -> str:
+    """Collapse any run of whitespace (newlines, tabs, multiple spaces) into
+    a single space. whisper-server returns one segment per line; clipboard
+    consumers want a clean single-line stream.
+    """
+    return _WS_RUN.sub(" ", text).strip()
