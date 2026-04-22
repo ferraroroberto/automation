@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
 REM ============================================================================
-REM  TRANSCRIBE VOICE — main window launcher
+REM  QUICK RECORD — one-shot record / transcribe / copy / exit
 REM ----------------------------------------------------------------------------
-REM  Launches the tkinter main window. The window shows server status and
-REM  lets you start/stop the shared whisper-server.
+REM  Intended for Elgato Stream Deck. Blocks until you stop the recording
+REM  (Enter key) or hit the max duration, then copies the text and exits.
 REM ============================================================================
 
 setlocal
@@ -12,19 +12,16 @@ set "SCRIPT_DIR=%~dp0"
 for %%I in ("%SCRIPT_DIR%..\..") do set "PROJECT_DIR=%%~fI"
 set "VENV_PY=%PROJECT_DIR%\.venv\Scripts\python.exe"
 
-cd /d "%SCRIPT_DIR%" || (echo [ERROR] Could not cd to %SCRIPT_DIR% & exit /b 1)
+cd /d "%SCRIPT_DIR%" || exit /b 1
+
+title Voice Transcription (press ENTER to stop)
+mode con: cols=80 lines=20
 
 if exist "%VENV_PY%" (
-    "%VENV_PY%" launcher.py gui
+    "%VENV_PY%" launcher.py record %*
 ) else (
-    echo [INFO] .venv not found — falling back to system python
-    python launcher.py gui
+    python launcher.py record %*
 )
 
 set "RC=%ERRORLEVEL%"
-if not "%RC%"=="0" (
-    echo.
-    echo [ERROR] Exited with code %RC%.
-    pause >nul
-)
 exit /b %RC%
