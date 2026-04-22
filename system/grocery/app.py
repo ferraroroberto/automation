@@ -400,6 +400,21 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
             st.session_state.extra_bought_items.clear()
             st.rerun()
 
+    missing_url_items = []
+    if not shopping_items.empty:
+        for idx in shopping_items.index:
+            raw_buy_url = shopping_items.at[idx, COLUMNS["buscador"]]
+            buy_url = raw_buy_url.strip() if isinstance(raw_buy_url, str) else ""
+            if not buy_url:
+                item_name = shopping_items.at[idx, COLUMNS["comida"]]
+                supermarket = shopping_items.at[idx, COLUMNS["super"]]
+                missing_url_items.append(f"{item_name} ({supermarket})")
+
+    if missing_url_items:
+        st.warning(f"⚠️ {len(missing_url_items)} item(s) are missing a buy link and have the Buy button disabled.")
+        with st.expander("Show items missing links"):
+            st.markdown("\n".join(f"- {item}" for item in missing_url_items))
+
     supermarket_stats = get_supermarket_stats(shopping_items, st.session_state.bought_items) if not shopping_items.empty else {}
 
     for supermarket in all_supermarkets:
@@ -425,7 +440,8 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
             for idx in sm_items.index:
                 item_name = sm_items.at[idx, COLUMNS["comida"]]
                 qty_to_buy = sm_items.at[idx, COLUMNS["comprar"]]
-                buy_url = sm_items.at[idx, COLUMNS["buscador"]]
+                raw_buy_url = sm_items.at[idx, COLUMNS["buscador"]]
+                buy_url = raw_buy_url.strip() if isinstance(raw_buy_url, str) else ""
                 is_bought = idx in st.session_state.bought_items
 
                 col1, col2, col3 = st.columns([5, 2, 2])
@@ -437,11 +453,19 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
                         st.markdown(f"**{item_name}** · {qty_to_buy}×")
 
                 with col2:
-                    st.link_button(
-                        "🔄 Again" if is_bought else "🛒 Buy",
-                        buy_url,
-                        use_container_width=True,
-                    )
+                    if buy_url:
+                        st.link_button(
+                            "🔄 Again" if is_bought else "🛒 Buy",
+                            buy_url,
+                            use_container_width=True,
+                        )
+                    else:
+                        st.button(
+                            "🔄 Again" if is_bought else "🛒 Buy",
+                            key=f"buy_disabled_{idx}",
+                            use_container_width=True,
+                            disabled=True,
+                        )
 
                 with col3:
                     if is_bought:
