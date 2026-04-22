@@ -17,21 +17,20 @@ plotly>=5.18.0
 # AUDIO PROCESSING MODULES
 # =============================================================================
 
-# OpenAI Whisper for speech-to-text transcription
-# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py
-openai-whisper>=0.0.1
-
 # Audio recording and playback
-# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py
-sounddevice>=0.4.0
+# Source: audio/transcribe_voice/core/recorder.py
+sounddevice>=0.4.6
 
 # Audio file manipulation and processing
-# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py
+# Source: audio/audio_normalize.py, audio/audio_trim.py (legacy in-process whisper)
 scipy>=1.10.0
 
 # Audio format conversion (OGG to MP3)
 # Source: audio/convert_ogg_mp3.py
 pydub>=0.25.1
+
+# Note: audio/transcribe_voice/ now talks HTTP to a local whisper.cpp
+# server — openai-whisper / torch / imageio-ffmpeg are no longer required.
 
 # =============================================================================
 # IMAGE PROCESSING MODULES
