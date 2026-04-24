@@ -26,6 +26,11 @@ from PIL import Image, ImageDraw
 import pystray
 from pynput import keyboard
 
+try:
+    from winotify import Notification as _WinToast  # type: ignore
+except ImportError:  # non-Windows or package missing
+    _WinToast = None
+
 from ..core import (
     AppConfig,
     AudioRecorder,
@@ -94,6 +99,9 @@ class TrayApp:
         status = self.server.status()
         if status.running and status.ownership == OWNERSHIP_OURS:
             self._notify("Whisper server", "🛑 Stopped")
+            # winotify dispatches the toast via a powershell subprocess; give
+            # it a moment to spawn before os._exit(0) tears everything down.
+            time.sleep(0.5)
             self.server.stop()
         if self._icon is not None:
             try:
@@ -137,6 +145,14 @@ class TrayApp:
 
     def _enqueue(self, event: str) -> None:
         self.events.put(event)
+
+    # Public hooks used by the main window when it's opened from the tray,
+    # so the two paths share one recorder / hotkey / notification pipeline.
+    def request_toggle_record(self) -> None:
+        self._enqueue(EVT_TOGGLE_RECORD)
+
+    def request_quit(self) -> None:
+        self._enqueue(EVT_QUIT)
 
     def _pump_events(self) -> None:
         try:
@@ -228,7 +244,7 @@ class TrayApp:
 
     def _open_window(self) -> None:
         if self._main_window is None or not self._main_window.root.winfo_exists():
-            self._main_window = TranscriberApp(self.config, tray_on_close=True)
+            self._main_window = TranscriberApp(self.config, tray_on_close=True, tray=self)
             # Re-parent its close to just hide.
             self._main_window.root.protocol("WM_DELETE_WINDOW", self._main_window._on_close)
         else:
@@ -254,6 +270,20 @@ class TrayApp:
             pass
 
     def _notify(self, title: str, message: str) -> None:
+        # Prefer modern WinRT toasts — they stack in Action Center instead of
+        # being coalesced like the legacy Shell_NotifyIcon balloon tips that
+        # pystray uses, so rapid-fire notifications don't get dropped.
+        if _WinToast is not None:
+            try:
+                toast = _WinToast(
+                    app_id="Voice Transcription",
+                    title=title,
+                    msg=message,
+                )
+                toast.show()
+                return
+            except Exception as exc:
+                logger.debug(f"winotify failed, falling back to pystray: {exc}")
         if self._icon is not None:
             try:
                 self._icon.notify(message, title)

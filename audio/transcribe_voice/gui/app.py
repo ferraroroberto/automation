@@ -12,7 +12,10 @@ import logging
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from .tray import TrayApp
 
 # Third-party imports
 import pyperclip
@@ -33,14 +36,27 @@ POLL_MS = 2000
 
 
 class TranscriberApp:
-    def __init__(self, config: AppConfig, tray_on_close: bool = False) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        tray_on_close: bool = False,
+        tray: Optional["TrayApp"] = None,
+    ) -> None:
         self.config = config
         self.tray_on_close = tray_on_close
+        self.tray = tray
         self.server = WhisperServerManager()
         self._current_recorder: Optional[AudioRecorder] = None
         self._hotkey_listener: Optional[keyboard.GlobalHotKeys] = None
 
-        self.root = tk.Tk()
+        # When launched from the tray, live as a Toplevel of the tray's root so
+        # both share one tk interpreter — and delegate record/quit/toasts back
+        # to the tray so we don't run a parallel recorder/hotkey/notification
+        # path that ignores the tray icon color, global hotkey, and toasts.
+        if tray is not None:
+            self.root = tk.Toplevel(tray.root)
+        else:
+            self.root = tk.Tk()
         self.root.title("Voice Transcription")
         self.root.geometry("420x340")
         self.root.resizable(False, False)
@@ -60,6 +76,15 @@ class TranscriberApp:
         self.status_var = tk.StringVar(value="checking…")
         self.language_var = tk.StringVar(value=config.language)
         self.translate_var = tk.BooleanVar(value=config.translate)
+
+        # Mirror selections into the shared config so tray-initiated recordings
+        # (hotkey or tray menu) use whatever the user picked in the window.
+        self.language_var.trace_add(
+            "write", lambda *_: setattr(self.config, "language", self.language_var.get())
+        )
+        self.translate_var.trace_add(
+            "write", lambda *_: setattr(self.config, "translate", bool(self.translate_var.get()))
+        )
 
         self._build_widgets()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -143,6 +168,12 @@ class TranscriberApp:
     # ---------------------------------------------------------- record flow
 
     def _toggle_record(self) -> None:
+        # When owned by the tray, delegate: the tray already manages the
+        # recorder, global hotkey, icon color, and result toast.
+        if self.tray is not None:
+            self.tray.request_toggle_record()
+            return
+
         # Second press → stop the in-flight recording.
         if self._current_recorder is not None:
             self._current_recorder.request_stop()
@@ -272,6 +303,11 @@ class TranscriberApp:
         self._quit()
 
     def _quit(self) -> None:
+        # When owned by the tray, route Quit through the tray so it handles
+        # the full shutdown (hotkey teardown, server stop + toast, icon stop).
+        if self.tray is not None:
+            self.tray.request_quit()
+            return
         if self._hotkey_listener is not None:
             try:
                 self._hotkey_listener.stop()
