@@ -32,10 +32,12 @@ class RecordingPopup:
         recorder: AudioRecorder,
         max_seconds: int,
         on_done: DoneCallback,
+        hotkey_label: Optional[str] = None,
     ) -> None:
         self.recorder = recorder
         self.max_seconds = max_seconds
         self.on_done = on_done
+        self.hotkey_label = hotkey_label
         self._queue: queue.Queue = queue.Queue()
         self._worker: Optional[threading.Thread] = None
 
@@ -49,7 +51,7 @@ class RecordingPopup:
         self.window.protocol("WM_DELETE_WINDOW", self.stop)
 
         # Esc / Enter are local fallbacks when the popup has focus. The
-        # canonical stop is the global Ctrl+Alt+Space hotkey owned by the
+        # canonical stop is the configured global hotkey owned by the
         # launching app, so both "tray" and "gui" modes behave the same way.
         self.window.bind("<Escape>", lambda _e: self.stop())
         self.window.bind("<Return>", lambda _e: self.stop())
@@ -73,9 +75,14 @@ class RecordingPopup:
         self.level_bar = ttk.Progressbar(frame, variable=self.level_var, maximum=100, length=280)
         self.level_bar.pack(pady=(8, 8), fill=tk.X)
 
+        hint_text = (
+            f"{self.hotkey_label} to stop (Enter/Esc also work)"
+            if self.hotkey_label
+            else "Enter/Esc to stop"
+        )
         self.hint_label = tk.Label(
             frame,
-            text="Ctrl+Alt+Space to stop (Enter/Esc also work)",
+            text=hint_text,
             font=("Segoe UI", 9),
             foreground="#aaaaaa",
             background="#1e1e1e",

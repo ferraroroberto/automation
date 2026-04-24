@@ -29,6 +29,17 @@ class AppConfig:
     auto_start_server: bool = False
     log_level: str = "INFO"
 
+    @property
+    def hotkey_label(self) -> str:
+        """Human-readable form of ``hotkey`` (e.g. ``<f10>`` → ``F10``)."""
+        parts = []
+        for token in self.hotkey.split("+"):
+            token = token.strip().lstrip("<").rstrip(">")
+            if not token:
+                continue
+            parts.append(token.capitalize() if len(token) > 1 else token.upper())
+        return "+".join(parts)
+
     def resolve_preferred_mics(self) -> List[str]:
         """Pick the mic list for the current machine (explicit > machine-map > [])."""
         if self.preferred_mics:

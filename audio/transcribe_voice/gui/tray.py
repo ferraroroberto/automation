@@ -120,8 +120,9 @@ class TrayApp:
     # --------------------------------------------------------------- menu
 
     def _build_menu(self) -> pystray.Menu:
+        record_label = f"🎤 Record / Stop  ({self.config.hotkey_label})"
         return pystray.Menu(
-            pystray.MenuItem("🎤 Record / Stop", lambda: self._enqueue(EVT_TOGGLE_RECORD), default=True),
+            pystray.MenuItem(record_label, lambda: self._enqueue(EVT_TOGGLE_RECORD), default=True),
             pystray.MenuItem("🪟 Open window", lambda: self._enqueue(EVT_OPEN_WINDOW)),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("▶ Start server", lambda: self._enqueue(EVT_START_SERVER)),
@@ -200,6 +201,7 @@ class TrayApp:
             recorder=recorder,
             max_seconds=self.config.max_record_seconds,
             on_done=self._on_record_done,
+            hotkey_label=self.config.hotkey_label,
         )
 
     def _on_record_done(self, recording: Optional[Recording], error: Optional[str]) -> None:
