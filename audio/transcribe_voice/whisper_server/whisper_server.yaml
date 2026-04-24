@@ -24,7 +24,10 @@ binary:
 
 model:
   # Absolute path to the ggml model downloaded by claude-local-calls.
-  path: "E:/automation/claude-local-calls/models/ggml-small.bin"
+  # Swapped 2026-04-24: ggml-small.bin → ggml-large-v3-turbo.bin (1.62 GB,
+  # distilled large-v3 with 4 decoder layers). Matches the
+  # claude-local-calls registry entry.
+  path: "E:/automation/claude-local-calls/models/ggml-large-v3-turbo.bin"
 
 # Extra CLI args forwarded to whisper-server after --host/--port/--model.
 # Mirrors the claude-local-calls registry entry for the `whisper` model so

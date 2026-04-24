@@ -103,7 +103,7 @@ server:
 binary:
   path: "vendor/whisper.cpp/whisper-server"
 model:
-  path: "vendor/whisper.cpp/models/ggml-small.bin"
+  path: "vendor/whisper.cpp/models/ggml-large-v3-turbo.bin"
 args:
   - "--threads"
   - "4"
@@ -148,7 +148,7 @@ audio/transcribe_voice/
 
 **Whisper server binary** — put a built `whisper.cpp`'s `whisper-server` at
 `vendor/whisper.cpp/whisper-server[.exe]` relative to the repo root, and a
-GGML model at `vendor/whisper.cpp/models/ggml-small.bin`. See
+GGML model at `vendor/whisper.cpp/models/ggml-large-v3-turbo.bin`. See
 [whisper.cpp build docs](https://github.com/ggerganov/whisper.cpp#quick-start).
 
 ## 🧪 First run
@@ -156,7 +156,7 @@ GGML model at `vendor/whisper.cpp/models/ggml-small.bin`. See
 ```bat
 REM 1. Make sure the binary + model exist
 dir vendor\whisper.cpp\whisper-server.exe
-dir vendor\whisper.cpp\models\ggml-small.bin
+dir vendor\whisper.cpp\models\ggml-large-v3-turbo.bin
 
 REM 2. Start the server (manual check)
 server.bat start
