@@ -17,6 +17,11 @@ pynput>=1.7
 pystray>=0.19
 Pillow>=10.0
 
+# Windows toast notifications (modern WinRT toasts, stack properly in Action
+# Center — pystray's built-in balloon tips drop subsequent notifications when
+# they arrive in quick succession).
+winotify>=1.1; sys_platform == "win32"
+
 # Nothing else.
 # Intentionally removed from the legacy stack:
 #   openai-whisper, torch, torchaudio, imageio-ffmpeg, scipy
