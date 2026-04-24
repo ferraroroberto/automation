@@ -197,6 +197,7 @@ class TranscriberApp:
             recorder=recorder,
             max_seconds=self.config.max_record_seconds,
             on_done=self._on_record_done,
+            hotkey_label=self.config.hotkey_label,
         )
 
     def _on_record_done(self, recording, error) -> None:
