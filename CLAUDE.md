@@ -101,3 +101,26 @@ I run it in my own terminal.
 
 ## Senior-dev check
 Before finishing, ask: "What would a senior, perfectionist dev reject in review?" If the answer points at duplicated state, inconsistent patterns, or broken architecture *within the file you're already editing*, fix it. Don't expand scope to unrelated files.
+
+---
+
+## Repo-specific: automation monorepo
+Everything above is the common base I reuse across projects. When copying this file to a new repo, replace only this section.
+
+### What this is
+Personal automation monorepo: independent Python scripts and small tools across multiple domains. Not a single Streamlit app. Windows 10+, PowerShell 7+ is the default shell.
+
+### Layout (overrides the common "Project layout" section)
+Each top-level folder is an independent domain/tool, not a Streamlit page:
+- `audio/`, `video/`, `image/`, `text/` — media processing
+- `google/`, `notion/`, `linkedin/`, `smart_life/`, `excel/` — API integrations and platform automations
+- `system/` — OS-level maintenance and setup
+- `html/` — small web utilities
+- `.venv/` — shared virtual environment at repo root (gitignored)
+- `requirements.txt`, `README.md`, `.env`, `.env.sample` at repo root
+
+The `/app/` + `/src/` convention from the common section applies **only if** a new Streamlit app is added, and then it lives inside its own subfolder (e.g. `notion/dashboard/app/`), not at the repo root.
+
+### Shell and paths
+- Default shell: PowerShell 7+. Use Windows backslashes in paths.
+- Invoke Python via `& ".\.venv\Scripts\python.exe" path\to\script.py` — never activate the venv.
