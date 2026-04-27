@@ -515,7 +515,7 @@ def main(df_filtered, df_all):
                     st.markdown(f'<a href="{profile_url}" target="_blank" style="text-decoration: none;"><button style="background-color: #0077b5; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">🔗 Open Profile</button></a>', unsafe_allow_html=True)
         with col_discard:
             if st.session_state.reachout_editing and st.session_state.reachout_selected_record:
-                if st.button("🗑️ Discard", key="discard_profile_btn", help="Mark this profile as discarded", use_container_width=True):
+                if st.button("🗑️ Discard", key="discard_profile_btn", help="Mark this profile as discarded", width="stretch"):
                     # Update date_discarded to today
                     record_data = st.session_state.reachout_selected_record.copy()
                     record_data['date_discarded'] = pd.Timestamp.now()
@@ -792,7 +792,7 @@ def main(df_filtered, df_all):
         """)
     
     with col_format_btn:
-        if st.button("🎨 Apply Formatting", type="primary", use_container_width=True, key="reachout_format_btn"):
+        if st.button("🎨 Apply Formatting", type="primary", width="stretch", key="reachout_format_btn"):
             json_path = Path(__file__).parent / "excel_format_spec.json"
             if not json_path.exists():
                 st.error("❌ Format specification file not found!")

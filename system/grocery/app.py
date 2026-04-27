@@ -457,26 +457,26 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
                         st.link_button(
                             "🔄 Again" if is_bought else "🛒 Buy",
                             buy_url,
-                            use_container_width=True,
+                            width="stretch",
                         )
                     else:
                         st.button(
                             "🔄 Again" if is_bought else "🛒 Buy",
                             key=f"buy_disabled_{idx}",
-                            use_container_width=True,
+                            width="stretch",
                             disabled=True,
                         )
 
                 with col3:
                     if is_bought:
-                        if st.button("↩️ Undo", key=f"unmark_{idx}", use_container_width=True):
+                        if st.button("↩️ Undo", key=f"unmark_{idx}", width="stretch"):
                             st.session_state.bought_items.remove(idx)
                             st.rerun()
                     else:
                         if st.button(
                             "✅ Got it",
                             key=f"mark_{idx}",
-                            use_container_width=True,
+                            width="stretch",
                             type="secondary",
                         ):
                             st.session_state.bought_items.add(idx)
@@ -491,7 +491,7 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
                     label_txt = f"~~{e['name']}~~ · {e['qty']}×" if is_extra_bought else f"**{e['name']}** · {e['qty']}×"
                     st.markdown(f"{label_txt} _+_")
                 with col2:
-                    if st.button("🗑️ Remove", key=f"extra_del_{eid}", use_container_width=True):
+                    if st.button("🗑️ Remove", key=f"extra_del_{eid}", width="stretch"):
                         st.session_state.extra_shopping_items[supermarket] = [
                             x for x in extras if x["id"] != eid
                         ]
@@ -502,11 +502,11 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
                         st.rerun()
                 with col3:
                     if is_extra_bought:
-                        if st.button("↩️ Undo", key=f"extra_unmark_{eid}", use_container_width=True):
+                        if st.button("↩️ Undo", key=f"extra_unmark_{eid}", width="stretch"):
                             st.session_state.extra_bought_items[supermarket].discard(eid)
                             st.rerun()
                     else:
-                        if st.button("✅ Got it", key=f"extra_mark_{eid}", use_container_width=True, type="secondary"):
+                        if st.button("✅ Got it", key=f"extra_mark_{eid}", width="stretch", type="secondary"):
                             if supermarket not in st.session_state.extra_bought_items:
                                 st.session_state.extra_bought_items[supermarket] = set()
                             st.session_state.extra_bought_items[supermarket].add(eid)
@@ -521,7 +521,7 @@ def render_shopping_mode(df: pd.DataFrame) -> None:
                 with qa2:
                     new_qty = st.number_input("Qty", value=1, min_value=1, step=1, label_visibility="collapsed")
                 with qa3:
-                    if st.form_submit_button("➕ Add", use_container_width=True):
+                    if st.form_submit_button("➕ Add", width="stretch"):
                         if new_name.strip():
                             item_id = st.session_state.extra_item_counter
                             st.session_state.extra_item_counter += 1
@@ -538,7 +538,7 @@ def render_export_mode(df: pd.DataFrame) -> None:
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("💾 Save to File", type="primary", use_container_width=True):
+        if st.button("💾 Save to File", type="primary", width="stretch"):
             if save_inventory_data(df):
                 st.success("✅ Saved!")
 
@@ -548,7 +548,7 @@ def render_export_mode(df: pd.DataFrame) -> None:
             df.to_csv(index=False),
             "inventory_updated.csv",
             "text/csv",
-            use_container_width=True,
+            width="stretch",
         )
 
     st.subheader("📊 Summary")
@@ -625,9 +625,9 @@ def render_edit_item_mode(df: pd.DataFrame) -> pd.DataFrame:
 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    save_clicked = st.form_submit_button("💾 Save", type="primary", use_container_width=True)
+                    save_clicked = st.form_submit_button("💾 Save", type="primary", width="stretch")
                 with col_btn2:
-                    delete_clicked = st.form_submit_button("🗑️ Delete", type="secondary", use_container_width=True)
+                    delete_clicked = st.form_submit_button("🗑️ Delete", type="secondary", width="stretch")
 
                 if save_clicked:
                     snap = df.loc[idx].copy()
@@ -676,7 +676,7 @@ def render_add_item_mode(df: pd.DataFrame) -> pd.DataFrame:
             new_tenemos = st.number_input("📦 Current", value=0, min_value=0, step=1)
             new_buscador = st.text_input("🔗 URL")
 
-        if st.form_submit_button("➕ Add Item", type="primary", use_container_width=True):
+        if st.form_submit_button("➕ Add Item", type="primary", width="stretch"):
             if not new_comida.strip():
                 st.error("❌ Item name is required!")
             else:
@@ -733,7 +733,7 @@ def main():
         if st.button(
             "📂 Open spreadsheet",
             help="Opens the Excel file in the default app (e.g. Excel). Useful when OneDrive has not refreshed yet.",
-            use_container_width=True,
+            width="stretch",
         ):
             open_inventory_spreadsheet()
 

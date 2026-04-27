@@ -26,16 +26,12 @@ automation/
 
 Configuration uses a root `.env` file (see [Configuration](#️-configuration)); copy from `.env.sample` if present.
 
-### 📚 Reference Documents
+### 📚 Agent Instructions
 
-- **`AGENTS.md`** - Master Onboarding & Context Map (Read this first!)
-- **`AGENTS_PYTHON.md`** - Python Coding Standards & Patterns
-- **`AGENTS_POWERSHELL.md`** - PowerShell & Shell Standards
-- **`AGENTS_STRUCTURE.md`** - Project Structure & Refactoring Rules
-- **`AGENTS_CLI.md`** - Guide for building CLI tools
-- **`AGENTS_PR.md`** - Template for creating pull requests
+- **`CLAUDE.md`** — canonical instruction set for any AI coding agent working in this repo.
+- **`AGENTS.md`** — one-line pointer to `CLAUDE.md` for non-Claude agents (Cursor, Codex, etc.).
 
-> Guidelines adapted from [HumanLayer's "Writing a good CLAUDE.md"](https://www.humanlayer.dev/blog/writing-a-good-claude-md).
+The master template lives in [`project-scaffolding/docs/agents/`](../project-scaffolding/docs/agents/) and is propagated to every sibling repo.
 
 ## 🔧 Core Modules
 
@@ -396,9 +392,9 @@ Each module includes:
 ### **Development Setup**
 1. Fork the repository
 2. Create a feature branch
-3. Follow the coding standards in `AGENTS_PYTHON.md` and related `AGENTS_*.md` docs
+3. Follow the coding standards in `CLAUDE.md`
 4. Include comprehensive documentation
-5. Submit a pull request using the template in `AGENTS_PR.md`
+5. Submit a pull request following the conventions in `CLAUDE.md`
 
 ### **Code Quality**
 - All code must pass linting checks
