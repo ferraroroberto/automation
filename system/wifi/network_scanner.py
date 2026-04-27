@@ -1133,28 +1133,28 @@ Dependencies:
         # Ask user if they want to save results to JSON
         save_path = ask_save_json(devices, args.output, config)
 
-        print("\n✅ Network scan completed successfully!")
-        print(f"📊 Total devices found: {len(devices)}")
+        logger.info("✅ Network scan completed successfully!")
+        logger.info("📊 Total devices found: %d", len(devices))
 
         if save_path:
             save_json(devices, save_path, config)
-            print(f"💾 Results saved to: {save_path}")
+            logger.info("💾 Results saved to: %s", save_path)
         else:
-            print("💾 Results not saved (user cancelled)")
+            logger.info("💾 Results not saved (user cancelled)")
 
         # Special guidance for Netgear AP discovery
         netgear_devices = [d for d in devices if "netgear" in d["manufacturer"].lower()]
         if netgear_devices:
-            print("\n🎯 Netgear devices found:")
+            logger.info("🎯 Netgear devices found:")
             for device in netgear_devices:
-                print(f"   • {device['ip']} - {device['mac']} ({device['manufacturer']})")
-            print("   💡 The Netgear R9000 AP should be among these devices!")
+                logger.info("   • %s - %s (%s)", device['ip'], device['mac'], device['manufacturer'])
+            logger.info("   💡 The Netgear R9000 AP should be among these devices!")
         else:
-            print("\n⚠️ No Netgear devices found.")
-            print("   This could mean:")
-            print("   • Your Netgear AP is on a different subnet")
-            print("   • The AP has a different MAC OUI than expected")
-            print("   • Try scanning other common subnets (192.168.1.0/24, 192.168.10.0/24, etc.)")
+            logger.warning("⚠️ No Netgear devices found.")
+            logger.info("   This could mean:")
+            logger.info("   • Your Netgear AP is on a different subnet")
+            logger.info("   • The AP has a different MAC OUI than expected")
+            logger.info("   • Try scanning other common subnets (192.168.1.0/24, 192.168.10.0/24, etc.)")
 
     except KeyboardInterrupt:
         logger.info("⏹️  Network scan cancelled by user")

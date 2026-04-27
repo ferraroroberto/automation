@@ -38,7 +38,7 @@ try:
     TKINTER_AVAILABLE = True
 except ImportError:
     TKINTER_AVAILABLE = False
-    print("⚠️  tkinter not available. Will use command line input for folder selection.")
+    logging.warning("⚠️  tkinter not available. Will use command line input for folder selection.")
 
 # Default settings
 DEFAULT_DPI = 150
@@ -86,26 +86,27 @@ def select_folder_gui() -> Optional[Path]:
 
 def select_folder_cli() -> Optional[Path]:
     """Select folder using command line input."""
-    print("\n📁 Folder Selection")
-    print("=" * 50)
-    
+    log = logging.getLogger(__name__)
+    log.info("📁 Folder Selection")
+    log.info("=" * 50)
+
     while True:
         folder_input = input("Enter the path to the folder containing PDF files: ").strip()
-        
+
         if not folder_input:
-            print("❌ Please enter a valid folder path.")
+            log.error("❌ Please enter a valid folder path.")
             continue
-        
+
         folder_path = Path(folder_input)
-        
+
         if not folder_path.exists():
-            print(f"❌ Folder does not exist: {folder_path}")
+            log.error("❌ Folder does not exist: %s", folder_path)
             continue
-        
+
         if not folder_path.is_dir():
-            print(f"❌ Path is not a directory: {folder_path}")
+            log.error("❌ Path is not a directory: %s", folder_path)
             continue
-        
+
         return folder_path
 
 def get_optimal_workers(requested_workers: int, pdf_count: int) -> Tuple[int, str]:
@@ -325,32 +326,33 @@ def process_pdf_files(folder_path: Path, dpi: int = DEFAULT_DPI, delete_after: b
 
 def main():
     """Main application function."""
-    print("🚀 PDF to Images Converter")
-    print("=" * 50)
-    
-    # Setup logging
+    # Setup logging first so all subsequent calls can use it
     setup_logging()
-    
+    log = logging.getLogger(__name__)
+
+    log.info("🚀 PDF to Images Converter")
+    log.info("=" * 50)
+
     # Select folder
     folder_path = None
     if TKINTER_AVAILABLE:
-        print("📁 Using GUI folder selection...")
+        log.info("📁 Using GUI folder selection...")
         folder_path = select_folder_gui()
         if not folder_path:
-            print("❌ No folder selected. Exiting...")
+            log.error("❌ No folder selected. Exiting...")
             input("Press Enter to exit...")
             return
     else:
         folder_path = select_folder_cli()
         if not folder_path:
-            print("❌ No folder selected. Exiting...")
+            log.error("❌ No folder selected. Exiting...")
             return
-    
-    print(f"✅ Selected folder: {folder_path}")
-    
+
+    log.info("✅ Selected folder: %s", folder_path)
+
     # Ask about DPI
-    print("\n⚙️  Configuration")
-    print("=" * 50)
+    log.info("⚙️  Configuration")
+    log.info("=" * 50)
     while True:
         dpi_input = input(f"Enter DPI for image conversion (default: {DEFAULT_DPI}): ").strip()
         if not dpi_input:
@@ -359,12 +361,12 @@ def main():
         try:
             dpi = int(dpi_input)
             if dpi <= 0:
-                print("❌ DPI must be a positive number.")
+                log.error("❌ DPI must be a positive number.")
                 continue
             break
         except ValueError:
-            print("❌ Please enter a valid number.")
-    
+            log.error("❌ Please enter a valid number.")
+
     # Ask about deleting PDFs
     while True:
         delete_input = input("Delete source PDF files after conversion? (y/n, default: n): ").strip().lower()
@@ -378,8 +380,8 @@ def main():
             delete_after = False
             break
         else:
-            print("❌ Please enter 'y' or 'n'.")
-    
+            log.error("❌ Please enter 'y' or 'n'.")
+
     # Ask about parallel processing
     while True:
         workers_input = input(f"Number of parallel workers (default: {DEFAULT_WORKERS}): ").strip()
@@ -389,36 +391,36 @@ def main():
         try:
             num_workers = int(workers_input)
             if num_workers <= 0:
-                print("❌ Number of workers must be a positive number.")
+                log.error("❌ Number of workers must be a positive number.")
                 continue
             break
         except ValueError:
-            print("❌ Please enter a valid number.")
-    
+            log.error("❌ Please enter a valid number.")
+
     # Confirm settings
-    print(f"\n📋 Settings Summary")
-    print("=" * 50)
-    print(f"📁 Folder: {folder_path}")
-    print(f"🎯 DPI: {dpi}")
-    print(f"🗑️  Delete PDFs after conversion: {'Yes' if delete_after else 'No'}")
-    print(f"⚡ Parallel workers: {num_workers}")
-    
+    log.info("📋 Settings Summary")
+    log.info("=" * 50)
+    log.info("📁 Folder: %s", folder_path)
+    log.info("🎯 DPI: %d", dpi)
+    log.info("🗑️  Delete PDFs after conversion: %s", 'Yes' if delete_after else 'No')
+    log.info("⚡ Parallel workers: %d", num_workers)
+
     # Ask for confirmation
     while True:
         confirm = input("\nProceed with conversion? (y/n): ").strip().lower()
         if confirm in ['y', 'yes']:
             break
         elif confirm in ['n', 'no']:
-            print("❌ Conversion cancelled.")
+            log.info("❌ Conversion cancelled.")
             input("Press Enter to exit...")
             return
         else:
-            print("❌ Please enter 'y' or 'n'.")
-    
+            log.error("❌ Please enter 'y' or 'n'.")
+
     # Start conversion
-    print(f"\n🚀 Starting PDF conversion...")
-    print("=" * 50)
-    
+    log.info("🚀 Starting PDF conversion...")
+    log.info("=" * 50)
+
     try:
         pdf_count, image_count = process_pdf_files(
             folder_path=folder_path,
@@ -426,15 +428,15 @@ def main():
             delete_after=delete_after,
             num_workers=num_workers
         )
-        
-        print(f"\n🎉 Conversion completed successfully!")
-        print(f"📊 Results: {pdf_count} PDFs processed, {image_count} images generated")
-        
+
+        log.info("🎉 Conversion completed successfully!")
+        log.info("📊 Results: %d PDFs processed, %d images generated", pdf_count, image_count)
+
     except KeyboardInterrupt:
-        print("\n❌ Conversion interrupted by user.")
+        log.error("❌ Conversion interrupted by user.")
     except Exception as e:
-        print(f"\n❌ An error occurred during conversion: {e}")
-    
+        log.error("❌ An error occurred during conversion: %s", e)
+
     input("\nPress Enter to exit...")
 
 if __name__ == "__main__":

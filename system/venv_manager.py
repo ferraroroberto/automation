@@ -1,8 +1,11 @@
+import logging
 import os
 import subprocess
 import sys
 import ctypes
 import platform
+
+log = logging.getLogger(__name__)
 
 def is_in_virtualenv():
     """Check if currently running in a virtual environment."""
@@ -83,13 +86,13 @@ def is_admin():
 def elevate_privileges():
     """Re-run the script with elevated privileges (Windows only)."""
     if platform.system() != 'Windows':
-        print("Privilege elevation is only supported on Windows.")
+        log.warning("Privilege elevation is only supported on Windows.")
         return False
-    
+
     try:
         script_path = os.path.abspath(__file__)
-        print(f"\nRe-launching with administrator privileges...")
-        
+        log.info("Re-launching with administrator privileges...")
+
         # Use Python executable to run this script with admin rights
         ctypes.windll.shell32.ShellExecuteW(
             None,                          # Parent window handle
@@ -99,12 +102,12 @@ def elevate_privileges():
             os.path.dirname(script_path),  # Working directory
             1                              # Show command window
         )
-        
+
         # Exit the current non-elevated process
         sys.exit(0)
-        
+
     except Exception as e:
-        print(f"Failed to elevate privileges: {str(e)}")
+        log.error("Failed to elevate privileges: %s", e)
         return False
 
 def safe_uninstall_package(package):
@@ -119,7 +122,7 @@ def safe_uninstall_package(package):
         
         # Check if there was a permission error
         if result.returncode != 0 and "PermissionError" in result.stderr:
-            print(f"Permission error when uninstalling {package}. Trying with --user flag...")
+            log.warning("Permission error when uninstalling %s. Trying with --user flag...", package)
             
             # Try with --user flag
             user_result = subprocess.run(
@@ -289,4 +292,5 @@ def main():
     print("\nThank you for using the VENV Manager!")
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     main()

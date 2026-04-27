@@ -1,9 +1,12 @@
 # requirements: public
+import logging
 import pandas as pd
 from notion_client import Client
 
 # requirements: custom functions
 from utils import read_params_from_txt_file
+
+log = logging.getLogger(__name__)
 
 def get_database_list():
     databases = notion.search(filter={"property": "object", "value": "database"}).get("results", [])
@@ -40,6 +43,7 @@ db_excel_path = params['db_excel_path']
 workspace_url = params['workspace_url']
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     databases = get_database_list()
     save_to_excel(databases, db_excel_path)
-    print(f"Databases saved to {db_excel_path}")
+    log.info("Databases saved to %s", db_excel_path)

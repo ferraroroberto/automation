@@ -1,7 +1,11 @@
+import logging
 import pandas as pd
 from notion_client import Client, APIResponseError
 import time
 from utils import read_params_from_txt_file
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+log = logging.getLogger(__name__)
 
 # chatGPT source > https://chat.openai.com/c/4db5a8e0-1344-4fb7-8952-d96607a88b9e
 # chatGPT source > https://chat.openai.com/c/2bfb9ae6-233d-46fe-8171-69e7e1929866
@@ -14,7 +18,7 @@ sync_path = params['sync_path']
 api_token = params['api_token']
 verbose = params['verbose']
 
-print("Loading Excel file...")
+log.info("Loading Excel file...")
 xlsx = pd.ExcelFile(sync_path)
 
 # Load the data, metadata and db sheets
@@ -31,7 +35,7 @@ clean_db = db_df.loc[0, 'clean']
 # Generate a dictionary from the metadata
 metadata_dict = metadata_df.set_index('excelColumn')[['notionColumn', 'type', 'keep']].T.to_dict()
 
-print("Initializing Notion client...")
+log.info("Initializing Notion client...")
 client = Client(auth=api_token)
 
 # Step 1: Fetch Notion database details
@@ -42,11 +46,11 @@ try:
     # Now, query the database to get the number of rows (pages)
     total_rows = len(client.databases.query(notion_db_id)['results'])
 
-    print(f"Database Name: {database_name}")
-    print(f"Total Rows in Notion: {total_rows}")
+    log.info("Database Name: %s", database_name)
+    log.info("Total Rows in Notion: %d", total_rows)
 
 except APIResponseError as e:
-    print(f"Failed to fetch database details: {e}")
+    log.error("Failed to fetch database details: %s", e)
 
 # Step 2: Ask for confirmation to proceed
 input("Press Enter to continue...")
@@ -57,18 +61,18 @@ created_pages_counter = 0
 
 # If clean flag is True, archive all pages in the database
 if clean_db:
-    print("Archiving all pages in the Notion database...")
+    log.info("Archiving all pages in the Notion database...")
     try:
         response = client.databases.query(notion_db_id)
         for page in response['results']:
             client.pages.update(page['id'], properties={"archived": {"checkbox": True}})
             archived_pages_counter += 1
-            print(f"Archiving page with ID: {page['id']}. Total archived pages: {archived_pages_counter}")
+            log.info("Archiving page with ID: %s. Total archived pages: %d", page['id'], archived_pages_counter)
             time.sleep(0.0)  # Adjust delay as needed
     except APIResponseError as e:
-        print(f"Failed to archive pages: {e}")
+        log.error("Failed to archive pages: %s", e)
 
-print("Creating all pages in the Excel database...")
+log.info("Creating all pages in the Excel database...")
 for index, row in df.iterrows():
     time.sleep(0.0)  # Adjust delay as needed
 
@@ -99,9 +103,9 @@ for index, row in df.iterrows():
             page_data["properties"][notion_col] = {"checkbox": bool(row[col])}
 
     try:
-        if verbose == True: print(f"Creating new page with data: {page_data}")
+        if verbose == True: log.debug("Creating new page with data: %s", page_data)
         new_page = client.pages.create(**page_data)
         created_pages_counter += 1
-        print(f"Created new page with ID: {new_page['id']}. Total created pages: {created_pages_counter}")
+        log.info("Created new page with ID: %s. Total created pages: %d", new_page['id'], created_pages_counter)
     except APIResponseError as e:
-        print(f"Failed to create new page: {e}")
+        log.error("Failed to create new page: %s", e)

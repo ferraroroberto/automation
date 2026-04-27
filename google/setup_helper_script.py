@@ -5,11 +5,14 @@ Guides users through initial configuration.
 """
 
 import json
+import logging
 import os
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
+
+log = logging.getLogger(__name__)
 
 
 def validate_email(email: str) -> bool:
@@ -240,4 +243,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     main()

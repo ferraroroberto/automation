@@ -1,8 +1,11 @@
+import logging
 import re
 import json
 import os
 import sys
 from datetime import datetime
+
+log = logging.getLogger(__name__)
 
 # Try to import tkinter, but don't fail if it's not available
 try:
@@ -76,7 +79,7 @@ class DataCleanerBase:
                     json.dump(default_patterns, f, indent=4)
                 return default_patterns
         except Exception as e:
-            print(f"Error loading patterns: {e}")
+            log.warning("Error loading patterns: %s", e)
             return default_patterns
 
     def clean_sensitive_data(self, text):
@@ -217,16 +220,16 @@ class CLIDataCleaner(DataCleanerBase):
             if output_path:
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(cleaned)
-                print(f"Cleaned text saved to: {output_path}")
+                log.info("Cleaned text saved to: %s", output_path)
             else:
                 print("--- Cleaned Text ---")
                 print(cleaned)
                 print("--- End ---")
         
         except FileNotFoundError:
-            print(f"Error: File not found: {input_path}")
+            log.error("Error: File not found: %s", input_path)
         except Exception as e:
-            print(f"Error processing file: {e}")
+            log.error("Error processing file: %s", e)
 
 class SensitiveDataCleaner(DataCleanerBase):
     """GUI version of the data cleaner"""

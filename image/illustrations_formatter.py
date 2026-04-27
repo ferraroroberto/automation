@@ -716,12 +716,10 @@ Examples:
     args = parser.parse_args()
 
     if not args.source:
-        print("Error: Source folder must be specified via -s or in config file",
-              file=sys.stderr)
+        formatter.logger.error("Error: Source folder must be specified via -s or in config file")
         sys.exit(1)
     if not args.destination:
-        print("Error: Destination folder must be specified via -d or in config file",
-              file=sys.stderr)
+        formatter.logger.error("Error: Destination folder must be specified via -d or in config file")
         sys.exit(1)
 
     if args.verbose:
@@ -732,7 +730,7 @@ Examples:
         try:
             bg_color = parse_color(args.color)
         except ValueError as e:
-            print(f"Error: {e}", file=sys.stderr)
+            formatter.logger.error("Error: %s", e)
             sys.exit(1)
 
     try:
@@ -743,19 +741,19 @@ Examples:
             bg_color,
             extend_border=args.extend_border,
         )
-        print(f"\nProcessing complete!")
-        print(f"Total images: {result.total_images}")
-        print(f"Successful:   {result.successful}")
-        print(f"Skipped:      {result.skipped}")
-        print(f"Failed:       {result.failed}")
-        print(f"Time elapsed: {result.elapsed_time:.2f} seconds")
+        formatter.logger.info("Processing complete!")
+        formatter.logger.info("Total images: %d", result.total_images)
+        formatter.logger.info("Successful:   %d", result.successful)
+        formatter.logger.info("Skipped:      %d", result.skipped)
+        formatter.logger.info("Failed:       %d", result.failed)
+        formatter.logger.info("Time elapsed: %.2f seconds", result.elapsed_time)
         if result.errors:
-            print("\nErrors:")
+            formatter.logger.warning("Errors:")
             for filename, error in result.errors:
-                print(f"  - {filename}: {error}")
+                formatter.logger.warning("  - %s: %s", filename, error)
         sys.exit(1 if result.failed > 0 else 0)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        formatter.logger.error("Error: %s", e)
         sys.exit(1)
 
 

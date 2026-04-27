@@ -1,13 +1,15 @@
 # chatGPT source and first iteration > https://chatgpt.com/c/5001a6f9-4247-4a02-b6e9-2a84acd468f5
 # log execution > https://onedrive.live.com/edit.aspx?resid=5492cf8639ca0b0b!196221
 
-
+import logging
 import os
 import sys
 from pdf2image import convert_from_path
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
+
+log = logging.getLogger(__name__)
 
 # Hardcoded source folder
 HARDCODED_SOURCE_FOLDER = r"C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\thread\books"
@@ -49,7 +51,7 @@ def pdf_to_images(pdf_files):
     failed_conversions = []
 
     for pdf_path in pdf_files:
-        print(f"\nProcessing: {pdf_path}")
+        log.info("Processing: %s", pdf_path)
         try:
             pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
             folder_path = os.path.dirname(pdf_path)
@@ -59,19 +61,19 @@ def pdf_to_images(pdf_files):
             if not os.path.exists(output_folder):
                 try:
                     os.makedirs(output_folder)
-                    print(f"Created output folder: {output_folder}")
+                    log.info("Created output folder: %s", output_folder)
                 except Exception as e:
-                    print(f"Error creating output folder {output_folder}: {e}")
+                    log.error("Error creating output folder %s: %s", output_folder, e)
                     failed_conversions.append((pdf_path, str(e)))
                     continue
 
             # Clean up existing images in the output folder
             deleted_files, failed_deletions = clean_up_existing_images(output_folder, pdf_name)
             if deleted_files:
-                print(f"Deleted existing images: {', '.join(deleted_files)}")
+                log.info("Deleted existing images: %s", ', '.join(deleted_files))
             if failed_deletions:
                 for filename, error in failed_deletions:
-                    print(f"Failed to delete {filename}: {error}")
+                    log.warning("Failed to delete %s: %s", filename, error)
 
             # Convert PDF to images
             images = convert_from_path(pdf_path, poppler_path=POPPLER_PATH)
@@ -83,25 +85,25 @@ def pdf_to_images(pdf_files):
                 try:
                     image.save(image_path, "JPEG")
                     total_images_created += 1
-                    print(f"Created image: {image_filename}")
+                    log.info("Created image: %s", image_filename)
                 except Exception as e:
-                    print(f"Error saving {image_filename}: {e}")
+                    log.error("Error saving %s: %s", image_filename, e)
                     failed_conversions.append((image_filename, str(e)))
 
             total_files_processed += 1
 
         except Exception as e:
-            print(f"Error processing {pdf_path}: {e}")
+            log.error("Error processing %s: %s", pdf_path, e)
             failed_conversions.append((pdf_path, str(e)))
 
     # Summary log
-    print("\n=== Conversion Summary ===")
-    print(f"Total files processed: {total_files_processed}")
-    print(f"Total images created: {total_images_created}")
+    log.info("=== Conversion Summary ===")
+    log.info("Total files processed: %d", total_files_processed)
+    log.info("Total images created: %d", total_images_created)
     if failed_conversions:
-        print(f"\nFailed to convert the following files/images:")
+        log.warning("Failed to convert the following files/images:")
         for item, error in failed_conversions:
-            print(f"- {item}: {error}")
+            log.warning("- %s: %s", item, error)
 
 
 def select_folder():
@@ -118,36 +120,37 @@ def main():
 
     # Check if the hardcoded source folder is valid
     if not os.path.isdir(root_folder):
-        print(f"The hardcoded source folder '{root_folder}' is not valid.")
+        log.warning("The hardcoded source folder '%s' is not valid.", root_folder)
         user_choice = input("Do you want to select a folder manually? (Y/N): ").strip().lower()
         if user_choice == 'y':
             root_folder = select_folder()
             if not root_folder:
-                print("No folder selected. Exiting.")
+                log.info("No folder selected. Exiting.")
                 sys.exit()
         else:
-            print("Process aborted.")
+            log.info("Process aborted.")
             sys.exit()
 
     # Find all PDF files
     pdf_files = find_pdf_files(root_folder)
 
     # Print summary and ask for confirmation
-    print(f"\nFound {len(pdf_files)} PDF file(s) in '{root_folder}' and its subfolders.")
+    log.info("Found %d PDF file(s) in '%s' and its subfolders.", len(pdf_files), root_folder)
     if not pdf_files:
-        print("No PDF files found. Exiting.")
+        log.info("No PDF files found. Exiting.")
         sys.exit()
 
     proceed = input("Do you want to continue with the conversion? (Y/N): ").strip().lower()
     if proceed != "y":
-        print("Process aborted.")
+        log.info("Process aborted.")
         sys.exit()
 
     # Convert PDFs to images
     pdf_to_images(pdf_files)
 
-    print("\nProcess completed.")
+    log.info("Process completed.")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     main()

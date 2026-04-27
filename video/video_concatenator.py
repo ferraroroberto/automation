@@ -4,6 +4,7 @@ Supports both GUI and command-line interfaces. Uses stream copy (no re-encode) b
 """
 
 import argparse
+import logging
 import os
 import re
 import subprocess
@@ -12,6 +13,8 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import List
+
+log = logging.getLogger(__name__)
 
 
 class VideoConcatenator:
@@ -361,6 +364,7 @@ def main_cli(video_paths: List[str], output_path: str, sort: bool = False) -> bo
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Video Concatenator - merge videos with FFmpeg")
     parser.add_argument("-o", "--output", help="Output file path (CLI mode)")
     parser.add_argument("files", nargs="*", help="Input video files (CLI mode)")
@@ -377,10 +381,10 @@ if __name__ == "__main__":
         if not args.output:
             args.output = select_output_file()
         if not args.files or len(args.files) < 2:
-            print("Need at least 2 video files.")
+            log.error("Need at least 2 video files.")
             exit(1)
         if not args.output:
-            print("No output path specified.")
+            log.error("No output path specified.")
             exit(1)
         ok = main_cli(args.files, args.output, sort=args.sort)
         exit(0 if ok else 1)

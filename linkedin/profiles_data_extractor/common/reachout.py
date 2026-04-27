@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 from pathlib import Path
 from datetime import datetime
 import re
 import difflib
+
+log = logging.getLogger(__name__)
 
 import pandas as pd
 import streamlit as st
@@ -245,27 +248,27 @@ def update_existing_record(df, original_name, record_data):
 def apply_excel_formatting(excel_path, json_path):
     """Apply Excel formatting: convert URLs to hyperlinks and apply format from JSON."""
     try:
-        print("🔗 Converting URL columns to hyperlinks...")
+        log.info("🔗 Converting URL columns to hyperlinks...")
         # Convert URL columns to hyperlinks
         url_success = convert_url_columns_to_hyperlinks(excel_path)
         if url_success:
-            print("✅ URL hyperlinks conversion completed")
+            log.info("✅ URL hyperlinks conversion completed")
         else:
-            print("❌ URL hyperlinks conversion failed")
+            log.error("❌ URL hyperlinks conversion failed")
 
-        print("🎨 Applying formatting from JSON specification...")
+        log.info("🎨 Applying formatting from JSON specification...")
         # Apply formatting from JSON
         format_success = apply_format_from_json(excel_path, json_path)
         if format_success:
-            print("✅ JSON formatting applied successfully")
+            log.info("✅ JSON formatting applied successfully")
         else:
-            print("❌ JSON formatting application failed")
+            log.error("❌ JSON formatting application failed")
 
         overall_success = url_success and format_success
-        print(f"🎯 Excel formatting process {'completed successfully' if overall_success else 'failed'}")
+        log.info("🎯 Excel formatting process %s", 'completed successfully' if overall_success else 'failed')
         return overall_success
     except Exception as e:
-        print(f"❌ Error applying Excel formatting: {e}")
+        log.error("❌ Error applying Excel formatting: %s", e)
         return False
 
 def main(df_filtered, df_all):

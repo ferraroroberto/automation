@@ -1233,10 +1233,10 @@ def main():
 
     # Get input file from command line or file dialog
     if len(sys.argv) < 2:
-        print("📂 No input file specified, opening file selector...")
+        logger.info("📂 No input file specified, opening file selector...")
         input_file = select_input_file()
         if not input_file:
-            print("❌ No file selected. Exiting.")
+            logger.error("❌ No file selected. Exiting.")
             sys.exit(1)
     else:
         input_file = sys.argv[1]
@@ -1247,17 +1247,17 @@ def main():
 
     # Validate input file exists
     if not os.path.exists(input_file):
-        print(f"❌ Input file not found: {input_file}")
+        logger.error("❌ Input file not found: %s", input_file)
         sys.exit(1)
 
     try:
         unifier = InteractiveUnifier()
         unifier.unify_file(input_file, output_file, report_file)
     except KeyboardInterrupt:
-        print("\n⏹️  Process interrupted by user")
+        logger.info("⏹️  Process interrupted by user")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"❌ Application failed: {e}")
+        logger.error("❌ Application failed: %s", e)
         sys.exit(1)
 
 

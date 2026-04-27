@@ -1,10 +1,14 @@
 # requirements: public
+import logging
 import pandas as pd
 import warnings
 from openpyxl import load_workbook
 
 # requirements: custom functions
 from utils import read_params_from_txt_file
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+log = logging.getLogger(__name__)
 
 # Suppress openpyxl warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl.worksheet._reader")
@@ -14,10 +18,10 @@ def read_database_editorial(excel_path):
     return df[df["ind_editorial"] == 1]
 
 def editorial_databases(databases_to_editorial):
-    print(f"Databases to process: {len(databases_to_editorial)}")
+    log.info("Databases to process: %d", len(databases_to_editorial))
 
     for _, database in databases_to_editorial.iterrows():
-        print(f"Processing excel copy to editorial calendar for database: {database['name']}")
+        log.info("Processing excel copy to editorial calendar for database: %s", database['name'])
         editorial_name = database["editorial_name"]
         output_path_clean = database["output_path_clean"]
 
@@ -31,13 +35,13 @@ def editorial_databases(databases_to_editorial):
 
             # Get or create sheet in the destination workbook
             if editorial_name in dest_wb.sheetnames:
-                print(f'Sheet "{editorial_name}" already exists in the destination file.')
+                log.info('Sheet "%s" already exists in the destination file.', editorial_name)
                 dest_sheet = dest_wb[editorial_name]
                 for row in dest_sheet.iter_rows():
                     for cell in row:
                         cell.value = None
             else:
-                print(f'Sheet "{editorial_name}" does not yet exist in the destination file.')
+                log.info('Sheet "%s" does not yet exist in the destination file.', editorial_name)
                 dest_sheet = dest_wb.create_sheet(title=editorial_name)
 
             # Initialize a counter for the rows
@@ -52,13 +56,12 @@ def editorial_databases(databases_to_editorial):
             # Save the changes in the destination workbook
             dest_wb.save(editorial_excel_path)
 
-            # Print the total number of rows copied
-            print(f'Sheet "{editorial_name}" copied to the destination file. Copied {rows_copied} rows.')
+            log.info('Sheet "%s" copied to the destination file. Copied %d rows.', editorial_name, rows_copied)
 
         except Exception as e:
-            print(f"Error copying the sheet: {str(e)}")
+            log.error("Error copying the sheet: %s", e)
 
-        print(f"Processed database '{database['name']}' saved to {editorial_excel_path} as the sheet {editorial_name}")
+        log.info("Processed database '%s' saved to %s as the sheet %s", database['name'], editorial_excel_path, editorial_name)
 
 # Main execution
 

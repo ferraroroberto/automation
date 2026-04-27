@@ -1,8 +1,11 @@
 # source chatGPT 2024-09-21 > https://chatgpt.com/c/66eed755-cfe8-8009-9030-25642e2ce043
 
+import logging
 import os
 import random
 from PIL import Image
+
+log = logging.getLogger(__name__)
 
 # Hardcoded path for the folder containing images
 source_folder = r"E:\onedrive\Documentos\Roberto\projects\speaking\ISDI"
@@ -22,7 +25,7 @@ output_file = os.path.join(source_folder, "collage_a4.png")
 def get_all_images(folder):
     image_list = []
     if not os.path.exists(folder):
-        print(f"Error: The folder '{folder}' does not exist.")
+        log.error("Error: The folder '%s' does not exist.", folder)
         return image_list
 
     # Walk through all directories and collect PNG images
@@ -55,14 +58,14 @@ def find_best_grid(num_images, max_value, a4_ratio):
 # Function to create the collage
 def create_collage(image_paths, output_file, base_width, base_height, dpi, a4_ratio):
     if len(image_paths) == 0:
-        print("Error: No PNG images found in the specified folder.")
+        log.error("Error: No PNG images found in the specified folder.")
         return
 
     # Determine optimal grid size based on available images and desired A4 ratio
     max_grid_size = 20  # Maximum number of columns and rows to consider
     num_images = len(image_paths)
     cols, rows = find_best_grid(num_images, max_grid_size, a4_ratio)
-    print(f"Optimal grid size: {cols} columns x {rows} rows")
+    log.info("Optimal grid size: %d columns x %d rows", cols, rows)
 
     # Calculate the dimensions of the final canvas based on the grid size
     canvas_width = base_width * cols // 10  # Adjusted based on grid size
@@ -104,8 +107,10 @@ def create_collage(image_paths, output_file, base_width, base_height, dpi, a4_ra
 
     # Save the collage image
     canvas.save(output_file, dpi=(dpi, dpi))
-    print(f"Collage created successfully at {output_file}")
+    log.info("Collage created successfully at %s", output_file)
 
 # Main execution
-images = get_all_images(source_folder)
-create_collage(images, output_file, BASE_WIDTH, BASE_HEIGHT, DPI, A4_RATIO)
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    images = get_all_images(source_folder)
+    create_collage(images, output_file, BASE_WIDTH, BASE_HEIGHT, DPI, A4_RATIO)

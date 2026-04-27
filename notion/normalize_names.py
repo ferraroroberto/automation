@@ -650,11 +650,11 @@ def main():
             # Initialize normalizer for testing
             normalizer = NotionNameNormalizer(args.config)
             
-            logging.info(f"🧪 Test mode: normalizing string: '{args.test}'")
+            logging.info("🧪 Test mode: normalizing string: '%s'", args.test)
             normalized = normalizer._normalize_name(args.test)
-            print(f"\nOriginal: {args.test}")
-            print(f"Normalized: {normalized}")
-            print(f"Changed: {'Yes' if args.test != normalized else 'No'}")
+            logging.info("Original:   %s", args.test)
+            logging.info("Normalized: %s", normalized)
+            logging.info("Changed:    %s", 'Yes' if args.test != normalized else 'No')
             return
         
         # Initialize normalizer for database processing

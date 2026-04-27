@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import shutil
 from pathlib import Path
 import sys
@@ -8,6 +9,8 @@ try:
     from pathspec import PathSpec
 except ImportError:
     sys.exit("Missing dependency: pathspec\nInstall it with: pip install pathspec")
+
+log = logging.getLogger(__name__)
 
 
 def load_gitignore(src_root: Path) -> PathSpec:
@@ -42,9 +45,9 @@ def copy_project(src_root: Path, dst_root: Path) -> None:
             shutil.copy2(path, target)
 
     if git_dirs_skipped:
-        print("\nSkipped .git directories to prevent nested git repositories:")
+        log.info("Skipped .git directories to prevent nested git repositories:")
         for git_dir in git_dirs_skipped:
-            print(f"  - {git_dir}")
+            log.info("  - %s", git_dir)
 
 
 def ask_for_path(prompt: str) -> Path:
@@ -85,11 +88,12 @@ def main():
     if dst_root.exists() and any(dst_root.iterdir()):
         sys.exit(f"Destination already exists and is not empty: {dst_root}")
 
-    print(f"\nCopying from:\n  {src_root}\nto:\n  {dst_root}\n")
-    print("Note: .git directories will be skipped to prevent nested git repositories")
+    log.info("Copying from:\n  %s\nto:\n  %s", src_root, dst_root)
+    log.info("Note: .git directories will be skipped to prevent nested git repositories")
     copy_project(src_root, dst_root)
-    print("✅ Done!")
+    log.info("✅ Done!")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     main()

@@ -26,12 +26,15 @@ from __future__ import annotations
 # pyright: reportMissingModuleSource=false
 
 import argparse
+import logging
 import statistics
 import sys
 import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
+
+log = logging.getLogger(__name__)
 
 # --- Windows / COM (pywin32) -------------------------------------------------
 
@@ -160,11 +163,11 @@ def main() -> int:
     if path is None:
         path = _ask_file_path()
         if path is None:
-            print("No file selected.", file=sys.stderr)
+            log.error("No file selected.")
             return 1
 
     if not path.is_file():
-        print(f"File not found: {path.resolve()}", file=sys.stderr)
+        log.error("File not found: %s", path.resolve())
         return 2
 
     print(f"Target: {path.resolve()}")
@@ -212,4 +215,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     raise SystemExit(main())

@@ -43,7 +43,7 @@ try:
     pillow_heif_available = True
 except ImportError as e:
     # pillow-heif not installed - HEIC files cannot be opened
-    logger.warning(f"⚠️  pillow-heif not available: {e}. HEIC conversion may not work.")
+    logger.warning("⚠️  pillow-heif not available: %s. HEIC conversion may not work.", e)
     pillow_heif_available = False
 else:
     pillow_heif_available = True
@@ -77,29 +77,29 @@ def validate_heic_file(file_path: Path) -> bool:
         # Most common error: PIL cannot identify the image format
         if not pillow_heif_available:
             # Specific error for missing HEIC support library
-            logger.error(f"❌ Cannot open HEIC file '{file_path}': pillow-heif not available. Install with: pip install pillow-heif")
+            logger.error("❌ Cannot open HEIC file '%s': pillow-heif not available. Install with: pip install pillow-heif", file_path)
         else:
             # pillow-heif is available but file is still unreadable (corrupted, wrong format, etc.)
-            logger.error(f"❌ Cannot identify HEIC file '{file_path}': {str(e)}")
+            logger.error("❌ Cannot identify HEIC file '%s': %s", file_path, e)
         return False
     except OSError as e:
         # File system errors: permissions, disk space, file locked, etc.
-        logger.error(f"❌ OS error reading HEIC file '{file_path}': {str(e)}")
+        logger.error("❌ OS error reading HEIC file '%s': %s", file_path, e)
         return False
     except Exception as e:
         # Catch any other unexpected errors during validation
-        logger.error(f"❌ Unexpected error with HEIC file '{file_path}': {str(e)}")
+        logger.error("❌ Unexpected error with HEIC file '%s': %s", file_path, e)
         return False
 
 def convert_heic_to_jpg(folder_path: str) -> None:
     """Convert all HEIC/HEIF images in the folder to JPG format"""
     if not folder_path:
-        print("No folder selected.")
+        logger.info("No folder selected.")
         return
 
     folder = Path(folder_path)
     if not folder.exists():
-        print(f"❌ Folder does not exist: {folder_path}")
+        logger.error("❌ Folder does not exist: %s", folder_path)
         return
 
     # Find all HEIC/HEIF files in the folder (case insensitive)
@@ -114,19 +114,19 @@ def convert_heic_to_jpg(folder_path: str) -> None:
             heic_files.append(file)
 
     if not heic_files:
-        print("❌ No HEIC/HEIF files found in the selected folder.")
+        logger.info("❌ No HEIC/HEIF files found in the selected folder.")
         return
 
     converted_count = 0
     error_count = 0
 
-    print(f"📂 Found {len(heic_files)} HEIC/HEIF files in {folder_path}")
-    print("🔄 Starting conversion...")
+    logger.info("📂 Found %d HEIC/HEIF files in %s", len(heic_files), folder_path)
+    logger.info("🔄 Starting conversion...")
 
     for heic_file in heic_files:
         # Validate the HEIC file first
         if not validate_heic_file(heic_file):
-            print(f"⚠️  Skipping {heic_file.name} - invalid or corrupted HEIC file")
+            logger.warning("⚠️  Skipping %s - invalid or corrupted HEIC file", heic_file.name)
             error_count += 1
             continue
 
@@ -135,7 +135,7 @@ def convert_heic_to_jpg(folder_path: str) -> None:
 
         # Check if JPG already exists
         if jpg_file.exists():
-            print(f"⚠️  JPG already exists for {heic_file.name}, skipping")
+            logger.warning("⚠️  JPG already exists for %s, skipping", heic_file.name)
             error_count += 1
             continue
 
@@ -160,45 +160,43 @@ def convert_heic_to_jpg(folder_path: str) -> None:
                 # progressive=True: Progressive JPG for better web loading (loads blurry to sharp)
                 img.save(jpg_file, 'JPEG', quality=95, optimize=True, progressive=True)
 
-                print(f"✅ Converted {heic_file.name} -> {jpg_file.name}")
+                logger.info("✅ Converted %s -> %s", heic_file.name, jpg_file.name)
                 converted_count += 1
 
         except UnidentifiedImageError as e:
             if not pillow_heif_available:
-                print(f"❌ Cannot convert '{heic_file.name}': pillow-heif not available. Install with: pip install pillow-heif")
+                logger.error("❌ Cannot convert '%s': pillow-heif not available. Install with: pip install pillow-heif", heic_file.name)
             else:
-                print(f"❌ Cannot identify image file '{heic_file}': {str(e)}")
+                logger.error("❌ Cannot identify image file '%s': %s", heic_file, e)
             error_count += 1
         except OSError as e:
-            print(f"❌ OS error processing '{heic_file}': {str(e)}")
+            logger.error("❌ OS error processing '%s': %s", heic_file, e)
             error_count += 1
         except Exception as e:
-            print(f"❌ Error converting {heic_file.name}: {str(e)}")
+            logger.error("❌ Error converting %s: %s", heic_file.name, e)
             error_count += 1
 
-    print(f"\n🎉 Conversion complete!")
-    print(f"✅ Converted: {converted_count} files")
-    print(f"❌ Errors: {error_count} files")
+    logger.info("🎉 Conversion complete!")
+    logger.info("✅ Converted: %d files", converted_count)
+    logger.info("❌ Errors: %d files", error_count)
 
     if error_count > 0:
-        print(f"\n📝 Note: {error_count} files had errors and were skipped.")
-        print("This could be due to corrupted files, unsupported formats, or permission issues.")
+        logger.info("📝 Note: %d files had errors and were skipped.", error_count)
+        logger.info("This could be due to corrupted files, unsupported formats, or permission issues.")
 
 def main() -> None:
     """Main function to run the HEIC to JPG converter"""
-    print("📸 HEIC to JPG Converter")
-    print("=" * 50)
-    print("Converts HEIC/HEIF images to JPG while preserving size and quality")
-    print()
+    logger.info("📸 HEIC to JPG Converter")
+    logger.info("=" * 50)
+    logger.info("Converts HEIC/HEIF images to JPG while preserving size and quality")
 
     # Check HEIC support before proceeding
     # This prevents user confusion by warning about missing dependencies upfront
     if not pillow_heif_available:
-        print("⚠️  Warning: pillow-heif library is not available.")
-        print("   HEIC conversion may fail. Please install pillow-heif:")
-        print("   pip install pillow-heif")
-        print("   Note: Continue anyway to see specific error messages per file")
-        print()
+        logger.warning("⚠️  Warning: pillow-heif library is not available.")
+        logger.warning("   HEIC conversion may fail. Please install pillow-heif:")
+        logger.warning("   pip install pillow-heif")
+        logger.warning("   Note: Continue anyway to see specific error messages per file")
 
     # Select folder
     folder_path = select_folder()
@@ -216,7 +214,7 @@ def main() -> None:
         )
         root.destroy()
     else:
-        print("❌ No folder selected. Exiting.")
+        logger.info("❌ No folder selected. Exiting.")
 
 if __name__ == "__main__":
     main()

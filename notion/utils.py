@@ -1,5 +1,6 @@
 # requirements: public
 import ast
+import logging
 import openpyxl
 from openpyxl.utils.exceptions import InvalidFileException
 import win32com.client
@@ -13,6 +14,8 @@ from datetime import datetime
 from zipfile import BadZipFile
 import json
 from dotenv import load_dotenv
+
+log = logging.getLogger(__name__)
 
 
 # Custom function to replace special characters
@@ -61,14 +64,14 @@ def get_explorer_path_from_hwnd(target_hwnd):
     explorer_windows = [w for w in shell_windows if w.LocationURL.startswith("file:///")]
 
     if not explorer_windows:
-        print("No Windows Explorer instances found.")
+        log.warning("No Windows Explorer instances found.")
         return None
 
     # Iterate through explorer_windows to find the matching HWND and return the folder path
     for window in explorer_windows:
         hwnd = window.HWND
         if hwnd == target_hwnd:
-            print(window.LocationURL)
+            log.debug("LocationURL: %s", window.LocationURL)
             url_parts = urlsplit(window.LocationURL)
             folder_path = url_parts.path
             folder_path = folder_path[1:] if folder_path.startswith('/') else folder_path
@@ -76,24 +79,24 @@ def get_explorer_path_from_hwnd(target_hwnd):
             folder_path = replace_special_chars(folder_path)
             return folder_path
 
-    print("No matching Windows Explorer instance found.")
+    log.warning("No matching Windows Explorer instance found.")
     return None
 
 def get_first_explorer_folder_path():
     # Get the HWND of the first Windows Explorer instance with a path in its title
     first_explorer_hwnd = get_first_explorer_hwnd()
 
-    # If no matching HWND is found, print an error message and return None
+    # If no matching HWND is found, log an error message and return None
     if first_explorer_hwnd is None:
-        print("No Windows Explorer instance found with a path in its title.")
+        log.warning("No Windows Explorer instance found with a path in its title.")
         return None
 
     # Get the folder path of the Windows Explorer instance with the matching HWND
     folder_path = get_explorer_path_from_hwnd(first_explorer_hwnd)
 
-    # If a folder path is found, print the HWND and folder path, then return the folder path as a string
+    # If a folder path is found, log the HWND and folder path, then return the folder path as a string
     if folder_path:
-        print(f"Window handle: {first_explorer_hwnd}, Folder path: {folder_path}")
+        log.info("Window handle: %s, Folder path: %s", first_explorer_hwnd, folder_path)
         return folder_path
 
     return None
@@ -112,33 +115,33 @@ def read_params_from_txt_file(file_path):
 def load_json_config(config_path):
     """
     Load configuration from a JSON file.
-    
+
     Parameters:
     - config_path: Path to the JSON configuration file
-    
+
     Returns:
     - Dictionary containing configuration data
     """
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
-        print(f"✅ Configuration loaded from {config_path}")
+        log.info("✅ Configuration loaded from %s", config_path)
         return config
     except FileNotFoundError:
-        print(f"❌ Configuration file not found: {config_path}")
+        log.error("❌ Configuration file not found: %s", config_path)
         raise
     except json.JSONDecodeError as e:
-        print(f"❌ Error parsing JSON configuration: {e}")
+        log.error("❌ Error parsing JSON configuration: %s", e)
         raise
 
 # Function to load environment variables from .env file
 def load_env_variables(env_path=None):
     """
     Load environment variables from .env file.
-    
+
     Parameters:
     - env_path: Optional path to .env file. If None, searches in current directory
-    
+
     Returns:
     - Dictionary containing environment variables
     """
@@ -146,14 +149,14 @@ def load_env_variables(env_path=None):
         load_dotenv(env_path)
     else:
         load_dotenv()
-    
+
     env_vars = {
         'notion_api_token': os.getenv('NOTION_API_TOKEN'),
         'notion_token_v2': os.getenv('NOTION_TOKEN_V2'),
         'notion_workspace_url': os.getenv('NOTION_WORKSPACE_URL')
     }
-    
-    print("✅ Environment variables loaded")
+
+    log.info("✅ Environment variables loaded")
     return env_vars
 
 # Function to open an excel file or a pickle, if found. If not found, creates the pickle
@@ -162,22 +165,22 @@ def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, use
     pickle_file = Path(pickle_file_path)
 
     start_time = datetime.now()
-    print(f"Starting data loading process at {start_time}")
+    log.info("Starting data loading process at %s", start_time)
     if pickle_file.exists() and pickle_file.stat().st_mtime > excel_file.stat().st_mtime:
-        print(f"Loading data from pickle file {pickle_file}")
+        log.info("Loading data from pickle file %s", pickle_file)
         with open(pickle_file, 'rb') as f:
             df = pickle.load(f)
     else:
-        print(f"Loading data from Excel file and creating a pickle file {excel_file}")
+        log.info("Loading data from Excel file and creating a pickle file %s", excel_file)
         df = pd.read_excel(excel_file, sheet_name=sheet_name, usecols=usecols, engine=engine)
         with open(pickle_file, 'wb') as f:
             pickle.dump(df, f)
 
     end_time = datetime.now()
-    print(f"Data loading process finished at {end_time}")
+    log.info("Data loading process finished at %s", end_time)
 
     duration = end_time - start_time
-    print(f"Total duration of the data loading: {duration}")
+    log.info("Total duration of the data loading: %s", duration)
 
     # If no sheet_name is specified and df is a dictionary, return the first DataFrame
     if sheet_name is None and isinstance(df, dict):
@@ -190,7 +193,7 @@ def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, use
 def get_column_widths(excel_path):
     column_widths = []
     if not os.path.exists(excel_path):
-        print(f"No existing workbook at {excel_path}; skipping column width reuse.")
+        log.warning("No existing workbook at %s; skipping column width reuse.", excel_path)
         return column_widths
 
     try:
@@ -206,7 +209,7 @@ def get_column_widths(excel_path):
             for i in range(last_col)
         ]
     except (InvalidFileException, KeyError, BadZipFile) as exc:
-        print(f"Unable to read column widths from {excel_path}: {exc}")
+        log.warning("Unable to read column widths from %s: %s", excel_path, exc)
 
     return column_widths
 
@@ -226,14 +229,14 @@ def load_excel_with_json(excel_path, column_name):
     # Define a function to load JSON nested dictionaries
     def load_json(json_str):
         # Convert the JSON string to a Python dictionary using ast.literal_eval()
-        print("Original JSON string:", json_str)
+        log.debug("Original JSON string: %s", json_str)
         return ast.literal_eval(json_str)
 
     # Apply the load_json() function to the specified column
     df[column_name] = df[column_name].apply(load_json)
 
-    # Print the resulting DataFrame to the console
-    print(df.head())
+    # Log the resulting DataFrame head
+    log.debug("%s", df.head())
 
 def load_excel_with_json_and_export(excel_path, column_name):
     # Read the Excel file using the openpyxl engine
@@ -276,6 +279,5 @@ def load_excel_with_json_and_export(excel_path, column_name):
     output_path = excel_path[:-5] + '_' + column_name + '_dictionary.xlsx'
     dict_df.to_excel(output_path, index=False)
 
-    # Print the resulting DataFrame to the console
-    print(dict_df.head())
-
+    # Log the resulting DataFrame head
+    log.debug("%s", dict_df.head())

@@ -404,7 +404,7 @@ def main(
 
     # Generate and print report
     report = generate_report(config["file_old"], config["file_new"], changes)
-    print("\n" + report)
+    logger.info("\n%s", report)
 
     # Log summary
     has_changes = any(changes.values())
@@ -414,19 +414,16 @@ def main(
         logger.info("✅ No structural changes detected")
 
     # Confirm before processing
-    print("\n" + "="*60)
+    logger.info("=" * 60)
     try:
         confirm = input("Ready to process and filter the new CSV file? (y/N): ").strip().lower()
         if confirm not in ['y', 'yes']:
             logger.info("⏹️  Processing cancelled by user")
-            print("Processing cancelled.")
             return
     except (KeyboardInterrupt, EOFError):
         logger.info("⏹️  Processing cancelled by user")
-        print("\nProcessing cancelled.")
         return
 
-    print()  # Line break
     logger.info("🔄 Processing and filtering new CSV file...")
     processed_df = process_csv_file(new_file, config, start_dt, end_dt)
 
@@ -437,8 +434,8 @@ def main(
 
         if save_to_excel(processed_df, output_file):
             logger.info("✅ Processing completed successfully")
-            print(f"\n[OK] Filtered data saved to: {output_file}")
-            print(f"   Rows: {len(processed_df)}, Columns: {len(processed_df.columns)}")
+            logger.info("[OK] Filtered data saved to: %s", output_file)
+            logger.info("   Rows: %d, Columns: %d", len(processed_df), len(processed_df.columns))
         else:
             logger.error("❌ Failed to save filtered data")
             sys.exit(1)
