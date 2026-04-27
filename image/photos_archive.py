@@ -123,13 +123,16 @@ def setup_logging(log_folder=None):
     # Set logging level from config
     log_level = getattr(logging, CONFIG['logging']['level'].upper(), logging.INFO)
 
-    logging.basicConfig(
-        level=log_level,
-        filename=log_file,
-        filemode='w',
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
-    logging.info(f"Logging initialized: {log_file}")
+    fmt = '%(asctime)s - %(levelname)s - %(message)s'
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+    file_handler = logging.FileHandler(log_file, mode='w')
+    file_handler.setFormatter(logging.Formatter(fmt))
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter(fmt))
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+    logging.info("Logging initialized: %s", log_file)
 
 def get_exif_creation_date(file_path):
     """Extract creation date from EXIF DateTimeOriginal tag."""
@@ -323,8 +326,7 @@ def process_files(source_folder, dest_folder, skip_dest_folder):
                 file_records.append(file_info)
             # Log and print progress every 1000 files
             if len(file_records) % 1000 == 0:
-                logging.info(f"{len(file_records)} files processed")
-                print(f"{len(file_records)} files processed")
+                logging.info("%d files processed", len(file_records))
 
     return pd.DataFrame(file_records)
 
@@ -352,12 +354,10 @@ def delete_discarded_files(df):
                 df.at[index, 'deleted'] = -1
 
         if deleted_files_count // 1000 > last_logged_count // 1000:
-            logging.info(f"{deleted_files_count} discarded files deleted")
-            print(f"{deleted_files_count} discarded files deleted")
+            logging.info("%d discarded files deleted", deleted_files_count)
             last_logged_count = deleted_files_count
 
-    logging.info(f"{deleted_files_count} discarded files deleted")
-    print(f"{deleted_files_count} discarded files deleted")
+    logging.info("%d discarded files deleted", deleted_files_count)
 
 def calculate_sha256(file_path):
     """
@@ -408,8 +408,7 @@ def mark_duplicates(df):
 
                 # Log and print progress every 50 files
                 if sha256_checked_count % 50 == 0:
-                    logging.info(f"{sha256_checked_count} files checked for SHA256")
-                    print(f"{sha256_checked_count} files checked for SHA256")
+                    logging.info("%d files checked for SHA256", sha256_checked_count)
 
             # Update discard column based on SHA256
             for name in df['unified_name'].unique():
@@ -500,9 +499,7 @@ def recalculate_metadata(df):
     # Display top unified days only once
     top_days = df['unified_day'].value_counts().head(20)
     for idx, (day, count) in enumerate(top_days.items(), start=1):
-        log_msg = f"#{idx:02d} - {day} - {count} files"
-        print(log_msg)
-        logging.info(log_msg)
+        logging.info("#{:02d} - {} - {} files".format(idx, day, count))
 
     return df
 
@@ -549,12 +546,10 @@ def copy_files(df):
 
         # Log and print progress every 1000 files, only once for each milestone
         if copied_files_count // 1000 > last_logged_count // 1000:
-            logging.info(f"{copied_files_count} files copied")
-            print(f"{copied_files_count} files copied")
+            logging.info("%d files copied", copied_files_count)
             last_logged_count = copied_files_count
 
-    logging.info(f"{copied_files_count} files copied")
-    print(f"{copied_files_count} files copied")
+    logging.info("%d files copied", copied_files_count)
 
 def delete_copied_files(df):
     """
@@ -578,12 +573,10 @@ def delete_copied_files(df):
 
         # Log and print progress every 1000 files, only once for each milestone
         if deleted_files_count // 1000 > last_logged_count // 1000:
-            logging.info(f"{deleted_files_count} files deleted")
-            print(f"{deleted_files_count} files deleted")
+            logging.info("%d files deleted", deleted_files_count)
             last_logged_count = deleted_files_count
 
-    logging.info(f"{deleted_files_count} files deleted")
-    print(f"{deleted_files_count} files deleted")
+    logging.info("%d files deleted", deleted_files_count)
 
 # Call this function at the beginning of your main function
 def main(source_folder, dest_folder):
@@ -619,8 +612,7 @@ def main(source_folder, dest_folder):
         root.destroy()  # Properly destroy the Tkinter root window
         if metadata_file:
             df = pd.read_excel(metadata_file)
-            logging.info(f"Loaded metadata from {metadata_file}")
-            print(f"Loaded metadata from {metadata_file}")
+            logging.info("Loaded metadata from %s", metadata_file)
 
             # Check if user wants to recalculate the logic
             recalculate_logic = CONFIG['behavior_flags']['recalculate_logic']
@@ -633,9 +625,7 @@ def main(source_folder, dest_folder):
                 # Display top unified days
                 top_days = df['unified_day'].value_counts().head(20)
                 for idx, (day, count) in enumerate(top_days.items(), start=1):
-                    log_msg = f"#{idx:02d} - {day} - {count} files"
-                    print(log_msg)
-                    logging.info(log_msg)
+                    logging.info("#{:02d} - {} - {} files".format(idx, day, count))
 
                 # Ask for exclusion threshold
                 default_exclude_threshold = CONFIG['processing_thresholds']['exclude_days_over_files']
@@ -662,8 +652,7 @@ def main(source_folder, dest_folder):
                 current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
                 metadata_file = os.path.join(dest_folder, f'metadata_{current_time_str}.xlsx')
                 df.to_excel(metadata_file, index=False)
-                logging.info(f"Recalculated metadata and saved to {metadata_file}")
-                print(f"Recalculated metadata and saved to {metadata_file}")
+                logging.info("Recalculated metadata and saved to %s", metadata_file)
 
             # Check for confirmation to process files
             continue_copy = CONFIG['behavior_flags']['continue_copy']
@@ -672,15 +661,12 @@ def main(source_folder, dest_folder):
                 continue_copy = continue_copy_input == 'y'
             if not continue_copy:
                 logging.info("Process terminated by user before copying files")
-                print("Process terminated by user before copying files")
                 return
 
             # Proceed to copy files
             logging.info("Copying files to destination folder")
-            print("Copying files to destination folder")
             copy_files(df)
             logging.info("Process completed")
-            print("Process completed")
 
             # Check if user wants to delete the copied files
             delete_files = CONFIG['behavior_flags']['auto_delete_copied_files']
@@ -689,7 +675,6 @@ def main(source_folder, dest_folder):
                 delete_files = delete_files_input == 'y'
             if delete_files:
                 logging.info("Deleting source files that were copied")
-                print("Deleting source files that were copied")
                 delete_copied_files(df)
 
             # Check if user wants to delete discarded files
@@ -699,17 +684,15 @@ def main(source_folder, dest_folder):
                 delete_discarded = delete_discarded_input == 'y'
             if delete_discarded:
                 logging.info("Deleting discarded files")
-                print("Deleting discarded files")
                 delete_discarded_files(df)
 
             # Save updated metadata
             df.to_excel(metadata_file, index=False)
-            logging.info(f"Updated metadata saved to {metadata_file}")
-            print(f"Updated metadata saved to {metadata_file}")
+            logging.info("Updated metadata saved to %s", metadata_file)
 
             return
         else:
-            print("No file selected. Exiting.")
+            logging.info("No file selected. Exiting.")
             return
 
     # Check if hardcoded folders are valid
@@ -726,20 +709,15 @@ def main(source_folder, dest_folder):
             skip_dest_folder = True
 
     logging.info("Starting the process")
-    print("Starting the process")
 
     # Scan source folder and extract file metadata
     logging.info("Scanning source folder")
-    print("Scanning source folder")
     df = process_files(source_folder, dest_folder, skip_dest_folder)
 
-    # Log and print progress every 1000 files collected
-    logging.info(f"{len(df)} files collected")
-    print(f"{len(df)} files collected")
+    logging.info("%d files collected", len(df))
 
     if df.empty:
         logging.info("No files collected")
-        print("No files collected")
         return
 
     # Prepare metadata for duplicate detection
@@ -749,15 +727,12 @@ def main(source_folder, dest_folder):
 
     # Identify and mark duplicate files
     logging.info("Identifying duplicates")
-    print("Identifying duplicates")
     df = mark_duplicates(df)
 
     # Display top unified days
     top_days = df['unified_day'].value_counts().head(20)
     for idx, (day, count) in enumerate(top_days.items(), start=1):
-        log_msg = f"#{idx:02d} - {day} - {count} files"
-        print(log_msg)
-        logging.info(log_msg)
+        logging.info("#{:02d} - {} - {} files".format(idx, day, count))
 
     # Ask for exclusion threshold
     default_exclude_threshold = CONFIG['processing_thresholds']['exclude_days_over_files']
@@ -783,11 +758,9 @@ def main(source_folder, dest_folder):
 
     # Save inventory to Excel before copying
     logging.info("Saving inventory to Excel")
-    print("Saving inventory to Excel")
     excel_path = os.path.join(dest_folder, f'metadata_{current_time_str}.xlsx')
     df.to_excel(excel_path, index=False)
-    logging.info(f"Inventory saved to {excel_path}")
-    print(f"Inventory saved to {excel_path}")
+    logging.info("Inventory saved to %s", excel_path)
 
     # Check to continue with copying
     continue_copy = CONFIG['behavior_flags']['continue_copy']
@@ -796,12 +769,10 @@ def main(source_folder, dest_folder):
         continue_copy = continue_copy_input == 'y'
     if not continue_copy:
         logging.info("Process terminated by user before copying files")
-        print("Process terminated by user before copying files")
         return
 
     # Copy qualifying files to destination with unified naming
     logging.info("Copying files to destination")
-    print("Copying files to destination")
     copy_files(df)
 
     # Check if user wants to delete the copied files
@@ -811,7 +782,6 @@ def main(source_folder, dest_folder):
         delete_files = delete_files_input == 'y'
     if delete_files:
         logging.info("Deleting source files that were copied")
-        print("Deleting source files that were copied")
         delete_copied_files(df)
 
     # Check if user wants to delete discarded files before copying
@@ -821,16 +791,13 @@ def main(source_folder, dest_folder):
         delete_discarded = delete_discarded_input == 'y'
     if delete_discarded:
         logging.info("Deleting discarded files")
-        print("Deleting discarded files")
         delete_discarded_files(df)
 
     # Save updated metadata
     df.to_excel(excel_path, index=False)
-    logging.info(f"Updated metadata saved to {excel_path}")
-    print(f"Updated metadata saved to {excel_path}")
+    logging.info("Updated metadata saved to %s", excel_path)
 
     logging.info("Process completed")
-    print("Process completed")
 
 if __name__ == "__main__":
     try:
@@ -838,11 +805,11 @@ if __name__ == "__main__":
         dest_folder = CONFIG['destination_folder']
         main(source_folder, dest_folder)
     except KeyError as e:
-        print(f"❌ Configuration error: Missing required configuration key: {e}")
+        logging.error("❌ Configuration error: Missing required configuration key: %s", e)
         exit(1)
     except ValueError as e:
-        print(f"❌ Configuration error: {e}")
+        logging.error("❌ Configuration error: %s", e)
         exit(1)
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        logging.error("❌ Unexpected error: %s", e)
         exit(1)

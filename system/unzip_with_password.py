@@ -122,24 +122,21 @@ def extract_with_7zip(archive_path, output_dir, password=None, seven_zip_path=No
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
-        print(result.stdout)
-        
+        if result.stdout.strip():
+            logger.info("%s", result.stdout.strip())
+
         if 'Wrong password' in result.stdout or 'Wrong password' in result.stderr:
-            msg = 'Extraction failed: Wrong password!'
-            print(msg)
-            logger.error(msg)
+            logger.error("Extraction failed: Wrong password!")
             return False
-        
+
         if result.returncode == 0:
-            print("Extraction successful!")
+            logger.info("Extraction successful!")
             return True
         else:
-            print("Extraction failed:", result.stderr)
-            logger.error(f"Extraction failed: {result.stderr}")
+            logger.error("Extraction failed: %s", result.stderr)
             return False
     except Exception as e:
-        print("Error running 7-Zip:", e)
-        logger.error(f"Error running 7-Zip: {e}")
+        logger.error("Error running 7-Zip: %s", e)
         return False
 
 def extract_archive(archive_path, password=None):

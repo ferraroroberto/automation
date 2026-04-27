@@ -1,7 +1,11 @@
+import logging
 import os
 import re
 
 # source chatGPT 2024-05-25 > https://chatgpt.com/c/1049735e-6d2b-4603-8a4a-8f68b8de8e10
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+log = logging.getLogger(__name__)
 
 def rename_files_in_directory(directory):
     """
@@ -30,23 +34,19 @@ def rename_files_in_directory(directory):
                 # Check if the new file name already exists
                 if os.path.exists(new_name):
                     skipped_files.append(file)
-                    print(f'Skipping file {file}')
+                    log.info("Skipping file %s", file)
                 else:
                     # Rename the file
                     os.rename(old_name, new_name)
                     changed_files_count += 1
+                    log.info("Renamed: %s -> %s", old_name, new_name)
 
-                    # Print the change
-                    print(f'Renamed: {old_name} -> {new_name}')
+    log.info("Total files renamed: %d", changed_files_count)
 
-    # Print the total number of files renamed
-    print(f'\nTotal files renamed: {changed_files_count}')
-
-    # Print the skipped files
     if skipped_files:
-        print(f'\nSkipped files ({len(skipped_files)}):')
+        log.info("Skipped files (%d):", len(skipped_files))
         for skipped_file in skipped_files:
-            print(skipped_file)
+            log.info("  %s", skipped_file)
 
 
 # Request the directory path from the user

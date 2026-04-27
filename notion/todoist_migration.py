@@ -1,7 +1,10 @@
+import logging
 import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
+
+log = logging.getLogger(__name__)
 
 # Set the source folder where the CSV files are located
 HARDCODED_SOURCE_FOLDER = r"D:\OneDrive\Documentos\Roberto\projects\automation\notion-automation-files\todoist\Todoist backup 2024-08-14 2318 UTC"
@@ -55,11 +58,10 @@ def process_file(filepath, df_list, task_id_counter, note_id_counter, verbose):
 
     # Check if file is empty
     if df.empty:
-        if verbose:
-            print(f"Skipping empty file: {filepath}")
+        log.debug("Skipping empty file: %s", filepath)
         return task_id_counter, note_id_counter
 
-    print(f"Processing file: {filepath}")
+    log.info("Processing file: %s", filepath)
 
     last_task_id = None
 
@@ -110,8 +112,7 @@ def process_file(filepath, df_list, task_id_counter, note_id_counter, verbose):
                 'COMMENT': ''
             })
 
-            if verbose:
-                print(f"Processed TASK: {task_id}, TITLE: {title}")
+            log.debug("Processed TASK: %s, TITLE: %s", task_id, title)
 
         # Processing note rows
         elif row_type == 'note':
@@ -138,15 +139,14 @@ def process_file(filepath, df_list, task_id_counter, note_id_counter, verbose):
                 'IND_PAST': ind_past
             })
 
-            if verbose:
-                print(f"Processed NOTE: {note_id}, COMMENT: {row['CONTENT']}")
+            log.debug("Processed NOTE: %s, COMMENT: %s", note_id, row['CONTENT'])
 
         # Non-verbose log every 100 rows
         if not verbose and idx > 0 and idx % 100 == 0:
-            print(f"Processed {idx} rows from {filepath}")
+            log.info("Processed %d rows from %s", idx, filepath)
 
     # Display the total number of rows processed in the file
-    print(f"Finished processing {filepath}. Total rows processed: {len(df)}")
+    log.info("Finished processing %s. Total rows processed: %d", filepath, len(df))
 
     return task_id_counter, note_id_counter
 
@@ -156,13 +156,13 @@ def save_output(final_df, output_filepath):
         try:
             # Attempt to save the final DataFrame to an Excel file
             final_df.to_excel(output_filepath, index=False)
-            print(f"Migration complete. Data saved to {output_filepath}")
+            log.info("Migration complete. Data saved to %s", output_filepath)
             break
         except PermissionError:
-            print(f"Error: Unable to save to {output_filepath}. The file may be open.")
+            log.error("Error: Unable to save to %s. The file may be open.", output_filepath)
             retry = input("Would you like to retry saving? (Y/N): ").strip().upper()
             if retry == "N":
-                print("Exiting without saving.")
+                log.info("Exiting without saving.")
                 break
 
 
@@ -190,6 +190,7 @@ def main(verbose=False):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     # Ask the user if they want verbose processing (case-insensitive Y/N)
     verbose_input = input("Do you want verbose processing? (Y/N): ").strip().upper()
     verbose = verbose_input == "Y"

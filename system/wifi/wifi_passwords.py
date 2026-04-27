@@ -269,9 +269,9 @@ Examples:
         print_table(rows)
         save_json(rows, args.output, config)
         
-        print(f"\n✅ Export completed successfully!")
-        print(f"📊 Total networks found: {len(rows)}")
-        print(f"💾 Output saved to: {args.output}")
+        logger.info("✅ Export completed successfully!")
+        logger.info("📊 Total networks found: %d", len(rows))
+        logger.info("💾 Output saved to: %s", args.output)
         
     except KeyboardInterrupt:
         logger.info("⏹️ Export cancelled by user")

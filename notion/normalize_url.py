@@ -361,16 +361,16 @@ def main():
     try:
         if args.test:
             normalizer = NotionURLNormalizer(args.config)
-            logging.info(f"🧪 Test mode: cleaning URL: '{args.test}'")
+            logging.info("🧪 Test mode: cleaning URL: '%s'", args.test)
             cleaned = normalizer._clean_url(args.test)
-            print(f"\nOriginal: {args.test}")
-            print(f"Cleaned:  {cleaned}")
-            print(f"Changed:  {'Yes' if args.test != cleaned else 'No'}")
-            
+            logging.info("Original: %s", args.test)
+            logging.info("Cleaned:  %s", cleaned)
+            logging.info("Changed:  %s", 'Yes' if args.test != cleaned else 'No')
+
             if args.testing:
                 is_valid, status_msg = normalizer._check_url_validity(cleaned)
                 status_icon = "✅" if is_valid else "❌"
-                print(f"Validation: {status_icon} {status_msg}")
+                logging.info("Validation: %s %s", status_icon, status_msg)
                 
             return
 

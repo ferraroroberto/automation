@@ -4,9 +4,12 @@ Test all Google API scopes to find the exact combination needed
 """
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -350,4 +353,5 @@ def main():
         print("4. Create a new OAuth 2.0 Client ID and try again")
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     main()

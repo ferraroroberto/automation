@@ -14,8 +14,11 @@ Source folder is read from Illustrations_check.json; CLI argument overrides it.
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 CONFIG_FILE = "Illustrations_check.json"
 
@@ -51,15 +54,15 @@ def main() -> int:
         if not source_str:
             source_str = input("Enter source folder path: ").strip()
         if not source_str:
-            print("No folder given. Exiting.")
+            log.error("No folder given. Exiting.")
             return 1
         source = Path(source_str)
 
     if not source.exists():
-        print(f"Error: Folder does not exist: {source}")
+        log.error("Error: Folder does not exist: %s", source)
         return 1
     if not source.is_dir():
-        print(f"Error: Not a directory: {source}")
+        log.error("Error: Not a directory: %s", source)
         return 1
 
     afdesign_files = {f.stem: f for f in source.glob("*.afdesign")}
@@ -78,52 +81,46 @@ def main() -> int:
     spare_files = sorted(all_expected - tracked)
 
     # --- Report ---
-    print()
-    print("=" * 60)
-    print("ILLUSTRATIONS CHECK")
-    print("=" * 60)
-    print(f"Source folder: {source.resolve()}")
-    print()
-    print(f"  .afdesign files: {len(afdesign_files)}")
-    print(f"  .png files:      {len(png_files)}")
-    print(f"  Matched pairs:   {len(matched)}")
-    print()
+    log.info("=" * 60)
+    log.info("ILLUSTRATIONS CHECK")
+    log.info("=" * 60)
+    log.info("Source folder: %s", source.resolve())
+    log.info("  .afdesign files: %d", len(afdesign_files))
+    log.info("  .png files:      %d", len(png_files))
+    log.info("  Matched pairs:   %d", len(matched))
 
     if only_afdesign:
-        print("--- Orphan .afdesign (no matching .png) ---")
+        log.info("--- Orphan .afdesign (no matching .png) ---")
         for name in sorted(only_afdesign):
-            print(f"  {afdesign_files[name].name}")
-        print()
+            log.info("  %s", afdesign_files[name].name)
 
     if only_png:
-        print("--- Orphan .png (no matching .afdesign) ---")
+        log.info("--- Orphan .png (no matching .afdesign) ---")
         for name in sorted(only_png):
-            print(f"  {png_files[name].name}")
-        print()
+            log.info("  %s", png_files[name].name)
 
     if spare_files:
-        print("--- Spare files (other than .afdesign / .png) ---")
+        log.info("--- Spare files (other than .afdesign / .png) ---")
         for name in spare_files:
-            print(f"  {name}")
-        print()
+            log.info("  %s", name)
 
     # Summary
-    print("=" * 60)
+    log.info("=" * 60)
     if not only_afdesign and not only_png:
-        print("OK: Every .afdesign has a matching .png and vice versa.")
+        log.info("OK: Every .afdesign has a matching .png and vice versa.")
     else:
-        print("Differences found:")
+        log.info("Differences found:")
         if only_afdesign:
-            print(f"  - {len(only_afdesign)} .afdesign without .png")
+            log.info("  - %d .afdesign without .png", len(only_afdesign))
         if only_png:
-            print(f"  - {len(only_png)} .png without .afdesign")
+            log.info("  - %d .png without .afdesign", len(only_png))
     if spare_files:
-        print(f"  - {len(spare_files)} other file(s) in folder")
-    print("=" * 60)
-    print()
+        log.info("  - %d other file(s) in folder", len(spare_files))
+    log.info("=" * 60)
 
     return 0
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     sys.exit(main())

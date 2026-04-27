@@ -561,9 +561,9 @@ def main(config: Dict[str, Any]) -> None:
     try:
         automation = GmailDriveAutomation()
         automation.run_automation()
-        print("✅ Script completed successfully")
+        logger.info("✅ Script completed successfully")
     except Exception as e:
-        print(f"❌ Script failed: {e}")
+        logger.error("❌ Script failed: %s", e)
         sys.exit(1)
 
 
@@ -572,16 +572,16 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description='Gmail and Google Drive Automation')
         parser.add_argument('--config', default='config.json', help='Path to configuration file')
         parser.add_argument('--debug', action='store_true', help='Enable debug logging')
-        
+
         args = parser.parse_args()
-        
+
         if args.debug:
             logging.getLogger().setLevel(logging.DEBUG)
             logger.setLevel(logging.DEBUG)
-        
+
         config = load_config(args.config)
         main(config)
-        
+
     except Exception as e:
-        print(f"❌ Script failed: {e}")
+        logger.error("❌ Script failed: %s", e)
         sys.exit(1)

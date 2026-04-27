@@ -4,6 +4,7 @@ Supports both GUI and command-line interfaces.
 """
 
 import argparse
+import logging
 import os
 import re
 import subprocess
@@ -11,6 +12,8 @@ import tempfile
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+
+log = logging.getLogger(__name__)
 
 # -------------------------------------------------------
 # Time parsing: mm:ss, mm:ss.s, hh:mm:ss, hh:mm:ss.s
@@ -536,11 +539,11 @@ def cli_trim(file_path, start_str, end_str):
     try:
         start_sec = time_to_seconds(start_str)
         end_sec = time_to_seconds(end_str)
-        print(f"Trimming {file_path} from {start_str} to {end_str}...")
+        log.info("Trimming %s from %s to %s...", file_path, start_str, end_str)
         trim_video(file_path, start_sec, end_sec)
-        print("Done.")
+        log.info("Done.")
     except Exception as e:
-        print(f"Error: {e}")
+        log.error("Error: %s", e)
         exit(1)
 
 
@@ -549,11 +552,11 @@ def cli_cut_middle(file_path, cut_start_str, cut_end_str):
     try:
         cut_start_sec = time_to_seconds(cut_start_str)
         cut_end_sec = time_to_seconds(cut_end_str)
-        print(f"Cutting {cut_start_str} to {cut_end_str} from {file_path}...")
+        log.info("Cutting %s to %s from %s...", cut_start_str, cut_end_str, file_path)
         cut_middle_video(file_path, cut_start_sec, cut_end_sec)
-        print("Done.")
+        log.info("Done.")
     except Exception as e:
-        print(f"Error: {e}")
+        log.error("Error: %s", e)
         exit(1)
 
 
@@ -567,7 +570,7 @@ def choose_file():
     )
     root.destroy()
     if not path:
-        print("No file selected.")
+        log.error("No file selected.")
         exit(1)
     return path
 
@@ -595,6 +598,7 @@ def ask_time(prompt):
 # -------------------------------------------------------
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Video Trimmer - trim or cut middle section with FFmpeg")
     parser.add_argument("-f", "--file", help="Video file path (CLI mode)")
     parser.add_argument("-s", "--start", help="Start time (mm:ss or mm:ss.s)")

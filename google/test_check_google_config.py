@@ -5,10 +5,13 @@ Diagnoses authentication and project configuration issues
 """
 
 import json
+import logging
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -253,4 +256,5 @@ def main():
         print("   Please switch to the correct project and re-authenticate.")
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     main()

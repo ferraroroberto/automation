@@ -136,7 +136,7 @@ class IllustrationsFormatterGUI:
                 with open(config_path, 'r', encoding='utf-8') as f:
                     defaults.update(json.load(f))
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Could not load config file: {e}")
+            logging.getLogger(__name__).warning("Warning: Could not load config file: %s", e)
         return defaults
 
     def save_config(self):
@@ -167,7 +167,7 @@ class IllustrationsFormatterGUI:
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=4)
         except IOError as e:
-            print(f"Warning: Could not save config file: {e}")
+            logging.getLogger(__name__).warning("Warning: Could not save config file: %s", e)
 
     # ------------------------------------------------------------------
     # UI construction
