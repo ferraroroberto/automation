@@ -1,4 +1,6 @@
-# Project Instructions — Python + Streamlit
+# Project Instructions
+
+Canonical instructions for AI coding agents working in this repository. Claude Code reads this file directly as project memory. Other agents (Cursor, Codex, etc.) reach it via the one-line `AGENTS.md` pointer.
 
 ## Plan mode is the default
 Every non-trivial request starts in plan mode. Non-trivial = anything beyond a one-line fix, a typo, or a question I can answer without touching code.
@@ -24,9 +26,9 @@ Ask whenever a decision would be expensive to undo or genuinely ambiguous. One s
 - File or module location for new code
 - Data shape or schema
 - Page placement (new page vs. section in existing page)
-- `st.session_state` key names and scope
-- Caching strategy (`@st.cache_data` TTL vs. `@st.cache_resource`)
-- Widget `key=` names and input sources
+- `st.session_state` key names and scope (Streamlit projects)
+- Caching strategy (`@st.cache_data` TTL vs. `@st.cache_resource`) (Streamlit projects)
+- Widget `key=` names and input sources (Streamlit projects)
 - Data source (upload, local file, DB via secrets)
 - Error and empty-state handling
 - Whether to add tests, and at what level
@@ -40,49 +42,52 @@ If multiple reasonable approaches exist, present them as options with tradeoffs.
 - For files >500 LOC, read in chunks; don't assume you've seen the whole file.
 - When renaming a symbol, search separately for: direct calls, type references, string literals, dynamic imports, re-exports, and tests.
 
-## Project layout (standing convention)
-- `/app/app.py` — Streamlit entry point, `set_page_config` first, horizontal tabs
-- `/app/` — one file per tab
-- `/src/` — all non-UI code. Never import streamlit here.
-- `/tmp/` — gitignored scratch space, contains `.gitkeep`
-- `config.json` (gitignored) + `config.json.example` (committed)
-- `.env` for secrets, never committed
-- `launch_app.bat` at project root
-- `README.md` and `requirements.txt` at project root
-
-## Python conventions
-- Config in `config.json`, secrets in `.env`. No hardcoded paths or credentials.
-- Use the `logging` module, not `print()`. Emojis welcome: ℹ️ ⚠️ ❌ ✅
-- snake_case for files/functions, PascalCase for classes, UPPER_CASE for constants
-- Type hints on all public functions. Use `Optional[T]`, never bare `None` returns.
-- Imports: stdlib → third-party → local
-- Pin versions in `requirements.txt`. Use the existing `.venv`.
-- Run Python directly: `& .\.venv\Scripts\python.exe ...` (no activation needed)
+## General conventions
+- **Project layout** is documented in this repo's `README.md`. Don't assume `/app/`, `/src/`, `launch_app.bat`, or any specific paths exist — read the README first.
+- **Config & secrets:** project config in `config.json` or similar; secrets always in `.env`, never committed. The canonical name for the env file is `.env` (not `venv` or anything else — `.venv` is the venv directory).
+- **Logging:** use the language's logging facility. In Python that's `logging`, not `print()`. Emojis are welcome in log messages: ℹ️ ⚠️ ❌ ✅
+- **Naming:** snake_case for files/functions (Python), PascalCase for classes, UPPER_CASE for constants.
+- **Imports:** stdlib → third-party → local.
+- **Versioning policy:** follow the existing style in `requirements.txt` / `package.json` — keep `==` where the file uses pins, keep `>=` where it uses lower bounds. Don't change the policy unless explicitly asked.
+- **Virtual environment:** use the existing `.venv`. Never create `venv`. Never activate — invoke via `& .\.venv\Scripts\python.exe ...` on Windows, `./.venv/bin/python ...` on POSIX.
+- **No hardcoded paths or credentials.**
+- **Type hints** on all public Python functions. Use `Optional[T]`, never bare `None` returns.
 - Implement only what was asked. No nice-to-haves.
 
 ## Streamlit conventions
-- `st.set_page_config(layout="wide", page_title="...")` MUST be the first call
-- Use `width='stretch'`, never `use_container_width=True` (deprecated)
+*Apply only if this project uses Streamlit.*
+
+- `st.set_page_config(layout="wide", page_title="...")` MUST be the first Streamlit call.
+- Use `width="stretch"` (and `width="content"` where appropriate) in new and modified code. **Never** introduce new `use_container_width=True` — it is deprecated. When you touch existing code that uses `use_container_width`, migrate it.
 - All mutable state in `st.session_state`. No module-level globals.
-- `@st.cache_data` for DataFrames/files; `@st.cache_resource` for DB/models
-- Every widget needs a stable, explicit `key=`
-- UI code only in `/app/`. Data logic stays in `/src/`.
-- User feedback via `st.error()` / `st.warning()` / `st.success()`, not `st.write()`
+- `@st.cache_data` for DataFrames/files; `@st.cache_resource` for DB clients/models.
+- Every widget needs a stable, explicit `key=`.
+- UI code only in the UI directory (e.g. `app/`). Data logic stays in the non-UI package (e.g. `src/`). Never import `streamlit` from non-UI code.
+- User feedback via `st.error()` / `st.warning()` / `st.success()`, not `st.write()`.
 
 ## Phased execution for larger work
 Multi-file refactors don't go in a single response. Break into phases of ≤5 files each. Complete phase 1, run verification, wait for my approval, then phase 2. Same rule for any task you'd estimate at >30 minutes of work.
 
 ## Verification (before declaring a task done)
+Examples — adapt to the project's actual tooling:
+
+Windows / PowerShell:
 - Syntax: `& .\.venv\Scripts\python.exe -m py_compile <file>`
 - Lint (if configured): `ruff check .`
 - Tests (if any exist): `& .\.venv\Scripts\python.exe -m pytest`
-- Streamlit boot check for UI changes: `& .\.venv\Scripts\python.exe -m streamlit run app/app.py --server.headless true`
-- If no checker exists, say so explicitly. Don't claim "tests pass" when there are no tests.
+- Streamlit boot check (UI changes): `& .\.venv\Scripts\python.exe -m streamlit run app/app.py --server.headless true`
+
+POSIX:
+- Syntax: `./.venv/bin/python -m py_compile <file>`
+- Tests: `./.venv/bin/python -m pytest`
+
+If no checker exists for a project, say so explicitly. Don't claim "tests pass" when there are no tests.
 
 ## Documentation discipline
 For feature work and refactors (not trivial fixes):
 - Update `README.md` if usage, config, or output changed
-- Add `docs/YYYY-MM-DD-short-description.md` with: what was done, files modified, validation run
+- If the project already has a `docs/` folder, add `docs/YYYY-MM-DD-short-description.md` with: what was done, files modified, validation run
+- Don't create a `docs/` folder just to file a changelog entry on a one-off task
 
 For one-line fixes and typos: skip the changelog.
 
@@ -104,23 +109,6 @@ Before finishing, ask: "What would a senior, perfectionist dev reject in review?
 
 ---
 
-## Repo-specific: automation monorepo
-Everything above is the common base I reuse across projects. When copying this file to a new repo, replace only this section.
-
-### What this is
-Personal automation monorepo: independent Python scripts and small tools across multiple domains. Not a single Streamlit app. Windows 10+, PowerShell 7+ is the default shell.
-
-### Layout (overrides the common "Project layout" section)
-Each top-level folder is an independent domain/tool, not a Streamlit page:
-- `audio/`, `video/`, `image/`, `text/` — media processing
-- `google/`, `notion/`, `linkedin/`, `smart_life/`, `excel/` — API integrations and platform automations
-- `system/` — OS-level maintenance and setup
-- `html/` — small web utilities
-- `.venv/` — shared virtual environment at repo root (gitignored)
-- `requirements.txt`, `README.md`, `.env`, `.env.sample` at repo root
-
-The `/app/` + `/src/` convention from the common section applies **only if** a new Streamlit app is added, and then it lives inside its own subfolder (e.g. `notion/dashboard/app/`), not at the repo root.
-
-### Shell and paths
-- Default shell: PowerShell 7+. Use Windows backslashes in paths.
-- Invoke Python via `& ".\.venv\Scripts\python.exe" path\to\script.py` — never activate the venv.
+## This repository
+Personal automation monorepo: independent Python scripts and small tools across multiple domains (audio, video, image, google, notion, linkedin, system, etc.) on Windows + PowerShell.
+See `README.md` for setup, layout, and usage.

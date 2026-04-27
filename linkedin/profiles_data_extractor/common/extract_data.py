@@ -19,7 +19,7 @@ def main():
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("🚀 Start Chrome Debug", type="primary", use_container_width=True):
+        if st.button("🚀 Start Chrome Debug", type="primary", width="stretch"):
             with st.spinner("Starting Chrome with debugging..."):
                 try:
                     # Start Chrome directly with debugging enabled
@@ -65,7 +65,7 @@ def main():
                     st.error(f"❌ Error starting Chrome debug: {e}")
 
     with col2:
-        if st.button("🔍 Check Chrome Status", use_container_width=True):
+        if st.button("🔍 Check Chrome Status", width="stretch"):
             try:
                 # Try to connect to Chrome debug port
                 import requests
@@ -100,7 +100,7 @@ def main():
     col_orch1, col_orch2 = st.columns(2)
 
     with col_orch1:
-        if st.button("🚀 Run extractor and merger (max 50 tabs)", type="primary", use_container_width=True):
+        if st.button("🚀 Run extractor and merger (max 50 tabs)", type="primary", width="stretch"):
             with st.spinner("Launching DevTools Orchestrator..."):
                 try:
                     # Path to the orchestrator batch file - use absolute path from project root
@@ -127,7 +127,7 @@ def main():
                     st.error(f"❌ Error launching orchestrator: {e}")
 
     with col_orch2:
-        if st.button("📊 Open Excel File", use_container_width=True):
+        if st.button("📊 Open Excel File", width="stretch"):
             try:
                 # Get the Excel file path from config
                 config_path = Path(__file__).parent / "linkedin_profiles_data.json"
@@ -153,7 +153,7 @@ def main():
     col_orch3, col_orch4 = st.columns(2)
 
     with col_orch3:
-        if st.button("💾 Save JSON format and run", use_container_width=True):
+        if st.button("💾 Save JSON format and run", width="stretch"):
             with st.spinner("Launching orchestrator with format save..."):
                 try:
                     # Path to the orchestrator Python script

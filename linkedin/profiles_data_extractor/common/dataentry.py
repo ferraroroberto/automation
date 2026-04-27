@@ -585,7 +585,7 @@ def main():
         """)
     
     with col_format_btn:
-        if st.button("🎨 Apply Formatting", type="primary", use_container_width=True):
+        if st.button("🎨 Apply Formatting", type="primary", width="stretch"):
             json_path = Path(__file__).parent / "excel_format_spec.json"
             if not json_path.exists():
                 st.error("❌ Format specification file not found!")
