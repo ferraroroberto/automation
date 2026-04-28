@@ -32,7 +32,13 @@ ordering. This app lets you:
 ```
 illustration-color-edit/
 ├── app/
-│   └── app.py              # Streamlit entry point (thin scaffolding + tab routing)
+│   ├── app.py              # Streamlit entry point (scaffolding + tab routing)
+│   ├── common.py           # shared Streamlit helpers (swatches, badges, caching)
+│   ├── tab_library.py      # Library tab
+│   ├── tab_editor.py       # Editor tab (side-by-side preview, suggestions)
+│   ├── tab_global_map.py   # Global Map tab
+│   ├── tab_batch.py        # Batch Export tab
+│   └── tab_settings.py     # Settings tab
 ├── src/
 │   ├── svg_parser.py       # extract colors, parse <style> blocks, normalize
 │   ├── color_mapper.py     # exact + nearest-color matching, suggestion engine
