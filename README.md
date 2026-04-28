@@ -16,6 +16,7 @@ automation/
 ├── 📁 google/          # Gmail, Drive, and Google Photos automation
 ├── 📁 html/            # HTML utilities (e.g. countdown timer)
 ├── 📁 image/           # Image processing, formatting, and Instagram tools
+├── 📁 launcher/        # Flask remote launcher (phone → host via Tailscale)
 ├── 📁 linkedin/        # LinkedIn automation, IP checking, and profile data extraction
 ├── 📁 notion/          # Notion API integration and database management
 ├── 📁 smart_life/      # Smart Life / IoT device automation
@@ -162,6 +163,154 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 ### 🏠 Smart Life / IoT (`smart_life/`)
 
 - Device automation (e.g. **`despacho_switch.bat`**) and configuration via `devices.sample.json`
+
+### 📱 Remote Launcher (`launcher/`)
+
+A password-protected Flask web UI that lets you start projects on the host machine from your phone over Tailscale.
+
+**`launcher.py`** — discovers every `*remote*.bat` in the parent directory, presents them as buttons, and spawns the selected one in a new CMD window on the host.
+
+#### Running the launcher
+
+**Headless (terminal only):**
+```powershell
+& .\.venv\Scripts\python.exe launcher\launcher.py
+```
+
+**System-tray GUI** (server starts automatically; double-click the icon to open the status + log window):
+```powershell
+& .\.venv\Scripts\python.exe launcher\tray.py
+```
+
+Required `.env` keys:
+
+```env
+LAUNCHER_PASSWORD=your_login_password
+LAUNCHER_SECRET_KEY=a_long_random_string
+
+# Optional overrides
+LAUNCHER_PROJECTS_DIR=C:\path\to\bat\files   # default: parent of this repo
+LAUNCHER_PORT=5050
+LAUNCHER_HOST=0.0.0.0
+```
+
+#### Enabling HTTPS via Tailscale (recommended)
+
+Tailscale issues free, browser-trusted TLS certificates for every device on your tailnet. Follow these steps once; the whole process takes about five minutes.
+
+---
+
+**Step 1 — Enable MagicDNS in the Tailscale admin console**
+
+1. Open <https://login.tailscale.com/admin/dns> in a browser.
+2. Under the **Nameservers** section, look for the **MagicDNS** toggle and switch it on.
+   - MagicDNS gives every device on your tailnet a stable `*.ts.net` hostname instead of a bare IP address.
+
+---
+
+**Step 2 — Enable HTTPS Certificates**
+
+On the same DNS settings page, scroll down to the **HTTPS Certificates** section and click **Enable HTTPS**.
+
+> If you don't see this section, your account may need to be on a paid plan — check the Tailscale pricing page.
+
+---
+
+**Step 3 — Find your device's MagicDNS hostname**
+
+Run this in a PowerShell or CMD window on the host machine:
+
+```powershell
+tailscale status
+```
+
+Look for the line that starts with your machine's name. The full hostname is in the last column and ends in `.ts.net`, e.g.:
+
+```
+100.x.y.z   your-pc   your-account@  windows  -
+```
+
+The MagicDNS hostname will be `your-pc.tail1234.ts.net` (the exact middle segment is your tailnet name, visible in the Tailscale admin under **Settings → General**).
+
+Alternatively, run:
+
+```powershell
+tailscale status --json | python -c "import sys,json; s=json.load(sys.stdin); print(s['Self']['DNSName'].rstrip('.'))"
+```
+
+This prints the full hostname directly, e.g. `your-pc.tail1234.ts.net`.
+
+---
+
+**Step 4 — Create the `certificates/` folder and request the certificate**
+
+Create the folder inside the repo root (it is already in `.gitignore`):
+
+```powershell
+mkdir certificates
+```
+
+Then request the certificate — Tailscale writes both files into the current directory, so run from that folder:
+
+```powershell
+cd certificates
+tailscale cert your-pc.tail1234.ts.net
+```
+
+> **Important:** Steps 1 and 2 (MagicDNS + HTTPS Certificates) must be completed in the admin console *before* running this command. If you run `tailscale cert` first, Tailscale issues a self-signed certificate that browsers will reject with an "untrusted" or "not secure" warning. If that happened, delete both files in `certificates/` and re-run `tailscale cert` now that HTTPS is enabled.
+
+You should see output like:
+
+```
+Wrote public cert to your-pc.tail1234.ts.net.crt
+Wrote private key to your-pc.tail1234.ts.net.key
+```
+
+Two files are now in `certificates/`:
+
+| File | Contents |
+|------|----------|
+| `your-pc.tail1234.ts.net.crt` | Certificate chain (public, safe to share) |
+| `your-pc.tail1234.ts.net.key` | Private key — **keep this secret** |
+
+> If `tailscale cert` is not found, Tailscale may not be on your PATH. Try the full path, usually `"C:\Program Files\Tailscale\tailscale.exe" cert ...`
+
+---
+
+**Step 5 — Add the paths to `.env`**
+
+Open the root `.env` file and add (use your actual hostname):
+
+```env
+LAUNCHER_SSL_CERT=certificates\your-pc.tail1234.ts.net.crt
+LAUNCHER_SSL_KEY=certificates\your-pc.tail1234.ts.net.key
+```
+
+Paths are relative to where you run the launcher from (the repo root). Absolute paths work too.
+
+> Both variables must be set together. Setting only one causes the launcher to exit immediately with an error message.
+
+---
+
+**Step 6 — Start the launcher and verify**
+
+```powershell
+& .\.venv\Scripts\python.exe launcher\tray.py
+```
+
+The tray icon turns green and the log shows:
+
+```
+ℹ️ Launcher serving on https://0.0.0.0:5050
+```
+
+Open `https://your-pc.tail1234.ts.net:5050` from your phone (connected to the same Tailscale network). The browser should show a padlock with no warnings. If it warns about an untrusted certificate, double-check that HTTPS was enabled in Step 2 before you ran `tailscale cert`.
+
+---
+
+**Certificate renewal**
+
+Tailscale certificates expire after **~90 days**. To renew, `cd` into the `certificates/` folder and re-run `tailscale cert your-pc.tail1234.ts.net` — it overwrites the files in place. Restart the launcher to pick up the new certificate.
 
 ## 🚀 Quick Start
 

@@ -36,6 +36,9 @@ notion/articles_sync/notion_articles_sync_last_time.txt
 tmp*
 streamlit_demo/data/*
 
+# TLS certificates (e.g. from tailscale cert — never commit private keys)
+certificates/
+
 # claude
 .claude/settings.local.json
 

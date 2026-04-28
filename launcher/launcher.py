@@ -13,6 +13,14 @@ Configuration via root ``.env``:
                               parent of the automation repo root.
     LAUNCHER_PORT           - optional, defaults to 5050
     LAUNCHER_HOST           - optional, defaults to 0.0.0.0
+    LAUNCHER_SSL_CERT       - optional, path to TLS certificate file
+                              (e.g. from ``tailscale cert``). Both
+                              LAUNCHER_SSL_CERT and LAUNCHER_SSL_KEY must
+                              be set together; setting only one is an error.
+    LAUNCHER_SSL_KEY        - optional, path to TLS private key file.
+                              When both SSL vars are set the server runs
+                              HTTPS only; SESSION_COOKIE_SECURE is enabled
+                              automatically.
 """
 
 from __future__ import annotations
@@ -66,11 +74,20 @@ PROJECTS_DIR = Path(os.environ.get("LAUNCHER_PROJECTS_DIR") or DEFAULT_PROJECTS_
 PORT = int(os.environ.get("LAUNCHER_PORT", "5050"))
 HOST = os.environ.get("LAUNCHER_HOST", "0.0.0.0")
 
+_SSL_CERT = os.environ.get("LAUNCHER_SSL_CERT")
+_SSL_KEY = os.environ.get("LAUNCHER_SSL_KEY")
+if bool(_SSL_CERT) != bool(_SSL_KEY):
+    log.error("❌ Set both LAUNCHER_SSL_CERT and LAUNCHER_SSL_KEY, or neither.")
+    sys.exit(1)
+USE_HTTPS: bool = bool(_SSL_CERT and _SSL_KEY)
+SSL_CONTEXT: Optional[tuple] = (_SSL_CERT, _SSL_KEY) if USE_HTTPS else None
+
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=USE_HTTPS,
 )
 
 
@@ -215,9 +232,10 @@ def _resolve_project(filename: str) -> Optional[dict]:
 
 
 def main() -> None:
-    log.info("ℹ️ Launcher serving on %s:%s", HOST, PORT)
+    scheme = "https" if USE_HTTPS else "http"
+    log.info("ℹ️ Launcher serving on %s://%s:%s", scheme, HOST, PORT)
     log.info("ℹ️ Scanning for *remote*.bat in %s", PROJECTS_DIR)
-    app.run(host=HOST, port=PORT, debug=False)
+    app.run(host=HOST, port=PORT, debug=False, ssl_context=SSL_CONTEXT)
 
 
 if __name__ == "__main__":
