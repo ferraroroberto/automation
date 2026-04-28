@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import queue
+import socket
 import sys
 import threading
 import tkinter as tk
@@ -212,6 +213,10 @@ class TrayApp:
     def _setup(self, icon: pystray.Icon) -> None:
         """Called by pystray in a background thread once the icon is ready."""
         icon.visible = True
+        if self._port_in_use():
+            icon.notify("Launcher server is already running.", "Already Running")
+            icon.stop()
+            return
         self._root = tk.Tk()
         self._root.withdraw()
         self._root.after(200, self._drain_logs)
@@ -219,6 +224,11 @@ class TrayApp:
         self._root.mainloop()
         # mainloop exits → stop the icon (causes icon.run() to return)
         icon.stop()
+
+    def _port_in_use(self) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            return s.connect_ex(("127.0.0.1", PORT)) == 0
 
     def run(self) -> None:
         """Block until quit. pystray message pump runs in the calling thread."""
