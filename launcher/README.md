@@ -109,6 +109,12 @@ To make the CMD window invisible at startup, change the action to launch `python
 ## Files
 
 - `launcher.py` — Flask app
+- `tray.py` — system-tray wrapper; starts the Flask server in a background thread and shows a green dot icon in the notification area
 - `templates/login.html`, `templates/index.html` — UI
-- `launch_launcher.bat` — startup script for Task Scheduler
+- `launcher.bat` — start launcher + tray (use this normally)
+- `tray.bat` — start tray only
 - `README.md` — this file
+
+## Duplicate-launch guard
+
+`tray.py` checks whether the server port is already in use before starting. If a launcher is already running, a Windows balloon notification appears ("Already Running — Launcher server is already running.") and the second instance exits immediately. No duplicate servers, no duplicate tray icons.
