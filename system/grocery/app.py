@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import platform
+import socket
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -79,6 +80,23 @@ def open_inventory_spreadsheet() -> None:
         logger.error("Open spreadsheet failed: %s", e)
 
 
+def get_local_ip() -> str:
+    """Return the LAN IP of this machine."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "localhost"
+
+
+def copy_to_clipboard(text: str) -> None:
+    """Copy text to Windows clipboard via clip.exe."""
+    subprocess.Popen(["clip"], stdin=subprocess.PIPE).communicate(input=text.encode("utf-8"))
+
+
 # Constants from config
 COLUMNS = CONFIG["data"]["columns"]
 MODES = CONFIG["ui"]["modes"]
@@ -124,6 +142,46 @@ section[data-testid="stSidebar"] .block-container {
 .stRadio > div { gap: 0.1rem !important; }
 /* Compact selectbox */
 [data-testid="stSelectbox"] { margin-bottom: 0.2rem !important; }
+/* Mobile landscape hint — hidden on desktop */
+.mobile-landscape-hint { display: none; }
+@media (max-width: 768px) {
+    .mobile-landscape-hint {
+        display: block;
+        padding: 0.3rem 0.6rem;
+        margin-bottom: 0.4rem;
+        font-size: 0.78rem;
+        color: #aaa;
+        background: rgba(255,255,255,0.05);
+        border-left: 2px solid #555;
+        border-radius: 2px;
+    }
+}
+/* Mobile: keep columns in a single row, shrink buttons/text to fit */
+@media (max-width: 768px) {
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 0.1rem !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        min-width: 0 !important;
+        overflow: hidden;
+    }
+    [data-testid="stHorizontalBlock"] .stButton > button {
+        padding: 0.15rem 0.2rem !important;
+        font-size: 0.75rem !important;
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+    [data-testid="stHorizontalBlock"] p,
+    [data-testid="stHorizontalBlock"] strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.82rem !important;
+        margin: 0 !important;
+    }
+}
 </style>
 """
 
@@ -257,6 +315,10 @@ def _buy_html(qty: int) -> str:
 
 def render_audit_mode(df: pd.DataFrame) -> pd.DataFrame:
     """Render the audit mode interface."""
+    st.markdown(
+        "<div class='mobile-landscape-hint'>📐 Rotate to landscape for best experience</div>",
+        unsafe_allow_html=True,
+    )
     zones = get_unique_zones(df)
     selected_zone = st.selectbox("Zone", zones, label_visibility="collapsed")
 
@@ -736,6 +798,11 @@ def main():
             width="stretch",
         ):
             open_inventory_spreadsheet()
+
+        local_url = f"http://{get_local_ip()}:8501"
+        if st.button("📋 Copy link", help=f"Copies {local_url} to clipboard — paste in Telegram to open on mobile.", width="stretch"):
+            copy_to_clipboard(local_url)
+            st.success("✓ Copied!")
 
         st.divider()
 

@@ -7,9 +7,9 @@ Mobile-responsive Streamlit application for managing household grocery inventory
 Comprehensive household inventory management across multiple operational modes. Audit current stock room-by-room, edit target quantities, track shopping in real time, and add on-the-fly items directly to the shopping list.
 
 **Key Features:**
-- Mobile-optimized interface with touch-friendly controls
-- Room-by-room inventory auditing with auto-save
-- Shopping list grouped by supermarket with per-store progress bars
+- Mobile access over local Wi-Fi — use the **Copy link** button in the sidebar to get the URL and open it on your phone
+- Room-by-room inventory auditing with auto-save (best done from mobile)
+- Shopping list grouped by supermarket with per-store progress bars (best done from desktop)
 - Cart offset counters to account for items already in the cart
 - Quick-add items (name + quantity) to any supermarket's shopping list
 - Excel-based data storage with automatic calculations
@@ -38,6 +38,19 @@ cd E:\automation\automation\system\grocery
 streamlit run app.py
 ```
 
+### Mobile Access (same Wi-Fi network)
+The app binds to all network interfaces automatically. To open it on your phone:
+1. Launch `launcher.bat` on the PC as usual
+2. Click **📋 Copy link** in the sidebar — this copies `http://<local-ip>:8501` to the clipboard
+3. Paste the URL into Telegram (or any messaging app) and open it on your phone
+
+> **Firewall:** if the phone cannot connect on first use, run this once in PowerShell (admin):
+> ```powershell
+> New-NetFirewallRule -DisplayName "Streamlit Grocery" -Direction Inbound -Protocol TCP -LocalPort 8501 -Action Allow
+> ```
+
+> **Audit mode on mobile:** rotate your phone to **landscape** for the best layout — the row-per-item grid fits without horizontal scrolling.
+
 ## ⚙️ Configuration
 
 Edit `config.json` to customize:
@@ -63,6 +76,7 @@ Excel file columns:
 
 ### 🔍 Audit Inventory
 Walk through each zone of the house, update current stock levels with ±1 buttons. Auto-saves every change to Excel.
+Best done from mobile — rotate to **landscape** for optimal layout.
 
 ### ✏️ Edit Targets
 Set or adjust target quantities per item. Auto-saves every change.
