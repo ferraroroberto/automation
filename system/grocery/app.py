@@ -804,6 +804,9 @@ def main():
             copy_to_clipboard(local_url)
             st.success("✓ Copied!")
 
+        if st.button("🔴 Close app", help="Stop the Streamlit server.", width="stretch"):
+            os._exit(0)
+
         st.divider()
 
         mode_options = list(MODES.keys())
