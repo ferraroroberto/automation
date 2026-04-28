@@ -166,6 +166,10 @@ pywin32>=306
 # NETWORKING AND WEB
 # =============================================================================
 
+# Web framework for the remote project launcher
+# Source: launcher/launcher.py
+flask>=3.0.0
+
 # HTTP library for API requests
 # Source: Various modules for web interactions
 requests>=2.31.0

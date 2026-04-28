@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0f1115">
+    <title>Launcher</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            background: #0f1115;
+            color: #e7e9ee;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+        }
+        .wrap {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 16px 0 48px;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 22px;
+            margin: 0;
+            font-weight: 600;
+        }
+        .meta {
+            font-size: 12px;
+            color: #6b7388;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+        .flash {
+            margin: 0 0 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+        }
+        .flash.error { background: #3a1d22; color: #ffb4b4; border: 1px solid #5a2630; }
+        .flash.success { background: #18331f; color: #b6f0c4; border: 1px solid #235a32; }
+        .empty {
+            padding: 24px;
+            background: #161922;
+            border: 1px dashed #2a2f42;
+            border-radius: 12px;
+            color: #8b93a7;
+            text-align: center;
+            font-size: 14px;
+        }
+        form.launch { margin: 0 0 12px; }
+        button.project {
+            width: 100%;
+            padding: 18px 20px;
+            font-size: 17px;
+            font-weight: 600;
+            color: #fff;
+            background: #1c2030;
+            border: 1px solid #2a2f42;
+            border-radius: 14px;
+            cursor: pointer;
+            text-align: left;
+            min-height: 64px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        button.project:active { background: #232842; }
+        button.project .filename {
+            font-size: 12px;
+            color: #6b7388;
+            font-weight: 400;
+        }
+        .logout {
+            background: transparent;
+            border: 0;
+            color: #6b7388;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 6px 8px;
+        }
+        .logout:active { color: #e7e9ee; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header>
+            <div>
+                <h1>Projects</h1>
+                <div class="meta">{{ projects_dir }}</div>
+            </div>
+            <form method="post" action="{{ url_for('logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="logout" type="submit">Sign out</button>
+            </form>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        {% if projects %}
+            {% for project in projects %}
+                <form class="launch" method="post" action="{{ url_for('launch') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="name" value="{{ project.filename }}">
+                    <button class="project" type="submit">
+                        <span>{{ project.name }}</span>
+                        <span class="filename">{{ project.filename }}</span>
+                    </button>
+                </form>
+            {% endfor %}
+        {% else %}
+            <div class="empty">
+                No <code>*remote*.bat</code> files found in the projects directory.
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
