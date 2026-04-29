@@ -17,7 +17,10 @@ Comprehensive household inventory management across multiple operational modes. 
 
 ## 🏗️ Project Structure
 
-- **app.py** — Main Streamlit application with all operational modes
+- **app.py** — Entry point: page config, session state, sidebar, mode routing
+- **data.py** — Config, XLSX load/save, supermarket stats, quantity mutators
+- **ui_helpers.py** — CSS, inline HTML formatters, sidebar utility actions
+- **audit.py / edit_targets.py / edit_item.py / add_item.py / shopping.py / export.py** — One file per mode, each exposing `main(df)`
 - **config.json** — Application configuration and UI settings
 - **launcher.bat** — Windows batch file for easy app launching
 - **.streamlit/config.toml** — Streamlit theme customization
