@@ -1,0 +1,14 @@
+{
+  "trigger_vk": 134,
+  "modifier_vks": [
+    91,
+    160
+  ],
+  "target_vk": 163,
+  "_human_chord": [
+    "LWin",
+    "LShift",
+    "F23"
+  ],
+  "_human_target": "RCtrl"
+}
