@@ -1,0 +1,10 @@
+{
+    "url": "https://view.genially.com/<your-genially-id>",
+    "output_dir": "E:\\tmp",
+    "output_stem": "genially_profiles",
+    "html_title": "Alumnxs",
+    "download_photos": true,
+    "write_html": true,
+    "save_raw": false,
+    "verbose": false
+}

@@ -8,6 +8,7 @@ google/client_secret.json
 google/token*.json
 system/quickdeck/quickdeck.json
 linkedin/open_profiles/linkedin_open.json
+linkedin/genially_profiles_extractor/config.json
 smart_life/devices.json
 smart_life/snapshot.json
 smart_life/cloud.json
