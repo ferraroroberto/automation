@@ -120,7 +120,7 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`keycaster.py`** - Keyboard input automation and monitoring
 - **`quickdeck/`** - Quick Deck / Stream Deck integration
 - **`textexpander/`** - Text expander and prompt templates
-- **`wifi/`** - Wi‑Fi password retrieval and connection scripts
+- **`wifi/`** - Wi‑Fi connection scripts, saved‑password export, BAT generator GUI, and network device scanner — see [`system/wifi/README.md`](system/wifi/README.md)
 - **`apple/`** - Apple-related conversion and utilities
 
 **File & Document Operations**

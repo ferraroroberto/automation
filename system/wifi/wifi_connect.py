@@ -14,7 +14,7 @@ def connect_to_wifi():
         script_directory = os.path.dirname(os.path.abspath(__file__))
 
         # Path to the Wi-Fi profile XML file
-        xml_profile_path = os.path.join(script_directory, 'connectwifi.xml')
+        xml_profile_path = os.path.join(script_directory, 'wifi_connect.xml')
 
         # Parse the XML file to get the SSID
         tree = ET.parse(xml_profile_path)
