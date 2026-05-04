@@ -35,12 +35,24 @@
     },
     "modes": {
       "audit": "🔍 Audit Inventory",
+      "audio_audit": "🎙️ Audio Audit",
       "edit": "✏️ Edit Targets",
       "edit_item": "🔧 Edit Item",
       "add_item": "➕ Add Item",
       "shopping": "🛒 Shopping List",
       "export": "💾 Save/Export"
     }
+  },
+  "audio_audit": {
+    "whisper_url": "http://127.0.0.1:8090",
+    "whisper_model": "whisper-large-v3-turbo",
+    "language": "es",
+    "llm_base_url": "http://127.0.0.1:8000",
+    "llm_model": "claude-haiku-4-5",
+    "llm_max_tokens": 4096,
+    "max_count_clamp_above_target": 5,
+    "logs_dir": "audio_audit_logs",
+    "test_fixture_path": "test_data/list_test_fixture.xlsx"
   },
   "logging": {
     "level": "INFO",

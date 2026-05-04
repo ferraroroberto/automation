@@ -151,3 +151,54 @@ def update_target_quantity(df: pd.DataFrame, item_index: int, delta: int) -> pd.
         return df
     logger.debug(f"Updated target for item {item_index}: cantidad={new_target}")
     return df
+
+
+def bulk_apply_tenemos(
+    df: pd.DataFrame,
+    updates: Dict[int, int],
+    save: bool = True,
+    xlsx_path: Optional[str] = None,
+) -> pd.DataFrame:
+    """Apply many tenemos updates in one pass and (optionally) save once.
+
+    `updates` maps DataFrame index → new tenemos value. Negative values are
+    clamped to 0. `comprar` is recomputed for each touched row. Atomic: if
+    the save fails, the original tenemos/comprar values are restored.
+
+    `xlsx_path` overrides the configured file path — used by tests against the
+    fixture so the live spreadsheet is never written.
+    """
+    if not updates:
+        return df
+
+    snapshot: Dict[int, tuple] = {}
+    for idx, new_val in updates.items():
+        snapshot[idx] = (
+            int(df.at[idx, COLUMNS["tenemos"]]),
+            int(df.at[idx, COLUMNS["comprar"]]),
+        )
+        clamped = max(0, int(new_val))
+        df.at[idx, COLUMNS["tenemos"]] = clamped
+        df.at[idx, COLUMNS["comprar"]] = max(
+            0, int(df.at[idx, COLUMNS["cantidad"]]) - clamped
+        )
+
+    if not save:
+        logger.debug(f"Bulk-updated {len(updates)} rows in memory (no save)")
+        return df
+
+    target_path = xlsx_path or CONFIG["data"]["xlsx_file"]
+    try:
+        df.to_excel(target_path, index=False, engine="openpyxl")
+        logger.info(f"✅ Bulk applied {len(updates)} tenemos updates to {target_path}")
+        return df
+    except Exception as e:
+        logger.error(f"Bulk save failed, rolling back {len(updates)} rows: {e}")
+        for idx, (old_t, old_c) in snapshot.items():
+            df.at[idx, COLUMNS["tenemos"]] = old_t
+            df.at[idx, COLUMNS["comprar"]] = old_c
+        if _is_spreadsheet_lock_error(e):
+            st.warning(f"Could not save. {_SPREADSHEET_LOCKED_HINT}")
+        else:
+            st.error(f"❌ Error saving inventory data: {e}")
+        return df

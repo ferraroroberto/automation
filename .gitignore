@@ -42,6 +42,12 @@ certificates/
 
 # claude
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # notion articles sync
 notion/articles_sync/notion_articles_sync_last_time.txt
+
+# grocery audio-audit runtime + private fixture data
+system/grocery/audio_audit_logs/
+system/grocery/test_data/list_test_fixture.xlsx
+system/grocery/test_data/smoke_phase2_result.json

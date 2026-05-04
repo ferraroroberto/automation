@@ -16,6 +16,7 @@ import os
 import streamlit as st
 
 import add_item
+import audio_audit
 import audit
 import edit_item
 import edit_targets
@@ -148,6 +149,8 @@ def main() -> None:
 
     if mode == "audit":
         st.session_state.inventory_data = audit.main(df)
+    elif mode == "audio_audit":
+        st.session_state.inventory_data = audio_audit.main(df)
     elif mode == "edit":
         st.session_state.inventory_data = edit_targets.main(df)
     elif mode == "edit_item":

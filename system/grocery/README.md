@@ -81,6 +81,11 @@ Excel file columns:
 Walk through each zone of the house, update current stock levels with ±1 buttons. Auto-saves every change to Excel.
 Best done from mobile — rotate to **landscape** for optimal layout.
 
+### 🎙️ Audio Audit
+Walk the house dictating the inventory in Spanish (*"ahora en la nevera, dos yogures, un litro de leche…"*). The audio is transcribed by the local whisper-server and matched against the inventory by the local LLM hub — same `claude-local-calls` services that power the rest of this monorepo. See [`audio_audit.md`](audio_audit.md) for recording technique, configuration, and troubleshooting.
+
+> **Pre-requisites:** the hub on `:8000` and whisper-server on `:8090` must be running. Start them via `E:\automation\claude-local-calls\run_hub.bat` and `launchers\run_whisper.bat`, or its tray launcher.
+
 ### ✏️ Edit Targets
 Set or adjust target quantities per item. Auto-saves every change.
 
