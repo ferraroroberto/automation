@@ -169,6 +169,13 @@ def build_bat(ssid: str, profile_xml: str) -> str:
         "    goto :end\n"
         ")\n"
         "\n"
+        "REM --- If profile already exists in any scope, skip add and connect ---\n"
+        'netsh wlan show profile name="%TARGET_SSID%" >nul 2>&1\n'
+        "if not errorlevel 1 (\n"
+        "    echo Profile \"%TARGET_SSID%\" already exists, connecting...\n"
+        "    goto :connect\n"
+        ")\n"
+        "\n"
         "REM --- Write base64 payload, decode to XML, add profile, connect ---\n"
         '> "%PROFILE_B64%" (\n'
         f"{echo_block}\n"
@@ -177,8 +184,9 @@ def build_bat(ssid: str, profile_xml: str) -> str:
         "if errorlevel 1 ( echo Failed to decode profile. & goto :cleanup )\n"
         "\n"
         'netsh wlan add profile filename="%PROFILE_XML%" user=current\n'
-        "if errorlevel 1 ( echo Failed to add Wi-Fi profile. & goto :cleanup )\n"
+        "if errorlevel 1 ( echo Could not add profile, attempting connect with existing profile... )\n"
         "\n"
+        ":connect\n"
         'netsh wlan connect name="%TARGET_SSID%"\n'
         "if errorlevel 1 ( echo Failed to connect to %TARGET_SSID%. & goto :cleanup )\n"
         "\n"
