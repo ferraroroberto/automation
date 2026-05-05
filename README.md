@@ -166,9 +166,9 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 
 ### 📱 Remote Launcher (`launcher/`)
 
-A password-protected Flask web UI that lets you start projects on the host machine from your phone over Tailscale.
+A Flask web UI (password optional) that lets you start projects on the host machine from your phone over Tailscale.
 
-**`launcher.py`** — discovers every `*remote*.bat` in the parent directory, presents them as buttons, and spawns the selected one in a new CMD window on the host.
+**`launcher.py`** — discovers every `*remote*.bat` in the parent directory, presents them as buttons, and spawns the selected one in a new CMD window on the host. A **Generate BAT files** page (`/generate`) keeps `*-remote.bat` files in sync with `.code-workspace` files — add a workspace, hit Generate, done.
 
 #### Running the launcher
 
