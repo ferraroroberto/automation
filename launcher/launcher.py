@@ -1,12 +1,14 @@
 """Flask-based remote project launcher.
 
-Serves a small password-protected web UI (intended to be reached over
-Tailscale from a phone) that lists every ``*remote*.bat`` file in the
-parent directory of this repo and launches the selected one in a new
-visible CMD window on the host machine.
+Serves a web UI (optionally password-protected) intended to be reached over
+Tailscale from a phone.  Lists every ``*remote*.bat`` file in the parent
+directory of this repo and launches the selected one in a new visible CMD
+window on the host machine.
 
 Configuration via root ``.env``:
-    LAUNCHER_PASSWORD       - required, plaintext password for the login form
+    LAUNCHER_PASSWORD       - optional, plaintext password for the login form.
+                              When unset, auth is disabled and the launcher is
+                              accessible without logging in.
     LAUNCHER_SECRET_KEY     - required, Flask session signing key
     LAUNCHER_PROJECTS_DIR   - optional, override for the directory scanned
                               for ``*remote*.bat`` files. Defaults to the
@@ -68,7 +70,8 @@ def _require_env(name: str) -> str:
     return value
 
 
-PASSWORD = _require_env("LAUNCHER_PASSWORD")
+PASSWORD: Optional[str] = os.environ.get("LAUNCHER_PASSWORD") or None
+AUTH_ENABLED: bool = PASSWORD is not None
 SECRET_KEY = _require_env("LAUNCHER_SECRET_KEY")
 PROJECTS_DIR = Path(os.environ.get("LAUNCHER_PROJECTS_DIR") or DEFAULT_PROJECTS_DIR).resolve()
 PORT = int(os.environ.get("LAUNCHER_PORT", "5050"))
@@ -139,6 +142,8 @@ def _check_csrf() -> None:
 
 
 def _is_authed() -> bool:
+    if not AUTH_ENABLED:
+        return True
     return bool(session.get("authed"))
 
 
@@ -179,9 +184,11 @@ def login():
 
 @app.post("/login")
 def login_post():
+    if not AUTH_ENABLED:
+        return redirect(url_for("index"))
     _check_csrf()
     submitted = request.form.get("password", "")
-    if hmac.compare_digest(submitted, PASSWORD):
+    if hmac.compare_digest(submitted, PASSWORD or ""):
         session.clear()
         session["authed"] = True
         session["csrf_token"] = secrets.token_urlsafe(32)
@@ -235,6 +242,8 @@ def main() -> None:
     scheme = "https" if USE_HTTPS else "http"
     log.info("ℹ️ Launcher serving on %s://%s:%s", scheme, HOST, PORT)
     log.info("ℹ️ Scanning for *remote*.bat in %s", PROJECTS_DIR)
+    if not AUTH_ENABLED:
+        log.warning("⚠️ Password auth is DISABLED (LAUNCHER_PASSWORD not set)")
     app.run(host=HOST, port=PORT, debug=False, ssl_context=SSL_CONTEXT)
 
 
