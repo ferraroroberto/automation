@@ -36,7 +36,7 @@ def _render_sidebar() -> None:
         ):
             open_inventory_spreadsheet()
 
-        local_url = f"http://{get_local_ip()}:8501"
+        local_url = f"https://{get_local_ip()}:8501"
         if st.button(
             "📋 Copy link",
             help=f"Copies {local_url} to clipboard — paste in Telegram to open on mobile.",

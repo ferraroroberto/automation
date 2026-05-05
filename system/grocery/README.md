@@ -44,7 +44,7 @@ streamlit run app.py
 ### Mobile Access (same Wi-Fi network)
 The app binds to all network interfaces automatically. To open it on your phone:
 1. Launch `launcher.bat` on the PC as usual
-2. Click **📋 Copy link** in the sidebar — this copies `http://<local-ip>:8501` to the clipboard
+2. Click **📋 Copy link** in the sidebar — this copies `https://<local-ip>:8501` to the clipboard
 3. Paste the URL into Telegram (or any messaging app) and open it on your phone
 
 > **Firewall:** if the phone cannot connect on first use, run this once in PowerShell (admin):
@@ -53,6 +53,27 @@ The app binds to all network interfaces automatically. To open it on your phone:
 > ```
 
 > **Audit mode on mobile:** rotate your phone to **landscape** for the best layout — the row-per-item grid fits without horizontal scrolling.
+
+### HTTPS setup (required for microphone access on mobile)
+
+Mobile browsers block microphone access on plain HTTP. The app is configured to serve over HTTPS using a self-signed certificate stored in `certificates/` (gitignored).
+
+**First-time setup** (run once from the grocery folder):
+```powershell
+& e:\automation\automation\.venv\Scripts\python.exe gen_ssl_cert.py
+```
+
+This detects all local IP addresses (LAN + Tailscale) and writes three files to `certificates/` (valid 10 years):
+- `ca.pem` — local CA certificate, installed into Windows `CurrentUser\Root` (no admin required)
+- `cert.pem` — server certificate signed by that CA (used by Streamlit)
+- `key.pem` — server private key (used by Streamlit)
+
+Chrome and Edge on this PC will show no security warning because the CA is trusted.
+
+**Accepting the cert on mobile (one-time per device):**  
+Open `https://<local-ip>:8501` — the browser will warn "Not secure". Tap **Advanced → Proceed to … (unsafe)**. You won't be asked again on that device.
+
+**If your PC's IP changes**, regenerate and reinstall with the same command above, then restart the app.
 
 ## ⚙️ Configuration
 
@@ -123,6 +144,10 @@ Manual save to Excel or download as CSV, plus summary statistics.
 | Permission error on save | Close Excel before running the app |
 | Interface appears broken | Clear browser cache |
 | Config errors | Validate `config.json` is well-formed JSON |
+| Microphone shows "An error has occurred" on mobile | App must be opened over **HTTPS** — see HTTPS setup section above |
+| Browser says "Your connection is not private" on desktop | Re-run `python gen_ssl_cert.py` — it installs the cert into Windows trust store |
+| Browser says "Your connection is not private" on mobile | Self-signed cert warning — tap **Advanced → Proceed** once per device |
+| HTTPS cert missing / app won't start | Run `python gen_ssl_cert.py` from the grocery folder, then restart |
 
 ---
 
