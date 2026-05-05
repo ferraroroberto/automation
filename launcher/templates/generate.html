@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0f1115">
+    <title>Generate BAT files</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            background: #0f1115;
+            color: #e7e9ee;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+        }
+        .wrap {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 16px 0 48px;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        h1 { font-size: 22px; margin: 0; font-weight: 600; }
+        .back {
+            background: transparent;
+            border: 0;
+            color: #6b7388;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 6px 8px;
+            text-decoration: none;
+        }
+        .back:active { color: #e7e9ee; }
+        .flash {
+            margin: 0 0 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+        }
+        .flash.error   { background: #3a1d22; color: #ffb4b4; border: 1px solid #5a2630; }
+        .flash.success { background: #18331f; color: #b6f0c4; border: 1px solid #235a32; }
+
+        /* Options box */
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #6b7388;
+            margin: 0 0 8px;
+        }
+        .options-box {
+            background: #161922;
+            border: 1px solid #2a2f42;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 24px;
+        }
+        textarea.flags {
+            width: 100%;
+            background: transparent;
+            border: 0;
+            color: #e7e9ee;
+            font-family: "SF Mono", "Fira Mono", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: vertical;
+            outline: none;
+            min-height: 64px;
+        }
+
+        /* Item lists */
+        .section { margin-bottom: 24px; }
+        .item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            background: #161922;
+            border: 1px solid #2a2f42;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .item-text { flex: 1; }
+        .item-sub {
+            font-size: 12px;
+            color: #6b7388;
+            margin-top: 2px;
+        }
+        .badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .badge.new      { background: #18331f; color: #b6f0c4; }
+        .badge.overwrite{ background: #2a2410; color: #f5d87a; }
+        .badge.workspace{ background: #1a2035; color: #9bb8f0; }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #5b8ef0;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .empty-note {
+            padding: 14px 16px;
+            background: #161922;
+            border: 1px dashed #2a2f42;
+            border-radius: 12px;
+            color: #6b7388;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        /* Generate button */
+        .generate-btn {
+            width: 100%;
+            padding: 18px;
+            font-size: 17px;
+            font-weight: 600;
+            color: #fff;
+            background: #1e3a5f;
+            border: 1px solid #2d5a8e;
+            border-radius: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .generate-btn:active { background: #254870; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header>
+            <h1>Generate BAT files</h1>
+            <a class="back" href="{{ url_for('index') }}">← Back</a>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <form method="post" action="{{ url_for('generate_run') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <!-- Claude Code options -->
+            <div class="section">
+                <div class="section-label">Claude Code options</div>
+                <div class="options-box">
+                    <textarea class="flags" name="claude_flags" rows="2" spellcheck="false">{{ claude_flags }}</textarea>
+                </div>
+            </div>
+
+            <!-- New bat files -->
+            {% set new_ws = workspaces | rejectattr("bat_exists") | list %}
+            <div class="section">
+                <div class="section-label">New bat files — will be created ({{ new_ws | length }})</div>
+                {% if new_ws %}
+                    {% for ws in new_ws %}
+                        <div class="item">
+                            <div class="item-text">
+                                {{ ws.bat_name }}
+                                <div class="item-sub">{{ ws.project_dir }}</div>
+                            </div>
+                            <span class="badge new">new</span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-note">No new bat files to create.</div>
+                {% endif %}
+            </div>
+
+            <!-- Existing bat files (overwrite?) -->
+            {% set exist_ws = workspaces | selectattr("bat_exists") | list %}
+            <div class="section">
+                <div class="section-label">Existing bat files — overwrite? ({{ exist_ws | length }})</div>
+                {% if exist_ws %}
+                    {% for ws in exist_ws %}
+                        <label class="item">
+                            <input type="checkbox" name="overwrite" value="{{ ws.name }}">
+                            <div class="item-text">
+                                {{ ws.bat_name }}
+                                <div class="item-sub">{{ ws.project_dir }}</div>
+                            </div>
+                            <span class="badge overwrite">exists</span>
+                        </label>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-note">No existing bat files.</div>
+                {% endif %}
+            </div>
+
+            <!-- Missing workspaces (orphan bats) -->
+            <div class="section">
+                <div class="section-label">Missing workspaces — create? ({{ orphans | length }})</div>
+                {% if orphans %}
+                    {% for orphan in orphans %}
+                        <label class="item">
+                            <input type="checkbox" name="create_ws" value="{{ orphan.name }}" checked>
+                            <div class="item-text">
+                                {{ orphan.ws_name }}
+                                <div class="item-sub">{{ orphan.project_dir }}</div>
+                            </div>
+                            <span class="badge workspace">workspace</span>
+                        </label>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-note">No orphan bat files — all workspaces exist.</div>
+                {% endif %}
+            </div>
+
+            <button class="generate-btn" type="submit">Generate</button>
+        </form>
+    </div>
+</body>
+</html>

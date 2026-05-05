@@ -1,0 +1,3 @@
+{
+  "claude_flags": "--remote-control --dangerously-skip-permissions --verbose --effort high"
+}

@@ -28,8 +28,10 @@ Configuration via root ``.env``:
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -77,6 +79,9 @@ PROJECTS_DIR = Path(os.environ.get("LAUNCHER_PROJECTS_DIR") or DEFAULT_PROJECTS_
 PORT = int(os.environ.get("LAUNCHER_PORT", "5050"))
 HOST = os.environ.get("LAUNCHER_HOST", "0.0.0.0")
 
+CONFIG_PATH = LAUNCHER_DIR / "config.json"
+DEFAULT_CLAUDE_FLAGS = "--remote-control --dangerously-skip-permissions --verbose --effort high"
+
 _SSL_CERT = os.environ.get("LAUNCHER_SSL_CERT")
 _SSL_KEY = os.environ.get("LAUNCHER_SSL_KEY")
 if bool(_SSL_CERT) != bool(_SSL_KEY):
@@ -123,6 +128,122 @@ def discover_projects() -> List[dict]:
             }
         )
     return found
+
+
+def load_config() -> dict:
+    if CONFIG_PATH.exists():
+        try:
+            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {"claude_flags": DEFAULT_CLAUDE_FLAGS}
+
+
+def save_config(data: dict) -> None:
+    CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def discover_workspaces() -> List[dict]:
+    """Return workspaces paired with their derived bat info.
+
+    Each entry: name, project_dir (Path), bat_name (str), bat_exists (bool).
+    """
+    if not PROJECTS_DIR.is_dir():
+        return []
+    results = []
+    for ws in sorted(PROJECTS_DIR.glob("*.code-workspace")):
+        try:
+            data = json.loads(ws.read_text(encoding="utf-8"))
+            raw_path = data["folders"][0]["path"]
+        except Exception:
+            continue
+        project_dir = Path(raw_path)
+        if not project_dir.is_absolute():
+            project_dir = (PROJECTS_DIR / raw_path).resolve()
+        bat_name = ws.stem + "-remote.bat"
+        results.append({
+            "name": ws.stem,
+            "project_dir": project_dir,
+            "bat_name": bat_name,
+            "bat_exists": (PROJECTS_DIR / bat_name).exists(),
+        })
+    return results
+
+
+def discover_orphan_bats() -> List[dict]:
+    """Return *-remote.bat files that have no matching .code-workspace.
+
+    Each entry: name (str), project_dir (Path), bat_name (str), ws_name (str).
+    """
+    if not PROJECTS_DIR.is_dir():
+        return []
+    workspace_stems = {ws.stem for ws in PROJECTS_DIR.glob("*.code-workspace")}
+    results = []
+    for bat in sorted(PROJECTS_DIR.glob("*-remote.bat")):
+        stem = bat.stem[: -len("-remote")]
+        if stem in workspace_stems:
+            continue
+        project_dir: Optional[Path] = None
+        try:
+            for line in bat.read_text(encoding="utf-8", errors="ignore").splitlines():
+                m = re.match(r'set\s+"PROJECT_DIR=(.+)"', line.strip())
+                if m:
+                    project_dir = Path(m.group(1).strip())
+                    break
+        except Exception:
+            pass
+        if project_dir is None:
+            project_dir = PROJECTS_DIR / stem
+        results.append({
+            "name": stem,
+            "project_dir": project_dir,
+            "bat_name": bat.name,
+            "ws_name": stem + ".code-workspace",
+        })
+    return results
+
+
+def render_bat_content(project_dir: Path, flags: str) -> str:
+    d = str(project_dir)
+    return (
+        "@echo off\r\n"
+        "setlocal\r\n"
+        "\r\n"
+        ":: -----------------------------------------------\r\n"
+        ":: launch_claude_remote.bat\r\n"
+        ":: Opens Claude Code with Remote Control enabled\r\n"
+        ":: -----------------------------------------------\r\n"
+        "\r\n"
+        f'set "PROJECT_DIR={d}"\r\n'
+        "\r\n"
+        ":: -----------------------------------------------\r\n"
+        "\r\n"
+        'if not exist "%PROJECT_DIR%" (\r\n'
+        "    echo [ERROR] Folder not found: %PROJECT_DIR%\r\n"
+        "    pause\r\n"
+        "    exit /b 1\r\n"
+        ")\r\n"
+        "\r\n"
+        "echo.\r\n"
+        "echo  Starting Claude Code with Remote Control\r\n"
+        "echo  Project: %PROJECT_DIR%\r\n"
+        "echo.\r\n"
+        "\r\n"
+        'cd /d "%PROJECT_DIR%"\r\n'
+        "\r\n"
+        f'"C:\\Windows\\System32\\cmd.exe" /k claude {flags}\r\n'
+        "\r\n"
+        "endlocal\r\n"
+    )
+
+
+def render_workspace_content(project_dir: Path) -> str:
+    try:
+        rel = project_dir.relative_to(PROJECTS_DIR)
+        path_str = str(rel).replace("\\", "/")
+    except ValueError:
+        path_str = str(project_dir)
+    return json.dumps({"folders": [{"path": path_str}]}, indent="\t") + "\n"
 
 
 def _get_csrf_token() -> str:
@@ -236,6 +357,70 @@ def _resolve_project(filename: str) -> Optional[dict]:
         if project["filename"] == filename:
             return project
     return None
+
+
+@app.get("/generate")
+def generate():
+    if not _is_authed():
+        return redirect(url_for("login"))
+    config = load_config()
+    return render_template(
+        "generate.html",
+        workspaces=discover_workspaces(),
+        orphans=discover_orphan_bats(),
+        claude_flags=config.get("claude_flags", DEFAULT_CLAUDE_FLAGS),
+        csrf_token=_get_csrf_token(),
+    )
+
+
+@app.post("/generate/run")
+def generate_run():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+
+    flags = request.form.get("claude_flags", DEFAULT_CLAUDE_FLAGS).strip()
+    overwrite_names = set(request.form.getlist("overwrite"))
+    create_ws_names = set(request.form.getlist("create_ws"))
+
+    save_config({"claude_flags": flags})
+
+    created, overwritten, ws_created, errors = [], [], [], []
+
+    for ws in discover_workspaces():
+        bat_path = PROJECTS_DIR / ws["bat_name"]
+        if ws["bat_exists"] and ws["name"] not in overwrite_names:
+            continue
+        try:
+            bat_path.write_bytes(render_bat_content(ws["project_dir"], flags).encode("utf-8"))
+            (overwritten if ws["bat_exists"] else created).append(ws["bat_name"])
+            log.info("✅ Wrote %s", ws["bat_name"])
+        except OSError as exc:
+            errors.append(f"{ws['bat_name']}: {exc}")
+
+    for orphan in discover_orphan_bats():
+        if orphan["name"] not in create_ws_names:
+            continue
+        ws_path = PROJECTS_DIR / orphan["ws_name"]
+        try:
+            ws_path.write_text(render_workspace_content(orphan["project_dir"]), encoding="utf-8")
+            ws_created.append(orphan["ws_name"])
+            log.info("✅ Created workspace %s", orphan["ws_name"])
+        except OSError as exc:
+            errors.append(f"{orphan['ws_name']}: {exc}")
+
+    if created:
+        flash(f"Created {len(created)} new bat file(s): {', '.join(created)}", "success")
+    if overwritten:
+        flash(f"Overwrote {len(overwritten)} bat file(s): {', '.join(overwritten)}", "success")
+    if ws_created:
+        flash(f"Created {len(ws_created)} workspace file(s): {', '.join(ws_created)}", "success")
+    for err in errors:
+        flash(f"Error: {err}", "error")
+    if not created and not overwritten and not ws_created and not errors:
+        flash("Nothing was generated — no items selected.", "error")
+
+    return redirect(url_for("generate"))
 
 
 def main() -> None:
