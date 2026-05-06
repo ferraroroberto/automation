@@ -176,11 +176,6 @@ flask>=3.0.0
 # Source: Various modules for web interactions
 requests>=2.31.0
 
-# Anthropic SDK — used as a local-hub HTTP client (api_key="local-dummy",
-# base_url="http://127.0.0.1:8000") to talk to the claude-local-calls hub.
-# Source: system/grocery/inventory_extract.py
-anthropic>=0.40.0
-
 # WebSocket client for Chrome DevTools Protocol
 # Source: linkedin/profiles_data_extractor/linkedin_profile_search_checker_devtools.py
 websocket-client>=1.6.0

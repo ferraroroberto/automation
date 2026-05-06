@@ -130,7 +130,6 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`base64_encode_decode.py`** - Base64 encode/decode utility
 - **`word_to_markdown.py`** - Word to Markdown conversion
 - **`foldersearcher/`**, **`treesize/`** - Folder search and size utilities
-- **`grocery/`** - Grocery list / app (Streamlit)
 
 ### 📝 Text Processing (`text/`)
 
