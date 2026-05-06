@@ -1,0 +1,18 @@
+{
+  "scan_root": "C:\\path\\to\\your\\projects-root",
+  "apps": [
+    {
+      "id": "example-app-launch-app",
+      "name": "Example App",
+      "bat_path": "C:\\path\\to\\your\\projects-root\\example-app\\launch_app.bat",
+      "added_at": "2026-01-01T00:00:00"
+    },
+    {
+      "id": "another-streamlit-app-launch-app",
+      "name": "Another Streamlit App",
+      "bat_path": "C:\\path\\to\\your\\projects-root\\another-streamlit-app\\launch_app.bat",
+      "added_at": "2026-01-01T00:00:00"
+    }
+  ]
+}
+

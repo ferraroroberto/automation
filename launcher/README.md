@@ -96,6 +96,35 @@ The **Generate BAT files** button at the bottom of the launcher index page opens
 | Existing bat files | unchecked | Tick to overwrite with current flags |
 | Missing workspaces | checked | Creates a minimal `.code-workspace` for orphan bats |
 
+## Apps tab (Streamlit launchers)
+
+The home page has two tabs:
+
+- **Cloud Code** — the original `*remote*.bat` list described above.
+- **Apps** — Streamlit app launchers discovered by recursively scanning a configured root.
+
+**How it works:**
+
+1. Tap **Scan projects** on the Apps tab. The server walks `LAUNCHER_APPS_SCAN_ROOT` (default: the parent of this repo, same as `LAUNCHER_PROJECTS_DIR`), looking at every `*.bat` whose contents include `streamlit run`. Skipped: `.venv/`, `venv/`, `__pycache__/`, `node_modules/`, `certificates/`, `.git/`, `old/`.
+2. New finds appear with checkboxes — submit to add them to `launcher/apps_config.json`. Each saved entry has a stable `id`, a display `name` (auto-derived from the parent folder, e.g. `system\grocery\launcher.bat` → "Grocery"), and the absolute `bat_path`.
+3. The list is **static** after that — no rescan on every page load. Hit **Scan projects** again only when you add new Streamlit apps to the repo.
+4. Each row has an **Edit** disclosure for **Rename** (override the auto display name) and **Remove**.
+5. Tapping a saved app launches it in a new visible CMD window via the same `cmd /c start "" cmd /k <bat>` plumbing as Cloud Code.
+6. The red **⛔ Kill :8501** button at the top of the Apps tab kills whatever process is currently listening on Streamlit's default port. Streamlit always picks 8501 when free, so the typical phone workflow is: **Kill :8501 → tap the next app**. Override the port via `LAUNCHER_STREAMLIT_PORT` in `.env` if your apps run elsewhere.
+
+**Config files:**
+
+- `launcher/apps_config.json` — your live list. **Gitignored.**
+- `launcher/apps_config.sample.json` — example schema, committed.
+
+**Optional override:**
+
+```env
+LAUNCHER_APPS_SCAN_ROOT=E:\automation
+```
+
+Defaults to the parent of this repo (matches `LAUNCHER_PROJECTS_DIR`). Narrow it (e.g. `E:\automation\automation`) if you only want this repo scanned, or point it elsewhere entirely.
+
 ## Auto-start at log on with Task Scheduler
 
 1. Open **Task Scheduler** → **Create Task…** (not "Create Basic Task" — you need the advanced options).
@@ -135,9 +164,12 @@ To make the CMD window invisible at startup, change the action to launch `python
 - `launcher.py` — Flask app
 - `tray.py` — system-tray wrapper; starts the Flask server in a background thread and shows a green dot icon in the notification area
 - `templates/login.html` — login form (shown only when `LAUNCHER_PASSWORD` is set)
-- `templates/index.html` — project list
+- `templates/index.html` — Cloud Code tab (project list)
+- `templates/apps.html` — Apps tab (Streamlit launcher list)
 - `templates/generate.html` — Generate BAT files page
 - `config.json` — persisted Claude Code launch flags (created on first generate run)
+- `apps_config.json` — saved Streamlit apps (gitignored, created on first scan)
+- `apps_config.sample.json` — committed schema example
 - `launcher.bat` — start launcher + tray (use this normally)
 - `tray.bat` — start tray only
 - `README.md` — this file

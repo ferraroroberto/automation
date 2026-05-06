@@ -51,3 +51,6 @@ notion/articles_sync/notion_articles_sync_last_time.txt
 system/grocery/audio_audit_logs/
 system/grocery/test_data/list_test_fixture.xlsx
 system/grocery/test_data/smoke_phase2_result.json
+
+# launcher Apps tab — user-specific list of discovered Streamlit launchers
+launcher/apps_config.json

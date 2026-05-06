@@ -100,13 +100,34 @@
             text-decoration: none;
         }
         .generate-link:active { background: #1c2030; color: #e7e9ee; }
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: #161922;
+            padding: 4px;
+            border: 1px solid #2a2f42;
+            border-radius: 12px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px 12px;
+            border-radius: 9px;
+            color: #6b7388;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .tab.active { background: #1c2030; color: #e7e9ee; }
+        .tab:active { color: #e7e9ee; }
     </style>
 </head>
 <body>
     <div class="wrap">
         <header>
             <div>
-                <h1>Projects</h1>
+                <h1>Cloud Code</h1>
                 <div class="meta">{{ projects_dir }}</div>
             </div>
             <form method="post" action="{{ url_for('logout') }}">
@@ -114,6 +135,11 @@
                 <button class="logout" type="submit">Sign out</button>
             </form>
         </header>
+
+        <nav class="tabs">
+            <a class="tab active" href="{{ url_for('index') }}">Cloud Code</a>
+            <a class="tab" href="{{ url_for('apps_index') }}">Apps</a>
+        </nav>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}

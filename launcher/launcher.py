@@ -1,9 +1,14 @@
 """Flask-based remote project launcher.
 
 Serves a web UI (optionally password-protected) intended to be reached over
-Tailscale from a phone.  Lists every ``*remote*.bat`` file in the parent
-directory of this repo and launches the selected one in a new visible CMD
-window on the host machine.
+Tailscale from a phone.  Two tabs:
+
+* **Cloud Code** — every ``*remote*.bat`` file in ``LAUNCHER_PROJECTS_DIR``
+  (defaults to the parent of this repo).
+* **Apps** — Streamlit launchers discovered recursively under
+  ``LAUNCHER_APPS_SCAN_ROOT`` (defaults to the parent of this repo, matching
+  ``LAUNCHER_PROJECTS_DIR``) and persisted to ``launcher/apps_config.json``
+  (gitignored). The scan is manual: hit *Scan projects* to add new entries.
 
 Configuration via root ``.env``:
     LAUNCHER_PASSWORD       - optional, plaintext password for the login form.
@@ -13,6 +18,11 @@ Configuration via root ``.env``:
     LAUNCHER_PROJECTS_DIR   - optional, override for the directory scanned
                               for ``*remote*.bat`` files. Defaults to the
                               parent of the automation repo root.
+    LAUNCHER_APPS_SCAN_ROOT - optional, override for the recursive scan that
+                              powers the Apps tab. Defaults to the parent of
+                              this repo (matches LAUNCHER_PROJECTS_DIR).
+    LAUNCHER_STREAMLIT_PORT - optional, port targeted by the "Kill :PORT"
+                              button on the Apps tab. Defaults to 8501.
     LAUNCHER_PORT           - optional, defaults to 5050
     LAUNCHER_HOST           - optional, defaults to 0.0.0.0
     LAUNCHER_SSL_CERT       - optional, path to TLS certificate file
@@ -80,6 +90,10 @@ PORT = int(os.environ.get("LAUNCHER_PORT", "5050"))
 HOST = os.environ.get("LAUNCHER_HOST", "0.0.0.0")
 
 CONFIG_PATH = LAUNCHER_DIR / "config.json"
+APPS_CONFIG_PATH = LAUNCHER_DIR / "apps_config.json"
+APPS_SCAN_ROOT = Path(os.environ.get("LAUNCHER_APPS_SCAN_ROOT") or DEFAULT_PROJECTS_DIR).resolve()
+APPS_SCAN_SKIP_DIRS = {".venv", "venv", "__pycache__", "node_modules", "certificates", ".git", "old"}
+STREAMLIT_PORT = int(os.environ.get("LAUNCHER_STREAMLIT_PORT", "8501"))
 DEFAULT_CLAUDE_FLAGS = "--remote-control --dangerously-skip-permissions --verbose --effort high"
 
 _SSL_CERT = os.environ.get("LAUNCHER_SSL_CERT")
@@ -423,10 +437,298 @@ def generate_run():
     return redirect(url_for("generate"))
 
 
+def _slugify(value: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
+    return cleaned or "app"
+
+
+def _pretty_folder_name(folder: Path) -> str:
+    parts = [p for p in re.split(r"[_\-\s]+", folder.name) if p]
+    if not parts:
+        parts = [folder.name]
+    return " ".join(p.capitalize() for p in parts)
+
+
+def _app_id_from_path(bat_path: Path) -> str:
+    try:
+        rel = bat_path.resolve().relative_to(APPS_SCAN_ROOT)
+    except ValueError:
+        rel = Path(bat_path.name)
+    return _slugify(str(rel.with_suffix("")))
+
+
+def _is_streamlit_bat(bat_path: Path) -> bool:
+    try:
+        text = bat_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return "streamlit run" in text.lower()
+
+
+def scan_streamlit_bats() -> List[Path]:
+    """Recursively scan APPS_SCAN_ROOT for ``streamlit run``-launching bats."""
+    if not APPS_SCAN_ROOT.is_dir():
+        log.warning("⚠️ Apps scan root does not exist: %s", APPS_SCAN_ROOT)
+        return []
+    found: List[Path] = []
+    for bat in APPS_SCAN_ROOT.rglob("*.bat"):
+        if any(part in APPS_SCAN_SKIP_DIRS for part in bat.parts):
+            continue
+        if _is_streamlit_bat(bat):
+            found.append(bat)
+    found.sort()
+    return found
+
+
+def load_apps() -> dict:
+    if APPS_CONFIG_PATH.exists():
+        try:
+            data = json.loads(APPS_CONFIG_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("apps"), list):
+                return data
+        except Exception:
+            log.exception("⚠️ Could not parse %s — starting fresh", APPS_CONFIG_PATH)
+    return {"scan_root": str(APPS_SCAN_ROOT), "apps": []}
+
+
+def save_apps(data: dict) -> None:
+    APPS_CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def discover_new_apps() -> List[dict]:
+    """Streamlit bats found on disk but not yet saved in apps_config.json."""
+    saved_paths = {a.get("bat_path") for a in load_apps().get("apps", [])}
+    candidates: List[dict] = []
+    for bat in scan_streamlit_bats():
+        if str(bat) in saved_paths:
+            continue
+        candidates.append(
+            {
+                "id": _app_id_from_path(bat),
+                "name": _pretty_folder_name(bat.parent),
+                "bat_path": str(bat),
+            }
+        )
+    return candidates
+
+
+@app.get("/apps")
+def apps_index():
+    if not _is_authed():
+        return redirect(url_for("login"))
+    data = load_apps()
+    return render_template(
+        "apps.html",
+        apps=data.get("apps", []),
+        scan_root=str(APPS_SCAN_ROOT),
+        new_apps=None,
+        streamlit_port=STREAMLIT_PORT,
+        csrf_token=_get_csrf_token(),
+    )
+
+
+@app.post("/apps/scan")
+def apps_scan():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+    new_apps = discover_new_apps()
+    data = load_apps()
+    if not new_apps:
+        flash("No new Streamlit apps found.", "success")
+    return render_template(
+        "apps.html",
+        apps=data.get("apps", []),
+        scan_root=str(APPS_SCAN_ROOT),
+        new_apps=new_apps,
+        streamlit_port=STREAMLIT_PORT,
+        csrf_token=_get_csrf_token(),
+    )
+
+
+@app.post("/apps/save")
+def apps_save():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+    selected_ids = set(request.form.getlist("add"))
+    if not selected_ids:
+        flash("No apps selected.", "error")
+        return redirect(url_for("apps_index"))
+    data = load_apps()
+    existing_ids = {a.get("id") for a in data["apps"]}
+    candidates = {c["id"]: c for c in discover_new_apps()}
+    added: List[str] = []
+    now = datetime.now().isoformat(timespec="seconds")
+    for app_id in selected_ids:
+        if app_id in existing_ids:
+            continue
+        cand = candidates.get(app_id)
+        if cand is None:
+            continue
+        data["apps"].append(
+            {
+                "id": cand["id"],
+                "name": cand["name"],
+                "bat_path": cand["bat_path"],
+                "added_at": now,
+            }
+        )
+        added.append(cand["name"])
+    data["apps"].sort(key=lambda a: a.get("name", "").lower())
+    save_apps(data)
+    if added:
+        log.info("✅ Added %d app(s) to apps_config.json", len(added))
+        flash(f"Added {len(added)} app(s): {', '.join(added)}", "success")
+    else:
+        flash("Nothing was added — selections were already saved or unknown.", "error")
+    return redirect(url_for("apps_index"))
+
+
+@app.post("/apps/remove")
+def apps_remove():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+    target_id = request.form.get("id", "")
+    data = load_apps()
+    before = len(data["apps"])
+    removed = next((a for a in data["apps"] if a.get("id") == target_id), None)
+    data["apps"] = [a for a in data["apps"] if a.get("id") != target_id]
+    if len(data["apps"]) < before and removed is not None:
+        save_apps(data)
+        log.info("✅ Removed app %s", removed.get("name"))
+        flash(f"Removed {removed.get('name')}.", "success")
+    else:
+        flash("App not found.", "error")
+    return redirect(url_for("apps_index"))
+
+
+@app.post("/apps/rename")
+def apps_rename():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+    target_id = request.form.get("id", "")
+    new_name = request.form.get("name", "").strip()
+    if not new_name:
+        flash("Display name cannot be empty.", "error")
+        return redirect(url_for("apps_index"))
+    data = load_apps()
+    for a in data["apps"]:
+        if a.get("id") == target_id:
+            old = a.get("name")
+            a["name"] = new_name
+            data["apps"].sort(key=lambda x: x.get("name", "").lower())
+            save_apps(data)
+            log.info("✅ Renamed app %s → %s", old, new_name)
+            flash(f"Renamed to {new_name}.", "success")
+            return redirect(url_for("apps_index"))
+    flash("App not found.", "error")
+    return redirect(url_for("apps_index"))
+
+
+def _find_pids_on_port(port: int) -> List[int]:
+    """Return PIDs of processes listening on TCP ``port`` (admin-free)."""
+    import psutil  # local import — not needed at module load
+
+    own_pid = os.getpid()
+    pids: set[int] = set()
+    for proc in psutil.process_iter(["pid", "name"]):
+        try:
+            for conn in proc.net_connections(kind="inet"):
+                if (
+                    conn.status == psutil.CONN_LISTEN
+                    and conn.laddr
+                    and conn.laddr.port == port
+                ):
+                    pid = proc.info["pid"]
+                    if pid and pid != own_pid:
+                        pids.add(pid)
+        except (psutil.AccessDenied, psutil.NoSuchProcess):
+            continue
+    return sorted(pids)
+
+
+def _kill_pids(pids: List[int]) -> tuple[List[int], List[str]]:
+    """Force-kill the given PIDs. Returns (killed_pids, error_messages)."""
+    import psutil
+
+    killed: List[int] = []
+    errors: List[str] = []
+    for pid in pids:
+        try:
+            proc = psutil.Process(pid)
+            proc.kill()
+            try:
+                proc.wait(timeout=3)
+            except psutil.TimeoutExpired:
+                pass
+            killed.append(pid)
+        except psutil.NoSuchProcess:
+            killed.append(pid)
+        except (psutil.AccessDenied, OSError) as exc:
+            errors.append(f"PID {pid}: {exc}")
+    return killed, errors
+
+
+@app.post("/apps/kill_port")
+def apps_kill_port():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+    pids = _find_pids_on_port(STREAMLIT_PORT)
+    if not pids:
+        flash(f"Nothing was listening on :{STREAMLIT_PORT}.", "success")
+        return redirect(url_for("apps_index"))
+    killed, errors = _kill_pids(pids)
+    if killed:
+        log.info("✅ Killed PID(s) %s on :%d", killed, STREAMLIT_PORT)
+        flash(
+            f"✅ Killed {len(killed)} process(es) on :{STREAMLIT_PORT} (PID {', '.join(str(p) for p in killed)}).",
+            "success",
+        )
+    for err in errors:
+        log.warning("⚠️ Kill error on :%d — %s", STREAMLIT_PORT, err)
+        flash(f"Kill error: {err}", "error")
+    return redirect(url_for("apps_index"))
+
+
+@app.post("/apps/launch")
+def apps_launch():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+    target_id = request.form.get("id", "")
+    data = load_apps()
+    target = next((a for a in data["apps"] if a.get("id") == target_id), None)
+    if target is None:
+        log.warning("⚠️ Launch rejected for unknown app %r from %s", target_id, request.remote_addr)
+        flash("Unknown app.", "error")
+        return redirect(url_for("apps_index"))
+    bat_path = Path(target["bat_path"])
+    if not bat_path.is_file():
+        log.warning("⚠️ Missing bat file for app %s: %s", target.get("name"), bat_path)
+        flash(f"BAT file not found: {bat_path}", "error")
+        return redirect(url_for("apps_index"))
+    try:
+        _spawn_bat(bat_path)
+    except OSError as exc:
+        log.exception("❌ Failed to launch app %s", target.get("name"))
+        flash(f"Failed to launch {target.get('name')}: {exc}", "error")
+        return redirect(url_for("apps_index"))
+    stamp = datetime.now().strftime("%H:%M:%S")
+    log.info("✅ Launched app %s (%s)", target.get("name"), bat_path)
+    flash(f"✅ Launched {target.get('name')} — {stamp}", "success")
+    return redirect(url_for("apps_index"))
+
+
 def main() -> None:
     scheme = "https" if USE_HTTPS else "http"
     log.info("ℹ️ Launcher serving on %s://%s:%s", scheme, HOST, PORT)
     log.info("ℹ️ Scanning for *remote*.bat in %s", PROJECTS_DIR)
+    log.info("ℹ️ Apps scan root: %s", APPS_SCAN_ROOT)
+    log.info("ℹ️ Streamlit kill-port target: :%d", STREAMLIT_PORT)
     if not AUTH_ENABLED:
         log.warning("⚠️ Password auth is DISABLED (LAUNCHER_PASSWORD not set)")
     app.run(host=HOST, port=PORT, debug=False, ssl_context=SSL_CONTEXT)
