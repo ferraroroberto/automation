@@ -197,9 +197,28 @@
             border: 1px solid #5a2630;
             border-radius: 14px;
             cursor: pointer;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
         }
         .kill-btn:active { background: #3a1d22; }
+        .kill-row { display: flex; gap: 8px; margin-bottom: 16px; }
+        .kill-row .kill-btn { margin-bottom: 0; }
+        .tunnel-row {
+            border-top: 1px solid #2a2f42;
+            background: #11141d;
+            padding: 12px 16px;
+            font-size: 13px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .tunnel-row .tunnel-link {
+            color: #8ab4ff;
+            text-decoration: none;
+            word-break: break-all;
+            font-weight: 500;
+        }
+        .tunnel-row .tunnel-link:active { color: #b6d0ff; }
+        .tunnel-row.idle { color: #6b7388; }
 
         .section-label {
             font-size: 11px;
@@ -282,43 +301,70 @@
             {% endfor %}
         {% endwith %}
 
-        <form method="post" action="{{ url_for('apps_kill_port') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="kill-btn" type="submit">⛔ Kill :{{ streamlit_port }}</button>
-        </form>
+        <div class="kill-row">
+            <form method="post" action="{{ url_for('apps_kill_port') }}" style="flex: 1; margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="port" value="{{ streamlit_port }}">
+                <button class="kill-btn" type="submit">⛔ Kill :{{ streamlit_port }}</button>
+            </form>
+            <form method="post" action="{{ url_for('apps_kill_port') }}" style="flex: 1; margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="port" value="{{ webapp_port }}">
+                <button class="kill-btn" type="submit">⛔ Kill :{{ webapp_port }}</button>
+            </form>
+        </div>
 
-        {% if apps %}
-            {% for a in apps %}
-                <div class="app-card">
-                    <form class="launch" method="post" action="{{ url_for('apps_launch') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <input type="hidden" name="id" value="{{ a.id }}">
-                        <button class="project" type="submit">
-                            <span>{{ a.name }}</span>
-                            <span class="filename">{{ a.bat_path }}</span>
-                        </button>
-                    </form>
-                    <details class="tools">
-                        <summary>Edit</summary>
-                        <div class="tools-body">
-                            <form class="rename-form" method="post" action="{{ url_for('apps_rename') }}">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <input type="hidden" name="id" value="{{ a.id }}">
-                                <input type="text" name="name" value="{{ a.name }}" placeholder="Display name" autocomplete="off" spellcheck="false">
-                                <button type="submit">Rename</button>
-                            </form>
-                            <form class="remove-form" method="post" action="{{ url_for('apps_remove') }}" onsubmit="return confirm('Remove {{ a.name }} from the list?');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <input type="hidden" name="id" value="{{ a.id }}">
-                                <button type="submit">Remove</button>
-                            </form>
+        {% macro app_card(a) %}
+            <div class="app-card">
+                <form class="launch" method="post" action="{{ url_for('apps_launch') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="id" value="{{ a.id }}">
+                    <button class="project" type="submit">
+                        <span>{{ a.name }}</span>
+                        <span class="filename">{{ a.bat_path }}</span>
+                    </button>
+                </form>
+                {% if a.kind == "tunnel" %}
+                    {% if a.tunnel_url %}
+                        <div class="tunnel-row">
+                            <span>📡</span>
+                            <a class="tunnel-link" href="{{ a.tunnel_url }}" target="_blank" rel="noopener">{{ a.tunnel_url }}</a>
                         </div>
-                    </details>
-                </div>
-            {% endfor %}
+                    {% else %}
+                        <div class="tunnel-row idle">📡 Tunnel not running</div>
+                    {% endif %}
+                {% endif %}
+                <details class="tools">
+                    <summary>Edit</summary>
+                    <div class="tools-body">
+                        <form class="rename-form" method="post" action="{{ url_for('apps_rename') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="id" value="{{ a.id }}">
+                            <input type="text" name="name" value="{{ a.name }}" placeholder="Display name" autocomplete="off" spellcheck="false">
+                            <button type="submit">Rename</button>
+                        </form>
+                        <form class="remove-form" method="post" action="{{ url_for('apps_remove') }}" onsubmit="return confirm('Remove {{ a.name }} from the list?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="id" value="{{ a.id }}">
+                            <button type="submit">Remove</button>
+                        </form>
+                    </div>
+                </details>
+            </div>
+        {% endmacro %}
+
+        {% if streamlit_apps or web_apps %}
+            {% if streamlit_apps %}
+                <div class="section-label">Streamlit apps ({{ streamlit_apps | length }})</div>
+                {% for a in streamlit_apps %}{{ app_card(a) }}{% endfor %}
+            {% endif %}
+            {% if web_apps %}
+                <div class="section-label">Web apps ({{ web_apps | length }})</div>
+                {% for a in web_apps %}{{ app_card(a) }}{% endfor %}
+            {% endif %}
         {% else %}
             <div class="empty">
-                No apps saved yet. Tap <strong>Scan projects</strong> to find Streamlit launchers.
+                No apps saved yet. Tap <strong>Scan projects</strong> to find Streamlit and FastAPI launchers.
             </div>
         {% endif %}
 
@@ -332,19 +378,34 @@
             {% if new_apps %}
                 <form method="post" action="{{ url_for('apps_save') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    {% for n in new_apps %}
-                        <label class="item">
-                            <input type="checkbox" name="add" value="{{ n.id }}" checked>
-                            <div class="item-text">
-                                {{ n.name }}
-                                <div class="item-sub">{{ n.bat_path }}</div>
-                            </div>
-                        </label>
-                    {% endfor %}
+                    {% if new_streamlit %}
+                        <div class="section-label">Streamlit ({{ new_streamlit | length }})</div>
+                        {% for n in new_streamlit %}
+                            <label class="item">
+                                <input type="checkbox" name="add" value="{{ n.id }}" checked>
+                                <div class="item-text">
+                                    {{ n.name }}
+                                    <div class="item-sub">{{ n.bat_path }}</div>
+                                </div>
+                            </label>
+                        {% endfor %}
+                    {% endif %}
+                    {% if new_web %}
+                        <div class="section-label">Web ({{ new_web | length }})</div>
+                        {% for n in new_web %}
+                            <label class="item">
+                                <input type="checkbox" name="add" value="{{ n.id }}" checked>
+                                <div class="item-text">
+                                    {{ n.name }} <span style="color:#6b7388;font-size:12px;">— {{ n.kind }}</span>
+                                    <div class="item-sub">{{ n.bat_path }}</div>
+                                </div>
+                            </label>
+                        {% endfor %}
+                    {% endif %}
                     <button class="add-btn" type="submit">Add selected</button>
                 </form>
             {% else %}
-                <div class="empty-note">No new Streamlit apps found.</div>
+                <div class="empty-note">No new apps found.</div>
             {% endif %}
         {% endif %}
     </div>

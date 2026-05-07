@@ -23,6 +23,9 @@ Configuration via root ``.env``:
                               this repo (matches LAUNCHER_PROJECTS_DIR).
     LAUNCHER_STREAMLIT_PORT - optional, port targeted by the "Kill :PORT"
                               button on the Apps tab. Defaults to 8501.
+    LAUNCHER_WEBAPP_PORT    - optional, port targeted by the second
+                              "Kill :PORT" button (uvicorn / FastAPI
+                              webapps). Defaults to 8443.
     LAUNCHER_PORT           - optional, defaults to 5050
     LAUNCHER_HOST           - optional, defaults to 0.0.0.0
     LAUNCHER_SSL_CERT       - optional, path to TLS certificate file
@@ -94,6 +97,7 @@ APPS_CONFIG_PATH = LAUNCHER_DIR / "apps_config.json"
 APPS_SCAN_ROOT = Path(os.environ.get("LAUNCHER_APPS_SCAN_ROOT") or DEFAULT_PROJECTS_DIR).resolve()
 APPS_SCAN_SKIP_DIRS = {".venv", "venv", "__pycache__", "node_modules", "certificates", ".git", "old"}
 STREAMLIT_PORT = int(os.environ.get("LAUNCHER_STREAMLIT_PORT", "8501"))
+WEBAPP_PORT = int(os.environ.get("LAUNCHER_WEBAPP_PORT", "8443"))
 DEFAULT_CLAUDE_FLAGS = "--remote-control --dangerously-skip-permissions --verbose --effort high"
 
 _SSL_CERT = os.environ.get("LAUNCHER_SSL_CERT")
@@ -457,27 +461,71 @@ def _app_id_from_path(bat_path: Path) -> str:
     return _slugify(str(rel.with_suffix("")))
 
 
-def _is_streamlit_bat(bat_path: Path) -> bool:
+def _classify_bat(bat_path: Path) -> Optional[str]:
+    """Return ``"streamlit"`` | ``"webapp"`` | ``"tunnel"`` | ``None``.
+
+    Classification is mutually exclusive — the first match wins:
+
+    * ``streamlit`` — body contains ``streamlit run``. Bats that *also*
+      embed ``cloudflared tunnel`` inline (e.g. ``launch_server.bat``)
+      stay in this bucket; they don't write a URL file we can surface.
+    * ``tunnel`` — filename stem contains ``tunnel`` AND body references
+      ``uvicorn`` / ``run_tunnel`` / ``cloudflared``. These are the
+      only bats we surface a tunnel URL for.
+    * ``webapp`` — body runs ``uvicorn`` (or imports ``app.webapp.server``).
+    """
     try:
-        text = bat_path.read_text(encoding="utf-8", errors="ignore")
+        text = bat_path.read_text(encoding="utf-8", errors="ignore").lower()
     except OSError:
-        return False
-    return "streamlit run" in text.lower()
+        return None
+    if "streamlit run" in text:
+        return "streamlit"
+    stem = bat_path.stem.lower()
+    has_tunnel_signal = any(token in text for token in ("uvicorn", "run_tunnel", "cloudflared"))
+    if "tunnel" in stem and has_tunnel_signal:
+        return "tunnel"
+    if "uvicorn" in text or "app.webapp.server" in text or "app/webapp/server" in text:
+        return "webapp"
+    return None
 
 
-def scan_streamlit_bats() -> List[Path]:
-    """Recursively scan APPS_SCAN_ROOT for ``streamlit run``-launching bats."""
+def scan_app_bats() -> List[tuple[Path, str]]:
+    """Recursively scan APPS_SCAN_ROOT, returning ``(path, kind)`` pairs."""
     if not APPS_SCAN_ROOT.is_dir():
         log.warning("⚠️ Apps scan root does not exist: %s", APPS_SCAN_ROOT)
         return []
-    found: List[Path] = []
+    found: List[tuple[Path, str]] = []
     for bat in APPS_SCAN_ROOT.rglob("*.bat"):
         if any(part in APPS_SCAN_SKIP_DIRS for part in bat.parts):
             continue
-        if _is_streamlit_bat(bat):
-            found.append(bat)
-    found.sort()
+        kind = _classify_bat(bat)
+        if kind is not None:
+            found.append((bat, kind))
+    found.sort(key=lambda pair: pair[0])
     return found
+
+
+def _tunnel_url_for(bat_path: Path) -> Optional[str]:
+    """Read ``<bat.parent>/webapp/last_tunnel_url.txt`` if non-empty.
+
+    Returns ``None`` when the file is missing or empty — used by the UI
+    to show "Tunnel not running" without a server round-trip.
+    """
+    url_file = bat_path.parent / "webapp" / "last_tunnel_url.txt"
+    try:
+        text = url_file.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return text or None
+
+
+def _decorate_app(entry: dict) -> dict:
+    """Add render-time fields to a saved app: ``kind`` default + tunnel URL."""
+    decorated = dict(entry)
+    decorated.setdefault("kind", "streamlit")
+    if decorated["kind"] == "tunnel":
+        decorated["tunnel_url"] = _tunnel_url_for(Path(entry["bat_path"]))
+    return decorated
 
 
 def load_apps() -> dict:
@@ -495,11 +543,24 @@ def save_apps(data: dict) -> None:
     APPS_CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
+def _split_apps_by_kind(apps: List[dict]) -> tuple[List[dict], List[dict]]:
+    """Return ``(streamlit_apps, web_apps)``; web_apps holds webapp+tunnel."""
+    streamlit_apps: List[dict] = []
+    web_apps: List[dict] = []
+    for entry in apps:
+        decorated = _decorate_app(entry)
+        if decorated["kind"] == "streamlit":
+            streamlit_apps.append(decorated)
+        else:
+            web_apps.append(decorated)
+    return streamlit_apps, web_apps
+
+
 def discover_new_apps() -> List[dict]:
-    """Streamlit bats found on disk but not yet saved in apps_config.json."""
+    """App bats found on disk but not yet saved in apps_config.json."""
     saved_paths = {a.get("bat_path") for a in load_apps().get("apps", [])}
     candidates: List[dict] = []
-    for bat in scan_streamlit_bats():
+    for bat, kind in scan_app_bats():
         if str(bat) in saved_paths:
             continue
         candidates.append(
@@ -507,24 +568,42 @@ def discover_new_apps() -> List[dict]:
                 "id": _app_id_from_path(bat),
                 "name": _pretty_folder_name(bat.parent),
                 "bat_path": str(bat),
+                "kind": kind,
             }
         )
     return candidates
+
+
+def _split_candidates_by_kind(candidates: List[dict]) -> tuple[List[dict], List[dict]]:
+    streamlit: List[dict] = []
+    web: List[dict] = []
+    for cand in candidates:
+        (streamlit if cand.get("kind") == "streamlit" else web).append(cand)
+    return streamlit, web
+
+
+def _render_apps(*, new_apps: Optional[List[dict]]) -> str:
+    streamlit_apps, web_apps = _split_apps_by_kind(load_apps().get("apps", []))
+    new_streamlit, new_web = _split_candidates_by_kind(new_apps or [])
+    return render_template(
+        "apps.html",
+        streamlit_apps=streamlit_apps,
+        web_apps=web_apps,
+        scan_root=str(APPS_SCAN_ROOT),
+        new_apps=new_apps,
+        new_streamlit=new_streamlit,
+        new_web=new_web,
+        streamlit_port=STREAMLIT_PORT,
+        webapp_port=WEBAPP_PORT,
+        csrf_token=_get_csrf_token(),
+    )
 
 
 @app.get("/apps")
 def apps_index():
     if not _is_authed():
         return redirect(url_for("login"))
-    data = load_apps()
-    return render_template(
-        "apps.html",
-        apps=data.get("apps", []),
-        scan_root=str(APPS_SCAN_ROOT),
-        new_apps=None,
-        streamlit_port=STREAMLIT_PORT,
-        csrf_token=_get_csrf_token(),
-    )
+    return _render_apps(new_apps=None)
 
 
 @app.post("/apps/scan")
@@ -533,17 +612,9 @@ def apps_scan():
         abort(401)
     _check_csrf()
     new_apps = discover_new_apps()
-    data = load_apps()
     if not new_apps:
-        flash("No new Streamlit apps found.", "success")
-    return render_template(
-        "apps.html",
-        apps=data.get("apps", []),
-        scan_root=str(APPS_SCAN_ROOT),
-        new_apps=new_apps,
-        streamlit_port=STREAMLIT_PORT,
-        csrf_token=_get_csrf_token(),
-    )
+        flash("No new apps found.", "success")
+    return _render_apps(new_apps=new_apps)
 
 
 @app.post("/apps/save")
@@ -571,6 +642,7 @@ def apps_save():
                 "id": cand["id"],
                 "name": cand["name"],
                 "bat_path": cand["bat_path"],
+                "kind": cand.get("kind", "streamlit"),
                 "added_at": now,
             }
         )
@@ -677,19 +749,26 @@ def apps_kill_port():
     if not _is_authed():
         abort(401)
     _check_csrf()
-    pids = _find_pids_on_port(STREAMLIT_PORT)
+    raw = request.form.get("port", "").strip()
+    allowed = {str(STREAMLIT_PORT): STREAMLIT_PORT, str(WEBAPP_PORT): WEBAPP_PORT}
+    port = allowed.get(raw)
+    if port is None:
+        log.warning("⚠️ Kill rejected for unknown port %r from %s", raw, request.remote_addr)
+        flash("Unknown port.", "error")
+        return redirect(url_for("apps_index"))
+    pids = _find_pids_on_port(port)
     if not pids:
-        flash(f"Nothing was listening on :{STREAMLIT_PORT}.", "success")
+        flash(f"Nothing was listening on :{port}.", "success")
         return redirect(url_for("apps_index"))
     killed, errors = _kill_pids(pids)
     if killed:
-        log.info("✅ Killed PID(s) %s on :%d", killed, STREAMLIT_PORT)
+        log.info("✅ Killed PID(s) %s on :%d", killed, port)
         flash(
-            f"✅ Killed {len(killed)} process(es) on :{STREAMLIT_PORT} (PID {', '.join(str(p) for p in killed)}).",
+            f"✅ Killed {len(killed)} process(es) on :{port} (PID {', '.join(str(p) for p in killed)}).",
             "success",
         )
     for err in errors:
-        log.warning("⚠️ Kill error on :%d — %s", STREAMLIT_PORT, err)
+        log.warning("⚠️ Kill error on :%d — %s", port, err)
         flash(f"Kill error: {err}", "error")
     return redirect(url_for("apps_index"))
 
