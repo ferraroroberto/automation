@@ -115,7 +115,7 @@ class TrayApp:
         scheme = "https" if USE_HTTPS else "http"
         log.info("ℹ️ Launcher serving on %s://%s:%s", scheme, HOST, PORT)
         try:
-            self._server = make_server(HOST, PORT, app, ssl_context=SSL_CONTEXT)
+            self._server = make_server(HOST, PORT, app, ssl_context=SSL_CONTEXT, threaded=True)
             self._icon.icon = self._make_icon(running=True)
             self._server.serve_forever()
         except Exception:
