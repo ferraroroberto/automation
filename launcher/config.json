@@ -1,3 +1,6 @@
 {
-  "claude_flags": "--remote-control --dangerously-skip-permissions --verbose --effort high"
+  "model": "opus",
+  "effort": "high",
+  "verbose": false,
+  "debug": false
 }

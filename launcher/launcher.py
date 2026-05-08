@@ -98,7 +98,16 @@ APPS_SCAN_ROOT = Path(os.environ.get("LAUNCHER_APPS_SCAN_ROOT") or DEFAULT_PROJE
 APPS_SCAN_SKIP_DIRS = {".venv", "venv", "__pycache__", "node_modules", "certificates", ".git", "old"}
 STREAMLIT_PORT = int(os.environ.get("LAUNCHER_STREAMLIT_PORT", "8501"))
 WEBAPP_PORT = int(os.environ.get("LAUNCHER_WEBAPP_PORT", "8443"))
-DEFAULT_CLAUDE_FLAGS = "--remote-control --dangerously-skip-permissions --verbose --effort high"
+
+VALID_MODELS = ("opus", "sonnet", "haiku")
+VALID_EFFORTS = ("off", "low", "medium", "high")
+DEFAULT_CONFIG: dict = {
+    "model": "opus",
+    "effort": "high",
+    "verbose": True,
+    "debug": False,
+}
+ALWAYS_ON_FLAGS = ("--remote-control", "--dangerously-skip-permissions")
 
 _SSL_CERT = os.environ.get("LAUNCHER_SSL_CERT")
 _SSL_KEY = os.environ.get("LAUNCHER_SSL_KEY")
@@ -117,48 +126,140 @@ app.config.update(
 )
 
 
-def _pretty_name(bat: Path) -> str:
-    stem = bat.stem
-    parts = [p for p in stem.replace("-", "_").split("_") if p and p.lower() != "remote"]
+def _pretty_name_from_stem(stem: str) -> str:
+    parts = [p for p in re.split(r"[_\-\s]+", stem) if p and p.lower() != "remote"]
     if not parts:
         parts = [stem]
     return " ".join(p.capitalize() for p in parts)
 
 
-def discover_projects() -> List[dict]:
-    """Return the list of remote launcher bats in PROJECTS_DIR.
+def _parse_legacy_flags(flags: str) -> dict:
+    """Convert an old free-text ``claude_flags`` string into structured config."""
+    tokens = flags.split()
+    result = dict(DEFAULT_CONFIG)
+    result["verbose"] = "--verbose" in tokens
+    result["debug"] = "--debug" in tokens
+    if "--model" in tokens:
+        i = tokens.index("--model")
+        if i + 1 < len(tokens) and tokens[i + 1] in VALID_MODELS:
+            result["model"] = tokens[i + 1]
+    if "--effort" in tokens:
+        i = tokens.index("--effort")
+        if i + 1 < len(tokens) and tokens[i + 1] in VALID_EFFORTS:
+            result["effort"] = tokens[i + 1]
+    else:
+        result["effort"] = "off"
+    return result
 
-    Each entry: ``{"name": str, "filename": str, "path": Path}``.
-    Filenames containing ``remote`` (case-insensitive) qualify.
+
+def load_config() -> dict:
+    raw: dict = {}
+    if CONFIG_PATH.exists():
+        try:
+            parsed = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                raw = parsed
+        except Exception:
+            log.exception("⚠️ Could not parse %s — using defaults", CONFIG_PATH)
+    if "claude_flags" in raw and not any(k in raw for k in DEFAULT_CONFIG):
+        raw = _parse_legacy_flags(str(raw.get("claude_flags") or ""))
+    merged = dict(DEFAULT_CONFIG)
+    if raw.get("model") in VALID_MODELS:
+        merged["model"] = raw["model"]
+    if raw.get("effort") in VALID_EFFORTS:
+        merged["effort"] = raw["effort"]
+    merged["verbose"] = bool(raw.get("verbose", DEFAULT_CONFIG["verbose"]))
+    merged["debug"] = bool(raw.get("debug", DEFAULT_CONFIG["debug"]))
+    return merged
+
+
+def save_config(data: dict) -> None:
+    clean = {
+        "model": data["model"] if data.get("model") in VALID_MODELS else DEFAULT_CONFIG["model"],
+        "effort": data["effort"] if data.get("effort") in VALID_EFFORTS else DEFAULT_CONFIG["effort"],
+        "verbose": bool(data.get("verbose")),
+        "debug": bool(data.get("debug")),
+    }
+    CONFIG_PATH.write_text(json.dumps(clean, indent=2), encoding="utf-8")
+
+
+def build_claude_flags(config: dict) -> str:
+    parts = list(ALWAYS_ON_FLAGS)
+    model = config.get("model", DEFAULT_CONFIG["model"])
+    if model in VALID_MODELS:
+        parts.extend(["--model", model])
+    effort = config.get("effort", DEFAULT_CONFIG["effort"])
+    if effort in VALID_EFFORTS and effort != "off":
+        parts.extend(["--effort", effort])
+    if config.get("verbose"):
+        parts.append("--verbose")
+    if config.get("debug"):
+        parts.append("--debug")
+    return " ".join(parts)
+
+
+def _config_from_form(form) -> dict:
+    return {
+        "model": form.get("model", DEFAULT_CONFIG["model"]),
+        "effort": form.get("effort", DEFAULT_CONFIG["effort"]),
+        "verbose": form.get("verbose") is not None,
+        "debug": form.get("debug") is not None,
+    }
+
+
+def discover_cloud_projects() -> List[dict]:
+    """Return cloud-code projects from workspaces and orphan ``*-remote.bat`` files.
+
+    Each entry: ``{"id": str, "name": str, "project_dir": Path, "source": str}``.
     """
     if not PROJECTS_DIR.is_dir():
         log.warning("⚠️ Projects dir does not exist: %s", PROJECTS_DIR)
         return []
-    found = []
-    for bat in sorted(PROJECTS_DIR.glob("*.bat")):
-        if "remote" not in bat.stem.lower():
+    results: List[dict] = []
+    workspace_stems: set[str] = set()
+    for ws in sorted(PROJECTS_DIR.glob("*.code-workspace")):
+        try:
+            data = json.loads(ws.read_text(encoding="utf-8"))
+            raw_path = data["folders"][0]["path"]
+        except Exception:
             continue
-        found.append(
+        project_dir = Path(raw_path)
+        if not project_dir.is_absolute():
+            project_dir = (PROJECTS_DIR / raw_path).resolve()
+        results.append(
             {
-                "name": _pretty_name(bat),
-                "filename": bat.name,
-                "path": bat,
+                "id": ws.stem,
+                "name": _pretty_name_from_stem(ws.stem),
+                "project_dir": project_dir,
+                "source": "workspace",
             }
         )
-    return found
-
-
-def load_config() -> dict:
-    if CONFIG_PATH.exists():
+        workspace_stems.add(ws.stem)
+    for bat in sorted(PROJECTS_DIR.glob("*-remote.bat")):
+        stem = bat.stem[: -len("-remote")]
+        if stem in workspace_stems:
+            continue
+        project_dir: Optional[Path] = None
         try:
-            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            for line in bat.read_text(encoding="utf-8", errors="ignore").splitlines():
+                m = re.match(r'set\s+"PROJECT_DIR=(.+)"', line.strip())
+                if m:
+                    project_dir = Path(m.group(1).strip())
+                    break
         except Exception:
             pass
-    return {"claude_flags": DEFAULT_CLAUDE_FLAGS}
-
-
-def save_config(data: dict) -> None:
-    CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        if project_dir is None:
+            project_dir = PROJECTS_DIR / stem
+        results.append(
+            {
+                "id": stem,
+                "name": _pretty_name_from_stem(stem),
+                "project_dir": project_dir,
+                "source": "orphan_bat",
+            }
+        )
+    results.sort(key=lambda x: x["name"].lower())
+    return results
 
 
 def discover_workspaces() -> List[dict]:
@@ -249,7 +350,7 @@ def render_bat_content(project_dir: Path, flags: str) -> str:
         "\r\n"
         'cd /d "%PROJECT_DIR%"\r\n'
         "\r\n"
-        f'"C:\\Windows\\System32\\cmd.exe" /k claude {flags}\r\n'
+        f'"C:\\Windows\\System32\\cmd.exe" /c claude {flags}\r\n'
         "\r\n"
         "endlocal\r\n"
     )
@@ -301,17 +402,51 @@ def _spawn_bat(bat_path: Path) -> None:
     )
 
 
+def _spawn_claude(project_dir: Path, flags: str) -> None:
+    """Open a new visible CMD window that runs ``claude`` in ``project_dir``.
+
+    Uses ``cmd /c`` (not ``/k``) so the window closes when claude exits —
+    no double-exit. The outer Popen's ``cwd`` is inherited by ``start``.
+    """
+    if not project_dir.is_dir():
+        raise OSError(f"Project directory not found: {project_dir}")
+    cmd = ["cmd", "/c", "start", "", "cmd", "/c", f"claude {flags}"]
+    creationflags = 0
+    if sys.platform == "win32":
+        creationflags = subprocess.CREATE_NEW_CONSOLE  # type: ignore[attr-defined]
+    subprocess.Popen(
+        cmd,
+        cwd=str(project_dir),
+        shell=False,
+        creationflags=creationflags,
+        close_fds=True,
+    )
+
+
 @app.get("/")
 def index():
     if not _is_authed():
         return redirect(url_for("login"))
-    projects = discover_projects()
+    projects = discover_cloud_projects()
+    config = load_config()
     return render_template(
         "index.html",
         projects=projects,
         projects_dir=str(PROJECTS_DIR),
+        config=config,
+        flags_string=build_claude_flags(config),
         csrf_token=_get_csrf_token(),
     )
+
+
+@app.post("/options")
+def options_post():
+    if not _is_authed():
+        abort(401)
+    _check_csrf()
+    save_config(_config_from_form(request.form))
+    flash("Options saved.", "success")
+    return redirect(url_for("index"))
 
 
 @app.get("/login")
@@ -350,29 +485,31 @@ def launch():
     if not _is_authed():
         abort(401)
     _check_csrf()
-    requested = request.form.get("name", "")
+    requested = request.form.get("id", "")
     project = _resolve_project(requested)
     if project is None:
-        log.warning("⚠️ Launch rejected for unknown bat %r from %s", requested, request.remote_addr)
+        log.warning("⚠️ Launch rejected for unknown project %r from %s", requested, request.remote_addr)
         flash(f"Unknown project: {requested}", "error")
         return redirect(url_for("index"))
+    config = load_config()
+    flags = build_claude_flags(config)
     try:
-        _spawn_bat(project["path"])
+        _spawn_claude(project["project_dir"], flags)
     except OSError as exc:
-        log.exception("❌ Failed to launch %s", project["filename"])
+        log.exception("❌ Failed to launch %s", project["name"])
         flash(f"Failed to launch {project['name']}: {exc}", "error")
         return redirect(url_for("index"))
     stamp = datetime.now().strftime("%H:%M:%S")
-    log.info("✅ Launched %s (%s)", project["name"], project["filename"])
+    log.info("✅ Launched %s (%s) with flags: %s", project["name"], project["project_dir"], flags)
     flash(f"✅ Launched {project['name']} — {stamp}", "success")
     return redirect(url_for("index"))
 
 
-def _resolve_project(filename: str) -> Optional[dict]:
-    if not filename or "/" in filename or "\\" in filename:
+def _resolve_project(project_id: str) -> Optional[dict]:
+    if not project_id or "/" in project_id or "\\" in project_id:
         return None
-    for project in discover_projects():
-        if project["filename"] == filename:
+    for project in discover_cloud_projects():
+        if project["id"] == project_id:
             return project
     return None
 
@@ -386,7 +523,8 @@ def generate():
         "generate.html",
         workspaces=discover_workspaces(),
         orphans=discover_orphan_bats(),
-        claude_flags=config.get("claude_flags", DEFAULT_CLAUDE_FLAGS),
+        config=config,
+        flags_string=build_claude_flags(config),
         csrf_token=_get_csrf_token(),
     )
 
@@ -397,11 +535,12 @@ def generate_run():
         abort(401)
     _check_csrf()
 
-    flags = request.form.get("claude_flags", DEFAULT_CLAUDE_FLAGS).strip()
+    config = _config_from_form(request.form)
+    flags = build_claude_flags(config)
     overwrite_names = set(request.form.getlist("overwrite"))
     create_ws_names = set(request.form.getlist("create_ws"))
 
-    save_config({"claude_flags": flags})
+    save_config(config)
 
     created, overwritten, ws_created, errors = [], [], [], []
 

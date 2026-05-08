@@ -121,6 +121,106 @@
         }
         .tab.active { background: #1c2030; color: #e7e9ee; }
         .tab:active { color: #e7e9ee; }
+
+        /* Options panel */
+        .options {
+            background: #161922;
+            border: 1px solid #2a2f42;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 20px;
+        }
+        .options-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #6b7388;
+            margin: 0 0 10px;
+        }
+        .opt-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .opt-name {
+            font-size: 13px;
+            color: #8b93a7;
+            width: 56px;
+            flex-shrink: 0;
+        }
+        .segmented {
+            display: flex;
+            flex: 1;
+            background: #0f1115;
+            border: 1px solid #2a2f42;
+            border-radius: 9px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .segmented input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .segmented label {
+            flex: 1;
+            text-align: center;
+            padding: 7px 4px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #6b7388;
+            cursor: pointer;
+        }
+        .segmented input[type="radio"]:checked + label {
+            background: #1c2030;
+            color: #e7e9ee;
+        }
+        .toggles {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 10px;
+        }
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #e7e9ee;
+            cursor: pointer;
+        }
+        .toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #5b8ef0;
+            cursor: pointer;
+        }
+        .flags-preview {
+            font-family: "SF Mono", "Fira Mono", monospace;
+            font-size: 11px;
+            color: #6b7388;
+            background: #0f1115;
+            border: 1px solid #2a2f42;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin: 4px 0 10px;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        .apply-btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #e7e9ee;
+            background: #1c2030;
+            border: 1px solid #2a2f42;
+            border-radius: 9px;
+            cursor: pointer;
+        }
+        .apply-btn:active { background: #232842; }
     </style>
 </head>
 <body>
@@ -147,20 +247,58 @@
             {% endfor %}
         {% endwith %}
 
+        <form class="options" method="post" action="{{ url_for('options_post') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="options-label">Claude options</div>
+
+            <div class="opt-row">
+                <span class="opt-name">Model</span>
+                <div class="segmented">
+                    <input type="radio" name="model" value="opus" id="m-opus" {% if config.model == "opus" %}checked{% endif %}><label for="m-opus">Opus</label>
+                    <input type="radio" name="model" value="sonnet" id="m-sonnet" {% if config.model == "sonnet" %}checked{% endif %}><label for="m-sonnet">Sonnet</label>
+                    <input type="radio" name="model" value="haiku" id="m-haiku" {% if config.model == "haiku" %}checked{% endif %}><label for="m-haiku">Haiku</label>
+                </div>
+            </div>
+
+            <div class="opt-row">
+                <span class="opt-name">Effort</span>
+                <div class="segmented">
+                    <input type="radio" name="effort" value="off" id="e-off" {% if config.effort == "off" %}checked{% endif %}><label for="e-off">Off</label>
+                    <input type="radio" name="effort" value="low" id="e-low" {% if config.effort == "low" %}checked{% endif %}><label for="e-low">Low</label>
+                    <input type="radio" name="effort" value="medium" id="e-med" {% if config.effort == "medium" %}checked{% endif %}><label for="e-med">Med</label>
+                    <input type="radio" name="effort" value="high" id="e-high" {% if config.effort == "high" %}checked{% endif %}><label for="e-high">High</label>
+                </div>
+            </div>
+
+            <div class="toggles">
+                <label class="toggle">
+                    <input type="checkbox" name="verbose" {% if config.verbose %}checked{% endif %}>
+                    <span>Verbose</span>
+                </label>
+                <label class="toggle">
+                    <input type="checkbox" name="debug" {% if config.debug %}checked{% endif %}>
+                    <span>Debug</span>
+                </label>
+            </div>
+
+            <div class="flags-preview">claude {{ flags_string }}</div>
+            <button type="submit" class="apply-btn">Apply</button>
+        </form>
+
         {% if projects %}
             {% for project in projects %}
                 <form class="launch" method="post" action="{{ url_for('launch') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <input type="hidden" name="name" value="{{ project.filename }}">
+                    <input type="hidden" name="id" value="{{ project.id }}">
                     <button class="project" type="submit">
                         <span>{{ project.name }}</span>
-                        <span class="filename">{{ project.filename }}</span>
+                        <span class="filename">{{ project.project_dir }}</span>
                     </button>
                 </form>
             {% endfor %}
         {% else %}
             <div class="empty">
-                No <code>*remote*.bat</code> files found in the projects directory.
+                No projects found — drop a <code>.code-workspace</code> file in the projects directory.
             </div>
         {% endif %}
 
