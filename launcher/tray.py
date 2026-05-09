@@ -16,6 +16,7 @@ import socket
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 from pathlib import Path
 from tkinter import ttk
 from typing import Optional
@@ -81,7 +82,8 @@ class TrayApp:
             self._make_icon(running=False),
             "Launcher",
             pystray.Menu(
-                pystray.MenuItem("Open", self._on_open, default=True),
+                pystray.MenuItem("Open", self._on_open_browser, default=True),
+                pystray.MenuItem("Show logs", self._on_show_logs),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Quit", self._on_quit),
             ),
@@ -99,7 +101,11 @@ class TrayApp:
 
     # --- menu callbacks (called from pystray / main thread) ---
 
-    def _on_open(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
+    def _on_open_browser(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        scheme = "https" if USE_HTTPS else "http"
+        webbrowser.open(f"{scheme}://localhost:{PORT}")
+
+    def _on_show_logs(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
         if self._root:
             self._root.after(0, self._show_window)
 
