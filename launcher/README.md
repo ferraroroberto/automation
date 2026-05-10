@@ -65,12 +65,26 @@ To generate a secret key:
 The server binds to `0.0.0.0:5050`. From your phone (joined to your tailnet):
 
 ```
-http://<pc-tailscale-name>:5050
+https://<pc-tailscale-name>:5050
 ```
 
 …or use the Tailscale IP (`100.x.x.x`).
 
 If `tray.py` finds the port already busy it shows a Windows balloon ("Already Running") and exits — no duplicate servers, no duplicate icons.
+
+### TLS / cert setup
+
+The launcher serves HTTPS when `LAUNCHER_SSL_CERT` and `LAUNCHER_SSL_KEY` are set. The cert+key in `launcher/certificates/` here come from `tailscale cert <pc-tailscale-name>` — Tailscale issues a publicly-trusted (Let's Encrypt) cert for your machine's `*.ts.net` MagicDNS name. To regenerate / renew:
+
+```powershell
+tailscale cert tower.tail1121fd.ts.net   # writes .crt + .key into the cwd
+```
+
+Move the resulting files into `launcher/certificates/` and point `LAUNCHER_SSL_CERT` / `LAUNCHER_SSL_KEY` at them. The `certificates/` folder is gitignored, so private keys never land in git.
+
+**Bookmark the Tailscale hostname, not `localhost`.** The cert is bound to `tower.tail1121fd.ts.net` (your tailnet name) — accessing the launcher via `https://localhost:5050` will trigger Chrome's "Not secure" warning because the hostname doesn't match the cert's CN. Use `https://<pc-tailscale-name>:5050` from both PC and phone for a clean lock icon.
+
+> The tray icon's **Open** menu item currently opens `https://localhost:5050`, so it inherits the same warning. Use a browser bookmark on the Tailscale URL instead.
 
 ---
 
