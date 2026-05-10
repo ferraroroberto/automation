@@ -129,3 +129,51 @@ fi
 ```
 
 Bypass for intentional one-offs: `git commit --no-verify`
+
+## Setting up a new or additional machine
+
+The rewrite fixed the history on GitHub (server-side). Each machine you commit from also needs
+the same local configuration, otherwise new commits from that machine will use the wrong email
+and be invisible on the contribution graph again.
+
+Run this on every machine:
+
+```powershell
+# 1. Fix the global email
+git config --global user.email "35553560+ferraroroberto@users.noreply.github.com"
+git config --global user.name "Roberto Ferraro"
+
+# 2. Create the hooks directory and pre-commit hook
+New-Item -ItemType Directory -Force -Path "$HOME\.githooks" | Out-Null
+@'
+#!/bin/sh
+ALLOWED="35553560+ferraroroberto@users.noreply.github.com"
+AUTHOR_EMAIL=$(git var GIT_AUTHOR_IDENT | sed 's/.*<\(.*\)>.*/\1/')
+if [ "$AUTHOR_EMAIL" != "$ALLOWED" ]; then
+  echo ""
+  echo "  COMMIT BLOCKED: author email '$AUTHOR_EMAIL' is not on the allowlist."
+  echo "  Expected: $ALLOWED"
+  echo ""
+  echo "  Fix with:"
+  echo "    git config user.email \"$ALLOWED\""
+  echo ""
+  echo "  Or bypass once (if intentional):"
+  echo "    git commit --no-verify"
+  echo ""
+  exit 1
+fi
+'@ | Set-Content "$HOME\.githooks\pre-commit" -Encoding utf8
+
+# 3. Point git to the hooks directory
+git config --global core.hooksPath "$HOME/.githooks"
+
+# 4. Scan for any repo-level overrides that would shadow the global config
+Get-ChildItem E:\automation -Directory | Where-Object { Test-Path "$($_.FullName)\.git" } | ForEach-Object {
+  $email = git -C $_.FullName config --local user.email 2>$null
+  if ($email) { Write-Output "LOCAL OVERRIDE in $($_.Name): $email — unset with: git -C '$($_.FullName)' config --local --unset user.email" }
+}
+```
+
+Note: the history rewrite (force-push) already happened from this machine and is on GitHub.
+Other machines just need the config above — they do **not** need to re-run `git filter-repo`.
+After pulling/cloning on the new machine, `git log` will show the rewritten history automatically.
