@@ -4,6 +4,7 @@ A simple Python application built with Tkinter that allows you to scan folder st
 
 ## Features
 
+- **System Tray App**: Runs in the system tray; click the icon to open the window, close the window to minimize back to tray, Quit from the tray menu. Single-instance — launching it twice just notifies and exits.
 - **Folder Structure Scanning**: Scan any folder and its subfolders to create a searchable index
 - **Fast Folder Search**: Search for folders containing specific words
 - **Flexible Search Scope**: Choose between searching the full scanned structure or just the current active Explorer window path
@@ -20,6 +21,8 @@ A simple Python application built with Tkinter that allows you to scan folder st
 - Tkinter (usually included with Python)
 - pywin32 (for Windows API access)
 - psutil (for process management)
+- pystray (for the system tray icon)
+- Pillow (for drawing the tray icon)
 
 ## Installation
 
@@ -27,7 +30,7 @@ A simple Python application built with Tkinter that allows you to scan folder st
 2. Ensure you have Python installed on your system
 3. Install required dependencies:
    ```bash
-   pip install pywin32 psutil
+   pip install pywin32 psutil pystray Pillow
    ```
    Or install from the main project requirements:
    ```bash
@@ -42,6 +45,7 @@ A simple Python application built with Tkinter that allows you to scan folder st
    ```bash
    python foldersearcher.py
    ```
+   A tray icon appears in the Windows notification area. The main window stays hidden until you click the tray icon (or pick **Open** from its menu).
 
 2. **Select a root folder**:
    - Click the "Browse" button to select the folder you want to scan
@@ -51,6 +55,10 @@ A simple Python application built with Tkinter that allows you to scan folder st
    - Click "Scan Folder Structure" to analyze all folders and subfolders
    - This creates a `folder_structure.txt` file with the folder hierarchy
    - The scan may take a few moments depending on the folder size
+
+4. **Closing vs quitting**:
+   - The window's **Close** (X) button hides the app back into the tray — your scanned structure and last search stay loaded
+   - To fully exit, right-click the tray icon and choose **Quit**
 
 ### Searching for Folders
 
@@ -135,7 +143,7 @@ Logs are displayed in the console and help with debugging if issues occur.
 - **GUI Framework**: Tkinter
 - **File Formats**: JSON (configuration), TXT (folder structure)
 - **Platform**: Windows (uses Windows Explorer integration)
-- **Dependencies**: None (uses only Python standard library)
+- **Dependencies**: `pywin32`, `psutil`, `pystray`, `Pillow`
 
 ## License
 
