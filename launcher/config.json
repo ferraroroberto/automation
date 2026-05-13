@@ -1,6 +1,6 @@
 {
   "model": "opus",
   "effort": "high",
-  "verbose": false,
+  "verbose": true,
   "debug": false
 }
