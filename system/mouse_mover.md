@@ -4,6 +4,8 @@ A utility that continuously moves the mouse pointer in a rectangular pattern to 
 
 ## Features
 
+- **System Tray App**: Runs in the system tray; click the icon (mouse-shaped) to open the window, close the window to minimize back to tray, Quit from the tray menu. Single-instance — launching it twice just notifies and exits.
+- **Always-on-top window**: Control panel pops above other windows when opened from the tray.
 - Prevents screen locking by simulating mouse activity
 - Configurable movement pattern (distance in all four directions)
 - Adjustable movement speed
@@ -14,14 +16,18 @@ A utility that continuously moves the mouse pointer in a rectangular pattern to 
 ## Requirements
 
 - Python 3
-- PyAutoGUI library
+- `pyautogui`, `pystray`, `Pillow`
 
 ## Installation
 
 1. Ensure Python 3 is installed on your system
-2. Install the required dependency:
+2. Install the required dependencies:
    ```
-   pip install pyautogui
+   pip install pyautogui pystray Pillow
+   ```
+   Or install from the main project requirements:
+   ```
+   pip install -r ../../requirements.txt
    ```
 
 ## Usage

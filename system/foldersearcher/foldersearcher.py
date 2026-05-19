@@ -151,6 +151,7 @@ class FolderSearcher:
             return
         if self.window and self.window.winfo_exists():
             self.window.deiconify()
+            self.window.attributes("-topmost", True)
             self.window.lift()
             self.window.focus_force()
 
@@ -160,6 +161,7 @@ class FolderSearcher:
         win.title("Folder Searcher")
         win.geometry("1200x500")
         win.resizable(True, True)
+        win.attributes("-topmost", True)
         self.window = win
 
         self.setup_ui()
