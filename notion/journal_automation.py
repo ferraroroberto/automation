@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -12,21 +13,36 @@ from utils import load_env_variables, load_json_config
 logger = logging.getLogger(__name__)
 
 _ADJUSTED_DATE: Optional[datetime] = None
+_NON_INTERACTIVE = False
+
+def _cli_timedelta() -> Optional[int]:
+    """Return the integer offset from argv[1] if present and valid, else None."""
+    if len(sys.argv) < 2:
+        return None
+    try:
+        return int(sys.argv[1])
+    except ValueError:
+        return None
 
 def get_adjusted_date(timedelta_value: Optional[int] = None) -> datetime:
     """Return the adjusted date for processing (cached after first call)."""
-    global _ADJUSTED_DATE
+    global _ADJUSTED_DATE, _NON_INTERACTIVE
 
     if _ADJUSTED_DATE is not None:
         return _ADJUSTED_DATE
 
     current_date = datetime.now()
     if timedelta_value is None:
-        raw = input("📅 Enter an integer number to apply a timedelta to the current date (default is 0): ")
-        try:
-            timedelta_value = int(raw)
-        except ValueError:
-            timedelta_value = 0
+        cli_value = _cli_timedelta()
+        if cli_value is not None:
+            timedelta_value = cli_value
+            _NON_INTERACTIVE = True
+        else:
+            raw = input("📅 Enter an integer number to apply a timedelta to the current date (default is 0): ")
+            try:
+                timedelta_value = int(raw)
+            except ValueError:
+                timedelta_value = 0
 
     _ADJUSTED_DATE = current_date + timedelta(days=timedelta_value)
     return _ADJUSTED_DATE
@@ -324,7 +340,8 @@ def process_journal_consolidated(config: dict[str, Any], env_vars: dict[str, str
     logger.info("✅ Saved: %s", output_path)
     logger.info("📄 Total characters: %s", len(consolidated_output))
 
-    _open_folder_in_explorer(output_dir)
+    if not _NON_INTERACTIVE:
+        _open_folder_in_explorer(output_dir)
 
     return output_path
 
