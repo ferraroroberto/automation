@@ -38,19 +38,10 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 
 ### 🎵 Audio Processing (`audio/`)
 
-**Voice Transcription & Recording**
-- **`transcribe_voice/`** - Core recording and OpenAI Whisper transcription (`transcribe_voice_core.py`), GUI launcher, and batch helpers
 - **`audio_extractor_core.py`** / **`audio_extractor_gui.py`** - Audio extraction and processing
 - **`convert_ogg_mp3.py`** - Audio format conversion (OGG to MP3)
 - **`transcript_collate.py`** - Collate and manage transcripts
 - **`audio_normalize.py`** - Audio normalization
-
-**Features:**
-- Real-time audio recording with configurable duration
-- GPU acceleration support for faster transcription
-- Multi-language support with translation capabilities
-- Automatic microphone detection and selection
-- Temporary file management and cleanup
 
 ### 🖼️ Image Processing (`image/`)
 
@@ -359,15 +350,6 @@ pip install -r requirements.txt
 3. Ensure required system dependencies are installed (FFmpeg, etc.)
 
 ## 📋 Usage Examples
-
-### **Voice Transcription**
-```bash
-# Start voice transcription with GUI
-python audio/transcribe_voice_gui.py
-
-# Command-line transcription
-python audio/transcribe_voice_core.py --record-seconds 300 --language Spanish
-```
 
 ### **Instagram Image Formatting**
 ```bash
