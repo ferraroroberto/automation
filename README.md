@@ -120,6 +120,7 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`copy_git_project.py`** - Git project copying and setup
 - **`base64_encode_decode.py`** - Base64 encode/decode utility
 - **`word_to_markdown.py`** - Word to Markdown conversion
+- **`markdown_preview.py`** - Tray-resident GitHub-style Markdown previewer (Edge WebView2) with light/dark toggle and live reload — see [`system/markdown_preview.md`](system/markdown_preview.md)
 - **`foldersearcher/`**, **`treesize/`** - Folder search and size utilities
 
 ### 📝 Text Processing (`text/`)
