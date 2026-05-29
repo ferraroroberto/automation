@@ -51,7 +51,7 @@ Because the `.bat` forwards its first argument to the script, you can set it as 
 
 ## How it works
 
-1. A single-instance lock is taken by binding a fixed `127.0.0.1` port; a second launch detects the bound port, shows a message box, and exits.
+1. A single-instance lock is taken via a Windows named mutex; a second launch detects the existing mutex, shows a message box, and exits.
 2. The Markdown is converted to HTML in Python (`markdown` + `Pygments`) and wrapped in an embedded, offline GitHub-style stylesheet (both light and dark variants).
 3. The HTML is displayed in a pywebview window backed by Edge WebView2. The light/dark toggle flips a `data-theme` attribute via JavaScript; the choice is mirrored back to Python so it survives a live-reload re-render.
 4. pywebview's GUI loop owns the main thread; the pystray tray icon and the file watcher each run on a background thread.
