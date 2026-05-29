@@ -29,11 +29,11 @@ Usage:
 
 import argparse
 import logging
-import socket
 import threading
 import time
 import tkinter as tk
 import ctypes
+from ctypes import wintypes
 from typing import Optional
 
 import pyautogui
@@ -167,7 +167,11 @@ class MouseMoverApp:
     """
 
     _ICON_SIZE = 64
-    _LOCK_PORT = 50218  # single-instance lock via 127.0.0.1 socket
+    # Single-instance via a Windows named mutex. A fixed loopback TCP port is
+    # unreliable here: Windows reserves large high-port ranges (Hyper-V/WSL),
+    # so bind() can fail with WinError 10013 even when no instance is running.
+    _MUTEX_NAME = "mouse_mover_singleton_v1"
+    _ERROR_ALREADY_EXISTS = 183
 
     def __init__(self, args: argparse.Namespace):
         self.args = args
@@ -184,7 +188,7 @@ class MouseMoverApp:
         self._widgets_built = False
         self.btn_stop: Optional[tk.Button] = None
 
-        self._lock_socket: Optional[socket.socket] = None
+        self._mutex: Optional[int] = None
 
         self._icon = pystray.Icon(
             "mouse_mover",
@@ -285,16 +289,16 @@ class MouseMoverApp:
     # ------------------------------------------------------------------
 
     def _acquire_lock(self) -> bool:
-        """Bind to a fixed local port as a mutex. False if another instance holds it."""
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.bind(("127.0.0.1", self._LOCK_PORT))
-            s.listen(1)
-            self._lock_socket = s
-            return True
-        except OSError:
-            s.close()
-            return False
+        """Take a process-wide named mutex. False if another instance holds it.
+
+        The mutex is released automatically when the process exits, so no
+        explicit cleanup is needed.
+        """
+        k = ctypes.windll.kernel32
+        k.CreateMutexW.restype = wintypes.HANDLE
+        k.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        self._mutex = k.CreateMutexW(None, True, self._MUTEX_NAME)
+        return k.GetLastError() != self._ERROR_ALREADY_EXISTS
 
     def _setup_pystray(self, icon: pystray.Icon) -> None:
         """Run on pystray's worker thread once the icon is visible."""
