@@ -186,9 +186,11 @@ class Api:
 
 class MarkdownPreviewApp:
     _ICON_SIZE = 64
-    # Single-instance via a Windows named mutex (a fixed TCP-port lock is
-    # unreliable here — high ports fall in Windows' reserved/excluded ranges).
     _MUTEX_NAME = "markdown_preview_singleton_v1"
+    # Named auto-reset event: a second instance sets it; the running instance
+    # wakes and shows its window. Lives alongside the mutex so "already running"
+    # becomes "raise window" rather than a dead-end error box.
+    _SHOW_EVENT_NAME = "markdown_preview_show_v1"
     _ERROR_ALREADY_EXISTS = 183
 
     def __init__(self, initial_file: Optional[Path]):
@@ -331,20 +333,54 @@ class MarkdownPreviewApp:
                 self.window.load_html(self._render())
 
     # ------------------------------------------------------------------
-    # Single-instance lock
+    # Single-instance lock + show-event IPC
     # ------------------------------------------------------------------
 
     def _acquire_lock(self) -> bool:
-        """Take a process-wide named mutex; False if another instance holds it.
-
-        The mutex is freed automatically when this process exits, so no
-        explicit release is needed.
+        """Take the named mutex. If another instance already holds it, signal
+        it to raise its window and return False so this process exits cleanly.
         """
         k = ctypes.windll.kernel32
         k.CreateMutexW.restype = wintypes.HANDLE
         k.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
         self._mutex = k.CreateMutexW(None, True, self._MUTEX_NAME)
-        return k.GetLastError() != self._ERROR_ALREADY_EXISTS
+        if k.GetLastError() != self._ERROR_ALREADY_EXISTS:
+            return True
+        # Another instance is running — ask it to show its window.
+        EVENT_MODIFY_STATE = 0x0002
+        k.OpenEventW.restype = wintypes.HANDLE
+        k.OpenEventW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+        h = k.OpenEventW(EVENT_MODIFY_STATE, False, self._SHOW_EVENT_NAME)
+        if h:
+            k.SetEvent(h)
+            k.CloseHandle(h)
+        else:
+            # Running instance is in a bad state; fall back to an error box.
+            ctypes.windll.user32.MessageBoxW(
+                0, "Markdown Preview is already running.", "Markdown Preview", 0x40
+            )
+        return False
+
+    def _monitor_show_event(self) -> None:
+        """Daemon thread: wait for a second instance to signal us, then show the window."""
+        k = ctypes.windll.kernel32
+        k.CreateEventW.restype = wintypes.HANDLE
+        k.CreateEventW.argtypes = [
+            wintypes.LPVOID, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR
+        ]
+        # Auto-reset (bManualReset=False), initially non-signalled.
+        h = k.CreateEventW(None, False, False, self._SHOW_EVENT_NAME)
+        if not h:
+            logger.warning("Could not create show-event; bring-to-front IPC disabled")
+            return
+        WAIT_OBJECT_0 = 0x00000000
+        try:
+            while not self._quitting:
+                result = k.WaitForSingleObject(h, 500)
+                if result == WAIT_OBJECT_0 and self.window is not None:
+                    self.window.show()
+        finally:
+            k.CloseHandle(h)
 
     # ------------------------------------------------------------------
     # Run
@@ -352,9 +388,6 @@ class MarkdownPreviewApp:
 
     def run(self) -> None:
         if not self._acquire_lock():
-            ctypes.windll.user32.MessageBoxW(
-                0, "Markdown Preview is already running.", "Markdown Preview", 0x40
-            )
             return
 
         logger.info("Starting Markdown Preview (tray)")
@@ -371,6 +404,7 @@ class MarkdownPreviewApp:
 
         threading.Thread(target=self._icon.run, daemon=True).start()
         threading.Thread(target=self._watch_file, daemon=True).start()
+        threading.Thread(target=self._monitor_show_event, daemon=True).start()
 
         webview.start(gui="edgechromium")
 
