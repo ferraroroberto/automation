@@ -1,8 +1,6 @@
 import streamlit as st
 from pathlib import Path
 import sys
-import os
-import json
 import pandas as pd
 
 # Add the current directory to Python path to import local modules
@@ -14,42 +12,7 @@ from dataentry import main as dataentry_main
 from reachout import main as reachout_main
 from extract_data import main as extract_data_main
 from history import main as history_main
-
-def load_config():
-    """Load configuration from the JSON file in the same directory."""
-    config_path = Path(__file__).parent / "linkedin_profiles_data.json"
-    if not config_path.exists():
-        st.error(f"Config file not found at {config_path}")
-        return None
-
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"Error loading config: {e}")
-        return None
-
-def load_excel_data(file_path):
-    """Load data from the Excel file."""
-    if not os.path.exists(file_path):
-        st.error(f"Data file not found at: {file_path}")
-        return None
-
-    try:
-        df = pd.read_excel(file_path)
-
-        # Ensure date columns are datetime
-        date_columns = ['date_contacted', 'date_connected', 'date_revocation']
-        for col in date_columns:
-            if col not in df.columns:
-                df[col] = pd.NaT  # Create missing column
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-
-        return df
-    except Exception as e:
-        st.error(f"Error loading Excel file: {e}")
-        return None
+from loaders import load_config, load_excel_data
 
 def get_current_theme_mode():
     """Determine if the current theme is light or dark based on config.toml."""

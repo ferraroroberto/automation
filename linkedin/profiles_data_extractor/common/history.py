@@ -1,26 +1,11 @@
-import json
 import os
-from pathlib import Path
 import pandas as pd
 import streamlit as st
 import openpyxl
 
 # Import history manager functions
 from history_manager import get_history_file_path
-
-def load_config():
-    """Load configuration from the JSON file in the same directory."""
-    config_path = Path(__file__).parent / "linkedin_profiles_data.json"
-    if not config_path.exists():
-        st.error(f"Config file not found at {config_path}")
-        return None
-
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"Error loading config: {e}")
-        return None
+from loaders import load_config
 
 def load_history_data():
     """Load history data from the history Excel file."""
