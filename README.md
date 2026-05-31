@@ -11,7 +11,6 @@ This repository contains a diverse set of automation tools designed to streamlin
 ```
 automation/
 ├── 📁 audio/           # Audio recording, transcription, and conversion tools
-├── 📁 email/           # Outlook automation and email management
 ├── 📁 excel/           # Excel automation (e.g. Stripe accounting)
 ├── 📁 google/          # Gmail, Drive, and Google Photos automation
 ├── 📁 html/            # HTML utilities (e.g. countdown timer)
@@ -45,9 +44,9 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 
 ### 🖼️ Image Processing (`image/`)
 
-**Instagram & Social Media Tools**
-- **`instagram_formatter.py`** - Convert images to Instagram-compatible formats
-- **`instagram_formatter_gui.py`** - GUI for Instagram image formatting
+**Illustration & Social Media Tools**
+- **`illustrations_formatter.py`** - Format illustrations for Instagram or fixed dimensions
+- **`illustrations_formatter_gui.py`** - GUI for illustration formatting
 - **`photos_archive.py`** - Photo organization and metadata management
 - **`image_resizer.py`** - Batch image resizing and optimization
 
@@ -59,7 +58,6 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`screenshot.py`** - Automated screenshot capture
 - **`collage_image.py`** - Create image collages from multiple files
 - **`gif_unpacker.py`** - Extract frames from GIFs
-- **`illustrations_formatter.py`** - Illustration formatting and batch processing
 - **`transparency_variants.py`** - Generate transparency variants
 - **`pdf_to_jpg/`** - PDF to JPG conversion (see `README_PDF_Converter.md`)
 
@@ -73,20 +71,6 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 **Download & Processing**
 - **`video_download.py`** - Unified video downloader (YouTube, HLS/M3U8, direct URL) with GUI
 - **`video_reencoder.py`** - Video format conversion and re-encoding
-
-### 📧 Email Automation (`email/`)
-
-**Outlook Integration**
-- **`email-automation-save.py`** - Save selected emails with attachments
-- **`email-automation-archive.py`** - Email archiving and organization
-- **`email-automation-classify.py`** - Email classification and sorting
-- **`utils.py`** - Common email processing utilities
-
-**Features:**
-- Outlook COM automation for Windows
-- Attachment extraction and organization
-- Excel-based email tracking and metadata
-- Gmail archive integration
 
 ### 📚 Notion Integration (`notion/`)
 
@@ -352,13 +336,13 @@ pip install -r requirements.txt
 
 ## 📋 Usage Examples
 
-### **Instagram Image Formatting**
+### **Illustration Formatting**
 ```bash
-# Format images for Instagram
-python image/instagram_formatter.py --source-folder ./input --aspect-ratio 3:4
+# Format illustrations for Instagram or fixed dimensions
+python image/illustrations_formatter.py -s ./input -d ./output -r 3:4
 
 # Use GUI interface
-python image/instagram_formatter_gui.py
+python image/illustrations_formatter_gui.py
 ```
 
 ### **Screen Recording**
@@ -379,27 +363,14 @@ python notion/build_newsletter.py --newsletter 057 --config notion/build_newslet
 
 Details: [`notion/build_newsletter.md`](notion/build_newsletter.md).
 
-### **Email Automation**
-```bash
-# Save selected Outlook email
-python email/email-automation-save.py
-
-# Archive emails
-python email/email-automation-archive.py
-```
-
 ## ⚙️ Configuration
 
 ### **Environment Variables**
 Create a `.env` file in the root directory with:
 ```env
 # Notion API
-NOTION_API_KEY=your_notion_api_key
+NOTION_API_TOKEN=your_notion_api_token
 NOTION_DATABASE_ID=your_database_id
-
-# Email settings
-EMAIL_FOLDER_PATH=path/to/email/folder
-EXCEL_TRACKING_PATH=path/to/tracking.xlsx
 
 # Audio settings
 AUDIO_OUTPUT_PATH=path/to/audio/output
@@ -408,7 +379,7 @@ DEFAULT_LANGUAGE=Spanish
 
 ### **JSON Configuration Files**
 Most modules use JSON configuration files for flexible settings:
-- `instagram_formatter_config.json` - Instagram formatting options
+- `illustrations_formatter_config.json` - Illustration formatting options
 - `build_newsletter.json` - Newsletter configuration
 - `cleaning_patterns.json` - Text cleaning patterns
 
@@ -546,6 +517,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-*Last updated: February 2026*
+*Last updated: May 2026*
 *Python version: 3.8+*
 *Platform: Windows, Linux, macOS*
