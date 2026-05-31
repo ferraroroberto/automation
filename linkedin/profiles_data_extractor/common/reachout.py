@@ -1,6 +1,4 @@
-import json
 import logging
-import os
 from pathlib import Path
 from datetime import datetime
 import re
@@ -15,6 +13,7 @@ import plotly.express as px
 # Import Excel formatting functions
 from excel_format_manager import convert_url_columns_to_hyperlinks, apply_format_from_json
 from history_manager import log_history
+from loaders import load_config, load_excel_data
 
 def generate_color_gradient(start_hex, end_hex, n):
     """Generate a gradient of n colors between start_hex and end_hex."""
@@ -166,41 +165,6 @@ def fuzzy_search_profiles(df, search_query, max_results=100):
     else:
         return df.head(0)
 
-def load_config():
-    """Load configuration from the JSON file in the same directory."""
-    config_path = Path(__file__).parent / "linkedin_profiles_data.json"
-    if not config_path.exists():
-        st.error(f"Config file not found at {config_path}")
-        return None
-
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"Error loading config: {e}")
-        return None
-
-def load_excel_data(file_path):
-    """Load data from the Excel file."""
-    if not os.path.exists(file_path):
-        st.error(f"Data file not found at: {file_path}")
-        return None
-
-    try:
-        df = pd.read_excel(file_path)
-
-        # Ensure date columns are datetime
-        date_columns = ['date_contacted', 'date_connected', 'date_revocation', 'date_discarded']
-        for col in date_columns:
-            if col not in df.columns:
-                df[col] = pd.NaT  # Create missing column
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-
-        return df
-    except Exception as e:
-        st.error(f"Error loading Excel file: {e}")
-        return None
 
 def save_to_excel(df, file_path):
     """Save DataFrame to Excel file."""

@@ -1,55 +1,11 @@
-import json
-import os
-from pathlib import Path
-
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from loaders import load_config, load_excel_data  # noqa: F401 — re-exported for callers
+
 # Page config is now handled in main.py
-
-def load_config():
-    """Load configuration from the JSON file in the same directory."""
-    config_path = Path(__file__).parent / "linkedin_profiles_data.json"
-    if not config_path.exists():
-        st.error(f"Config file not found at {config_path}")
-        return None
-    
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"Error loading config: {e}")
-        return None
-
-def load_data(file_path):
-    """Load data from the Excel file."""
-    if not os.path.exists(file_path):
-        st.error(f"Data file not found at: {file_path}")
-        return None
-    
-    try:
-        # Load Excel file
-        df = pd.read_excel(file_path)
-        
-        # Ensure date columns are datetime
-        if 'date_contacted' in df.columns:
-            df['date_contacted'] = pd.to_datetime(df['date_contacted'], errors='coerce')
-
-        if 'date_connected' in df.columns:
-            df['date_connected'] = pd.to_datetime(df['date_connected'], errors='coerce')
-        
-        if 'date_revocation' in df.columns:
-            df['date_revocation'] = pd.to_datetime(df['date_revocation'], errors='coerce')
-        
-        if 'date_discarded' in df.columns:
-            df['date_discarded'] = pd.to_datetime(df['date_discarded'], errors='coerce')
-            
-        return df
-    except Exception as e:
-        st.error(f"Error loading Excel file: {e}")
-        return None
 
 def create_performance_chart(df_filtered, df_all, group_col):
     if group_col not in df_filtered.columns or group_col not in df_all.columns:
