@@ -64,6 +64,79 @@ def detect_windows_theme() -> str:
         return "light"
 
 
+class _OPENFILENAMEW(ctypes.Structure):
+    """Win32 OPENFILENAMEW for comdlg32.GetOpenFileNameW (natural alignment)."""
+
+    _fields_ = [
+        ("lStructSize", wintypes.DWORD),
+        ("hwndOwner", wintypes.HWND),
+        ("hInstance", wintypes.HINSTANCE),
+        ("lpstrFilter", wintypes.LPCWSTR),
+        ("lpstrCustomFilter", wintypes.LPWSTR),
+        ("nMaxCustFilter", wintypes.DWORD),
+        ("nFilterIndex", wintypes.DWORD),
+        ("lpstrFile", wintypes.LPWSTR),
+        ("nMaxFile", wintypes.DWORD),
+        ("lpstrFileTitle", wintypes.LPWSTR),
+        ("nMaxFileTitle", wintypes.DWORD),
+        ("lpstrInitialDir", wintypes.LPCWSTR),
+        ("lpstrTitle", wintypes.LPCWSTR),
+        ("Flags", wintypes.DWORD),
+        ("nFileOffset", wintypes.WORD),
+        ("nFileExtension", wintypes.WORD),
+        ("lpstrDefExt", wintypes.LPCWSTR),
+        ("lCustData", wintypes.LPARAM),
+        ("lpfnHook", wintypes.LPVOID),
+        ("lpTemplateName", wintypes.LPCWSTR),
+        ("pvReserved", wintypes.LPVOID),
+        ("dwReserved", wintypes.DWORD),
+        ("FlagsEx", wintypes.DWORD),
+    ]
+
+
+def native_open_dialog(initial_dir: Optional[str] = None) -> Optional[str]:
+    """Show a native Open dialog for Markdown files and return the chosen path.
+
+    Deliberately ownerless (``hwndOwner = NULL``). pywebview's WinForms file
+    dialog runs ``ShowDialog`` parented to the GUI-owned window on the *caller's*
+    thread; called from the pystray tray thread that disables the parent
+    cross-thread and deadlocks, leaving the main window stuck. An ownerless
+    Win32 dialog has no parent to disable, so it is safe from any thread.
+
+    Returns ``None`` if the user cancels.
+    """
+    # "<label>\0<patterns>\0...\0" — double-NUL terminated; the trailing NUL of
+    # the literal plus the one create_unicode_buffer appends gives the pair.
+    filt = (
+        "Markdown (*.md;*.markdown;*.mdown)\0*.md;*.markdown;*.mdown\0"
+        "All files (*.*)\0*.*\0"
+    )
+    filter_buf = ctypes.create_unicode_buffer(filt)
+    file_buf = ctypes.create_unicode_buffer(4096)
+
+    OFN_FILEMUSTEXIST = 0x00001000
+    OFN_PATHMUSTEXIST = 0x00000800
+    OFN_EXPLORER = 0x00080000
+    OFN_NOCHANGEDIR = 0x00000008
+
+    ofn = _OPENFILENAMEW()
+    ofn.lStructSize = ctypes.sizeof(_OPENFILENAMEW)
+    ofn.hwndOwner = None
+    ofn.lpstrFilter = ctypes.cast(filter_buf, wintypes.LPCWSTR)
+    ofn.lpstrFile = ctypes.cast(file_buf, wintypes.LPWSTR)
+    ofn.nMaxFile = 4096
+    ofn.lpstrInitialDir = initial_dir
+    ofn.lpstrTitle = "Open Markdown file"
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_NOCHANGEDIR
+
+    comdlg32 = ctypes.windll.comdlg32
+    comdlg32.GetOpenFileNameW.argtypes = [ctypes.POINTER(_OPENFILENAMEW)]
+    comdlg32.GetOpenFileNameW.restype = wintypes.BOOL
+    if not comdlg32.GetOpenFileNameW(ctypes.byref(ofn)):
+        return None  # cancelled (or CommDlgExtendedError on failure)
+    return file_buf.value or None
+
+
 def _pygments_css() -> str:
     """Syntax-highlighting CSS for both themes, scoped by data-theme."""
     light = HtmlFormatter(style="default").get_style_defs(
@@ -290,14 +363,17 @@ class MarkdownPreviewApp:
     def _on_open_file(self, icon: pystray.Icon, item: pystray.MenuItem) -> None:
         if self.window is None:
             return
-        result = self.window.create_file_dialog(
-            webview.OPEN_DIALOG,
-            allow_multiple=False,
-            file_types=("Markdown (*.md;*.markdown;*.mdown)", "All files (*.*)"),
+        # Native ownerless dialog — pywebview's own create_file_dialog parents to
+        # the GUI-owned window and deadlocks when called from this tray thread.
+        initial_dir = (
+            str(self.current_file.parent)
+            if self.current_file and self.current_file.parent.is_dir()
+            else None
         )
+        result = native_open_dialog(initial_dir)
         if not result:
             return
-        self.current_file = Path(result[0])
+        self.current_file = Path(result)
         self._load_current()
         self.window.show()
 
