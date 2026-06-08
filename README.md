@@ -72,6 +72,9 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`video_download.py`** - Unified video downloader (YouTube, HLS/M3U8, direct URL) with GUI
 - **`video_reencoder.py`** - Video format conversion and re-encoding
 
+**GPU Maintenance**
+- **`gpu_recovery.py`** - Diagnose & recover an NVIDIA GPU stuck "disabled" (Device Manager Code 22); restores NVENC acceleration for the tools above (see `gpu_recovery.md`)
+
 ### 📚 Notion Integration (`notion/`)
 
 **Database Management**
