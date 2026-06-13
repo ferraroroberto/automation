@@ -56,18 +56,7 @@ If you prefer not to install WinPcap/Npcap on Windows:
 ### Linux/macOS
 ```bash
 # With sudo
-sudo ./venv/bin/python system/wifi/network_scanner.py
-```
-
-### Alternative: Activate venv first
-```bash
-# Linux/macOS
-source venv/bin/activate
-sudo python system/wifi/network_scanner.py
-
-# Windows PowerShell
-.\.venv\Scripts\activate
-.\.venv\Scripts\python.exe system\wifi\network_scanner.py
+sudo ./.venv/bin/python system/wifi/network_scanner.py
 ```
 
 ## 📊 Usage Examples
