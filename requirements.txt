@@ -1,16 +1,16 @@
 # Automation Project Requirements
-# Comprehensive dependencies for all automation modules
+# Core dependencies for automation modules (excludes packages not freely available on PyPI, e.g. PySimpleGUI)
 
 # =============================================================================
 # DATA VISUALIZATION
 # =============================================================================
 
 # Interactive web apps for data science
-# Source: linkedin/profiles_data_extractor/dashboard.py
+# Source: linkedin/profiles_data_extractor/common/dashboard.py
 streamlit>=1.30.0
 
 # Interactive graphing library
-# Source: linkedin/profiles_data_extractor/dashboard.py
+# Source: linkedin/profiles_data_extractor/common/dashboard.py
 plotly>=5.18.0
 
 # =============================================================================
@@ -18,26 +18,23 @@ plotly>=5.18.0
 # =============================================================================
 
 # Audio recording and playback
-# Source: audio/transcribe_voice/core/recorder.py
+# Source: (voice-transcriber sibling repo — extracted; retained for local audio capture scripts)
 sounddevice>=0.4.6
 
 # Audio file manipulation and processing
-# Source: audio/audio_normalize.py, audio/audio_trim.py (legacy in-process whisper)
+# Source: audio/audio_normalize.py, audio/audio_trim.py
 scipy>=1.10.0
 
 # Audio format conversion (OGG to MP3)
 # Source: audio/convert_ogg_mp3.py
 pydub>=0.25.1
 
-# Note: audio/transcribe_voice/ now talks HTTP to a local whisper.cpp
-# server — openai-whisper / torch / imageio-ffmpeg are no longer required.
-
 # =============================================================================
 # IMAGE PROCESSING MODULES
 # =============================================================================
 
 # Core image manipulation (PIL/Pillow)
-# Source: image/instagram_formatter.py, image/photos_archive.py, image/png_to_jpg_converter.py
+# Source: image/illustrations_formatter.py, image/photos_archive.py, image/png_to_jpg_converter.py
 Pillow>=9.0.0
 
 # HEIF image format support
@@ -81,7 +78,7 @@ yt-dlp>=2024.1.0
 PyPDF2>=3.0.0
 
 # Excel file handling
-# Source: notion/notion_databases_dump.py, email/email-automation-save.py, email/utils.py
+# Source: notion/notion_databases_dump.py
 openpyxl>=3.1.0
 
 # =============================================================================
@@ -89,11 +86,11 @@ openpyxl>=3.1.0
 # =============================================================================
 
 # Data manipulation and analysis
-# Source: notion/notion_databases_dump.py, email/email-automation-save.py, image/photos_archive.py
+# Source: notion/notion_databases_dump.py, image/photos_archive.py
 pandas>=2.0.0
 
 # Numerical operations
-# Source: audio/transcribe_voice_core.py, linkedin/check_ip/storage.py
+# Source: linkedin/check_ip/storage.py
 numpy>=1.20.0
 
 # =============================================================================
@@ -115,14 +112,14 @@ en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_
 # =============================================================================
 
 # Google Photos and Gmail API authentication and services
-# Source: google/photo_weekly_album.py
+# Source: google/weekly_photo_automation.py
 google-auth==2.23.4  # Authentication for Google services
 google-auth-oauthlib==1.1.0  # OAuth2 flow for Google APIs
 google-auth-httplib2==0.1.1  # HTTP transport for Google auth
 google-api-python-client==2.108.0  # Google API client library
 
 # Timezone handling for Google API operations
-# Source: google/photo_weekly_album.py
+# Source: google/weekly_photo_automation.py
 pytz==2023.3.post1  # Timezone calculations
 
 # =============================================================================
@@ -130,12 +127,12 @@ pytz==2023.3.post1  # Timezone calculations
 # =============================================================================
 
 # Windows COM interfaces (Outlook automation)
-# Source: email/email-automation-save.py, email/utils.py, linkedin/open_profiles/utils.py,
-#         system/open_file_latency_diag.py
+# Source: notion/utils.py, system/open_file_latency_diag.py,
+#         linkedin/profiles_data_extractor/devtools/ (win32gui)
 pywin32>=306
 
 # Windows GUI automation (included in pywin32)
-# Source: email/window.py, linkedin/open_profiles/utils.py
+# Source: linkedin/profiles_data_extractor/devtools/ (win32gui/win32con)
 # Note: win32gui functionality is provided by pywin32 package above
 
 # Process and system utilities
@@ -147,11 +144,12 @@ psutil>=5.9.0
 # =============================================================================
 
 # Keyboard and mouse monitoring
-# Source: audio/transcribe_voice_core.py, email/window.py
+# Source: system/textexpander/text_expander_gui.py, system/textexpander/text_expander_monitor.py,
+#         linkedin/profiles_data_extractor/devtools/
 pynput>=1.7.0
 
 # Clipboard operations
-# Source: audio/transcribe_voice_core.py, audio/transcribe_voice_gui.py, text/clean_sensitive_data.py
+# Source: text/clean_sensitive_data.py, system/quickdeck/quickdeck.py, system/textexpander/text_expander_monitor.py
 pyperclip>=1.8.0
 
 # Simple GUI dialogs
@@ -174,16 +172,12 @@ Pygments>=2.17
 # NETWORKING AND WEB
 # =============================================================================
 
-# Web framework for the remote project launcher
-# Source: launcher/launcher.py
-flask>=3.0.0
-
 # HTTP library for API requests
 # Source: Various modules for web interactions
 requests>=2.31.0
 
 # WebSocket client for Chrome DevTools Protocol
-# Source: linkedin/profiles_data_extractor/linkedin_profile_search_checker_devtools.py
+# Source: linkedin/profiles_data_extractor/devtools/linkedin_profile_search_checker_devtools.py
 websocket-client>=1.6.0
 
 # Network packet manipulation and analysis
@@ -214,10 +208,6 @@ rarfile>=4.0
 # Word document processing
 # Source: system/word_to_markdown.py
 python-docx>=0.8.11
-
-# YAML serialization and parsing
-# Source: linkedin/profiles_data_extractor/obsidian/ (Obsidian frontmatter handling)
-PyYAML>=6.0.0
 
 # =============================================================================
 # DEVELOPMENT AND TESTING (OPTIONAL)
@@ -256,9 +246,6 @@ typing-extensions>=4.0.0
 
 # Install all dependencies:
 # pip install -r requirements.txt
-
-# For development environment:
-# pip install -r requirements.txt[dev]
 
 # Note: Some modules may require system-level dependencies (FFmpeg, WinRAR, etc.)
 # See individual module documentation for specific requirements.
