@@ -71,12 +71,7 @@ How to Run:
         .\.venv\Scripts\python.exe network_scanner.py
 
     Linux/macOS (with sudo):
-        sudo ./venv/bin/python network_scanner.py
-
-    Or activate virtual environment and run:
-        source venv/bin/activate  # Linux/macOS
-        .\.venv\Scripts\activate  # Windows PowerShell
-        python network_scanner.py
+        sudo ./.venv/bin/python network_scanner.py
 """
 
 import argparse
@@ -691,12 +686,8 @@ Windows (PowerShell):
 
 Linux/macOS:
     1. Open terminal
-    2. Run: sudo ./venv/bin/python network_scanner.py
+    2. Run: sudo ./.venv/bin/python network_scanner.py
     3. Enter your password when prompted
-
-Alternatively, activate virtual environment first:
-    source venv/bin/activate  # Linux/macOS
-    sudo python network_scanner.py
 
 VirtualBox/VM Users:
     - Ensure your VM has "Bridged Adapter" network mode
