@@ -6,11 +6,14 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 from PIL import Image
+import pillow_heif
+
+pillow_heif.register_heif_opener()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".tif", ".webp"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".tif", ".webp", ".heic", ".heif"}
 
 
 def collect_images(folder: Path) -> list[Path]:
