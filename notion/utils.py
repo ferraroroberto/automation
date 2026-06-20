@@ -101,6 +101,10 @@ def get_first_explorer_folder_path():
 
     return None
 
+# Default location of the legacy notion params txt file (single source of truth).
+# Set the NOTION_PARAMS_FILE environment variable to the path on each machine.
+DEFAULT_PARAMS_FILE = os.getenv("NOTION_PARAMS_FILE", "")
+
 # Function to read the parameters from the txt file (legacy support)
 def read_params_from_txt_file(file_path):
     params = {}

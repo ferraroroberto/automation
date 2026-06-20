@@ -7,8 +7,8 @@ from PIL import Image
 
 log = logging.getLogger(__name__)
 
-# Hardcoded path for the folder containing images
-source_folder = r"E:\onedrive\Documentos\Roberto\projects\speaking\ISDI"
+# Folder containing images — set the COLLAGE_SOURCE_FOLDER environment variable on each machine
+source_folder = os.getenv("COLLAGE_SOURCE_FOLDER", "")
 
 # Base dimensions for an A4 sheet at 300 DPI
 BASE_WIDTH = 2480  # A4 width in pixels at 300 DPI

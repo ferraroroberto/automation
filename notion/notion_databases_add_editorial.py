@@ -19,7 +19,7 @@ from notion_client import Client
 
 
 
-from utils import read_params_from_txt_file
+from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 
 
 
@@ -389,7 +389,7 @@ def main():
 
         type=str,
 
-        default=r"C:\Mis Datos en Local\temporal\python\notion-params.txt",
+        default=DEFAULT_PARAMS_FILE,
 
         help="Path to notion-params.txt (api_token)",
 

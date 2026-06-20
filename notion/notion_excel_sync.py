@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 from notion_client import Client, APIResponseError
 import time
-from utils import read_params_from_txt_file
+from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 # chatGPT source > https://chat.openai.com/c/2bfb9ae6-233d-46fe-8171-69e7e1929866
 # chatGPT source > https://chat.openai.com/c/025bb803-a79e-4be1-851f-fbb249db6e38
 
-params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+params_file_path = DEFAULT_PARAMS_FILE
 params = read_params_from_txt_file(params_file_path)
 
 sync_path = params['sync_path']

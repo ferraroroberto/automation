@@ -6,8 +6,8 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
-# Set the source folder where the CSV files are located
-HARDCODED_SOURCE_FOLDER = r"D:\OneDrive\Documentos\Roberto\projects\automation\notion-automation-files\todoist\Todoist backup 2024-08-14 2318 UTC"
+# Source folder where the CSV files are located — set the TODOIST_SOURCE_FOLDER environment variable on each machine
+HARDCODED_SOURCE_FOLDER = os.getenv("TODOIST_SOURCE_FOLDER", "")
 
 
 # Function to determine if DATE is an actual date or a recurring pattern

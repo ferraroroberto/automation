@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 # requirements: custom functions
-from utils import read_params_from_txt_file
+from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 from utils import get_column_widths
 from utils import apply_column_widths
 
@@ -144,7 +144,7 @@ def read_database_list(excel_path):
 # Main execution
 
 # Load the parameters from the text file
-params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+params_file_path = DEFAULT_PARAMS_FILE
 log.info("📂 Loading parameters...")
 params = read_params_from_txt_file(params_file_path)
 log.info("✅ Parameters loaded")

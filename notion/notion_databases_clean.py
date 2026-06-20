@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 # requirements: custom functions
-from utils import read_params_from_txt_file, get_column_widths, apply_column_widths
+from utils import read_params_from_txt_file, get_column_widths, apply_column_widths, DEFAULT_PARAMS_FILE
 
 # Suppress openpyxl warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl.worksheet._reader")
@@ -186,7 +186,7 @@ def process_databases(databases_to_process, metadata):
 
 # Main execution
 
-params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+params_file_path = DEFAULT_PARAMS_FILE
 log.info("📂 Loading parameters...")
 params = read_params_from_txt_file(params_file_path)
 log.info("✅ Parameters loaded")

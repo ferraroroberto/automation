@@ -68,16 +68,8 @@ class IllustrationsFormatterGUI:
     """
 
     CONFIG_FILE = 'illustrations_formatter_config.json'
-    DEFAULT_1920X1080_FOLDER = (
-        r'C:\Users\rober\iCloudDrive'
-        r'\6LVTQB9699~com~seriflabs~affinitydesigner'
-        r'\Roberto\archived_1920x1080'
-    )
-    DEFAULT_INSTAGRAM_FOLDER = (
-        r'C:\Users\rober\iCloudDrive'
-        r'\6LVTQB9699~com~seriflabs~affinitydesigner'
-        r'\Roberto\archived_IGformat'
-    )
+    DEFAULT_1920X1080_FOLDER = os.getenv('ILLUSTRATIONS_DEST_1920X1080', '')
+    DEFAULT_INSTAGRAM_FOLDER = os.getenv('ILLUSTRATIONS_DEST_INSTAGRAM', '')
 
     def __init__(self, root: tk.Tk):
         self.root = root
