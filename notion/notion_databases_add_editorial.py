@@ -1,5 +1,3 @@
-# source chatGPT > https://chatgpt.com/c/6724bbf2-a618-8009-a4e3-a1f6e6828ae0
-
 # Run with repo venv: ..\.venv\Scripts\python notion_databases_add_editorial.py (from this folder), or notion_databases_add_editorial.bat
 
 

@@ -1,5 +1,3 @@
-# source chatGPT > https://chatgpt.com/c/a0f05392-daee-4295-8401-978e4916e959
-
 import ctypes
 import winreg as reg
 import sys

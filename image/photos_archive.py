@@ -12,13 +12,6 @@ Configuration: photos_archive.json (follows AGENTS.md guidelines)
 - behavior_flags: Control prompts and automation behavior
 - file_extensions: Supported image/video formats
 - date_parsing: Regex patterns for filename date extraction
-
-References:
-- https://chatgpt.com/c/9887f68a-8392-40a9-a648-321dc77ff475 (long version)
-- https://chatgpt.com/c/9aaeba93-8e88-416f-a502-0e4d4bfe9270 (video dates)
-- https://chatgpt.com/c/c8d6ca75-c05d-4a35-9360-dae22274c732 (pattern recognition)
-- https://chatgpt.com/c/d81cead9-9fe0-49f7-a1a8-28d2d45c21d1 (deleting discards)
-- https://chatgpt.com/c/a5bf8310-98ab-4626-8e48-d223bb54d7f7 (source/dest same path)
 """
 
 import os

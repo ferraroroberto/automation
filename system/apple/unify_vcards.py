@@ -5,9 +5,6 @@ vCard Unification Tool
 This module provides an interactive tool to unify duplicate contacts in vCard files.
 It analyzes contacts for potential duplicates based on name similarity and phone numbers,
 then guides users through an interactive process to merge or keep contacts.
-
-Author: Automation Team
-Date: 2024-01-15
 """
 
 import os

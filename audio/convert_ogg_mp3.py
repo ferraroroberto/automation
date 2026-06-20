@@ -1,5 +1,3 @@
-# source chatGPT > https://chatgpt.com/c/67a4e5d8-22d8-8009-b78b-3d3d7697e06a
-
 import logging
 import os
 import tkinter as tk
