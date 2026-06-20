@@ -2,16 +2,16 @@ import logging
 import os
 import tkinter as tk
 from tkinter import filedialog
+import imageio_ffmpeg
 from pydub import AudioSegment
 
 log = logging.getLogger(__name__)
 
-# Manually set the correct paths for ffmpeg and ffprobe
-ffmpeg_path = r"C:\Users\rober\AppData\Roaming\Python\Python311\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe"
-ffprobe_path = ffmpeg_path  # `imageio_ffmpeg` does not have a separate ffprobe, so use the same path
-
-AudioSegment.converter = ffmpeg_path
-AudioSegment.ffprobe = ffprobe_path
+# Resolve ffmpeg at runtime via imageio_ffmpeg so this works on any machine
+# regardless of Python version, install location, or ffmpeg build.
+_ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+AudioSegment.converter = _ffmpeg_path
+AudioSegment.ffprobe = _ffmpeg_path  # imageio_ffmpeg bundles no separate ffprobe
 
 def convert_ogg_to_mp3():
     root = tk.Tk()

@@ -28,6 +28,7 @@ scipy>=1.10.0
 # Audio format conversion (OGG to MP3)
 # Source: audio/convert_ogg_mp3.py
 pydub>=0.25.1
+imageio-ffmpeg>=0.5.0  # bundled ffmpeg binary resolved at runtime via get_ffmpeg_exe()
 
 # =============================================================================
 # IMAGE PROCESSING MODULES
