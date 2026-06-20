@@ -5,7 +5,7 @@ import warnings
 from openpyxl import load_workbook
 
 # requirements: custom functions
-from utils import read_params_from_txt_file
+from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ def editorial_databases(databases_to_editorial):
 
 # Main execution
 
-params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+params_file_path = DEFAULT_PARAMS_FILE
 params = read_params_from_txt_file(params_file_path)
 
 excel_path = params['excel_path']

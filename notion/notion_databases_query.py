@@ -4,7 +4,7 @@ import pandas as pd
 from notion_client import Client
 
 # requirements: custom functions
-from utils import read_params_from_txt_file
+from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def save_to_excel(databases, db_excel_path):
 # Main execution
 
 # Load the parameters from the text file
-params_file_path = r"C:\Mis Datos en Local\temporal\python\notion-params.txt"
+params_file_path = DEFAULT_PARAMS_FILE
 params = read_params_from_txt_file(params_file_path)
 
 # Get the api_token
