@@ -1,5 +1,3 @@
-# source chatGPT 2024-09-21 > https://chatgpt.com/c/66eed755-cfe8-8009-9030-25642e2ce043
-
 import logging
 import os
 import random

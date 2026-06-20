@@ -1,6 +1,3 @@
-# chatGPT > improve treatment when I don't have all the columns in metadata, add more debug, treat number fields in extraction
-# https://chatgpt.com/c/9d919945-16dc-4a8a-8f79-8cc2b055ad2f
-
 import logging
 import os
 import sys

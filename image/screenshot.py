@@ -1,5 +1,3 @@
-# AI source > https://chatgpt.com/c/67963e0c-6fd8-8009-88b4-df158e8732c2
-
 import logging
 import os
 import sys

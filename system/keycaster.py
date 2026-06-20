@@ -1,5 +1,3 @@
-# source: https://chatgpt.com/c/681206f7-0138-8009-b013-ab6bb16200e9
-
 import PySimpleGUI as sg # type: ignore
 import pygetwindow as gw
 import pyautogui as pag

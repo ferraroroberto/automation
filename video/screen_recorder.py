@@ -12,8 +12,6 @@ Dependencies:
 Notes:
 • Lower FPS → smaller files but choppier video.
 • Cursor overlay ensures visibility on light/dark backgrounds.
-
-Author: ChatGPT – April 2025
 """
 
 import tkinter as tk

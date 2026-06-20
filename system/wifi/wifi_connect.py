@@ -1,5 +1,3 @@
-# source chatGPT > https://chatgpt.com/c/66e5815c-38a8-8009-a7d7-51cd9d956cff
-
 import logging
 import os
 import subprocess

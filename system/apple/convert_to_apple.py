@@ -4,9 +4,6 @@ Apple Contacts Converter
 
 This module converts vCard (.vcf) files to Apple-compatible format using a Tkinter GUI.
 It automatically adds the _apple suffix to the output filename.
-
-Author: Automation Team
-Date: 2024-01-15
 """
 
 import tkinter as tk

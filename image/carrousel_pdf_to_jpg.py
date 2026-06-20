@@ -1,6 +1,3 @@
-# chatGPT source and first iteration > https://chatgpt.com/c/5001a6f9-4247-4a02-b6e9-2a84acd468f5
-# log execution > https://onedrive.live.com/edit.aspx?resid=5492cf8639ca0b0b!196221
-
 import logging
 import os
 import sys

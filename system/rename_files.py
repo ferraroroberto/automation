@@ -2,8 +2,6 @@ import logging
 import os
 import re
 
-# source chatGPT 2024-05-25 > https://chatgpt.com/c/1049735e-6d2b-4603-8a4a-8f68b8de8e10
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
