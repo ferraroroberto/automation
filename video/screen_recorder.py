@@ -27,7 +27,7 @@ from screeninfo import get_monitors
 import mss
 
 # --- CONFIGURATION -------------------------------------------------------
-OUTPUT_DIR = Path("C:/Users/u0150867/Downloads/videos")
+OUTPUT_DIR = Path.home() / "Downloads" / "videos"
 DEFAULT_FPS = 5
 CODEC = cv2.VideoWriter_fourcc(*"mp4v")
 MAX_FILE_MB: int | None = None
