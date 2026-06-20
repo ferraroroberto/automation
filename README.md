@@ -229,6 +229,15 @@ NOTION_DATABASE_ID=your_database_id
 # Audio settings
 AUDIO_OUTPUT_PATH=path/to/audio/output
 DEFAULT_LANGUAGE=Spanish
+
+# Machine-local folder paths (no hardcoded defaults — must be set per machine)
+NOTION_PARAMS_FILE=         # path to the legacy notion-params.txt file (notion/utils.py)
+ILLUSTRATIONS_DEST_INSTAGRAM=  # destination folder for Instagram-formatted illustrations (image/illustrations_formatter*.py)
+ILLUSTRATIONS_DEST_1920X1080=  # destination folder for 1920×1080 illustrations (image/illustrations_formatter*.py)
+CARROUSEL_SOURCE_FOLDER=    # source folder of carrousel PDF files (image/carrousel_pdf_to_jpg.py)
+POPPLER_PATH=               # path to Poppler bin dir if not on system PATH (image/carrousel_pdf_to_jpg.py)
+COLLAGE_SOURCE_FOLDER=      # source folder for collage images (image/collage_image.py)
+TODOIST_SOURCE_FOLDER=      # source folder for Todoist CSV backup files (notion/todoist_migration.py)
 ```
 
 ### **JSON Configuration Files**

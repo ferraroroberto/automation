@@ -11,11 +11,11 @@ from tkinter import messagebox
 
 log = logging.getLogger(__name__)
 
-# Hardcoded source folder
-HARDCODED_SOURCE_FOLDER = r"C:\Users\rober\iCloudDrive\6LVTQB9699~com~seriflabs~affinitydesigner\Roberto\thread\books"
+# Source folder — set the CARROUSEL_SOURCE_FOLDER environment variable on each machine
+HARDCODED_SOURCE_FOLDER = os.getenv("CARROUSEL_SOURCE_FOLDER", "")
 
-# Specify Poppler path if not added to system PATH
-POPPLER_PATH = r"E:\onedrive\Documentos\Roberto\projects\automation\notion-automation-files\poppler\Library\bin"  # Update this path as per your installation
+# Poppler path if not added to system PATH — set the POPPLER_PATH environment variable on each machine
+POPPLER_PATH = os.getenv("POPPLER_PATH", "")
 
 
 def find_pdf_files(root_folder):
