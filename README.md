@@ -366,7 +366,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - OpenAI Whisper for speech recognition
 - Notion API for database integration
-- PySimpleGUI for user interface components
+- PySimpleGUI for user interface components in `system/keycaster.py` and `system/quickdeck/` *(note: PySimpleGUI is no longer freely available on PyPI — it requires a paid license or registration; these two tools need a separately-obtained PySimpleGUI installation, or can be migrated to the drop-in [FreeSimpleGUI](https://github.com/spyoungtech/FreeSimpleGUI) fork)*
 - FFmpeg for audio/video processing
 
 ---
