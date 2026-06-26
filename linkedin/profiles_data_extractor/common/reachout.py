@@ -530,7 +530,7 @@ def main(df_filtered, df_all):
                             date_contacted_value = date_contacted_value.date()
                         elif isinstance(date_contacted_value, str):
                             date_contacted_value = pd.to_datetime(date_contacted_value).date()
-                    except:
+                    except (ValueError, TypeError):
                         date_contacted_value = None
                 else:
                     date_contacted_value = None
@@ -556,7 +556,7 @@ def main(df_filtered, df_all):
                             date_discarded_value = date_discarded_value.date()
                         elif isinstance(date_discarded_value, str):
                             date_discarded_value = pd.to_datetime(date_discarded_value).date()
-                    except:
+                    except (ValueError, TypeError):
                         date_discarded_value = None
                 else:
                     date_discarded_value = None

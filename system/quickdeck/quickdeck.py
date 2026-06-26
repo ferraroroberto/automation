@@ -609,14 +609,14 @@ class QuickDeck:
                         try:
                             font = ImageFont.truetype(font_path, size)
                             break
-                        except:
+                        except OSError:
                             continue
-                
+
                 if font is None:
                     # Fallback to default font
                     font = ImageFont.load_default()
-                
-            except:
+
+            except Exception:
                 font = ImageFont.load_default()
             
             # Calculate text position to center the emoji with padding
@@ -679,19 +679,19 @@ class QuickDeck:
                         try:
                             font = ImageFont.truetype(font_path, text_size)
                             break
-                        except:
+                        except OSError:
                             continue
-                
+
                 if font is None:
                     font = ImageFont.load_default()
-                
+
                 # Calculate actual text width
                 temp_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
                 temp_draw = ImageDraw.Draw(temp_img)
                 bbox = temp_draw.textbbox((0, 0), text, font=font)
                 text_width = bbox[2] - bbox[0]
-                
-            except:
+
+            except Exception:
                 # Fallback: estimate text width (rough approximation)
                 text_width = len(text) * (text_size * 0.6)
             
@@ -734,13 +734,13 @@ class QuickDeck:
                         try:
                             font = ImageFont.truetype(font_path, text_size)
                             break
-                        except:
+                        except OSError:
                             continue
-                
+
                 if font is None:
                     font = ImageFont.load_default()
-                
-            except:
+
+            except Exception:
                 font = ImageFont.load_default()
             
             # Calculate text position
@@ -829,18 +829,18 @@ class QuickDeck:
                                 try:
                                     font = ImageFont.truetype(font_path, text_size)
                                     break
-                                except:
+                                except OSError:
                                     continue
-                        
+
                         if font is None:
                             font = ImageFont.load_default()
-                        
+
                         temp_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
                         temp_draw = ImageDraw.Draw(temp_img)
                         bbox = temp_draw.textbbox((0, 0), label, font=font)
                         text_width = bbox[2] - bbox[0]
-                        
-                    except:
+
+                    except Exception:
                         text_width = len(label) * (text_size * 0.6)
                     
                     # Use proper sizing - width should accommodate text, height for emoji + text

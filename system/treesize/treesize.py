@@ -101,7 +101,7 @@ class TreeSizeAnalyzer:
         try:
             if platform.system() == 'Windows':
                 return 4096
-        except:
+        except Exception:
             pass
         return 4096
 

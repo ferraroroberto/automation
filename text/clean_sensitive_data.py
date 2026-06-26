@@ -36,7 +36,7 @@ def has_display():
         test_root.withdraw()  # Hide the window
         test_root.destroy()
         return True
-    except:
+    except tk.TclError:
         return False
 
 class DataCleanerBase:
@@ -447,7 +447,7 @@ class SensitiveDataCleaner(DataCleanerBase):
                 self.input_text.delete("1.0", tk.END)
                 self.input_text.insert("1.0", clipboard_text)
                 self.status_var.set("Text automatically pasted from clipboard")
-        except:
+        except pyperclip.PyperclipException:
             # Ignore clipboard errors
             pass
 

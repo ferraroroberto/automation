@@ -373,7 +373,7 @@ class GmailDriveAutomation:
                     try:
                         parsed_date = datetime.strptime(date, '%a, %d %b %Y %H:%M:%S %z')
                         formatted_date = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
-                    except:
+                    except ValueError:
                         formatted_date = date
                     
                     email_data.append({

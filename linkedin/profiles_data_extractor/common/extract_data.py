@@ -58,7 +58,7 @@ def main():
                             st.info("🔍 Chrome should now be open. Navigate to LinkedIn and open the profiles you want to extract.")
                         else:
                             st.warning("⚠️ Chrome may have started but debug connection check failed.")
-                    except:
+                    except requests.exceptions.RequestException:
                         st.warning("⚠️ Chrome startup initiated. Please check if Chrome opened successfully.")
 
                 except Exception as e:
