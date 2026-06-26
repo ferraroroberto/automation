@@ -161,7 +161,6 @@ easygui>=0.98.3
 pystray>=0.19.4
 keyboard>=0.13.5
 win10toast>=0.9
-pywin32>=306
 
 # Markdown preview tray app (renders via Edge WebView2)
 # Source: system/markdown_preview.py

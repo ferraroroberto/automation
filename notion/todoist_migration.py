@@ -17,12 +17,12 @@ def is_exact_date(date_str):
         # Try parsing the date normally
         date = pd.to_datetime(date_str)
         return 1, date.strftime("%Y-%m-%d"), date
-    except:
+    except (ValueError, TypeError):
         # Check if the date is of the format '31 Aug', missing a year
         try:
             date_with_year = pd.to_datetime(f"{date_str} {current_year}")
             return 1, date_with_year.strftime("%Y-%m-%d"), date_with_year
-        except:
+        except (ValueError, TypeError):
             return 0, "", None
 
 

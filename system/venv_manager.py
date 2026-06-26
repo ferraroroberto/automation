@@ -80,7 +80,7 @@ def is_admin():
         else:
             # On Unix systems, check if user is root (uid 0)
             return os.geteuid() == 0
-    except:
+    except (AttributeError, OSError):
         return False
 
 def elevate_privileges():

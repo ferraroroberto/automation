@@ -30,7 +30,7 @@ def get_current_theme_mode():
                 return "light"
             else:
                 return "dark"
-    except:
+    except (OSError, UnicodeDecodeError):
         return "dark"
 
 def toggle_theme():

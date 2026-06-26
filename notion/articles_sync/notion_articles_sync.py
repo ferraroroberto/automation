@@ -367,7 +367,7 @@ class NotionArticlesSync:
                 try:
                     error_details = e.response.json()
                     logger.debug(f"❌ Error details: {json.dumps(error_details, indent=2)}")
-                except:
+                except ValueError:
                     logger.debug(f"❌ Response text: {e.response.text}")
             
             if retry < self.max_retries:
@@ -481,7 +481,7 @@ class NotionArticlesSync:
         elif field_type == "number":
             try:
                 return {"number": float(value)}
-            except:
+            except (ValueError, TypeError):
                 return {"number": 0}
         elif field_type == "url":
             return {"url": str(value)}
