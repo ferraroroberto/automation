@@ -6,6 +6,8 @@ import argparse
 
 import logging
 
+import os
+
 import sys
 
 from calendar import monthrange
@@ -13,6 +15,7 @@ from calendar import monthrange
 from datetime import datetime, timedelta
 from typing import Optional
 
+from dotenv import load_dotenv
 from notion_client import Client
 
 
@@ -26,6 +29,8 @@ from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 def setup_logging(debug: bool = False):
 
     """Set up logging configuration (same style as normalize_url.py)."""
+
+    sys.stdout.reconfigure(encoding="utf-8")
 
     level = logging.DEBUG if debug else logging.INFO
 
@@ -75,13 +80,31 @@ def editorial_date_range(now: Optional[datetime] = None) -> tuple[str, str]:
 
 
 
-# Initialize Notion Client using parameters file
+# Initialize Notion Client using parameters file or NOTION_API_TOKEN env var
 
 def init_notion_client(params_file_path, timeout_ms=180_000):
 
-    params = read_params_from_txt_file(params_file_path)
+    if params_file_path:
 
-    api_token = params["api_token"]
+        params = read_params_from_txt_file(params_file_path)
+
+        api_token = params["api_token"]
+
+    else:
+
+        load_dotenv()
+
+        api_token = os.getenv("NOTION_API_TOKEN")
+
+        if not api_token:
+
+            raise ValueError(
+
+                "No params file configured and NOTION_API_TOKEN is not set. "
+
+                "Set NOTION_PARAMS_FILE or add NOTION_API_TOKEN to .env."
+
+            )
 
     # Default SDK timeout is 60s; large DBs or slow links often need more.
 
