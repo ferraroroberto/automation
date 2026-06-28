@@ -49,3 +49,6 @@ notion/articles_sync/notion_articles_sync_last_time.txt
 
 # launcher Apps tab — user-specific list of discovered Streamlit launchers
 launcher/apps_config.json
+
+# PyInstaller build output (reproducible from source + build_minimal.bat)
+image/pdf_to_jpg/dist/
