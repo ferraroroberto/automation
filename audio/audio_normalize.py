@@ -495,8 +495,12 @@ def main():
         # Check if test mode (no GUI)
         import sys
         if len(sys.argv) > 1 and sys.argv[1] == "--test":
-            # Test mode - use the test.m4a file directly
-            input_path = r"E:\automation\automation\audio\test.m4a"
+            # Test mode - resolve file from argv[2] or env var
+            test_file = (sys.argv[2] if len(sys.argv) > 2 else None) or os.environ.get("AUDIO_NORMALIZE_TEST_FILE")
+            if not test_file:
+                logger.error("❌ TEST MODE: No test file specified. Pass path as argv[2] or set AUDIO_NORMALIZE_TEST_FILE env var.")
+                return
+            input_path = test_file
             logger.info(f"🧪 TEST MODE: Using file: {os.path.basename(input_path)}")
 
             # Step 2: Analyze current levels

@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from mss import mss
 from PIL import Image
 
@@ -45,7 +46,7 @@ def get_bottom_left_monitor(monitors):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    output_folder = "E:\\downloads\\snaps"
+    output_folder = os.environ.get("SCREENSHOT_OUTPUT_FOLDER", str(Path.home() / "Downloads" / "snaps"))
     monitors = list_monitors()
     monitor_index = None
 
