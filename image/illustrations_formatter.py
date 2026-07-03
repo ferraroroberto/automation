@@ -30,7 +30,6 @@ import json
 from pathlib import Path
 from typing import Tuple, List, Optional, Dict, Any
 from PIL import Image
-import concurrent.futures
 from dataclasses import dataclass
 
 

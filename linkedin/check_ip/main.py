@@ -143,8 +143,7 @@ class LinkedInImageSearchApp:
             # Save all databases
             self._save_databases(
                 metadata_df, results_df, api_history_df,
-                metadata_path, results_path, api_history_path,
-                len(new_results) > 0
+                metadata_path, results_path, api_history_path
             )
             
             # Log summary
@@ -169,9 +168,7 @@ class LinkedInImageSearchApp:
         """
         # Track new results for this run
         new_results = []
-        metadata_updated = False
-        api_history_updated = False
-        
+
         # Count skipped and processed images
         skipped_images = 0
         processed_images = 0
@@ -215,7 +212,6 @@ class LinkedInImageSearchApp:
                 
                 # Update last processed date
                 metadata_df.loc[metadata_df['filename'] == img_filename, 'last_processed_date'] = current_time_str
-                metadata_updated = True
             else:
                 # New image, upload to Imgur
                 logger.info(f"🚀 Processing: {img_filename} (new upload to Imgur)")
@@ -234,8 +230,7 @@ class LinkedInImageSearchApp:
                     'imgur_url': [img_url]
                 })
                 metadata_df = pd.concat([metadata_df, new_metadata], ignore_index=True)
-                metadata_updated = True
-            
+
             processed_images += 1
             
             # Process searches for this image
@@ -251,8 +246,7 @@ class LinkedInImageSearchApp:
             new_results.extend(image_new_results)
             unique_urls_found += image_unique_urls
             duplicate_urls_skipped += image_duplicate_urls
-            api_history_updated = True
-            
+
             # Log summary for this image
             if image_duplicate_urls > 0:
                 logger.info(f"⏩ {img_filename}: Added {image_unique_urls} new URLs, skipped {image_duplicate_urls} existing URLs")
@@ -274,8 +268,7 @@ class LinkedInImageSearchApp:
         # Update metadata counts and mark duplicates
         logger.info("🔢 Updating metadata link counts")
         metadata_df = self.data_processor.update_metadata_counts(metadata_df, results_df)
-        metadata_updated = True
-        
+
         logger.info("🔍 Checking for duplicate URLs in results database")
         results_df = self.data_processor.mark_duplicate_urls(results_df)
         
@@ -342,8 +335,7 @@ class LinkedInImageSearchApp:
     
     def _save_databases(self, metadata_df: pd.DataFrame, results_df: pd.DataFrame,
                        api_history_df: pd.DataFrame, metadata_path: Path,
-                       results_path: Path, api_history_path: Path, 
-                       has_new_results: bool):
+                       results_path: Path, api_history_path: Path):
         """Save all databases to Excel files."""
         # Save metadata
         logger.info("💾 Saving updated metadata with link counts")

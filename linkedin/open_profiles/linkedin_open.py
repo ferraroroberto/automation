@@ -479,35 +479,6 @@ def update_urls(df: pd.DataFrame, verbose: bool = False) -> pd.DataFrame:
     return df
 
 
-def open_linkedin_profiles(df: pd.DataFrame, chunk_size: int) -> None:
-    """Open LinkedIn profiles in browser with chunking."""
-    total_urls = len(df)
-    if total_urls == 0:
-        logger.warning("No profiles to open after filtering")
-        return
-    
-    logger.info(f"Opening {total_urls} LinkedIn profiles in chunks of {chunk_size}")
-    num_urls_opened = 0
-    
-    for i in range(0, total_urls, chunk_size):
-        chunk = df.iloc[i:i+chunk_size]
-        
-        for j, (_, row) in enumerate(chunk.iterrows(), start=1):
-            num_urls_opened += 1
-            url = row['URL_LINKEDIN']
-            topic = row['FK_TOPIC']
-            person = row['DE_PERSON']
-            
-            logger.info(f"Opening URL {num_urls_opened:03} ({topic} - {person})")
-            webbrowser.open(url)
-        
-        # Ask for continuation if there are more URLs
-        if num_urls_opened < total_urls:
-            input(f"Press enter to open the next {chunk_size} URLs")
-    
-    logger.info("Process finished.")
-
-
 def main():
     """Main execution function."""
     # Get the directory where this script is located
@@ -556,8 +527,9 @@ Examples:
     if args.chunk_size:
         config['default_chunk_size'] = args.chunk_size
 
-    # Launch the GUI dialog (it handles all processing now)
-    filters, chunk_size = get_user_filters_and_chunk_size(config)
+    # Launch the GUI dialog (it handles all processing internally; the returned
+    # filter selection is not needed here)
+    get_user_filters_and_chunk_size(config)
 
     logger.info("Application finished")
 

@@ -13,7 +13,6 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import subprocess
-import shlex
 
 def setup_logging():
     """Setup logging configuration."""
