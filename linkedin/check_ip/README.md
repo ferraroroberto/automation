@@ -25,7 +25,6 @@ linkedin/
 ├── search_client.py                 # Google Lens search via SerpAPI
 ├── data_processor.py                # Data processing utilities
 ├── linkedin_search_image.json       # Configuration file
-├── linkedin_search_image.py         # [LEGACY] Original monolithic script
 └── README.md                        # This documentation
 ```
 
@@ -261,16 +260,6 @@ For more detailed logging, modify the logging level in `main.py`:
 ```python
 logging.basicConfig(level=logging.DEBUG)
 ```
-
-## 🔄 Migration from Legacy Script
-
-If you're upgrading from the original `linkedin_search_image.py`:
-
-1. Your existing Excel files will work with the new modular version
-2. The new version preserves all existing functionality
-3. Configuration is now in JSON format instead of global variables
-4. Command line arguments remain the same
-5. All output formats are backward compatible
 
 ## 📈 Performance Considerations
 
