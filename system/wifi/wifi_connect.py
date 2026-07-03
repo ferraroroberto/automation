@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-def connect_to_wifi():
+def connect_to_wifi() -> None:
     try:
         # Get the path to the current folder where the script is located
         script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -72,5 +72,5 @@ def connect_to_wifi():
     except Exception as e:
         log.error("Error: %s", e)
 
-# Example usage
-connect_to_wifi()
+if __name__ == "__main__":
+    connect_to_wifi()

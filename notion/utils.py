@@ -14,12 +14,13 @@ from datetime import datetime
 from zipfile import BadZipFile
 import json
 from dotenv import load_dotenv
+from typing import Optional, Dict, List, Any
 
 log = logging.getLogger(__name__)
 
 
 # Custom function to replace special characters
-def replace_special_chars(path):
+def replace_special_chars(path: str) -> str:
     special_char_mapping = {
         '%E1': 'á',
         '%E9': 'é',
@@ -42,7 +43,7 @@ def replace_special_chars(path):
     return path
 
 # Function to get the path of the foreground windows explorer
-def get_first_explorer_hwnd():
+def get_first_explorer_hwnd() -> Optional[int]:
     # Get a list of all open windows
     windows = []
     win32gui.EnumWindows(lambda hwnd, windows: windows.append(hwnd), windows)
@@ -56,7 +57,7 @@ def get_first_explorer_hwnd():
 
     return None
 
-def get_explorer_path_from_hwnd(target_hwnd):
+def get_explorer_path_from_hwnd(target_hwnd: int) -> Optional[str]:
     # Get all instances of Shell Windows
     shell_windows = win32com.client.Dispatch("Shell.Application").Windows()
 
@@ -82,7 +83,7 @@ def get_explorer_path_from_hwnd(target_hwnd):
     log.warning("No matching Windows Explorer instance found.")
     return None
 
-def get_first_explorer_folder_path():
+def get_first_explorer_folder_path() -> Optional[str]:
     # Get the HWND of the first Windows Explorer instance with a path in its title
     first_explorer_hwnd = get_first_explorer_hwnd()
 
@@ -106,7 +107,7 @@ def get_first_explorer_folder_path():
 DEFAULT_PARAMS_FILE = os.getenv("NOTION_PARAMS_FILE", "")
 
 # Function to read the parameters from the txt file (legacy support)
-def read_params_from_txt_file(file_path):
+def read_params_from_txt_file(file_path: str) -> Dict[str, str]:
     params = {}
     with open(file_path, 'r') as f:
         for line in f:
@@ -116,7 +117,7 @@ def read_params_from_txt_file(file_path):
     return params
 
 # Function to load JSON configuration file
-def load_json_config(config_path):
+def load_json_config(config_path: str) -> Dict[str, Any]:
     """
     Load configuration from a JSON file.
 
@@ -139,7 +140,7 @@ def load_json_config(config_path):
         raise
 
 # Function to load environment variables from .env file
-def load_env_variables(env_path=None):
+def load_env_variables(env_path: Optional[str] = None) -> Dict[str, Optional[str]]:
     """
     Load environment variables from .env file.
 
@@ -164,7 +165,13 @@ def load_env_variables(env_path=None):
     return env_vars
 
 # Function to open an excel file or a pickle, if found. If not found, creates the pickle
-def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, usecols=None, engine=None):
+def read_excel_or_pickle(
+    excel_file_path: str,
+    pickle_file_path: str,
+    sheet_name: Optional[str] = None,
+    usecols: Optional[Any] = None,
+    engine: Optional[str] = None,
+) -> pd.DataFrame:
     excel_file = Path(excel_file_path)
     pickle_file = Path(pickle_file_path)
 
@@ -194,7 +201,7 @@ def read_excel_or_pickle(excel_file_path, pickle_file_path, sheet_name=None, use
     return df
 
 # Get the column widths from the existing Excel file, initializing column_widths as an empty list first
-def get_column_widths(excel_path):
+def get_column_widths(excel_path: str) -> List[Any]:
     column_widths = []
     if not os.path.exists(excel_path):
         log.warning("No existing workbook at %s; skipping column width reuse.", excel_path)
@@ -218,7 +225,7 @@ def get_column_widths(excel_path):
     return column_widths
 
 # Apply column widths to an excel file (requires the column_widths)
-def apply_column_widths(excel_path, column_widths):
+def apply_column_widths(excel_path: str, column_widths: List[Any]) -> None:
     if column_widths:
         wb_final = openpyxl.load_workbook(excel_path)
         ws_final = wb_final.active
@@ -226,7 +233,7 @@ def apply_column_widths(excel_path, column_widths):
             ws_final.column_dimensions[openpyxl.utils.get_column_letter(i+1)].width = width
         wb_final.save(excel_path)
 
-def load_excel_with_json(excel_path, column_name):
+def load_excel_with_json(excel_path: str, column_name: str) -> None:
     # Read the Excel file using the openpyxl engine
     df = pd.read_excel(excel_path, engine="openpyxl")
 
@@ -242,7 +249,7 @@ def load_excel_with_json(excel_path, column_name):
     # Log the resulting DataFrame head
     log.debug("%s", df.head())
 
-def load_excel_with_json_and_export(excel_path, column_name):
+def load_excel_with_json_and_export(excel_path: str, column_name: str) -> None:
     # Read the Excel file using the openpyxl engine
     df = pd.read_excel(excel_path, engine="openpyxl")
 

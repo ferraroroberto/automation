@@ -1,5 +1,3 @@
-# source > https://claude.ai/chat/2b85a103-e8ca-448c-ad33-d8888e43654f
-
 import logging
 import os
 import re

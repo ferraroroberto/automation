@@ -1,10 +1,12 @@
 import logging
 import os
 import sys
-from pdf2image import convert_from_path
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
+from typing import List, Tuple
+
+from pdf2image import convert_from_path
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +17,7 @@ HARDCODED_SOURCE_FOLDER = os.getenv("CARROUSEL_SOURCE_FOLDER", "")
 POPPLER_PATH = os.getenv("POPPLER_PATH", "")
 
 
-def find_pdf_files(root_folder):
+def find_pdf_files(root_folder: str) -> List[str]:
     """Recursively find all PDF files in the root folder and its subfolders."""
     pdf_files = []
     for dirpath, _, filenames in os.walk(root_folder):
@@ -25,7 +27,7 @@ def find_pdf_files(root_folder):
     return pdf_files
 
 
-def clean_up_existing_images(folder_path, pdf_name):
+def clean_up_existing_images(folder_path: str, pdf_name: str) -> Tuple[List[str], List[Tuple[str, str]]]:
     """Delete existing JPG images that match the PDF file name and the naming convention in the specified folder."""
     deleted_files = []
     failed_deletions = []
@@ -41,7 +43,7 @@ def clean_up_existing_images(folder_path, pdf_name):
     return deleted_files, failed_deletions
 
 
-def pdf_to_images(pdf_files):
+def pdf_to_images(pdf_files: List[str]) -> None:
     """Convert each PDF file to JPG images, handling errors and logging the process."""
     total_images_created = 0
     total_files_processed = 0
@@ -103,7 +105,7 @@ def pdf_to_images(pdf_files):
             log.warning("- %s: %s", item, error)
 
 
-def select_folder():
+def select_folder() -> str:
     """Open a popup window to select the root folder."""
     root = tk.Tk()
     root.withdraw()  # Hide the root window
@@ -111,7 +113,7 @@ def select_folder():
     return root_folder
 
 
-def main():
+def main() -> None:
     """Main function to execute the PDF to images conversion."""
     root_folder = HARDCODED_SOURCE_FOLDER
 

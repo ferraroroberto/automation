@@ -16,7 +16,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
@@ -147,7 +147,7 @@ class NotionURLNormalizer:
 
     def _query_notion_database(self, days: int) -> List[Dict]:
         """Query Notion database for articles created in the last N days."""
-        filter_date = datetime.utcnow() - timedelta(days=days)
+        filter_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
         filter_date_str = filter_date.isoformat() + 'Z'
         
         logging.info(f"🔍 Querying database for articles from last {days} days (since {filter_date_str})")

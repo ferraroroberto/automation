@@ -6,7 +6,7 @@ Data Processor Module
 This module handles data processing utilities including date extraction, source identification,
 and duplicate detection for the LinkedIn image search application.
 
-Author: Roberto (Refactored by Claude)
+Author: Roberto
 Date: March 2025
 """
 

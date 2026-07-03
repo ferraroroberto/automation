@@ -3,16 +3,17 @@ import pygetwindow as gw
 import threading
 import time
 import keyboard
+from typing import Optional, Any
 
 # ---------- helper functions ----------
-def find_chrome_window():
+def find_chrome_window() -> Optional[Any]:
     """Return the last active Chrome window or None."""
     for w in gw.getAllWindows():
         if "Google Chrome" in w.title and not w.isMinimized:
             return w
     return None
 
-def type_text(text, delay, stop_event, status_callback):
+def type_text(text: str, delay: float, stop_event: threading.Event, status_callback: Any) -> None:
     for i, char in enumerate(text):
         if stop_event.is_set():
             status_callback(f"Stopped at {i}/{len(text)} chars.")
@@ -24,7 +25,7 @@ def type_text(text, delay, stop_event, status_callback):
     status_callback("Done!")
 
 # ---------- GUI ----------
-def main():
+def main() -> None:
     """Build the KeyCaster window and run its event loop."""
     layout = [
         [sg.Text("Text to “type-paste”:")],

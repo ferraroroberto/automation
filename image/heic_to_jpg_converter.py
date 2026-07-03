@@ -29,8 +29,6 @@ import os
 from pathlib import Path
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # HEIC Support Registration
@@ -184,6 +182,7 @@ def convert_heic_to_jpg(folder_path: str) -> None:
 
 def main() -> None:
     """Main function to run the HEIC to JPG converter"""
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logger.info("📸 HEIC to JPG Converter")
     logger.info("=" * 50)
     logger.info("Converts HEIC/HEIF images to JPG while preserving size and quality")

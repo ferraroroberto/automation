@@ -63,14 +63,12 @@ def editorial_databases(databases_to_editorial):
 
         log.info("Processed database '%s' saved to %s as the sheet %s", database['name'], editorial_excel_path, editorial_name)
 
-# Main execution
+if __name__ == "__main__":
+    params_file_path = DEFAULT_PARAMS_FILE
+    params = read_params_from_txt_file(params_file_path)
 
-params_file_path = DEFAULT_PARAMS_FILE
-params = read_params_from_txt_file(params_file_path)
+    excel_path = params['excel_path']
+    editorial_excel_path = params['editorial_excel_path']
 
-excel_path = params['excel_path']
-editorial_excel_path = params['editorial_excel_path']
-
-# this part is from here "notion-09-pass-to-editorial" > https://chat.openai.com/c/1279d9a7-829a-4e0d-a608-e75252e501d3
-databases_to_editorial = read_database_editorial(excel_path)
-editorial_databases(databases_to_editorial)
+    databases_to_editorial = read_database_editorial(excel_path)
+    editorial_databases(databases_to_editorial)

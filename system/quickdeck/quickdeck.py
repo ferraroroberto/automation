@@ -1194,9 +1194,9 @@ def main():
         app = QuickDeck(args.config)
         app.run()
     except KeyboardInterrupt:
-        print("\n👋 QuickDeck stopped by user")
+        logger.info("👋 QuickDeck stopped by user")
     except Exception as e:
-        print(f"❌ Fatal error: {e}")
+        logger.error("❌ Fatal error: %s", e)
         sys.exit(1)
 
 

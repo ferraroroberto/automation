@@ -3,19 +3,26 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import List, Optional
 from mss import mss
 from PIL import Image
 
 log = logging.getLogger(__name__)
 
-def list_monitors():
+def list_monitors() -> List[dict]:
     """List all available monitors and their dimensions."""
     with mss() as sct:
         monitors = sct.monitors  # List of all monitors
     return monitors
 
-def capture_specific_monitor(monitor_index, output_folder="D:\\MwSnap_temporal"):
+def capture_specific_monitor(monitor_index: int, output_folder: Optional[str] = None) -> None:
     """Capture a screenshot of a specific monitor by its index."""
+    # Resolve the output folder from env / home when not supplied explicitly.
+    if output_folder is None:
+        output_folder = os.environ.get(
+            "SCREENSHOT_OUTPUT_FOLDER", str(Path.home() / "Downloads" / "snaps")
+        )
+
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
@@ -40,7 +47,7 @@ def capture_specific_monitor(monitor_index, output_folder="D:\\MwSnap_temporal")
 
     log.info("Screenshot saved to %s", file_path)
 
-def get_bottom_left_monitor(monitors):
+def get_bottom_left_monitor(monitors: List[dict]) -> dict:
     """Find the monitor at the bottom-left position."""
     return min(monitors[1:], key=lambda m: (m["top"], m["left"]))
 

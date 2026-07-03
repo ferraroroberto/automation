@@ -1,6 +1,7 @@
 import logging
 import os
 import random
+from typing import List, Tuple
 from PIL import Image
 
 log = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ A4_RATIO = 0.707091103
 output_file = os.path.join(source_folder, "collage_a4.png")
 
 # Function to check and get all PNG images in the folder and its subfolders
-def get_all_images(folder):
+def get_all_images(folder: str) -> List[str]:
     image_list = []
     if not os.path.exists(folder):
         log.error("Error: The folder '%s' does not exist.", folder)
@@ -34,7 +35,7 @@ def get_all_images(folder):
     return image_list
 
 # Function to calculate the optimal grid size for A4 ratio
-def find_best_grid(num_images, max_value, a4_ratio):
+def find_best_grid(num_images: int, max_value: int, a4_ratio: float) -> Tuple[int, int]:
     best_ratio = None
     best_diff = float('inf')
     best_grid = (0, 0)
@@ -54,7 +55,7 @@ def find_best_grid(num_images, max_value, a4_ratio):
     return best_grid
 
 # Function to create the collage
-def create_collage(image_paths, output_file, base_width, base_height, dpi, a4_ratio):
+def create_collage(image_paths: List[str], output_file: str, base_width: int, base_height: int, dpi: int, a4_ratio: float) -> None:
     if len(image_paths) == 0:
         log.error("Error: No PNG images found in the specified folder.")
         return

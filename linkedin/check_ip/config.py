@@ -6,7 +6,7 @@ Configuration Management Module
 This module handles configuration loading from JSON files and command-line argument parsing
 for the LinkedIn image search application.
 
-Author: Roberto (Refactored by Claude)
+Author: Roberto
 Date: March 2025
 """
 
