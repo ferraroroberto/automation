@@ -221,7 +221,6 @@ def get_file_info(file_path):
         exif_date = None
         video_date = None
         criteria = "modified"
-        unified_name = modified_time.strftime('%Y%m%d-%H%M%S') + os.path.splitext(file_path)[1].lower()
 
         # Determine file type and extract creation date
         file_extension_lower = file_path.lower()

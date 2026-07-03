@@ -21,14 +21,10 @@ import time
 import argparse
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional, Tuple, Set, Union
+from typing import Dict, List, Any, Optional, Tuple
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Semaphore, Lock, Event
-import queue
-from collections import deque
-import threading
-from pathlib import Path
+from threading import Lock
 from dotenv import load_dotenv
 import jsonschema
 
@@ -211,10 +207,22 @@ class NotionArticlesSync:
         
         self.test_connections()
     
-    def __del__(self) -> None:
-        """Cleanup thread pool on deletion."""
-        if hasattr(self, 'executor'):
-            self.executor.shutdown(wait=False)
+    def close(self) -> None:
+        """Shut down the thread pool executor.
+
+        Call explicitly (or use the object as a context manager) rather than
+        relying on __del__ — during interpreter shutdown the logging system may
+        already be torn down, making garbage-collection-time cleanup unreliable.
+        """
+        executor = getattr(self, 'executor', None)
+        if executor is not None:
+            executor.shutdown(wait=True)
+
+    def __enter__(self) -> "NotionArticlesSync":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()
     
     def setup_logging(self, debug: bool, config_path: str) -> None:
         """Setup logging configuration following RULES.md standards.
@@ -539,91 +547,7 @@ class NotionArticlesSync:
         
         return self.api_call(f"databases/{database_id}/query", method="POST", data=data)
     
-    def fetch_page_batch(self, database_id: str, start_cursor: str, 
-                        filter_after: Optional[datetime] = None) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-        """Fetch a single page of results from database.
-        
-        Args:
-            database_id: ID of the database to query
-            start_cursor: Cursor for pagination
-            filter_after: Optional datetime filter for changes after this time
-            
-        Returns:
-            Tuple of (items_list, next_cursor)
-        """
-        data = {"page_size": self.batch_size}
-        
-        if start_cursor:
-            data["start_cursor"] = start_cursor
-        elif filter_after:
-            data["filter"] = {
-                "timestamp": "last_edited_time",
-                "last_edited_time": {
-                    "after": filter_after.isoformat()
-                }
-            }
-        
-        result = self.api_call(f"databases/{database_id}/query", method="POST", data=data)
-        
-        if result:
-            items = result.get("results", [])
-            next_cursor = result.get("next_cursor") if result.get("has_more") else None
-            return items, next_cursor
-        
-        return [], None
-    
-    def fetch_all_items_parallel(self, database_id: str, filter_after: Optional[datetime] = None,
-                               show_progress: bool = False) -> List[Dict[str, Any]]:
-        """Fetch all items from database using parallel page fetching.
-        
-        Args:
-            database_id: ID of the database to fetch from
-            filter_after: Optional datetime filter for changes after this time
-            show_progress: Whether to show progress information
-            
-        Returns:
-            List of all items from the database
-        """
-        if not self.parallel_fetching:
-            # Fall back to sequential fetching
-            return self.fetch_all_items(database_id, filter_after, show_progress)
-        
-        logger.info(f"📥 Starting parallel fetch with {self.max_workers} workers")
-        
-        # First, get initial page and total count estimate
-        initial_items, next_cursor = self.fetch_page_batch(database_id, None, filter_after)
-        
-        if not next_cursor:
-            # Only one page, return immediately
-            return initial_items
-        
-        # Collect all cursors for parallel fetching
-        cursors_to_fetch = []
-        current_cursor = next_cursor
-        
-        # We need to get all cursors first (Notion requires sequential cursor discovery)
-        page_results = {0: initial_items}  # Store results by page number
-        page_num = 1
-        
-        while current_cursor:
-            cursors_to_fetch.append((page_num, current_cursor))
-            # Get next cursor
-            items, current_cursor = self.fetch_page_batch(database_id, current_cursor, filter_after)
-            page_results[page_num] = items
-            page_num += 1
-            
-            if show_progress:
-                logger.info(f"📥 Loaded page {page_num} of database {database_id}")
-        
-        # Combine all results in order
-        all_items = []
-        for i in sorted(page_results.keys()):
-            all_items.extend(page_results[i])
-        
-        logger.info(f"📊 Fetched {len(all_items)} items total of database {database_id}")
-        return all_items
-    
-    def fetch_all_items(self, database_id: str, filter_after: Optional[datetime] = None, 
+    def fetch_all_items(self, database_id: str, filter_after: Optional[datetime] = None,
                        show_progress: bool = False) -> List[Dict[str, Any]]:
         """Fetch all items from a database with optional time filtering (sequential).
         
@@ -812,16 +736,16 @@ class NotionArticlesSync:
         with self.api_call_lock:
             self.api_call_count = 0
         
-        # Load databases (can be parallel if enabled)
+        # Load databases (both databases concurrently if enabled)
         if self.parallel_fetching:
             logger.info("📥 Loading databases in parallel...")
-            
+
             with ThreadPoolExecutor(max_workers=2) as executor:
-                source_future = executor.submit(self.fetch_all_items_parallel, 
+                source_future = executor.submit(self.fetch_all_items,
                                               self.source_db, None, True)
-                target_future = executor.submit(self.fetch_all_items_parallel, 
+                target_future = executor.submit(self.fetch_all_items,
                                               self.target_db, None, True)
-                
+
                 source_items = source_future.result()
                 target_items = target_future.result()
         else:
@@ -1326,21 +1250,21 @@ def main():
     args = parser.parse_args()
     
     try:
-        # Initialize and run sync
-        sync = NotionArticlesSync(args.config, debug=args.debug)
-        
-        if args.reset_sync_time:
-            sync.reset_sync_time()
-        
-        if args.status:
-            sync.show_sync_status()
-            sys.exit(0)
+        # Initialize and run sync (context manager guarantees the thread pool
+        # executor is shut down explicitly, not at garbage-collection time)
+        with NotionArticlesSync(args.config, debug=args.debug) as sync:
+            if args.reset_sync_time:
+                sync.reset_sync_time()
 
-        if args.once:
-            sync.run_sync(force_full_sync=args.full_sync)
-        else:
-            sync.run_continuous(force_full_sync_first=args.full_sync)
-    
+            if args.status:
+                sync.show_sync_status()
+                sys.exit(0)
+
+            if args.once:
+                sync.run_sync(force_full_sync=args.full_sync)
+            else:
+                sync.run_continuous(force_full_sync_first=args.full_sync)
+
     except KeyboardInterrupt:
         logger.info("⏹️ Sync stopped")
     except Exception as e:

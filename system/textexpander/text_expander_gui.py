@@ -11,8 +11,6 @@ from typing import Optional, Dict, List, Tuple
 from pathlib import Path
 import threading
 import win32gui
-import win32con
-import win32api
 
 from text_expander_core import TextExpanderCore, ConfigError
 

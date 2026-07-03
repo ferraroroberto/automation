@@ -45,8 +45,6 @@ except ImportError as e:
     # pillow-heif not installed - HEIC files cannot be opened
     logger.warning("⚠️  pillow-heif not available: %s. HEIC conversion may not work.", e)
     pillow_heif_available = False
-else:
-    pillow_heif_available = True
 
 def select_folder() -> str:
     """Open folder dialog and return selected folder path"""

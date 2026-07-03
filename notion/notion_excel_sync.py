@@ -1,7 +1,6 @@
 import logging
 import pandas as pd
 from notion_client import Client, APIResponseError
-import time
 from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -87,14 +86,11 @@ if clean_db:
             client.pages.update(page_id, archived=True)
             archived_pages_counter += 1
             log.info("Archiving page with ID: %s. Total archived pages: %d", page_id, archived_pages_counter)
-            time.sleep(0.0)  # Adjust delay as needed
     except APIResponseError as e:
         log.error("Failed to archive pages: %s", e)
 
 log.info("Creating all pages in the Excel database...")
 for index, row in df.iterrows():
-    time.sleep(0.0)  # Adjust delay as needed
-
     page_data = {"parent": {"database_id": notion_db_id}, "properties": {}}
 
     for col in df.columns:
