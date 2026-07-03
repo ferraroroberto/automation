@@ -10,7 +10,6 @@ import pillow_heif
 
 pillow_heif.register_heif_opener()
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".tif", ".webp", ".heic", ".heif"}
@@ -96,6 +95,7 @@ class App(tk.Tk):
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     app = App()
     app.mainloop()
 

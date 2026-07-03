@@ -6,13 +6,14 @@ Search Client Module
 This module handles Google Lens searches via SerpAPI with API history tracking
 for the LinkedIn image search application.
 
-Author: Roberto (Refactored by Claude)
+Author: Roberto
 Date: March 2025
 """
 
 import datetime
 import json
 import logging
+import os
 import pandas as pd
 import requests
 import urllib.parse
@@ -130,7 +131,7 @@ class SearchClient:
                 'page_token': page_token,  # Keep for backward compatibility, will be None for new searches
                 
                 # Additional SerpAPI-specific fields
-                'user': 'roberto.ferraro@gmail.com',  # User email is not in the API response, but we know it
+                'user': os.environ.get("CHECK_IP_OWNER_EMAIL"),  # User email is not in the API response; supplied via env
                 'requester_ip': None,  # Not available in API response
                 'rtt': 1,  # Not available in API response, default to 1
                 'device': 'desktop',  # Not available in API response, default to desktop

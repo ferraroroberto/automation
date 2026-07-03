@@ -14,21 +14,23 @@ Configuration: photos_archive.json (follows AGENTS.md guidelines)
 - date_parsing: Regex patterns for filename date extraction
 """
 
+import hashlib
+import json
+import logging
 import os
 import re
-import json
-import pandas as pd
 import shutil
+import tkinter as tk
 from datetime import datetime, timedelta
+from tkinter import filedialog
+from typing import Any, Dict, Optional
+
+import pandas as pd
 from PIL import Image
 from PIL.ExifTags import TAGS
-import logging
-import hashlib
-import tkinter as tk
-from tkinter import filedialog
 from pymediainfo import MediaInfo
 
-def load_config():
+def load_config() -> Dict[str, Any]:
     """Load and validate configuration from photos_archive.json."""
     config_path = os.path.join(os.path.dirname(__file__), 'photos_archive.json')
     try:
@@ -72,7 +74,7 @@ def load_config():
 # Load configuration
 CONFIG = load_config()
 
-def calculate_time_intervals(df):
+def calculate_time_intervals(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate time intervals between consecutive files within same day."""
     # Extract date part from unified names (YYYYMMDD)
     df['unified_day'] = df['unified_name'].apply(lambda x: x[:8])
@@ -85,7 +87,7 @@ def calculate_time_intervals(df):
 
     return df
 
-def calculate_short_sequence_counts(df, threshold=None):
+def calculate_short_sequence_counts(df: pd.DataFrame, threshold: Optional[int] = None) -> pd.DataFrame:
     """Count files in short sequences per day (below time threshold)."""
     if threshold is None:
         threshold = CONFIG['processing_thresholds']['short_sequence_seconds']
@@ -103,7 +105,7 @@ def calculate_short_sequence_counts(df, threshold=None):
 
     return df
 
-def setup_logging(log_folder=None):
+def setup_logging(log_folder: Optional[str] = None) -> None:
     """Configure logging to timestamped file in specified folder."""
     if log_folder is None:
         log_folder = CONFIG.get('log_folder', CONFIG['destination_folder'])
@@ -127,7 +129,7 @@ def setup_logging(log_folder=None):
     root_logger.addHandler(console_handler)
     logging.info("Logging initialized: %s", log_file)
 
-def get_exif_creation_date(file_path):
+def get_exif_creation_date(file_path: str) -> Optional[datetime]:
     """Extract creation date from EXIF DateTimeOriginal tag."""
     try:
         image = Image.open(file_path)
@@ -156,7 +158,7 @@ def get_exif_creation_date(file_path):
     return None
 
 
-def parse_date(date_str):
+def parse_date(date_str: str) -> Optional[datetime]:
     """
     Parses a date string and returns a datetime object.
 
@@ -175,7 +177,7 @@ def parse_date(date_str):
             logging.warning(f"Unknown date format for video date: {date_str}")
             return None
 
-def extract_date_from_filename(filename):
+def extract_date_from_filename(filename: str) -> Optional[datetime]:
     """Extract date from filename using configured regex patterns."""
     patterns = CONFIG['date_parsing']['filename_patterns']
     for pattern in patterns:
@@ -192,7 +194,7 @@ def extract_date_from_filename(filename):
                 continue
     return None
 
-def get_video_creation_date(file_path):
+def get_video_creation_date(file_path: str) -> Optional[datetime]:
     """Extract creation date from video metadata using pymediainfo."""
     try:
         media_info = MediaInfo.parse(file_path)
@@ -209,7 +211,7 @@ def get_video_creation_date(file_path):
         return None
 
 
-def get_file_info(file_path):
+def get_file_info(file_path: str) -> Optional[Dict[str, Any]]:
     """Extract comprehensive metadata from media file."""
     try:
         file_stat = os.stat(file_path)
@@ -290,7 +292,7 @@ def get_file_info(file_path):
         logging.error(f"Error getting file info for {file_path}: {e}")
         return None
 
-def process_files(source_folder, dest_folder, skip_dest_folder):
+def process_files(source_folder: str, dest_folder: str, skip_dest_folder: bool) -> pd.DataFrame:
     """
     Processes all files in the source folder and its subfolders to extract metadata.
     Optionally excludes files in the destination folder if it's a subfolder of the source folder.
@@ -322,7 +324,7 @@ def process_files(source_folder, dest_folder, skip_dest_folder):
 
     return pd.DataFrame(file_records)
 
-def delete_discarded_files(df):
+def delete_discarded_files(df: pd.DataFrame) -> None:
     """
     Deletes the source files that are marked as discarded in the metadata.
 
@@ -351,7 +353,7 @@ def delete_discarded_files(df):
 
     logging.info("%d discarded files deleted", deleted_files_count)
 
-def calculate_sha256(file_path):
+def calculate_sha256(file_path: str) -> str:
     """
     Calculate the SHA256 hash of a file.
 
@@ -367,7 +369,7 @@ def calculate_sha256(file_path):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
-def mark_duplicates(df):
+def mark_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     """
     Identifies and marks duplicate files in the DataFrame and counts duplicates.
 
@@ -414,7 +416,7 @@ def mark_duplicates(df):
 
     return df
 
-def calculate_total_files_unified_day(df):
+def calculate_total_files_unified_day(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculates the total number of files with the same unified name in year, month, and day.
 
@@ -428,7 +430,7 @@ def calculate_total_files_unified_day(df):
     df['total_files_unified_day'] = df.groupby('unified_day')['unified_day'].transform('count')
     return df
 
-def recalculate_metadata(df):
+def recalculate_metadata(df: pd.DataFrame) -> pd.DataFrame:
     """
     Recalculates the metadata fields based on the existing file information.
 
@@ -495,7 +497,7 @@ def recalculate_metadata(df):
 
     return df
 
-def copy_files(df):
+def copy_files(df: pd.DataFrame) -> None:
     """
     Copies non-duplicate files to the destination folder, renaming them based on the unified name.
 
@@ -543,7 +545,7 @@ def copy_files(df):
 
     logging.info("%d files copied", copied_files_count)
 
-def delete_copied_files(df):
+def delete_copied_files(df: pd.DataFrame) -> None:
     """
     Deletes the source files that were successfully copied to the destination folder.
 
@@ -571,7 +573,7 @@ def delete_copied_files(df):
     logging.info("%d files deleted", deleted_files_count)
 
 # Call this function at the beginning of your main function
-def main(source_folder, dest_folder):
+def main(source_folder: str, dest_folder: str) -> None:
     # Set up logging to save log file in the destination folder
     current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
     setup_logging(dest_folder)

@@ -6,7 +6,7 @@ Storage Management Module
 This module handles all file operations including Excel file loading, saving, and data management
 for the LinkedIn image search application.
 
-Author: Roberto (Refactored by Claude)
+Author: Roberto
 Date: March 2025
 """
 

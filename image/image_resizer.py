@@ -8,8 +8,6 @@ import tkinter as tk
 from tkinter import filedialog
 from typing import Optional
 
-# Configure logging to display logs on the console only
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 # Create logger at module level
 logger = logging.getLogger(__name__)
 
@@ -187,6 +185,8 @@ def select_folder_with_tkinter() -> Optional[Path]:
         return None
 
 def main():
+    # Configure logging to display logs on the console only
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser(description="Resize images in a folder to a maximum file size")
     parser.add_argument('--folder', '-f', type=str, help='Path to the folder containing images')
     parser.add_argument('--max-size', '-m', type=float, default=500, 

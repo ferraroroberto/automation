@@ -14,9 +14,6 @@ from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 from utils import get_column_widths
 from utils import apply_column_widths
 
-# sources:
-# 2023-08-08 > https://chat.openai.com/c/18520141-8212-42e8-97aa-09f5de9713f2
-
 # Function to update the last_download and n_rows columns in the Excel file
 def update_last_download_in_excel(database, excel_path, n_rows, output_path):
     # Read the existing Excel file
@@ -141,31 +138,34 @@ def read_database_list(excel_path):
     df = pd.read_excel(excel_path)
     return df[df["ind_download"] == 1]
 
-# Main execution
+def main():
+    # Load the parameters from the text file
+    params_file_path = DEFAULT_PARAMS_FILE
+    log.info("📂 Loading parameters...")
+    params = read_params_from_txt_file(params_file_path)
+    log.info("✅ Parameters loaded")
 
-# Load the parameters from the text file
-params_file_path = DEFAULT_PARAMS_FILE
-log.info("📂 Loading parameters...")
-params = read_params_from_txt_file(params_file_path)
-log.info("✅ Parameters loaded")
+    # Get the api_token
+    api_token = params['api_token']
 
-# Get the api_token
-api_token = params['api_token']
+    # Set the Excel file path and the dump path
+    excel_path = params['excel_path']
+    dump_path = params['dump_path']
 
-# Set the Excel file path and the dump path
-excel_path = params['excel_path']
-dump_path = params['dump_path']
+    # Read the database list from the Excel file and filter the rows with "download = 1"
+    log.info("📋 Reading database list...")
+    databases_to_download = read_database_list(excel_path)
+    log.info("📊 Found %d databases to download", len(databases_to_download))
 
-# Read the database list from the Excel file and filter the rows with "download = 1"
-log.info("📋 Reading database list...")
-databases_to_download = read_database_list(excel_path)
-log.info("📊 Found %d databases to download", len(databases_to_download))
+    # Download the data for each selected database
+    log.info("🚀 Starting database downloads...")
+    for _, database in databases_to_download.iterrows():
+        output_path = download_database_data(database, dump_path, api_token, excel_path)
+    log.info("✅ All database downloads completed")
 
-# Download the data for each selected database
-log.info("🚀 Starting database downloads...")
-for _, database in databases_to_download.iterrows():
-    output_path = download_database_data(database, dump_path, api_token, excel_path)
-log.info("✅ All database downloads completed")
+
+if __name__ == "__main__":
+    main()
 
 
 

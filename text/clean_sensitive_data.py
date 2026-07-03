@@ -120,15 +120,14 @@ class CLIDataCleaner(DataCleanerBase):
     
     def interactive_mode(self):
         """Run in interactive CLI mode"""
-        print("=== Sensitive Data Cleaner (CLI Mode) ===")
-        print("Enter text to clean (press Ctrl+D or Ctrl+Z when finished):")
-        print("Type 'config' to change cleaning options, 'quit' to exit")
-        
+        log.info("=== Sensitive Data Cleaner (CLI Mode) ===")
+        log.info("Enter text to clean (press Ctrl+D or Ctrl+Z when finished):")
+        log.info("Type 'config' to change cleaning options, 'quit' to exit")
+
         while True:
             try:
-                print("\n> ", end="")
-                command = input().strip().lower()
-                
+                command = input("\n> ").strip().lower()
+
                 if command == 'quit':
                     break
                 elif command == 'config':
@@ -137,12 +136,12 @@ class CLIDataCleaner(DataCleanerBase):
                 elif command == 'help':
                     self.show_help()
                     continue
-                
+
                 # If it's not a command, treat as text to clean
                 if command:
                     # Read multiline input
                     lines = [command]
-                    print("Continue entering text (empty line to finish):")
+                    log.info("Continue entering text (empty line to finish):")
                     while True:
                         try:
                             line = input()
@@ -151,15 +150,15 @@ class CLIDataCleaner(DataCleanerBase):
                             lines.append(line)
                         except EOFError:
                             break
-                    
+
                     text = '\n'.join(lines)
                     cleaned = self.clean_sensitive_data(text)
-                    print("\n--- Cleaned Text ---")
-                    print(cleaned)
-                    print("--- End ---\n")
-                
+                    log.info("--- Cleaned Text ---")
+                    log.info(cleaned)
+                    log.info("--- End ---")
+
             except (EOFError, KeyboardInterrupt):
-                print("\nExiting...")
+                log.info("Exiting...")
                 break
     
     def configure_options(self):
@@ -175,39 +174,39 @@ class CLIDataCleaner(DataCleanerBase):
             ('clean_guids', 'GUIDs/UUIDs')
         ]
         
-        print("\nCurrent cleaning options:")
+        log.info("Current cleaning options:")
         for i, (attr, name) in enumerate(options, 1):
             status = "ON" if getattr(self, attr) else "OFF"
-            print(f"{i}. {name}: {status}")
-        
-        print("\nEnter option number to toggle (1-8), or press Enter to finish:")
+            log.info("%d. %s: %s", i, name, status)
+
+        log.info("Enter option number to toggle (1-8), or press Enter to finish:")
         while True:
             try:
                 choice = input("> ").strip()
                 if not choice:
                     break
-                
+
                 num = int(choice)
                 if 1 <= num <= len(options):
                     attr, name = options[num - 1]
                     current_value = getattr(self, attr)
                     setattr(self, attr, not current_value)
                     new_status = "ON" if not current_value else "OFF"
-                    print(f"{name} is now {new_status}")
+                    log.info("%s is now %s", name, new_status)
                 else:
-                    print("Invalid option number")
+                    log.warning("Invalid option number")
             except ValueError:
-                print("Please enter a valid number")
+                log.warning("Please enter a valid number")
             except (EOFError, KeyboardInterrupt):
                 break
-    
+
     def show_help(self):
         """Show help information"""
-        print("\nAvailable commands:")
-        print("  config - Configure cleaning options")
-        print("  help   - Show this help")
-        print("  quit   - Exit the program")
-        print("\nOr enter text to clean it according to current settings")
+        log.info("Available commands:")
+        log.info("  config - Configure cleaning options")
+        log.info("  help   - Show this help")
+        log.info("  quit   - Exit the program")
+        log.info("Or enter text to clean it according to current settings")
     
     def clean_file(self, input_path, output_path=None):
         """Clean a file and optionally save to output file"""
@@ -222,9 +221,9 @@ class CLIDataCleaner(DataCleanerBase):
                     f.write(cleaned)
                 log.info("Cleaned text saved to: %s", output_path)
             else:
-                print("--- Cleaned Text ---")
-                print(cleaned)
-                print("--- End ---")
+                log.info("--- Cleaned Text ---")
+                log.info(cleaned)
+                log.info("--- End ---")
         
         except FileNotFoundError:
             log.error("Error: File not found: %s", input_path)
@@ -473,4 +472,5 @@ def main():
         cli_cleaner.interactive_mode()
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     main()

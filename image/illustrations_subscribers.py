@@ -26,21 +26,23 @@ Options:
     --log-level LEVEL  Logging level (default: INFO)
 """
 
-import os
-import sys
-import json
-import shutil
-import logging
 import argparse
 import glob
+import json
+import logging
+import os
+import shutil
+import sys
 import time
-import pandas as pd
-from PIL import Image
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
+
+import pandas as pd
+from PIL import Image
 
 # Set up logging
-def setup_logging(log_level="INFO"):
+def setup_logging(log_level: str = "INFO") -> logging.Logger:
     """Configure logging with the specified log level."""
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):
@@ -54,7 +56,7 @@ def setup_logging(log_level="INFO"):
     return logging.getLogger(__name__)
 
 # Function to encode a message into an image
-def encode_message(image_path, message, output_path):
+def encode_message(image_path: str, message: str, output_path: str) -> None:
     """
     Encodes a hidden message into an image using LSB steganography.
 
@@ -90,7 +92,7 @@ def encode_message(image_path, message, output_path):
     # Save the image with the encoded message
     encoded_img.save(output_path)
 
-def load_dataframe(file_path, logger, description="file"):
+def load_dataframe(file_path: str, logger: logging.Logger, description: str = "file") -> pd.DataFrame:
     """Load a DataFrame from an Excel file with error handling."""
     while True:
         try:
@@ -107,7 +109,7 @@ def load_dataframe(file_path, logger, description="file"):
             logger.error(f"Error loading {description}: {str(e)}")
             input("Press any key to try again...")
 
-def parse_arguments():
+def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Process illustrations for subscribers")
     parser.add_argument("--config", type=str, 
@@ -123,7 +125,7 @@ def parse_arguments():
                         help="Logging level")
     return parser.parse_args()
 
-def load_config(config_path, args, logger):
+def load_config(config_path: str, args: argparse.Namespace, logger: logging.Logger) -> Dict[str, Any]:
     """Load configuration from JSON file and override with command-line arguments."""
     try:
         with open(config_path, 'r') as f:
@@ -161,7 +163,7 @@ def load_config(config_path, args, logger):
 
     return config
 
-def process_subscribers(config, logger):
+def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
     """Main processing function."""
     # Get today's date in the appropriate format
     today_date = datetime.now().date()
@@ -304,7 +306,7 @@ def process_subscribers(config, logger):
     else:
         logger.info("Encoding process skipped.")
 
-def main():
+def main() -> None:
     """Main entry point for the script."""
     args = parse_arguments()
     

@@ -5,7 +5,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-def rename_files_in_directory(directory):
+def rename_files_in_directory(directory: str) -> None:
     """
     Traverse through the given directory and its subdirectories,
     rename files by removing the 'v01', 'v02', ... 'vXX' pattern from the file names,
@@ -47,6 +47,7 @@ def rename_files_in_directory(directory):
             log.info("  %s", skipped_file)
 
 
-# Request the directory path from the user
-directory_path = input('Enter the directory path: ')
-rename_files_in_directory(directory_path)
+if __name__ == "__main__":
+    # Request the directory path from the user
+    directory_path = input('Enter the directory path: ')
+    rename_files_in_directory(directory_path)

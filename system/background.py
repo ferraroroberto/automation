@@ -1,8 +1,13 @@
 import ctypes
-import winreg as reg
+import logging
 import sys
+import winreg as reg
 
-def set_colors(theme="light grey"):
+log = logging.getLogger(__name__)
+
+
+def set_colors(theme: str = "light grey") -> None:
+    log.info("Applying '%s' desktop theme", theme)
     if theme.lower() == "black":
         rgb_color = (0, 0, 0)
         accent_color = 0x000000
@@ -35,11 +40,15 @@ def set_colors(theme="light grey"):
     reg.CloseKey(key)
 
     ctypes.windll.user32.SystemParametersInfoW(20, 0, "", 1)
+    log.info("Desktop and taskbar colors updated")
 
-def main():
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     # Set default theme to "light grey" if no argument is provided
     theme = sys.argv[1] if len(sys.argv) > 1 else "light grey"
     set_colors(theme)
+
 
 if __name__ == "__main__":
     main()

@@ -5,11 +5,9 @@ import os
 from pathlib import Path
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def select_folder():
+def select_folder() -> str:
     """Open folder dialog and return selected folder path"""
     root = tk.Tk()
     root.withdraw()  # Hide the main window
@@ -21,7 +19,7 @@ def select_folder():
     root.destroy()
     return folder_path
 
-def validate_image_file(file_path):
+def validate_image_file(file_path: Path) -> bool:
     """Validate if a file is a valid image that can be opened"""
     try:
         with Image.open(file_path) as img:
@@ -32,7 +30,7 @@ def validate_image_file(file_path):
         logger.error("Cannot identify image file '%s': %s", file_path, e)
         return False
 
-def convert_png_to_jpg(folder_path):
+def convert_png_to_jpg(folder_path: str) -> None:
     """Convert all PNG images in the folder to JPG format with improved error handling"""
     if not folder_path:
         logger.info("No folder selected.")
@@ -109,8 +107,9 @@ def convert_png_to_jpg(folder_path):
         logger.info("Note: %d files had errors and were skipped.", error_count)
         logger.info("This could be due to corrupted files, unsupported formats, or permission issues.")
 
-def main():
+def main() -> None:
     """Main function to run the PNG to JPG converter"""
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logger.info("PNG to JPG Converter (Improved)")
     logger.info("=" * 40)
 

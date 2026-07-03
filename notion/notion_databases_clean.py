@@ -181,25 +181,28 @@ def process_databases(databases_to_process, metadata):
 
         log.info("✅ Processed database '%s' saved to %s with %d rows", database['name'], output_path, len(df))
 
-# Main execution
+def main():
+    params_file_path = DEFAULT_PARAMS_FILE
+    log.info("📂 Loading parameters...")
+    params = read_params_from_txt_file(params_file_path)
+    log.info("✅ Parameters loaded")
 
-params_file_path = DEFAULT_PARAMS_FILE
-log.info("📂 Loading parameters...")
-params = read_params_from_txt_file(params_file_path)
-log.info("✅ Parameters loaded")
+    excel_path = params['excel_path']
+    dump_path = params['dump_path']
+    verbose = params['verbose'] == "True"  # Ensure this is checked correctly
 
-excel_path = params['excel_path']
-dump_path = params['dump_path']
-verbose = params['verbose'] == "True"  # Ensure this is checked correctly
+    metadata_path = params['metadata_path']
+    metadata = load_metadata(metadata_path)
+    log.info("✅ Metadata loaded")
 
-metadata_path = params['metadata_path']
-metadata = load_metadata(metadata_path)
-log.info("✅ Metadata loaded")
+    log.info("📋 Reading database list...")
+    databases_to_process = read_database_list(excel_path)
+    log.info("📊 Found %d databases to process", len(databases_to_process))
 
-log.info("📋 Reading database list...")
-databases_to_process = read_database_list(excel_path)
-log.info("📊 Found %d databases to process", len(databases_to_process))
+    log.info("🚀 Starting database cleaning...")
+    process_databases(databases_to_process, metadata)
+    log.info("✅ All database cleaning completed")
 
-log.info("🚀 Starting database cleaning...")
-process_databases(databases_to_process, metadata)
-log.info("✅ All database cleaning completed")
+
+if __name__ == "__main__":
+    main()

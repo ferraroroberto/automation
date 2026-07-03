@@ -50,20 +50,20 @@ def get_venv_info():
 
 def deactivate_venv():
     """Provide instructions to deactivate the virtual environment."""
-    print("\nTo deactivate the virtual environment, you need to:")
+    log.info("To deactivate the virtual environment, you need to:")
     if os.name == 'nt':  # Windows
-        print("1. Close this script")
-        print("2. Run 'deactivate' in your command prompt")
-        print("3. Make sure to run 'python' and not the VENV python when restarting")
-        print("\nTIP: If deactivation doesn't work, try running this script with:")
-        print(f"   {os.path.join(sys.base_prefix, 'python')} {os.path.basename(__file__)}")
+        log.info("1. Close this script")
+        log.info("2. Run 'deactivate' in your command prompt")
+        log.info("3. Make sure to run 'python' and not the VENV python when restarting")
+        log.info("TIP: If deactivation doesn't work, try running this script with:")
+        log.info("   %s %s", os.path.join(sys.base_prefix, 'python'), os.path.basename(__file__))
     else:  # Unix/Linux/Mac
-        print("1. Close this script")
-        print("2. Run 'deactivate' in your terminal")
-        print("3. Make sure to run 'python' and not the VENV python when restarting")
-        print("\nTIP: If deactivation doesn't work, try running this script with:")
-        print(f"   {os.path.join(sys.base_prefix, 'bin/python')} {os.path.basename(__file__)}")
-    
+        log.info("1. Close this script")
+        log.info("2. Run 'deactivate' in your terminal")
+        log.info("3. Make sure to run 'python' and not the VENV python when restarting")
+        log.info("TIP: If deactivation doesn't work, try running this script with:")
+        log.info("   %s %s", os.path.join(sys.base_prefix, 'bin/python'), os.path.basename(__file__))
+
     sys.exit("Please restart this script after deactivating the virtual environment.")
 
 def get_installed_packages():
@@ -152,88 +152,88 @@ def clean_environment(packages_to_keep=None):
     installed_packages = get_installed_packages()
     count = 0
     failed = 0
-    
-    print(f"\nFound {len(installed_packages)} installed packages")
-    print(f"Will keep: {', '.join(packages_to_keep)}")
-    
+
+    log.info("Found %d installed packages", len(installed_packages))
+    log.info("Will keep: %s", ', '.join(packages_to_keep))
+
     # Check if running as admin for global Python installations
     if not is_in_virtualenv() and not is_admin():
-        print("\n⚠️  WARNING: You are not running with administrator privileges.")
-        print("You may encounter permission errors when uninstalling packages from a global Python installation.")
-        print("Options:")
-        print("  1. Restart this script with administrator privileges (recommended)")
-        print("  2. Use a virtual environment instead")
-        print("  3. Continue anyway (some uninstalls may fail)")
-        
+        log.warning("WARNING: You are not running with administrator privileges.")
+        log.warning("You may encounter permission errors when uninstalling packages from a global Python installation.")
+        log.info("Options:")
+        log.info("  1. Restart this script with administrator privileges (recommended)")
+        log.info("  2. Use a virtual environment instead")
+        log.info("  3. Continue anyway (some uninstalls may fail)")
+
         choice = input("\nHow would you like to proceed? (1/2/3): ")
-        
+
         if choice == '1':
             # Attempt to re-launch with elevated privileges
             elevate_privileges()
             # If we get here, elevation failed
-            print("Failed to restart with administrator privileges.")
+            log.error("Failed to restart with administrator privileges.")
             proceed = input("Continue anyway? (y/n): ")
             if proceed.lower() != 'y':
                 return
         elif choice == '2':
-            print("\nCreating a virtual environment is recommended. Steps:")
-            print("1. Run: python -m venv .venv")
-            print("2. Activate it: .venv\\Scripts\\activate (Windows) or source .venv/bin/activate (Unix)")
-            print("3. Install only the packages you need in the virtual environment")
+            log.info("Creating a virtual environment is recommended. Steps:")
+            log.info("1. Run: python -m venv .venv")
+            log.info("2. Activate it: .venv\\Scripts\\activate (Windows) or source .venv/bin/activate (Unix)")
+            log.info("3. Install only the packages you need in the virtual environment")
             sys.exit("Please create a virtual environment and try again.")
-    
-    print("\nPackages to be uninstalled:")
-    
+
+    log.info("Packages to be uninstalled:")
+
     packages_to_uninstall = []
-    
+
     for package_line in installed_packages:
         package_name = package_line.split('==')[0]
         if package_name.lower() not in [pkg.lower() for pkg in packages_to_keep]:
-            print(f"  - {package_name}")
+            log.info("  - %s", package_name)
             packages_to_uninstall.append(package_name)
-    
+
     if not packages_to_uninstall:
-        print("No packages to uninstall!")
+        log.info("No packages to uninstall!")
         return
-    
+
     # Ask for confirmation
     confirm = input("\nAre you sure you want to uninstall these packages? (y/n): ")
     if confirm.lower() != 'y':
-        print("Operation cancelled.")
+        log.info("Operation cancelled.")
         return
-    
+
     # Uninstall packages
-    print("\nUninstalling packages...")
-    
+    log.info("Uninstalling packages...")
+
     results = []
     for package in packages_to_uninstall:
-        print(f"Uninstalling {package}...")
+        log.info("Uninstalling %s...", package)
         success, message = safe_uninstall_package(package)
-        
+
         if success:
             count += 1
-            print(f"  ✓ {message}")
+            log.info("  ✓ %s", message)
         else:
             failed += 1
-            print(f"  ✗ {message}")
-        
+            log.warning("  ✗ %s", message)
+
         results.append((package, success, message))
-    
-    print(f"\nCompleted! Uninstalled {count} packages successfully.")
-    
+
+    log.info("Completed! Uninstalled %d packages successfully.", count)
+
     if failed > 0:
-        print(f"\n{failed} packages failed to uninstall. Summary of failures:")
+        log.warning("%d packages failed to uninstall. Summary of failures:", failed)
         for package, success, message in results:
             if not success:
-                print(f"  - {package}: {message}")
-        
-        print("\nTroubleshooting tips:")
-        print("1. Run this script with administrator privileges")
-        print("2. Try uninstalling problematic packages manually: pip uninstall <package>")
-        print("3. Consider using a virtual environment instead of modifying your global Python")
-        
+                log.warning("  - %s: %s", package, message)
+
+        log.info("Troubleshooting tips:")
+        log.info("1. Run this script with administrator privileges")
+        log.info("2. Try uninstalling problematic packages manually: pip uninstall <package>")
+        log.info("3. Consider using a virtual environment instead of modifying your global Python")
+
     if count > 0:
-        print("\nYour environment has been cleaned up!")
+        log.info("Your environment has been cleaned up!")
 
 def main():
     """Main function to run the VENV manager."""
@@ -242,54 +242,59 @@ def main():
         elevate_privileges()
     
     # Display script banner
-    print("\n" + "="*50)
-    print("Python Virtual Environment Manager")
-    print("="*50)
-    
+    log.info("=" * 50)
+    log.info("Python Virtual Environment Manager")
+    log.info("=" * 50)
+
     venv_info = get_venv_info()
-    
-    print("\n" + "="*50)
-    print(f"Current Python Environment: {venv_info['name']}")
-    print(f"Status: {'VIRTUAL ENVIRONMENT' if venv_info['status'] == 'active' else 'GLOBAL PYTHON'}")
-    print(f"Path: {venv_info['path']}")
-    print(f"Python Executable: {venv_info['executable']}")
-    print("="*50 + "\n")
-    
+
+    log.info("=" * 50)
+    log.info("Current Python Environment: %s", venv_info['name'])
+    log.info("Status: %s", 'VIRTUAL ENVIRONMENT' if venv_info['status'] == 'active' else 'GLOBAL PYTHON')
+    log.info("Path: %s", venv_info['path'])
+    log.info("Python Executable: %s", venv_info['executable'])
+    log.info("=" * 50)
+
     if venv_info['status'] == 'active':
-        print("You are currently in a virtual environment.")
+        log.info("You are currently in a virtual environment.")
         choice = input("Do you want to deactivate it before proceeding (y) or force continue (f)? (y/f/n): ")
         if choice.lower() == 'y':
             deactivate_venv()
         elif choice.lower() == 'f':
-            print("\nForcing continuation despite being in a virtual environment...")
+            log.info("Forcing continuation despite being in a virtual environment...")
         else:
-            print("\nContinuing in the virtual environment...")
-    
+            log.info("Continuing in the virtual environment...")
+
     # Show installed packages
     packages = get_installed_packages()
-    print(f"\nYou have {len(packages)} package(s) installed:")
-    
+    log.info("You have %d package(s) installed:", len(packages))
+
     # Display packages in columns (optional condensed view)
+    row = []
     for i, pkg_line in enumerate(packages):
         pkg_name = pkg_line.split('==')[0]
-        print(f"{pkg_name:25}", end="\t" if (i+1) % 3 != 0 else "\n")
-    print("\n" if len(packages) % 3 != 0 else "")
-    
+        row.append(f"{pkg_name:25}")
+        if (i + 1) % 3 == 0:
+            log.info("\t".join(row))
+            row = []
+    if row:
+        log.info("\t".join(row))
+
     # Ask if user wants to clean the environment
     choice = input("Do you want to clean this environment (remove unnecessary packages)? (y/n): ")
     if choice.lower() == 'y':
         # Define packages to keep
         essential_packages = ['pip', 'setuptools', 'wheel']
-        
+
         # Ask for additional packages to keep
         user_kept_packages = input("\nEnter any additional packages to keep (comma-separated) or press Enter to continue: ")
         if user_kept_packages.strip():
             additional_packages = [pkg.strip() for pkg in user_kept_packages.split(',')]
             essential_packages.extend(additional_packages)
-        
+
         clean_environment(essential_packages)
-    
-    print("\nThank you for using the VENV Manager!")
+
+    log.info("Thank you for using the VENV Manager!")
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")

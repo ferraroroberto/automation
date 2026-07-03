@@ -15,7 +15,7 @@ Features:
 - Time-based processing: Skips images processed within the last N days based on LinkedIn count
 - Configurable search types: Control whether to do exact matches or enable similar matches
 
-Author: Roberto (Refactored by Claude)
+Author: Roberto
 Date: March 2025
 """
 

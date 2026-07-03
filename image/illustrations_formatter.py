@@ -21,16 +21,17 @@ Key features
   :meth:`IllustrationsFormatter.convert_single_to_1920x1080`.
 """
 
+import argparse
+import json
+import logging
 import os
 import sys
 import time
-import logging
-import argparse
-import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple, List, Optional, Dict, Any
+
 from PIL import Image
-from dataclasses import dataclass
 
 
 @dataclass

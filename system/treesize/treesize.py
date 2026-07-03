@@ -10,15 +10,16 @@ import ctypes
 import sys
 import platform
 import subprocess                 # NEW
+from typing import Any, List
 
 # --- NEW: Analyzer class for logic ---
 class TreeSizeAnalyzer:
-    def __init__(self):
+    def __init__(self) -> None:
         self.folder_sizes = {}      # Cache for folder sizes
         self.folder_disk_sizes = {} # Cache for folder disk sizes
         self.file_cache = {}        # Cache for file listings
 
-    def get_folder_size_deep(self, path):
+    def get_folder_size_deep(self, path: str) -> int:
         if path in self.folder_sizes:
             return self.folder_sizes[path]
         total_size = 0
@@ -41,7 +42,7 @@ class TreeSizeAnalyzer:
         self.folder_sizes[path] = total_size
         return total_size
 
-    def get_folder_disk_size_deep(self, path):
+    def get_folder_disk_size_deep(self, path: str) -> int:
         if path in self.folder_disk_sizes:
             return self.folder_disk_sizes[path]
         total_size = 0
@@ -64,7 +65,7 @@ class TreeSizeAnalyzer:
         self.folder_disk_sizes[path] = total_size
         return total_size
 
-    def get_space_on_disk(self, path):
+    def get_space_on_disk(self, path: str) -> int:
         if not os.path.exists(path):
             return 0
         if platform.system() == 'Windows':
@@ -97,7 +98,7 @@ class TreeSizeAnalyzer:
             logging.debug(f"GetCompressedFileSizeW failed for {path}: {e}")
             return None
 
-    def get_cluster_size(self, path):
+    def get_cluster_size(self, path: str) -> int:
         try:
             if platform.system() == 'Windows':
                 return 4096
@@ -105,7 +106,7 @@ class TreeSizeAnalyzer:
             pass
         return 4096
 
-    def get_folder_size_shallow(self, path):
+    def get_folder_size_shallow(self, path: str) -> int:
         total_size = 0
         try:
             for item in os.listdir(path):
@@ -120,7 +121,7 @@ class TreeSizeAnalyzer:
                 logging.warning(f"Error calculating shallow size for {path}: {e}")
         return total_size
 
-    def format_size(self, size):
+    def format_size(self, size: int) -> str:
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
             if size < 1024.0:
                 return f"{size:.2f} {unit}"
@@ -129,13 +130,13 @@ class TreeSizeAnalyzer:
 
 # Configure logging
 class TextHandler(logging.Handler):
-    def __init__(self, text_widget):
+    def __init__(self, text_widget: Any) -> None:
         logging.Handler.__init__(self)
         self.text_widget = text_widget
-        
-    def emit(self, record):
+
+    def emit(self, record: logging.LogRecord) -> None:
         msg = self.format(record)
-        def append():
+        def append() -> None:
             self.text_widget.configure(state='normal')
             self.text_widget.insert(tk.END, msg + '\n')
             self.text_widget.configure(state='disabled')
@@ -149,7 +150,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class TreeSizeApp:
-    def __init__(self, root):
+    def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("TreeSize - Folder Size Analyzer")
         self.root.geometry("900x700")  # Made taller to accommodate log area
@@ -164,7 +165,7 @@ class TreeSizeApp:
         
         self.setup_ui()
         
-    def setup_ui(self):
+    def setup_ui(self) -> None:
         # --- style / theme -------------------------------------------------
         style = ttk.Style()
         try:
@@ -287,7 +288,7 @@ class TreeSizeApp:
         ttk.Button(control_frame, text="Open Folder", command=self.open_selected_folder).pack(side=tk.RIGHT, padx=5)         # NEW
         ttk.Button(control_frame, text="Open File Location", command=self.open_selected_file_location).pack(side=tk.RIGHT)    # NEW
         
-    def on_metric_change(self):
+    def on_metric_change(self) -> None:
         """Handle change in size metric selection"""
         metric = self.size_metric.get()
         logger.info(f"Size metric changed to: {metric}")
@@ -303,7 +304,7 @@ class TreeSizeApp:
             # Update displayed sizes for visible items
             self.update_displayed_sizes()
             
-    def update_displayed_sizes(self):
+    def update_displayed_sizes(self) -> None:
         """Update all displayed sizes based on the current metric"""
         # Update folder tree
         for item in self.folder_tree.get_children(""):
@@ -326,7 +327,7 @@ class TreeSizeApp:
         for top in self.folder_tree.get_children(""):     # NEW – resort each branch
             self._sort_tree_by_size(top)
             
-    def update_item_sizes(self, item):
+    def update_item_sizes(self, item: str) -> None:
         """Update size display for a single tree item"""
         item_data = self.folder_tree.item(item)
         path = item_data['values'][1]
@@ -339,7 +340,7 @@ class TreeSizeApp:
             size_str = self.analyzer.format_size(size)
             self.folder_tree.set(item, "size", size_str)
             
-    def get_folder_size(self, path):
+    def get_folder_size(self, path: str) -> int:
         """Get folder size based on selected metric"""
         metric = self.size_metric.get()
         if metric == "actual":
@@ -347,7 +348,7 @@ class TreeSizeApp:
         else:
             return self.analyzer.get_folder_disk_size_deep(path)
             
-    def select_folder(self):
+    def select_folder(self) -> None:
         folder = filedialog.askdirectory()
         if folder:
             logger.info(f"Selected folder: {folder}")
@@ -356,7 +357,7 @@ class TreeSizeApp:
             self.folder_tree.delete(*self.folder_tree.get_children())
             self.load_folder_contents(folder, parent="")
             
-    def load_folder_contents(self, path, parent=""):
+    def load_folder_contents(self, path: str, parent: str = "") -> None:
         """Load only the immediate contents of a folder"""
         logger.debug(f"Loading contents of: {path}")
         self.status_bar.config(text=f"Loading: {os.path.basename(path) or path}")
@@ -366,7 +367,7 @@ class TreeSizeApp:
         thread.daemon = True
         thread.start()
         
-    def _load_folder_thread(self, path, parent):
+    def _load_folder_thread(self, path: str, parent: str) -> None:
         start_time = datetime.now()
         try:
             items = []
@@ -397,7 +398,7 @@ class TreeSizeApp:
             logger.error(f"Error loading folder {path}: {e}")
             self.root.after(0, lambda: self.status_bar.config(text=f"Error: {str(e)}"))
             
-    def _update_folder_tree(self, items, parent, parent_path):
+    def _update_folder_tree(self, items: List[Any], parent: str, parent_path: str) -> None:
         nodes = []
         for name, size, path, is_dir in items:
             size_str = self.analyzer.format_size(size) if size > 0 else "Calculating..."
@@ -435,7 +436,7 @@ class TreeSizeApp:
             # If all sizes already calculated, sort nodes by size
             self._sort_tree_by_size(parent)
         
-    def _calculate_and_update_size(self, node, folder_path, parent):
+    def _calculate_and_update_size(self, node: str, folder_path: str, parent: str) -> None:
         """Calculate folder size and update the tree"""
         try:
             start = datetime.now()
@@ -448,7 +449,7 @@ class TreeSizeApp:
             self.root.after(100, lambda: self._sort_tree_by_size(parent))
             
             # --- NEW : finished-batch detection ---
-            def _maybe_done():
+            def _maybe_done() -> bool:
                 for child in self.folder_tree.get_children(parent):
                     val = self.folder_tree.item(child, "values")[0]
                     if val in ("Calculating...", "Error"):
@@ -465,7 +466,7 @@ class TreeSizeApp:
             logger.error(f"Error calculating size for {folder_path}: {e}")
             self.root.after(0, lambda: self.folder_tree.set(node, "size", "Error"))
     
-    def _sort_tree_by_size(self, parent):
+    def _sort_tree_by_size(self, parent: str) -> None:
         """Sort folders by size in descending order"""
         items = self.folder_tree.get_children(parent)
         if not items:
@@ -496,7 +497,7 @@ class TreeSizeApp:
         for idx, (item, _) in enumerate(item_list):
             self.folder_tree.move(item, parent, idx)
     
-    def load_top_files(self, folder_path):
+    def load_top_files(self, folder_path: str) -> None:
         # Check if we have cached results
         if folder_path in self.analyzer.file_cache:
             logger.info(f"Using cached file list for {folder_path}")
@@ -510,7 +511,7 @@ class TreeSizeApp:
         thread.daemon = True
         thread.start()
         
-    def _load_files_thread(self, folder_path):
+    def _load_files_thread(self, folder_path: str) -> None:
         start_time = datetime.now()
         try:
             files = []
@@ -553,7 +554,7 @@ class TreeSizeApp:
             logger.error(f"Error loading files from {folder_path}: {e}")
             self.root.after(0, lambda: self.status_bar.config(text=f"Error: {str(e)}"))
             
-    def _update_file_tree(self, files):
+    def _update_file_tree(self, files: List[Any]) -> None:
         self.file_tree.delete(*self.file_tree.get_children())
         for filename, size, full_path in files:             # CHANGED – keep full path
             size_str = self.analyzer.format_size(size)
@@ -561,7 +562,7 @@ class TreeSizeApp:
         self.status_bar.config(text="Ready")
         
     # ---------- NEW METHODS ----------
-    def refresh(self):
+    def refresh(self) -> None:
         """Clear caches and reload current folder."""
         if not self.current_path:
             messagebox.showinfo("Refresh", "No folder selected.")
@@ -574,7 +575,7 @@ class TreeSizeApp:
         self.file_tree.delete(*self.file_tree.get_children())
         self.load_folder_contents(self.current_path, parent="")
 
-    def open_selected_folder(self):
+    def open_selected_folder(self) -> None:
         """Open highlighted folder in system file explorer."""
         sel = self.folder_tree.selection()
         if not sel:
@@ -591,7 +592,7 @@ class TreeSizeApp:
         else:
             subprocess.run(['xdg-open', path], check=False)
 
-    def open_selected_file_location(self):
+    def open_selected_file_location(self) -> None:
         """Reveal selected file in explorer / finder."""
         sel = self.file_tree.selection()
         if not sel:
@@ -611,7 +612,7 @@ class TreeSizeApp:
             subprocess.run(['xdg-open', os.path.dirname(path)], check=False)
     # ---------- END NEW METHODS ----------
 
-    def on_folder_expand(self, event):
+    def on_folder_expand(self, event: Any) -> None:
         """Handle folder expansion - load subfolders if not already loaded"""
         item = self.folder_tree.focus()
         if not item:
@@ -632,7 +633,7 @@ class TreeSizeApp:
             # Load contents
             self.load_folder_contents(folder_path, item)
 
-    def on_folder_select(self, event):
+    def on_folder_select(self, event: Any) -> None:
         selection = self.folder_tree.selection()
         if selection:
             item = self.folder_tree.item(selection[0])
@@ -642,7 +643,7 @@ class TreeSizeApp:
                     logger.debug(f"Selected folder: {folder_path}")
                     self.load_top_files(folder_path)
 
-def main():
+def main() -> None:
     root = tk.Tk()
     app = TreeSizeApp(root)
     root.mainloop()

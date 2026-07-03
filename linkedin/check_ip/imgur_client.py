@@ -6,7 +6,7 @@ Imgur Client Module
 This module handles image upload operations to Imgur with retry logic and exponential backoff
 for the LinkedIn image search application.
 
-Author: Roberto (Refactored by Claude)
+Author: Roberto
 Date: March 2025
 """
 

@@ -26,24 +26,23 @@ def save_to_excel(databases, db_excel_path):
     df = pd.DataFrame(databases, columns=["name", "id", "url"])
     df.to_excel(db_excel_path, index=False, engine='openpyxl')
 
-# Main execution
-
-# Load the parameters from the text file
-params_file_path = DEFAULT_PARAMS_FILE
-params = read_params_from_txt_file(params_file_path)
-
-# Get the api_token
-api_token = params['api_token']
-
-# Authenticate
-notion = Client(auth=api_token)
-
-# Get the Excel file path and the Notion workspace URL
-db_excel_path = params['db_excel_path']
-workspace_url = params['workspace_url']
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    # Load the parameters from the text file
+    params_file_path = DEFAULT_PARAMS_FILE
+    params = read_params_from_txt_file(params_file_path)
+
+    # Get the api_token
+    api_token = params['api_token']
+
+    # Authenticate
+    notion = Client(auth=api_token)
+
+    # Get the Excel file path and the Notion workspace URL
+    db_excel_path = params['db_excel_path']
+    workspace_url = params['workspace_url']
+
     databases = get_database_list()
     save_to_excel(databases, db_excel_path)
     log.info("Databases saved to %s", db_excel_path)

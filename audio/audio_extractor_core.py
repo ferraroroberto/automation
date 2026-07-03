@@ -8,10 +8,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 class AudioExtractor:
@@ -271,6 +267,10 @@ class AudioExtractor:
 
 def main():
     """Main function to run the audio extractor."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
     import argparse
     
     parser = argparse.ArgumentParser(description='Extract audio tracks from video files')
