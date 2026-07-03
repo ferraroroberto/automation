@@ -284,7 +284,7 @@ def get_file_info(file_path):
             'sha256': '',
             'copy_success': 0,
             'deleted': 0,
-            'exclude': 0
+            'exclude': exclude
         }
     except Exception as e:
         # Log error if file information cannot be retrieved
@@ -582,7 +582,7 @@ def main(source_folder, dest_folder):
     if not use_existing_metadata:
         use_existing_metadata_input = input("Do you want to use an existing metadata file? (Y/N): ").strip().lower()
         use_existing_metadata = use_existing_metadata_input == 'y'
-    if use_existing_metadata == 'y':
+    if use_existing_metadata:
         # Ensure Tkinter is properly initialized
         root = tk.Tk()
         root.withdraw()  # Hide the root window

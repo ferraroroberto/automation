@@ -110,7 +110,7 @@ class GmailDriveAutomation:
         # Handle credentials file path
         credentials_path = Path(self.config['auth']['credentials_file'])
         if not credentials_path.is_absolute():
-            credentials_path = script_dir / token_path
+            credentials_path = script_dir / credentials_path
         
         # Load existing token
         if token_path.exists():
