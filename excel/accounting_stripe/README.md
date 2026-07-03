@@ -250,8 +250,3 @@ For issues or questions:
 2. Review the logs for error details
 3. Verify configuration settings
 4. Test with sample data first
-
----
-
-**Last Updated**: January 2026
-**Version**: 1.0.0

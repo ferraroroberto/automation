@@ -1,14 +1,10 @@
 # Genially Profiles Extractor
 
-Extracts alumni profile cards (name, role, company, email, LinkedIn URL,
-photo) from a public Genially presentation, downloads the photos locally,
-and renders a self-contained, searchable HTML directory.
+Extracts alumni profile cards (name, role, company, email, LinkedIn URL, photo) from a public Genially presentation, downloads the photos locally, and renders a self-contained, searchable HTML directory.
 
 ## How it works
 
-Genially's view-API (`https://view.genially.com/api/view/<id>`) returns the
-full deck as JSON. Each profile card on a slide is built from independent
-widgets:
+Genially's view-API (`https://view.genially.com/api/view/<id>`) returns the full deck as JSON. Each profile card on a slide is built from independent widgets:
 
 - a **Text** block — the name / role / company caption,
 - an **Image** — the round portrait,
@@ -16,11 +12,7 @@ widgets:
   - an `htmlTooltip` action holding the email,
   - an `openLink` action holding the LinkedIn URL.
 
-The script associates them per-card by clustering all widgets of each type
-into rows by y-coordinate, sorting each row by x, and pairing them by index.
-This is robust against the email/LinkedIn icons sitting ~300 px to the right
-of their caption (where naive 2D nearest-neighbour matching would leak
-across cards).
+The script associates them per-card by clustering all widgets of each type into rows by y-coordinate, sorting each row by x, and pairing them by index. This is robust against the email/LinkedIn icons sitting ~300 px to the right of their caption (where naive 2D nearest-neighbour matching would leak across cards).
 
 ## Setup
 
@@ -39,8 +31,7 @@ across cards).
    }
    ```
 
-   `config.json` is gitignored (contains personal data); `config.example.json`
-   is checked in.
+   `config.json` is gitignored (contains personal data); `config.example.json` is checked in.
 
 2. Dependencies: `requests` (already in the project `.venv`).
 
@@ -64,8 +55,7 @@ Written to `output_dir`:
 | `photos/` | Downloaded portraits, named after the email local-part. |
 | `<stem>_raw.json` | Raw Genially API JSON (only when `save_raw: true`). |
 
-The HTML page inlines all data and references photos via relative paths, so
-it works offline as long as `photos/` sits next to the file.
+The HTML page inlines all data and references photos via relative paths, so it works offline as long as `photos/` sits next to the file.
 
 ## Configuration keys
 

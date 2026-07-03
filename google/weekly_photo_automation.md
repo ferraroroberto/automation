@@ -90,99 +90,9 @@ Before using this automation, you need:
    - **Production Mode**: Requires Google verification (can take weeks)
    - For personal automation, testing mode is sufficient
 
-## 🔄 OAuth Access Solutions Comparison
+## 🔄 Resolving the "Access blocked" error
 
-When you encounter the "Access blocked" error, you have several options to resolve it. Here's a detailed comparison:
-
-### Option 1: Add Yourself as a Test User (Recommended for Development)
-**What it is**: Add your email to the "Test users" section in OAuth consent screen.
-
-**Pros**:
-- ✅ **Immediate solution** - works within minutes
-- ✅ **No verification process** - bypasses Google's review
-- ✅ **Perfect for personal automation** - no external users needed
-- ✅ **Free** - no additional costs
-- ✅ **Easy to manage** - you control who has access
-
-**Cons**:
-- ❌ **Limited to test users only** - can't share with others
-- ❌ **Manual management** - must add each user individually
-- ❌ **Not suitable for public apps** - can't distribute widely
-
-**Best for**: Personal automation, development/testing, small family use
-
----
-
-### Option 2: Complete Google Verification Process
-**What it is**: Submit your app for Google's official verification to remove all restrictions.
-
-**Pros**:
-- ✅ **No user limits** - anyone can use your app
-- ✅ **Professional appearance** - no "unverified app" warnings
-- ✅ **Scalable** - can distribute to unlimited users
-- ✅ **Trust indicator** - users know app is Google-approved
-
-**Cons**:
-- ❌ **Time-consuming** - can take 6-8 weeks
-- ❌ **Complex requirements** - privacy policy, terms of service, etc.
-- ❌ **May require business verification** - if app handles sensitive data
-- ❌ **Ongoing compliance** - must maintain verification standards
-- ❌ **Potential rejection** - Google may deny verification
-
-**Best for**: Commercial apps, public distribution, professional services
-
----
-
-### Option 3: Use Service Account Authentication
-**What it is**: Replace OAuth with service account credentials for server-to-server communication.
-
-**Pros**:
-- ✅ **No user consent needed** - works without user interaction
-- ✅ **No verification required** - bypasses OAuth entirely
-- ✅ **More secure** - no user tokens to manage
-- ✅ **Suitable for automation** - designed for background processes
-- ✅ **Unlimited access** - no user limits
-
-**Cons**:
-- ❌ **Limited to your own data** - can't access other users' accounts
-- ❌ **More complex setup** - requires service account creation
-- ❌ **Different API calls** - may need code modifications
-- ❌ **Not suitable for user apps** - only for your own automation
-
-**Best for**: Personal automation, server-side processes, your own data only
-
----
-
-### Option 4: Continue in Testing Mode with Multiple Users
-**What it is**: Keep app in testing mode but add multiple family members as test users.
-
-**Pros**:
-- ✅ **Quick setup** - add users in minutes
-- ✅ **No verification needed** - bypasses Google review
-- ✅ **Family-friendly** - can share with close family
-- ✅ **Easy to manage** - add/remove users as needed
-
-**Cons**:
-- ❌ **Limited to 100 test users** - Google's maximum limit
-- ❌ **Manual management** - must add each user individually
-- ❌ **Not scalable** - impractical for large user bases
-- ❌ **Still shows warnings** - users see "unverified app" message
-
-**Best for**: Family automation, small team use, limited distribution
-
----
-
-## 🎯 Recommendation for Your Use Case
-
-**For your weekly photo automation tool**, I recommend **Option 1 (Test User)** because:
-
-1. **It's personal automation** - you don't need external users
-2. **Immediate solution** - fixes your current error right now
-3. **No ongoing costs** - completely free to maintain
-4. **Simple management** - just add your email and you're done
-5. **Perfect fit** - designed exactly for this type of personal tool
-
-**If you later want to share with family**, you can easily add them as test users (Option 4) without going through the full verification process.
+For personal automation, keep the app in **Testing** mode and add your own email (and any family members, up to Google's 100-test-user limit) under "Test users" on the OAuth consent screen. This works within minutes, needs no verification, and is free — the trade-off is that only listed test users can authenticate and they'll see an "unverified app" warning to click through. Full Google verification (weeks of review, privacy policy, etc.) is only worth it for a public app, and a service account won't help here because it can't access your personal Google Photos library.
 
 ## 🔧 Installation
 
@@ -432,18 +342,13 @@ To add photo filtering (e.g., by location or album), modify the `get_photos_for_
 
 ## 📄 License
 
-This project follows the coding standards defined in RULES.md and is designed for personal use with Google Photos and Gmail APIs.
+This project follows the coding standards defined in CLAUDE.md and is designed for personal use with Google Photos and Gmail APIs.
 
 ## 🤝 Contributing
 
-When contributing, please follow the coding standards in RULES.md:
+When contributing, please follow the coding standards in CLAUDE.md:
 - Use snake_case for functions and variables
 - Include type hints for all functions
 - Add appropriate logging with emoji indicators
 - Update documentation for new features
 - Include configuration examples
-
-## 🤖 Source
-
-Created with Claude Opus 4.1 
-Private chat link > https://claude.ai/chat/5dcc874f-c0c8-4410-b2f0-3d5212696150

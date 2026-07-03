@@ -161,7 +161,7 @@ The module properly tracks when the last sync actually occurred:
 ## 🏗️ Architecture
 
 ### Code Quality Standards
-- **Comprehensive Type Hints**: Full type annotation following RULES.md standards
+- **Comprehensive Type Hints**: Full type annotation following CLAUDE.md standards
 - **Enhanced Documentation**: Detailed docstrings with parameter descriptions
 - **Error Handling**: Graceful error handling with retry logic
 - **Logging Standards**: Consistent emoji-based logging throughout
@@ -233,10 +233,10 @@ When `--debug` is enabled:
 
 #### 5. Rate Limiting Issues
 **Problem**: Slow performance or API errors
-**Solution**:
-- Reduce `THREADING_REQUESTS_PER_SECOND` in `.env`
-- Increase `THREADING_BURST_SIZE` for better burst handling
-- Reduce `THREADING_MAX_WORKERS` if experiencing connection issues
+**Solution** (all in the `threading` block of `notion_articles_sync.json`):
+- Reduce `requests_per_second` to ease off the Notion API
+- Increase `burst_size` for better burst handling
+- Reduce `max_workers` if experiencing connection issues
 
 #### 6. Field Mapping Errors
 **Problem**: Properties not syncing correctly
@@ -269,23 +269,25 @@ The system automatically tests database connections on startup. Look for:
 
 ## 🔧 Performance Tuning
 
+All tuning knobs live in `notion_articles_sync.json` (only `NOTION_API_TOKEN` is in `.env`). Keys below are shown as `block.key`.
+
 ### Threading Configuration
-- **Start with**: `THREADING_MAX_WORKERS=5`
+- **Start with**: `threading.max_workers` = `5`
 - **Adjust based on**: System capabilities and API performance
 - **Monitor**: API call success rates and response times
 
 ### Rate Limiting
-- **Safe Default**: `THREADING_REQUESTS_PER_SECOND=3.0`
-- **Burst Handling**: `THREADING_BURST_SIZE=10`
+- **Safe Default**: `threading.requests_per_second` = `3.0`
+- **Burst Handling**: `threading.burst_size` = `10`
 - **Adjust if**: Experiencing API rate limit errors
 
 ### Batch Sizes
-- **Database Queries**: `SYNC_BATCH_SIZE=100` (API efficiency)
-- **Operation Batching**: `THREADING_OPERATION_BATCH_SIZE=10` (memory usage)
+- **Database Queries**: `sync.batch_size` = `100` (API efficiency)
+- **Operation Batching**: `threading.operation_batch_size` = `10` (memory usage)
 
 ### Polling Intervals
-- **Responsive**: `SYNC_POLLING_INTERVAL=300` (5 minutes)
-- **Conservative**: `SYNC_POLLING_INTERVAL=600` (10 minutes)
+- **Responsive**: `sync.polling_interval_seconds` = `300` (5 minutes)
+- **Conservative**: `sync.polling_interval_seconds` = `600` (10 minutes)
 - **Balance**: Between responsiveness and API usage
 
 ## 🚀 Advanced Features
@@ -356,4 +358,4 @@ When reporting issues, include:
 
 ---
 
-**Note**: This module follows the automation project RULES.md standards for code quality, security, and maintainability. For questions or issues, refer to the troubleshooting section above or check the project documentation.
+**Note**: This module follows the automation project CLAUDE.md standards for code quality, security, and maintainability. For questions or issues, refer to the troubleshooting section above or check the project documentation.

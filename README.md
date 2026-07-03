@@ -15,7 +15,7 @@ automation/
 ├── 📁 google/          # Gmail, Drive, and Google Photos automation
 ├── 📁 html/            # HTML utilities (e.g. countdown timer)
 ├── 📁 image/           # Image processing, formatting, and Instagram tools
-├── 📁 linkedin/        # LinkedIn automation, IP checking, and profile data extraction
+├── 📁 linkedin/        # LinkedIn reverse-image search, profile opening, and profile data extraction
 ├── 📁 notion/          # Notion API integration and database management
 ├── 📁 smart_life/      # Smart Life / IoT device automation
 ├── 📁 system/          # System utilities and virtual environment management
@@ -39,7 +39,10 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`audio_extractor_core.py`** / **`audio_extractor_gui.py`** - Audio extraction and processing
 - **`convert_ogg_mp3.py`** - Audio format conversion (OGG to MP3)
 - **`transcript_collate.py`** - Collate and manage transcripts
-- **`audio_normalize.py`** - Audio normalization
+- **`audio_normalize.py`** - Audio normalization (EBU R128 loudness)
+- **`audio_trim.py`** - Interactive audio trimming
+
+Full per-script reference: [`audio/README.md`](audio/README.md).
 
 ### 🖼️ Image Processing (`image/`)
 
@@ -58,12 +61,20 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`collage_image.py`** - Create image collages from multiple files
 - **`gif_unpacker.py`** - Extract frames from GIFs
 - **`transparency_variants.py`** - Generate transparency variants
+- **`heic_to_jpg_converter.py`** - Convert HEIC/HEIF photos to JPG
+- **`image_to_pdf_collate.py`** - Collate a folder of images into one PDF
+- **`illustrations_check.py`** - Check illustration source/export pairs for orphans
+- **`illustrations_subscribers.py`** - Distribute illustrations to subscribers (optional steganographic watermark)
+- **`imgur_check_rate.py`** - Report Imgur API rate-limit/quota status
+- **`files_list.py`** - List a folder's files with modification dates to JSON
 - **`pdf_to_jpg/`** - PDF to JPG conversion (see `README_PDF_Converter.md`)
+
+Reference for the previously-undocumented tools above: [`image/README.md`](image/README.md).
 
 ### 📹 Video Processing (`video/`)
 
 **Screen Recording & Capture**
-- **`screen_recorder.py`** - Multi-monitor screen recording with mouse overlay
+- **`screen_recorder.py`** - Multi-monitor screen recording with mouse overlay — see [`video/screen_recorder.md`](video/screen_recorder.md)
 - **`video_trim.py`** - Video trimming and editing utilities
 - **`video_concatenator.py`** - Combine multiple video files
 
@@ -79,15 +90,19 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 **Database Management**
 - **`build_newsletter.py`** - Newsletter builder from Notion articles — see [`notion/build_newsletter.md`](notion/build_newsletter.md)
 - **`notion_databases_dump.py`** - Export Notion databases to Excel
-- **`notion_databases_clean.py`** - Clean and normalize Notion data
+- **`notion_databases_query.py`** - List every database the integration can see and export name/id/url to Excel — see [`notion/notion_databases_query.md`](notion/notion_databases_query.md)
+- **`notion_databases_clean.py`** - Apply per-column extract/keep/rename/reorder rules to dumped databases — see [`notion/notion_databases_clean.md`](notion/notion_databases_clean.md)
 - **`notion_databases_add_editorial.py`** - Add editorial calendar rows (one day per date) to a Notion database — see [`notion/notion_databases_add_editorial.md`](notion/notion_databases_add_editorial.md)
-- **`notion_excel_sync.py`** - Excel-Notion synchronization
-- **`articles_sync/`** - Notion articles sync and incremental sync
+- **`notion_databases_editorial.py`** - Local Excel-to-Excel refresh of the editorial-calendar workbook (no Notion API calls) — see [`notion/notion_databases_editorial.md`](notion/notion_databases_editorial.md)
+- **`notion_excel_sync.py`** - Push rows from an Excel workbook into a Notion database as new pages — see [`notion/notion_excel_sync.md`](notion/notion_excel_sync.md)
+- **`sample_illustrations.py`** - Sample illustrations from a Notion database — see [`notion/sample_illustrations.md`](notion/sample_illustrations.md)
+- **`articles_sync/`** - Notion articles sync and incremental sync — see [`notion/articles_sync/notion_articles_sync_readme.md`](notion/articles_sync/notion_articles_sync_readme.md)
 
 **Content Processing**
-- **`normalize_names.py`** - Name normalization and standardization
-- **`todoist_migration.py`** - Todoist to Notion migration tool
-- **`journal_automation.py`** - Automated journal entry creation
+- **`normalize_names.py`** - Name normalization and standardization — see [`notion/normalize_names.md`](notion/normalize_names.md)
+- **`normalize_url.py`** - Strip tracking params from URLs in a Notion database — see [`notion/normalize_url.md`](notion/normalize_url.md)
+- **`todoist_migration.py`** - Transform a folder of Todoist CSV exports into a consolidated Excel workbook — see [`notion/todoist_migration.md`](notion/todoist_migration.md)
+- **`journal_automation.py`** - Automated journal entry creation — see [`notion/journal_automation.md`](notion/journal_automation.md)
 
 ### 💻 System Utilities (`system/`)
 
@@ -106,8 +121,12 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`copy_git_project.py`** - Git project copying and setup
 - **`base64_encode_decode.py`** - Base64 encode/decode utility
 - **`word_to_markdown.py`** - Word to Markdown conversion
+- **`list_files_to_xls.py`** - List a folder's files to an Excel workbook
+- **`background.py`** - Set desktop/taskbar color theme (black or light grey)
 - **`markdown_preview.py`** - Tray-resident GitHub-style Markdown previewer (Edge WebView2) with light/dark toggle and live reload — see [`system/markdown_preview.md`](system/markdown_preview.md)
 - **`foldersearcher/`**, **`treesize/`** - Folder search and size utilities
+
+Reference for the previously-undocumented `system/` scripts (background, keycaster, unzip_with_password, rename_files, copy_git_project, word_to_markdown, list_files_to_xls): [`system/README.md`](system/README.md).
 
 ### 📝 Text Processing (`text/`)
 
@@ -115,19 +134,21 @@ The master template lives in [`project-scaffolding/docs/agents/`](../project-sca
 - **`convert_pdf_to_txt.py`** - PDF to text extraction
 - **`clean_sensitive_data.py`** - Sensitive data removal and sanitization
 
+Full per-script reference: [`text/README.md`](text/README.md).
+
 ### 🔗 LinkedIn Tools (`linkedin/`)
 
-**IP & Profile Automation**
-- **`check_ip/`** - IP address checking and management tools
-- **`open_profiles/`** - LinkedIn profile opening automation
+**Reverse Image Search & Profile Automation**
+- **`check_ip/`** - Reverse-image search (Google Lens via SerpAPI) that uploads images to Imgur and counts where they appear across LinkedIn and other social platforms — see [`linkedin/check_ip/README.md`](linkedin/check_ip/README.md)
+- **`open_profiles/`** - Opens a filtered set of LinkedIn profile/company activity pages from an Excel export — see [`linkedin/open_profiles/README.md`](linkedin/open_profiles/README.md)
 - **`profiles_data_extractor/`** - DevTools-based profile data extraction, Streamlit dashboard, Excel formatting, and data entry tools
 
 ### ☁️ Google Integration (`google/`)
 
 **Gmail, Drive & Photos**
-- **`gmail_drive_automation.py`** - Gmail and Google Drive automation
-- **`weekly_photo_automation.py`** - Weekly photo automation (e.g. Google Photos)
-- **`setup_helper_script.py`** - Setup and configuration helpers
+- **`gmail_drive_automation.py`** - Gmail and Google Drive automation — see [`google/gmail_drive_automation.md`](google/gmail_drive_automation.md)
+- **`weekly_photo_automation.py`** - Weekly photo automation (e.g. Google Photos) — see [`google/weekly_photo_automation.md`](google/weekly_photo_automation.md)
+- **`setup_helper_script.py`** / **`test_all_scopes.py`** / **`test_gmail_drive.py`** - First-time config wizard and OAuth-scope / offline test helpers — see [`google/README.md`](google/README.md)
 
 ### 📊 Excel Automation (`excel/`)
 
@@ -380,6 +401,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-*Last updated: May 2026*
 *Python version: 3.8+*
 *Platform: Windows, Linux, macOS*
