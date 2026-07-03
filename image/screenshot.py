@@ -81,5 +81,16 @@ if __name__ == "__main__":
         log.info("Available monitors:")
         for idx, monitor in enumerate(monitors[1:], start=1):
             log.info("%d: %s", idx, monitor)
-        monitor_index = int(input("Enter the monitor number to capture (1, 2, ...): "))
-        capture_specific_monitor(monitor_index, output_folder)
+        # Bounded retry loop: a mistyped (non-numeric) entry or an out-of-range
+        # monitor index would otherwise crash with an unhandled ValueError.
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                monitor_index = int(input("Enter the monitor number to capture (1, 2, ...): "))
+                capture_specific_monitor(monitor_index, output_folder)
+                break
+            except ValueError as retry_error:
+                log.error("%s", retry_error)
+                if attempt == max_retries - 1:
+                    log.error("Too many invalid attempts. Exiting.")
+                    sys.exit(1)

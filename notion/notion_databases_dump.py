@@ -128,7 +128,7 @@ def download_database_data(database, output_folder, api_token, excel_path):
     else:
         # After processing the Excel file recovers the column widths
         log.info("📏 Applying column widths...")
-        apply_column_widths(excel_path, column_widths)
+        apply_column_widths(output_path, column_widths)
 
     log.info("✅ Database '%s' saved to %s with %d rows", database['name'], output_path, len(df))
 

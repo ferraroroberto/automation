@@ -16,7 +16,7 @@ params = read_params_from_txt_file(params_file_path)
 
 sync_path = params['sync_path']
 api_token = params['api_token']
-verbose = params['verbose']
+verbose = params['verbose'] == 'True'
 
 log.info("Loading Excel file...")
 xlsx = pd.ExcelFile(sync_path)
@@ -43,8 +43,15 @@ try:
     database_details = client.databases.retrieve(notion_db_id)
     database_name = database_details['title'][0]['text']['content']
 
-    # Now, query the database to get the number of rows (pages)
-    total_rows = len(client.databases.query(notion_db_id)['results'])
+    # Now, query the database to get the number of rows (pages), paginating fully
+    total_rows = 0
+    start_cursor = None
+    while True:
+        page = client.databases.query(notion_db_id, start_cursor=start_cursor)
+        total_rows += len(page['results'])
+        if not page.get('has_more'):
+            break
+        start_cursor = page.get('next_cursor')
 
     log.info("Database Name: %s", database_name)
     log.info("Total Rows in Notion: %d", total_rows)
@@ -63,11 +70,23 @@ created_pages_counter = 0
 if clean_db:
     log.info("Archiving all pages in the Notion database...")
     try:
-        response = client.databases.query(notion_db_id)
-        for page in response['results']:
-            client.pages.update(page['id'], properties={"archived": {"checkbox": True}})
+        # Collect every page id first (paginating via next_cursor); archiving
+        # mutates the query result set, so gather ids before archiving to avoid
+        # skipping pages that shift out of later pages.
+        page_ids = []
+        start_cursor = None
+        while True:
+            response = client.databases.query(notion_db_id, start_cursor=start_cursor)
+            page_ids.extend(page['id'] for page in response['results'])
+            if not response.get('has_more'):
+                break
+            start_cursor = response.get('next_cursor')
+
+        for page_id in page_ids:
+            # archived is a top-level page field in the Notion API, not a property
+            client.pages.update(page_id, archived=True)
             archived_pages_counter += 1
-            log.info("Archiving page with ID: %s. Total archived pages: %d", page['id'], archived_pages_counter)
+            log.info("Archiving page with ID: %s. Total archived pages: %d", page_id, archived_pages_counter)
             time.sleep(0.0)  # Adjust delay as needed
     except APIResponseError as e:
         log.error("Failed to archive pages: %s", e)

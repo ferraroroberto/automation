@@ -72,7 +72,7 @@ def clean_data(row, col_value, row_num=None):
             return float(match.group(1)) if match else col_value
         else:
             # Original logic for other cases
-            pattern = fr"{re.escape(extract)}\s*{re.escape(between)}([^{re.escape(between)}]*){re.escape(between)}"
+            pattern = fr"{re.escape(extract)}\s*{re.escape(between)}(.*?){re.escape(between)}"
             col_value_str = str(col_value)
             match = re.search(pattern, col_value_str)
             if verbose:

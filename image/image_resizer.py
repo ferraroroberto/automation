@@ -102,11 +102,17 @@ def resize_image_to_max_size(image_path: Path, max_size_kb: float, quality_start
         if image_path.suffix.lower() in ['.heic', '.heif'] and img.mode != 'RGB':
             img = img.convert('RGB')
         
-        # Save the image with decreasing quality until the file size is under the limit
-        for quality in range(quality_start, 0, -5):
-            # Resize image to maintain aspect ratio - using LANCZOS instead of deprecated ANTIALIAS
-            img.thumbnail((img.width, img.height), Image.LANCZOS)
-            
+        # Save the image with decreasing dimensions and quality until the file size is under the limit
+        orig_width, orig_height = img.width, img.height
+        for i, quality in enumerate(range(quality_start, 0, -5)):
+            # Shrink dimensions progressively each iteration (10% smaller per step),
+            # in addition to lowering quality - using LANCZOS resampling.
+            # img is re-opened at full size at the end of each iteration, so the
+            # target is computed against the original dimensions with a per-iteration factor.
+            factor = 0.9 ** i
+            target = (max(1, int(orig_width * factor)), max(1, int(orig_height * factor)))
+            img.thumbnail(target, Image.Resampling.LANCZOS)
+
             # Save with current quality
             if image_path.suffix.lower() in ['.jpg', '.jpeg']:
                 img.save(temp_path, optimize=True, quality=quality)
