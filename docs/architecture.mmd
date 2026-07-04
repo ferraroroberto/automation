@@ -1,0 +1,72 @@
+%% docs/architecture.mmd — this repo's own internal structure.
+%% Hand-authored, not generated — this is a flat grab-bag of independent
+%% Python tools grouped by domain folder, not a single coupled system, so
+%% there is no crawl-and-render pipeline the way fleet-config's system-map
+%% works. Update this diagram in the same PR as any material structural
+%% change (a new domain folder, a shared helper introduced/moved, a script
+%% relocated) — same anti-staleness contract as a `.fleet.toml` `description`
+%% field. See fleet-config's global-CLAUDE.md "Every repo carries a
+%% `.fleet.toml`" section for the general convention.
+
+flowchart TB
+  ENV[".env / .env.sample\nroot secrets + shared config (API keys, folder paths)"]
+  REQ["requirements.txt\nshared Python deps, source-commented per script"]
+  VENVMGR["system/venv_manager.py\ncreates/monitors the shared .venv"]
+  REQ --> VENVMGR
+
+  subgraph domains["Domain folders — mostly independent scripts, each usually paired\nwith a .bat launcher, a per-script .md doc, and/or a JSON config"]
+    AUDIO["audio/\naudio_extractor_core/gui · audio_normalize · audio_trim ·\nconvert_ogg_mp3 · transcript_collate"]
+    IMAGE["image/\nillustrations_formatter(_gui) · photos_archive · image_resizer ·\ncarrousel_pdf_to_jpg · pdf_to_jpg/ · screenshot · imgur_check_rate"]
+    VIDEO["video/\nscreen_recorder · video_download · video_reencoder ·\nvideo_trim/concatenator · gpu_recovery"]
+    TEXT["text/\nconvert_pdf_to_txt · clean_sensitive_data"]
+    EXCEL["excel/\naccounting_stripe/"]
+    HTML["html/\ncountdown_timer.html"]
+    SMARTLIFE["smart_life/\ndevice automation (despacho_switch.bat, devices.sample.json)"]
+    SYSTEM["system/\nkeycaster · quickdeck/ · textexpander/ · wifi/ ·\nmarkdown_preview · mouse_mover · apple/"]
+  end
+  ENV --> domains
+  VENVMGR -.->|shared runtime for| domains
+
+  subgraph googlebox["google/"]
+    GAUTH["_auth.py\nshared OAuth token/config loader"]
+    GMAIL["gmail_drive_automation.py"]
+    GPHOTOS["weekly_photo_automation.py"]
+    GDIAG["setup_helper_script.py · diag_all_scopes.py · diag_gmail_drive.py"]
+  end
+  GAUTH --> GMAIL
+  GAUTH --> GPHOTOS
+  ENV --> GAUTH
+  GMAIL --> GAPIS["Gmail / Drive APIs"]
+  GPHOTOS --> GAPIS
+
+  subgraph notionbox["notion/"]
+    NUTILS["utils.py\nshared Notion client + legacy notion-params helper"]
+    NBUILD["build_newsletter.py"]
+    NDB["notion_databases_dump/query/clean/\nadd_editorial/editorial.py"]
+    NSYNC["notion_excel_sync.py · articles_sync/"]
+    NCLEAN["normalize_names.py · normalize_url.py ·\ntodoist_migration.py · journal_automation.py"]
+  end
+  NUTILS --> NBUILD
+  NUTILS --> NDB
+  NUTILS --> NSYNC
+  NUTILS --> NCLEAN
+  ENV --> NUTILS
+  NBUILD --> NOTIONAPI["Notion API"]
+  NDB --> NOTIONAPI
+  NSYNC --> NOTIONAPI
+
+  subgraph linkedinbox["linkedin/"]
+    CHECKIP["check_ip/\nreverse-image search (config.py holds Imgur + SerpAPI keys)"]
+    OPENPROF["open_profiles/\nExcel-driven profile/company page opener"]
+    PROFEXTRACT["profiles_data_extractor/\nDevTools extraction + common/dashboard.py\n(Streamlit + Plotly dashboard) + Excel formatting"]
+  end
+  ENV --> CHECKIP
+  CHECKIP --> IMGUR["Imgur API"]
+  CHECKIP --> SERPAPI["SerpAPI (Google Lens)"]
+
+  EXTBIN["External binaries\nFFmpeg (audio/video) · Poppler (pdf_to_jpg) ·\nWhisper model (transcription)"]
+  AUDIO --> EXTBIN
+  VIDEO --> EXTBIN
+  IMAGE --> EXTBIN
+
+  DOCS["CLAUDE.md / AGENTS.md / README.md\nagent instructions + module catalog"]

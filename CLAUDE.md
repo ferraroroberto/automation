@@ -17,3 +17,7 @@ Canonical instructions for AI coding agents working in this repository. Claude C
 ## This repository
 Personal automation monorepo: independent Python scripts and small tools across multiple domains (audio, video, image, google, notion, linkedin, system, etc.) on Windows + PowerShell.
 See `README.md` for setup, layout, and usage.
+
+## Internal architecture
+
+[`docs/architecture.mmd`](docs/architecture.mmd) is a hand-authored Mermaid diagram of this repo's own internal structure (the domain folders, shared per-domain helpers like `google/_auth.py` and `notion/utils.py`, and the external services each domain talks to). Update it in the same PR as any material structural change (a new domain folder, a shared helper added/moved, a script relocated) — same anti-staleness contract as this repo's `.fleet.toml` `description` field. It is not auto-generated and not covered by any test suite.
