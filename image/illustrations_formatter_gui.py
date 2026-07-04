@@ -32,10 +32,20 @@ import sys
 import os
 
 try:
-    from illustrations_formatter import IllustrationsFormatter, ProcessingResult, parse_color
+    from illustrations_formatter import (
+        IllustrationsFormatter,
+        ProcessingResult,
+        parse_color,
+        default_illustrations_config,
+    )
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from illustrations_formatter import IllustrationsFormatter, ProcessingResult, parse_color
+    from illustrations_formatter import (
+        IllustrationsFormatter,
+        ProcessingResult,
+        parse_color,
+        default_illustrations_config,
+    )
 
 
 class TextHandler(logging.Handler):
@@ -67,7 +77,8 @@ class IllustrationsFormatterGUI:
       a status line, and a scrollable log.
     """
 
-    CONFIG_FILE = 'illustrations_formatter_config.json'
+    # Shared with the core module (dedup: audit issue #64) - see illustrations_formatter.py.
+    CONFIG_FILE = IllustrationsFormatter.CONFIG_FILE
     DEFAULT_1920X1080_FOLDER = os.getenv('ILLUSTRATIONS_DEST_1920X1080', '')
     DEFAULT_INSTAGRAM_FOLDER = os.getenv('ILLUSTRATIONS_DEST_INSTAGRAM', '')
 
@@ -113,16 +124,7 @@ class IllustrationsFormatterGUI:
     def load_config(self) -> Dict[str, Any]:
         """Load settings from the JSON config file, merging with built-in defaults."""
         config_path = Path(__file__).parent / self.CONFIG_FILE
-        defaults: Dict[str, Any] = {
-            'source_folder': '',
-            'destination_folder': '',
-            'destination_folder_instagram': self.DEFAULT_INSTAGRAM_FOLDER,
-            'destination_folder_1920x1080': self.DEFAULT_1920X1080_FOLDER,
-            'aspect_ratio': '3:4',
-            'background_color': '',
-            'format_type': 'instagram',
-            'extend_border': False,
-        }
+        defaults: Dict[str, Any] = default_illustrations_config()
         try:
             if config_path.exists():
                 with open(config_path, 'r', encoding='utf-8') as f:

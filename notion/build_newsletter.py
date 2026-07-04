@@ -12,7 +12,6 @@ Usage:
 
 import argparse
 import re
-import json
 import logging
 import os
 import sys
@@ -20,6 +19,8 @@ import webbrowser
 from typing import Dict, List, Optional, Sequence, Tuple
 import requests
 from dotenv import load_dotenv
+
+import utils as notion_utils
 
 # Load environment variables
 load_dotenv()
@@ -61,55 +62,14 @@ class NotionNewsletterBuilder:
     
     def _load_config(self, config_path: str) -> Dict:
         """Load and parse the JSON configuration file."""
-        try:
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            # Try looking in the same directory as this script
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            fallback_path = os.path.join(script_dir, os.path.basename(config_path))
-            try:
-                with open(fallback_path, 'r') as f:
-                    logging.info(f"📁 Loaded config from fallback path: {fallback_path}")
-                    return json.load(f)
-            except FileNotFoundError:
-                raise FileNotFoundError(f"Configuration file not found at {config_path} or {fallback_path}")
-            except json.JSONDecodeError:
-                raise ValueError(f"Invalid JSON in fallback configuration file: {fallback_path}")
-        except json.JSONDecodeError:
-            raise ValueError(f"Invalid JSON in configuration file: {config_path}")
-    
+        return notion_utils.load_json_config_with_fallback(config_path, __file__)
+
     def _query_notion_database(self, database_id: str, filter_data: Optional[Dict] = None) -> List[Dict]:
         """Query a Notion database with optional filtering."""
-        url = f"https://api.notion.com/v1/databases/{database_id}/query"
-        
         payload = {}
         if filter_data:
             payload['filter'] = filter_data
-        
-        all_results = []
-        has_more = True
-        start_cursor = None
-        
-        while has_more:
-            if start_cursor:
-                payload['start_cursor'] = start_cursor
-            
-            try:
-                response = requests.post(url, headers=self.headers, json=payload)
-                response.raise_for_status()
-                
-                data = response.json()
-                all_results.extend(data.get('results', []))
-                
-                has_more = data.get('has_more', False)
-                start_cursor = data.get('next_cursor')
-                
-            except requests.exceptions.RequestException as e:
-                logging.error(f"❌ Failed to query Notion database: {e}")
-                raise
-        
-        return all_results
+        return notion_utils.paginated_database_query(self.headers, database_id, payload)
     
     def find_newsletter_by_title(self, newsletter_title: str) -> Optional[Dict]:
         """Find a newsletter record by its number."""
@@ -150,51 +110,47 @@ class NotionNewsletterBuilder:
         """Extract name, URL, topic, star, and niche from an article record."""
         try:
             properties = article.get('properties', {})
-            
-            # Extract title
+
+            # Extract title. Note: unlike notion_utils.extract_title_text (which joins
+            # every rich-text segment), this intentionally keeps only the FIRST segment's
+            # plain_text - preserved as-is to avoid a behavior change (see issue #64 notes).
             title_prop = properties.get('article', {})
-            if title_prop.get('type') == 'title':
-                title_content = title_prop.get('title', [])
-                if not title_content:
-                    return None
-                name = title_content[0].get('plain_text', '').strip()
-            else:
+            if title_prop.get('type') != 'title':
                 return None
-            
+            title_content = title_prop.get('title', [])
+            if not title_content:
+                return None
+            name = title_content[0].get('plain_text', '').strip()
+
             # Extract URL
             url_prop = properties.get('link', {})
-            if url_prop.get('type') == 'url':
-                url = url_prop.get('url', '').strip()
-                if not url:
-                    return None
-            else:
+            if url_prop.get('type') != 'url':
                 return None
-            
+            url = notion_utils.extract_url(url_prop).strip()
+            if not url:
+                return None
+
             # Extract topic
             topic_prop = properties.get('topic', {})
-            if topic_prop.get('type') == 'select':
-                topic_obj = topic_prop.get('select')
-                if not topic_obj:
-                    return None
-                topic = topic_obj.get('name', '').strip()
-            else:
+            if topic_prop.get('type') != 'select':
                 return None
-            
+            topic = notion_utils.extract_select_name(topic_prop).strip()
+            if not topic:
+                return None
+
             # Extract star (checkbox)
             star_prop = properties.get('star', {})
-            star = False
-            if star_prop.get('type') == 'checkbox':
-                star = star_prop.get('checkbox', False)
-            
+            star = notion_utils.extract_checkbox(star_prop) if star_prop.get('type') == 'checkbox' else False
+
             # Extract niche (multi_select)
             niche_prop = properties.get('niche', {})
-            niche = []
             if niche_prop.get('type') == 'multi_select':
-                niche_objs = niche_prop.get('multi_select', [])
-                niche = [obj.get('name', '').strip() for obj in niche_objs if obj.get('name')]
-            
+                niche = [n.strip() for n in notion_utils.extract_multi_select_names(niche_prop) if n]
+            else:
+                niche = []
+
             return name, url, topic, star, niche
-            
+
         except Exception as e:
             logging.error(f"❌ Error extracting data from article: {e}")
             return None

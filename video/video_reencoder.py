@@ -10,16 +10,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-
-def check_gpu_available():
-    try:
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True)
-        if result.returncode != 0:
-            return False
-        enc = subprocess.run(["ffmpeg", "-encoders"], capture_output=True, text=True)
-        return "h264_nvenc" in enc.stdout
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+from _ffmpeg_utils import check_gpu_available, get_video_duration
 
 
 def get_file_info(file_path):
@@ -27,21 +18,6 @@ def get_file_info(file_path):
     size_mb = size_bytes / (1024 * 1024)
     ext = os.path.splitext(file_path)[1].lower().replace(".", "")
     return ext, size_mb
-
-
-def get_video_duration(input_path):
-    try:
-        result = subprocess.run(
-            [
-                "ffprobe", "-v", "error", "-show_entries",
-                "format=duration", "-of",
-                "default=noprint_wrappers=1:nokey=1", input_path
-            ],
-            capture_output=True, text=True, check=True, timeout=30
-        )
-        return float(result.stdout.strip())
-    except Exception:
-        return None
 
 
 def reencode_video(

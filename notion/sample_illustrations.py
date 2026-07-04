@@ -20,7 +20,6 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import os
 import re
@@ -32,6 +31,8 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+
+import utils as notion_utils
 
 load_dotenv()
 
@@ -46,20 +47,7 @@ WINDOWS_ILLEGAL = re.compile(r'[<>:"/\\|?*]')
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
-    paths_to_try = [
-        config_path,
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), os.path.basename(config_path)),
-    ]
-    for path in paths_to_try:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                config = json.load(f)
-            if path != config_path:
-                logging.info(f"Loaded config from fallback path: {path}")
-            return config
-        except FileNotFoundError:
-            continue
-    raise FileNotFoundError(f"Config not found at {' or '.join(paths_to_try)}")
+    return notion_utils.load_json_config_with_fallback(config_path, __file__)
 
 
 def resolve_token(config: Dict[str, Any]) -> str:
@@ -91,25 +79,16 @@ def query_database(db_id: str, headers: Dict[str, str]) -> List[Dict[str, Any]]:
     return pages
 
 
-def extract_title(prop: Dict[str, Any]) -> str:
-    return "".join(s.get("plain_text", "") for s in prop.get("title", [])).strip()
-
-
-def extract_rich_text(prop: Dict[str, Any]) -> str:
-    return "".join(s.get("plain_text", "") for s in prop.get("rich_text", [])).strip()
-
-
-def extract_relation_ids(prop: Dict[str, Any]) -> List[str]:
-    return [r["id"] for r in prop.get("relation", [])]
-
-
-def extract_multi_select(prop: Dict[str, Any]) -> List[str]:
-    return [x["name"] for x in prop.get("multi_select", [])]
+# Thin aliases onto the shared notion/utils.py extractors (dedup: issue #64).
+extract_title = notion_utils.extract_title_text
+extract_rich_text = notion_utils.extract_rich_text_value
+extract_relation_ids = notion_utils.extract_relation_ids
+extract_multi_select = notion_utils.extract_multi_select_names
 
 
 def extract_select(prop: Dict[str, Any]) -> Optional[str]:
-    sel = prop.get("select")
-    return sel["name"] if sel else None
+    """Selected option's name, or None if unset (this caller's convention)."""
+    return notion_utils.extract_select_name(prop) or None
 
 
 def build_concepts_map(pages: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:

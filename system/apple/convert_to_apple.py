@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import List, Dict, Any
 import re
 
+from _vcard_fields import extract_type_label
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -192,21 +194,24 @@ class AppleContactConverter:
             # Already properly formatted
             return line
         elif ";" in line and not "TYPE=" in line:
-            # Convert old format to new format
-            parts = line.split(";")
-            if len(parts) >= 2:
-                phone_type = parts[1].upper()
-                phone_number = parts[-1].split(":")[-1]
-                return f"TEL;TYPE={phone_type}:{phone_number}"
+            # Convert old format to new format. Isolate the prefix (before
+            # the first ':') from the value first, then extract the type
+            # from the prefix alone - not the whole line (dedup: audit issue
+            # #64; the old whole-line split embedded the value into the
+            # type string for the common single-semicolon shape, see Notes).
+            prefix, sep, value = line.partition(":")
+            phone_type = extract_type_label(prefix)
+            if phone_type:
+                return f"TEL;TYPE={phone_type}:{value}"
 
         return line
-    
+
     def _format_email_line(self, line: str) -> str:
         """Format email line for Apple compatibility.
-        
+
         Args:
             line: Original email line
-            
+
         Returns:
             Formatted email line
         """
@@ -214,20 +219,19 @@ class AppleContactConverter:
         if "TYPE=" in line and ";" in line:
             return line
         elif ";" in line and not "TYPE=" in line:
-            parts = line.split(";")
-            if len(parts) >= 2:
-                email_type = parts[1].upper()
-                email_address = parts[-1].split(":")[-1]
-                return f"EMAIL;TYPE={email_type}:{email_address}"
-        
+            prefix, sep, value = line.partition(":")
+            email_type = extract_type_label(prefix)
+            if email_type:
+                return f"EMAIL;TYPE={email_type}:{value}"
+
         return line
-    
+
     def _format_address_line(self, line: str) -> str:
         """Format address line for Apple compatibility.
-        
+
         Args:
             line: Original address line
-            
+
         Returns:
             Formatted address line
         """
@@ -235,12 +239,11 @@ class AppleContactConverter:
         if "TYPE=" in line and ";" in line:
             return line
         elif ";" in line and not "TYPE=" in line:
-            parts = line.split(";")
-            if len(parts) >= 2:
-                addr_type = parts[1].upper()
-                addr_parts = parts[2:]
-                return f"ADR;TYPE={addr_type}:{';'.join(addr_parts)}"
-        
+            prefix, sep, value = line.partition(":")
+            addr_type = extract_type_label(prefix)
+            if addr_type:
+                return f"ADR;TYPE={addr_type}:{value}"
+
         return line
     
     def _create_fn_from_n(self, n_line: str) -> str:

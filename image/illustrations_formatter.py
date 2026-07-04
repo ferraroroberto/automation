@@ -45,6 +45,25 @@ class ProcessingResult:
     errors: List[Tuple[str, str]]
 
 
+def default_illustrations_config() -> Dict[str, Any]:
+    """Built-in defaults for illustrations_formatter_config.json.
+
+    Shared by IllustrationsFormatter.load_config() and
+    IllustrationsFormatterGUI.load_config() (dedup: audit issue #64) - returns
+    a fresh dict each call so callers can safely mutate their copy.
+    """
+    return {
+        'source_folder': '',
+        'destination_folder': '',
+        'destination_folder_instagram': os.getenv('ILLUSTRATIONS_DEST_INSTAGRAM', ''),
+        'destination_folder_1920x1080': os.getenv('ILLUSTRATIONS_DEST_1920X1080', ''),
+        'aspect_ratio': '3:4',
+        'background_color': '',
+        'format_type': 'instagram',
+        'extend_border': False,
+    }
+
+
 class IllustrationsFormatter:
     """Main class for formatting images."""
 
@@ -82,16 +101,7 @@ class IllustrationsFormatter:
     def load_config(self) -> Dict[str, Any]:
         """Load configuration from the JSON file, merging with built-in defaults."""
         config_path = Path(__file__).parent / self.CONFIG_FILE
-        default_config = {
-            'source_folder': '',
-            'destination_folder': '',
-            'destination_folder_instagram': os.getenv('ILLUSTRATIONS_DEST_INSTAGRAM', ''),
-            'destination_folder_1920x1080': os.getenv('ILLUSTRATIONS_DEST_1920X1080', ''),
-            'aspect_ratio': '3:4',
-            'background_color': '',
-            'format_type': 'instagram',
-            'extend_border': False,
-        }
+        default_config = default_illustrations_config()
         try:
             if config_path.exists():
                 with open(config_path, 'r', encoding='utf-8') as f:
@@ -434,6 +444,90 @@ class IllustrationsFormatter:
     # Batch-folder methods
     # ------------------------------------------------------------------
 
+    def _process_folder_common(
+        self,
+        source_folder: str,
+        destination_folder: str,
+        skip_predicate,
+        per_image_fn,
+        progress_callback=None,
+    ) -> ProcessingResult:
+        """
+        Shared batch-folder scaffolding for process_folder / process_folder_fixed_size:
+        source validation, glob-collection (with case-duplicate handling), the
+        already-processed skip check, error accumulation, and the final
+        ProcessingResult build.
+
+        Args:
+            skip_predicate: ``fn(existing_image: Image) -> bool`` - decides
+                whether an already-existing destination file matches the
+                target shape and can be skipped.
+            per_image_fn:   ``fn(img_path: Path, out: Path) -> None`` - does
+                the actual per-image conversion; may raise on failure.
+        """
+        start_time = time.time()
+        errors: List[Tuple[str, str]] = []
+
+        source_path = Path(source_folder)
+        dest_path = Path(destination_folder)
+
+        if not source_path.exists():
+            raise ValueError(f"Source folder does not exist: {source_folder}")
+        if not source_path.is_dir():
+            raise ValueError(f"Source path is not a directory: {source_folder}")
+
+        dest_path.mkdir(parents=True, exist_ok=True)
+
+        image_files: List[Path] = []
+        for ext in self.SUPPORTED_FORMATS:
+            image_files.extend(source_path.glob(f'*{ext}'))
+            image_files.extend(source_path.glob(f'*{ext.upper()}'))
+        image_files = list(set(image_files))
+        total = len(image_files)
+
+        if total == 0:
+            self.logger.warning(f"No supported image files found in: {source_folder}")
+            return ProcessingResult(0, 0, 0, 0, 0.0, [])
+
+        self.logger.info(f"Found {total} image(s) to process")
+        successful = failed = skipped = 0
+
+        for idx, img_path in enumerate(image_files, 1):
+            try:
+                out = dest_path / img_path.name
+                if out.exists():
+                    try:
+                        with Image.open(out) as ex:
+                            if skip_predicate(ex):
+                                self.logger.info(f"Skipping already processed: {out.name}")
+                                skipped += 1
+                                if progress_callback:
+                                    progress_callback(idx, total, f"Skipping: {img_path.name}")
+                                continue
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Could not verify {out.name}, re-processing. Error: {e}"
+                        )
+                per_image_fn(img_path, out)
+                successful += 1
+                if progress_callback:
+                    progress_callback(idx, total, f"Processing: {img_path.name}")
+            except Exception as e:
+                failed += 1
+                self.logger.error(f"Failed to process {img_path.name}: {e}")
+                errors.append((img_path.name, str(e)))
+                if progress_callback:
+                    progress_callback(idx, total, f"Error: {img_path.name}")
+
+        elapsed = time.time() - start_time
+        self.logger.info(
+            f"\nProcessing complete! "
+            f"Total: {total}  Successful: {successful}  "
+            f"Skipped: {skipped}  Failed: {failed}  "
+            f"Time: {elapsed:.2f}s"
+        )
+        return ProcessingResult(total, successful, failed, skipped, elapsed, errors)
+
     def process_folder(
         self,
         source_folder: str,
@@ -461,75 +555,20 @@ class IllustrationsFormatter:
         Returns:
             :class:`ProcessingResult` with counts and any error details.
         """
-        start_time = time.time()
-        errors: List[Tuple[str, str]] = []
-
-        source_path = Path(source_folder)
-        dest_path = Path(destination_folder)
-
-        if not source_path.exists():
-            raise ValueError(f"Source folder does not exist: {source_folder}")
-        if not source_path.is_dir():
-            raise ValueError(f"Source path is not a directory: {source_folder}")
-
         try:
             ratio_float = self.parse_aspect_ratio(aspect_ratio)
         except ValueError as e:
             raise ValueError(f"Invalid aspect ratio: {e}")
 
-        dest_path.mkdir(parents=True, exist_ok=True)
-
-        image_files: List[Path] = []
-        for ext in self.SUPPORTED_FORMATS:
-            image_files.extend(source_path.glob(f'*{ext}'))
-            image_files.extend(source_path.glob(f'*{ext.upper()}'))
-        image_files = list(set(image_files))
-        total = len(image_files)
-
-        if total == 0:
-            self.logger.warning(f"No supported image files found in: {source_folder}")
-            return ProcessingResult(0, 0, 0, 0, 0.0, [])
-
-        self.logger.info(f"Found {total} image(s) to process")
-        successful = failed = skipped = 0
-
-        for idx, img_path in enumerate(image_files, 1):
-            try:
-                out = dest_path / img_path.name
-                if out.exists():
-                    try:
-                        with Image.open(out) as ex:
-                            if abs(ex.width / ex.height - ratio_float) < 0.01:
-                                self.logger.info(f"Skipping already processed: {out.name}")
-                                skipped += 1
-                                if progress_callback:
-                                    progress_callback(idx, total, f"Skipping: {img_path.name}")
-                                continue
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Could not verify {out.name}, re-processing. Error: {e}"
-                        )
-                self.process_image(
-                    img_path, out, ratio_float, background_color, extend_border
-                )
-                successful += 1
-                if progress_callback:
-                    progress_callback(idx, total, f"Processing: {img_path.name}")
-            except Exception as e:
-                failed += 1
-                self.logger.error(f"Failed to process {img_path.name}: {e}")
-                errors.append((img_path.name, str(e)))
-                if progress_callback:
-                    progress_callback(idx, total, f"Error: {img_path.name}")
-
-        elapsed = time.time() - start_time
-        self.logger.info(
-            f"\nProcessing complete! "
-            f"Total: {total}  Successful: {successful}  "
-            f"Skipped: {skipped}  Failed: {failed}  "
-            f"Time: {elapsed:.2f}s"
+        return self._process_folder_common(
+            source_folder,
+            destination_folder,
+            skip_predicate=lambda ex: abs(ex.width / ex.height - ratio_float) < 0.01,
+            per_image_fn=lambda img_path, out: self.process_image(
+                img_path, out, ratio_float, background_color, extend_border
+            ),
+            progress_callback=progress_callback,
         )
-        return ProcessingResult(total, successful, failed, skipped, elapsed, errors)
 
     def process_folder_fixed_size(
         self,
@@ -560,72 +599,15 @@ class IllustrationsFormatter:
         Returns:
             :class:`ProcessingResult` with counts and any error details.
         """
-        start_time = time.time()
-        errors: List[Tuple[str, str]] = []
-
-        source_path = Path(source_folder)
-        dest_path = Path(destination_folder)
-
-        if not source_path.exists():
-            raise ValueError(f"Source folder does not exist: {source_folder}")
-        if not source_path.is_dir():
-            raise ValueError(f"Source path is not a directory: {source_folder}")
-
-        dest_path.mkdir(parents=True, exist_ok=True)
-
-        image_files: List[Path] = []
-        for ext in self.SUPPORTED_FORMATS:
-            image_files.extend(source_path.glob(f'*{ext}'))
-            image_files.extend(source_path.glob(f'*{ext.upper()}'))
-        image_files = list(set(image_files))
-        total = len(image_files)
-
-        if total == 0:
-            self.logger.warning(f"No supported image files found in: {source_folder}")
-            return ProcessingResult(0, 0, 0, 0, 0.0, [])
-
-        self.logger.info(f"Found {total} image(s) to process")
-        successful = failed = skipped = 0
-
-        for idx, img_path in enumerate(image_files, 1):
-            try:
-                out = dest_path / img_path.name
-                if out.exists():
-                    try:
-                        with Image.open(out) as ex:
-                            if ex.width == target_width and ex.height == target_height:
-                                self.logger.info(f"Skipping already processed: {out.name}")
-                                skipped += 1
-                                if progress_callback:
-                                    progress_callback(idx, total, f"Skipping: {img_path.name}")
-                                continue
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Could not verify {out.name}, re-processing. Error: {e}"
-                        )
-                self.process_image_fixed_size(
-                    img_path, out,
-                    target_width, target_height,
-                    background_color, extend_border,
-                )
-                successful += 1
-                if progress_callback:
-                    progress_callback(idx, total, f"Processing: {img_path.name}")
-            except Exception as e:
-                failed += 1
-                self.logger.error(f"Failed to process {img_path.name}: {e}")
-                errors.append((img_path.name, str(e)))
-                if progress_callback:
-                    progress_callback(idx, total, f"Error: {img_path.name}")
-
-        elapsed = time.time() - start_time
-        self.logger.info(
-            f"\nProcessing complete! "
-            f"Total: {total}  Successful: {successful}  "
-            f"Skipped: {skipped}  Failed: {failed}  "
-            f"Time: {elapsed:.2f}s"
+        return self._process_folder_common(
+            source_folder,
+            destination_folder,
+            skip_predicate=lambda ex: ex.width == target_width and ex.height == target_height,
+            per_image_fn=lambda img_path, out: self.process_image_fixed_size(
+                img_path, out, target_width, target_height, background_color, extend_border
+            ),
+            progress_callback=progress_callback,
         )
-        return ProcessingResult(total, successful, failed, skipped, elapsed, errors)
 
 
 # ----------------------------------------------------------------------

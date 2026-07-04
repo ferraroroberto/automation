@@ -18,6 +18,8 @@ import datetime
 import tkinter as tk
 from tkinter import filedialog
 
+from _vcard_fields import extract_type_label
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -239,15 +241,9 @@ class VCardParser:
             phone = ContactPhone(number=phone_number, original_line=line)
 
             # Extract type from prefix
-            if "TYPE=" in prefix:
-                type_match = re.search(r'TYPE=([^;:]+)', prefix)
-                if type_match:
-                    phone.type_label = type_match.group(1).upper()
-            elif ";" in prefix:
-                # Old format: TEL;HOME;+1234567890
-                parts = prefix.split(";")
-                if len(parts) > 1:
-                    phone.type_label = parts[1].upper()
+            type_label = extract_type_label(prefix)
+            if type_label is not None:
+                phone.type_label = type_label
 
             contact.phones.append(phone)
 
@@ -264,11 +260,11 @@ class VCardParser:
 
             email = ContactEmail(address=email_addr, original_line=line)
 
-            # Extract type from prefix
-            if "TYPE=" in prefix:
-                type_match = re.search(r'TYPE=([^;:]+)', prefix)
-                if type_match:
-                    email.type_label = type_match.group(1).upper()
+            # Extract type from prefix (no legacy-positional fallback for
+            # email, matching the original parsing - only TEL had that)
+            type_label = extract_type_label(prefix, legacy_positional_fallback=False)
+            if type_label is not None:
+                email.type_label = type_label
 
             contact.emails.append(email)
 
@@ -293,11 +289,11 @@ class VCardParser:
                 address.postal_code = addr_parts[5].strip()  # postal code
                 address.country = addr_parts[6].strip()  # country
 
-            # Extract type from prefix
-            if "TYPE=" in prefix:
-                type_match = re.search(r'TYPE=([^;:]+)', prefix)
-                if type_match:
-                    address.type_label = type_match.group(1).upper()
+            # Extract type from prefix (no legacy-positional fallback for
+            # address, matching the original parsing - only TEL had that)
+            type_label = extract_type_label(prefix, legacy_positional_fallback=False)
+            if type_label is not None:
+                address.type_label = type_label
 
         contact.addresses.append(address)
 

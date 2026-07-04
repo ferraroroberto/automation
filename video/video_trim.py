@@ -13,6 +13,8 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from _ffmpeg_utils import check_gpu_available, get_video_duration
+
 log = logging.getLogger(__name__)
 
 # -------------------------------------------------------
@@ -60,38 +62,8 @@ def seconds_to_time_str(seconds, with_fraction=True):
 
 
 # -------------------------------------------------------
-# FFprobe: get video duration
+# FFprobe / GPU check: see _ffmpeg_utils.py (shared with video_reencoder.py)
 # -------------------------------------------------------
-
-def get_video_duration(input_path):
-    """Get video duration in seconds using ffprobe. Returns float or None on error."""
-    try:
-        result = subprocess.run(
-            [
-                "ffprobe", "-v", "error", "-show_entries",
-                "format=duration", "-of",
-                "default=noprint_wrappers=1:nokey=1", input_path
-            ],
-            capture_output=True, text=True, check=True, timeout=30
-        )
-        return float(result.stdout.strip())
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
-        return None
-
-
-# -------------------------------------------------------
-# GPU check
-# -------------------------------------------------------
-
-def check_gpu_available():
-    try:
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True)
-        if result.returncode != 0:
-            return False
-        encoders_check = subprocess.run(["ffmpeg", "-encoders"], capture_output=True, text=True)
-        return "h264_nvenc" in encoders_check.stdout
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
 
 
 # -------------------------------------------------------

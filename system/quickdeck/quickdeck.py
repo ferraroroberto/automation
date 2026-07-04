@@ -439,6 +439,54 @@ class QuickDeckConfig:
             sg.popup_error(f"❌ Failed to save configuration: {e}", title="Error")
 
 
+def _emoji_font_paths() -> List[str]:
+    """Platform fallback list of TTF paths for rendering emoji glyphs."""
+    if os.name == 'nt':
+        return [
+            "C:/Windows/Fonts/seguiemj.ttf",  # Segoe UI Emoji
+            "C:/Windows/Fonts/segmdl2.ttf",  # Segoe MDL2 Assets
+        ]
+    return [
+        "/System/Library/Fonts/Apple Color Emoji.ttc",  # macOS
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",  # Linux
+    ]
+
+
+def _text_font_paths() -> List[str]:
+    """Platform fallback list of TTF paths for rendering button label text."""
+    if os.name == 'nt':
+        return [
+            "C:/Windows/Fonts/arial.ttf",
+            "C:/Windows/Fonts/calibri.ttf",
+        ]
+    return [
+        "/System/Library/Fonts/Arial.ttf",  # macOS
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Linux
+    ]
+
+
+def _load_font(font_paths: List[str], size: int) -> ImageFont.FreeTypeFont:
+    """
+    Try each TTF path in order, returning the first that loads at `size`;
+    falls back to PIL's built-in default font if none are usable.
+
+    Consolidates the "pick a TTF from a platform fallback list, load with
+    ImageFont.truetype, fall through to load_default()" pattern previously
+    copy-pasted four times across QuickDeck (dedup: audit issue #64).
+    """
+    font = None
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            try:
+                font = ImageFont.truetype(font_path, size)
+                break
+            except OSError:
+                continue
+    if font is None:
+        font = ImageFont.load_default()
+    return font
+
+
 class QuickDeck:
     """Main QuickDeck application class."""
     
@@ -591,34 +639,10 @@ class QuickDeck:
             
             # Try to use a system emoji font
             try:
-                # Windows emoji font
-                if os.name == 'nt':
-                    font_paths = [
-                        "C:/Windows/Fonts/seguiemj.ttf",  # Segoe UI Emoji
-                        "C:/Windows/Fonts/segmdl2.ttf",  # Segoe MDL2 Assets
-                    ]
-                else:
-                    font_paths = [
-                        "/System/Library/Fonts/Apple Color Emoji.ttc",  # macOS
-                        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",  # Linux
-                    ]
-                
-                font = None
-                for font_path in font_paths:
-                    if os.path.exists(font_path):
-                        try:
-                            font = ImageFont.truetype(font_path, size)
-                            break
-                        except OSError:
-                            continue
-
-                if font is None:
-                    # Fallback to default font
-                    font = ImageFont.load_default()
-
+                font = _load_font(_emoji_font_paths(), size)
             except Exception:
                 font = ImageFont.load_default()
-            
+
             # Calculate text position to center the emoji with padding
             bbox = draw.textbbox((0, 0), emoji, font=font)
             text_width = bbox[2] - bbox[0]
@@ -662,28 +686,7 @@ class QuickDeck:
             
             # Calculate text width first to determine total width needed
             try:
-                if os.name == 'nt':
-                    font_paths = [
-                        "C:/Windows/Fonts/arial.ttf",
-                        "C:/Windows/Fonts/calibri.ttf",
-                    ]
-                else:
-                    font_paths = [
-                        "/System/Library/Fonts/Arial.ttf",  # macOS
-                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Linux
-                    ]
-                
-                font = None
-                for font_path in font_paths:
-                    if os.path.exists(font_path):
-                        try:
-                            font = ImageFont.truetype(font_path, text_size)
-                            break
-                        except OSError:
-                            continue
-
-                if font is None:
-                    font = ImageFont.load_default()
+                font = _load_font(_text_font_paths(), text_size)
 
                 # Calculate actual text width
                 temp_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
@@ -716,33 +719,10 @@ class QuickDeck:
             
             # Add text below emoji
             try:
-                # Try to use a system font
-                if os.name == 'nt':
-                    font_paths = [
-                        "C:/Windows/Fonts/arial.ttf",
-                        "C:/Windows/Fonts/calibri.ttf",
-                    ]
-                else:
-                    font_paths = [
-                        "/System/Library/Fonts/Arial.ttf",  # macOS
-                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Linux
-                    ]
-                
-                font = None
-                for font_path in font_paths:
-                    if os.path.exists(font_path):
-                        try:
-                            font = ImageFont.truetype(font_path, text_size)
-                            break
-                        except OSError:
-                            continue
-
-                if font is None:
-                    font = ImageFont.load_default()
-
+                font = _load_font(_text_font_paths(), text_size)
             except Exception:
                 font = ImageFont.load_default()
-            
+
             # Calculate text position
             bbox = draw.textbbox((0, 0), text, font=font)
             text_width = bbox[2] - bbox[0]
@@ -818,22 +798,7 @@ class QuickDeck:
                     # Calculate proper image size based on text width
                     try:
                         # Calculate text width for proper sizing
-                        if os.name == 'nt':
-                            font_paths = ["C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/calibri.ttf"]
-                        else:
-                            font_paths = ["/System/Library/Fonts/Arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
-                        
-                        font = None
-                        for font_path in font_paths:
-                            if os.path.exists(font_path):
-                                try:
-                                    font = ImageFont.truetype(font_path, text_size)
-                                    break
-                                except OSError:
-                                    continue
-
-                        if font is None:
-                            font = ImageFont.load_default()
+                        font = _load_font(_text_font_paths(), text_size)
 
                         temp_img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
                         temp_draw = ImageDraw.Draw(temp_img)
