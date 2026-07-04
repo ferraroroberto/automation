@@ -114,13 +114,17 @@ def download_database_data(database, output_folder, api_token, excel_path):
         column_widths = get_column_widths(output_path)
     else:
         log.warning("⚠️ '%s' is not a valid file. Skipping reading column widths", output_path)
-        column_widths = False
+        column_widths = []
 
     log.info("📝 Writing Excel file: %s", output_path)
     df.to_excel(output_path, index=False, engine='openpyxl')
 
-    # Check if column_widths is valid (in this case, non-empty) before applying
-    if column_widths == False:
+    # Check if column_widths is valid (in this case, non-empty) before applying.
+    # get_column_widths() always returns a list (audit issue #67 — this used
+    # to compare against the sentinel `False`, which a `[]` also satisfies
+    # under `==`, so the "not valid" and "read but empty" cases were
+    # indistinguishable).
+    if not column_widths:
         log.warning("⚠️ Column widths are not valid, skipping the step.")
     else:
         # After processing the Excel file recovers the column widths

@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+import errno
 import os
 import logging
 from pathlib import Path
@@ -37,7 +38,7 @@ class TreeSizeAnalyzer:
                     except OSError:
                         error_count += 1
         except OSError as e:
-            if e.errno != 5:
+            if e.errno != errno.EIO:
                 logging.warning(f"Error calculating deep size for {path}: {e}")
         self.folder_sizes[path] = total_size
         return total_size
@@ -60,7 +61,7 @@ class TreeSizeAnalyzer:
                     except OSError:
                         error_count += 1
         except OSError as e:
-            if e.errno != 5:
+            if e.errno != errno.EIO:
                 logging.warning(f"Error calculating disk size for {path}: {e}")
         self.folder_disk_sizes[path] = total_size
         return total_size
@@ -117,7 +118,7 @@ class TreeSizeAnalyzer:
                     except OSError:
                         pass
         except OSError as e:
-            if e.errno != 5:
+            if e.errno != errno.EIO:
                 logging.warning(f"Error calculating shallow size for {path}: {e}")
         return total_size
 

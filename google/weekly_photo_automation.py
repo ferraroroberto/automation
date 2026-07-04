@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple, Any
 
 # Third-party library imports
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+from googleapiclient.errors import HttpError, UnknownApiNameOrVersion
 import pytz
 
 import _auth
@@ -89,25 +89,30 @@ class WeeklyPhotoAutomation:
         creds = _auth.authenticate(self.config, Path(__file__).parent, SCOPES)
         self.credentials = creds
 
-        # Build Google Photos Library API service
+        # Build Google Photos Library API service.
+        # Only catch discovery-related failures here (missing/outdated static
+        # discovery doc, or an ImportError from the discovery machinery) —
+        # a real HttpError (e.g. auth/scope error) must propagate immediately
+        # instead of being swallowed and masked by three retries that will
+        # all fail the same way (audit issue #67).
         try:
             # First try with static discovery disabled
             self.photos_service = build('photoslibrary', 'v1', credentials=creds, static_discovery=False)
             logger.info("✅ Google Photos API service built successfully")
-        except Exception as e:
+        except (ImportError, UnknownApiNameOrVersion) as e:
             logger.error(f"❌ Failed to build Photos API service with static_discovery=False: {e}")
             try:
                 # Try with cache discovery disabled
                 self.photos_service = build('photoslibrary', 'v1', credentials=creds, cache_discovery=False)
                 logger.info("✅ Google Photos API service built with cache_discovery=False")
-            except Exception as e2:
+            except (ImportError, UnknownApiNameOrVersion) as e2:
                 logger.error(f"❌ Failed to build Photos API service with cache_discovery=False: {e2}")
                 try:
                     # Try with discovery service URL
-                    self.photos_service = build('photoslibrary', 'v1', credentials=creds, 
+                    self.photos_service = build('photoslibrary', 'v1', credentials=creds,
                                              discoveryServiceUrl='https://photoslibrary.googleapis.com/$discovery/rest?version=v1')
                     logger.info("✅ Google Photos API service built with custom discovery URL")
-                except Exception as e3:
+                except (ImportError, UnknownApiNameOrVersion) as e3:
                     logger.error(f"❌ All Photos API build attempts failed: {e3}")
                     raise Exception(f"Could not build Photos API service after multiple attempts. Last error: {e3}")
         

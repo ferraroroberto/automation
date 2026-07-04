@@ -7,7 +7,7 @@ Handles global keyboard monitoring and abbreviation detection using pynput.
 import logging
 import threading
 import time
-from typing import Optional, Callable, List
+from typing import Optional, Callable, Dict, List
 from collections import deque
 import pyperclip
 
@@ -22,6 +22,117 @@ from text_expander_core import TextExpanderCore
 
 # Configure module logger
 logger = logging.getLogger(__name__)
+
+
+def _snapshot_clipboard() -> Optional[Dict[int, bytes]]:
+    """
+    Capture every clipboard format currently present via Win32
+    OpenClipboard/EnumClipboardFormats, so it can be restored verbatim after
+    a temporary text paste. pyperclip only round-trips CF_UNICODETEXT, so a
+    save/restore built on it silently clobbers any non-text clipboard
+    content (image, RTF, file list) with an empty string (audit issue #67).
+
+    Returns None if the clipboard can't be opened (e.g. win32clipboard is
+    unavailable, or another process holds the clipboard open).
+    """
+    try:
+        import win32clipboard
+    except ImportError:
+        return None
+    snapshot: Dict[int, bytes] = {}
+    try:
+        win32clipboard.OpenClipboard()
+        try:
+            fmt = 0
+            while True:
+                fmt = win32clipboard.EnumClipboardFormats(fmt)
+                if fmt == 0:
+                    break
+                try:
+                    snapshot[fmt] = win32clipboard.GetClipboardData(fmt)
+                except Exception:
+                    continue
+        finally:
+            win32clipboard.CloseClipboard()
+    except Exception as e:
+        logger.debug(f"Could not snapshot clipboard: {e}")
+        return None
+    return snapshot
+
+
+def _restore_clipboard(snapshot: Optional[Dict[int, bytes]]) -> None:
+    """Restore a clipboard snapshot captured by _snapshot_clipboard()."""
+    if not snapshot:
+        return
+    try:
+        import win32clipboard
+        win32clipboard.OpenClipboard()
+        try:
+            win32clipboard.EmptyClipboard()
+            for fmt, data in snapshot.items():
+                try:
+                    win32clipboard.SetClipboardData(fmt, data)
+                except Exception:
+                    continue
+        finally:
+            win32clipboard.CloseClipboard()
+    except Exception as e:
+        logger.error(f"❌ Failed to restore clipboard: {e}")
+
+
+def perform_expansion(expansion: str, chars_to_remove: int, on_expansion_triggered: Optional[Callable[[str], None]] = None) -> None:
+    """
+    Perform the text expansion by simulating backspace and paste, supporting
+    {ENTER} placeholder for simulated Enter keypresses.
+
+    Module-level (not a KeyboardMonitor method) so callers that only need to
+    replay an expansion — e.g. the GUI's "launch abbreviation" action — can
+    call it directly instead of reaching into a peer module's private method
+    or spinning up a whole KeyboardMonitor instance just to invoke it (audit
+    issue #67).
+    """
+    controller = None
+    try:
+        logger.debug(f"🔄 Performing expansion: removing {chars_to_remove} chars, pasting {len(expansion)} chars")
+        time.sleep(0.05)
+        controller = keyboard.Controller()
+        # Remove abbreviation
+        for _ in range(chars_to_remove):
+            controller.press(keyboard.Key.backspace)
+            controller.release(keyboard.Key.backspace)
+            time.sleep(0.01)
+        # Save clipboard (all formats, not just text)
+        clipboard_snapshot = _snapshot_clipboard()
+        # Split expansion by {ENTER} placeholder
+        segments = expansion.split('{ENTER}')
+        for i, segment in enumerate(segments):
+            # Paste segment
+            pyperclip.copy(segment)
+            controller.press(keyboard.Key.ctrl)
+            controller.press('v')
+            controller.release('v')
+            controller.release(keyboard.Key.ctrl)
+            time.sleep(0.05)
+            # Simulate Enter after each segment except last
+            if i < len(segments) - 1:
+                controller.press(keyboard.Key.enter)
+                controller.release(keyboard.Key.enter)
+                time.sleep(0.05)
+        # Restore clipboard
+        time.sleep(0.1)
+        _restore_clipboard(clipboard_snapshot)
+        logger.info("✅ Text expansion completed successfully")
+        if on_expansion_triggered:
+            try:
+                on_expansion_triggered(expansion)
+            except Exception as e:
+                logger.error(f"❌ Error in expansion callback: {e}")
+    except Exception as e:
+        logger.error(f"❌ Failed to perform text expansion: {e}")
+    finally:
+        if controller:
+            controller = None
+
 
 class KeyboardMonitor:
     """Monitors global keyboard input and detects text expander abbreviations."""
@@ -239,48 +350,8 @@ class KeyboardMonitor:
             logger.error(f"❌ Error checking for abbreviation: {e}")
 
     def _perform_expansion(self, expansion: str, chars_to_remove: int) -> None:
-        """Perform the text expansion by simulating backspace and paste, supporting {ENTER} placeholder for simulated Enter keypresses."""
-        controller = None
-        try:
-            logger.debug(f"🔄 Performing expansion: removing {chars_to_remove} chars, pasting {len(expansion)} chars")
-            time.sleep(0.05)
-            controller = keyboard.Controller()
-            # Remove abbreviation
-            for _ in range(chars_to_remove):
-                controller.press(keyboard.Key.backspace)
-                controller.release(keyboard.Key.backspace)
-                time.sleep(0.01)
-            # Save clipboard
-            original_clipboard = pyperclip.paste()
-            # Split expansion by {ENTER} placeholder
-            segments = expansion.split('{ENTER}')
-            for i, segment in enumerate(segments):
-                # Paste segment
-                pyperclip.copy(segment)
-                controller.press(keyboard.Key.ctrl)
-                controller.press('v')
-                controller.release('v')
-                controller.release(keyboard.Key.ctrl)
-                time.sleep(0.05)
-                # Simulate Enter after each segment except last
-                if i < len(segments) - 1:
-                    controller.press(keyboard.Key.enter)
-                    controller.release(keyboard.Key.enter)
-                    time.sleep(0.05)
-            # Restore clipboard
-            time.sleep(0.1)
-            pyperclip.copy(original_clipboard)
-            logger.info("✅ Text expansion completed successfully")
-            if self.on_expansion_triggered:
-                try:
-                    self.on_expansion_triggered(expansion)
-                except Exception as e:
-                    logger.error(f"❌ Error in expansion callback: {e}")
-        except Exception as e:
-            logger.error(f"❌ Failed to perform text expansion: {e}")
-        finally:
-            if controller:
-                controller = None
+        """Perform the text expansion. Delegates to the module-level perform_expansion()."""
+        perform_expansion(expansion, chars_to_remove, self.on_expansion_triggered)
 
     def is_monitoring(self) -> bool:
         """Check if keyboard monitoring is active.

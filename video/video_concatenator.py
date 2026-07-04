@@ -12,7 +12,9 @@ import tempfile
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from typing import List
+from typing import List, Optional
+
+from _ffmpeg_utils import get_video_duration
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +62,19 @@ class VideoConcatenator:
             if status_callback:
                 status_callback(f"Concatenating {len(paths)} videos...")
 
+            # Probe each input's duration up front so progress can be computed
+            # as (elapsed output time / total input duration) instead of the
+            # old `elapsed * 2` guess, which hit 99% almost immediately on
+            # long concatenations (audit issue #67). Stream-copy concat's
+            # output duration is the sum of the input durations.
+            total_duration: Optional[float] = 0.0
+            for p in abs_paths:
+                duration = get_video_duration(p)
+                if duration is None:
+                    total_duration = None
+                    break
+                total_duration += duration
+
             cmd = [
                 "ffmpeg",
                 "-f", "concat",
@@ -85,8 +100,13 @@ class VideoConcatenator:
                     if m:
                         h, mn, s, ms = map(int, m.groups())
                         elapsed = h * 3600 + mn * 60 + s + ms / 100.0
-                        # Estimate progress (we don't know total duration easily for concat)
-                        progress_callback(min(99.0, elapsed * 2))  # Rough estimate
+                        if total_duration:
+                            percent = (elapsed / total_duration) * 100.0
+                        else:
+                            # Could not probe durations upfront; fall back to
+                            # the previous rough estimate.
+                            percent = elapsed * 2
+                        progress_callback(min(99.0, percent))
             process.wait()
 
             if os.path.exists(list_file):

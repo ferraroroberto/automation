@@ -273,7 +273,7 @@ Most modules use JSON configuration files for flexible settings:
 - **Audio**: `openai-whisper`, `sounddevice`, `scipy`, `pydub`
 - **Image**: `Pillow`, `pillow-heif`, `pymediainfo`
 - **Video**: `opencv-python`, `mss`, `pyautogui`
-- **PDF**: `PyPDF2`, `openpyxl`
+- **PDF**: `pypdf`, `openpyxl`
 - **Data**: `pandas`, `numpy`
 - **Notion**: `notion-client`
 - **Windows**: `pywin32`

@@ -19,6 +19,7 @@ import json
 import os
 import logging
 import ctypes
+import re
 from ctypes import wintypes
 from pathlib import Path
 import subprocess
@@ -286,10 +287,12 @@ class FolderSearcher:
                                     potential_path = title
 
                                 # Pattern 4: Check if title contains a drive letter
-                                elif any(drive in title for drive in ['C:', 'D:', 'E:', 'F:', 'G:', 'H:', 'I:', 'J:', 'K:', 'L:', 'M:', 'N:', 'O:', 'P:', 'Q:', 'R:', 'S:', 'T:', 'U:', 'V:', 'W:', 'X:', 'Y:', 'Z:']):
+                                # (regex instead of a hand-written A-Z drive-letter
+                                # list iterated twice per title; audit issue #67)
+                                elif re.search(r'\b[A-Z]:\\', title):
                                     words = title.split()
                                     for word in words:
-                                        if any(drive in word for drive in ['C:', 'D:', 'E:', 'F:', 'G:', 'H:', 'I:', 'J:', 'K:', 'L:', 'M:', 'N:', 'O:', 'P:', 'Q:', 'R:', 'S:', 'T:', 'U:', 'V:', 'W:', 'X:', 'Y:', 'Z:']):
+                                        if re.search(r'\b[A-Z]:\\', word):
                                             if os.path.exists(word):
                                                 potential_path = word
                                                 break

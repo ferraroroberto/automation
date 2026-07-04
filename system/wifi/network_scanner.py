@@ -1035,6 +1035,9 @@ def main(config: Optional[Dict[str, Any]] = None) -> None:
     if config is None:
         config = load_config()
 
+    args = None  # Guard against UnboundLocalError in the except block below if
+                 # argument parsing itself raises before `args` is assigned
+                 # (audit issue #67).
     try:
         # Parse command line arguments
         parser = argparse.ArgumentParser(
@@ -1133,7 +1136,7 @@ Dependencies:
         sys.exit(1)
     except Exception as e:
         logger.error(f"❌ Network scan failed: {e}")
-        if args.debug:
+        if args is not None and args.debug:
             logger.exception("Full traceback:")
         sys.exit(1)
 
