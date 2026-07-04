@@ -572,6 +572,88 @@ def delete_copied_files(df: pd.DataFrame) -> None:
 
     logging.info("%d files deleted", deleted_files_count)
 
+def _apply_exclusion_thresholds(df: pd.DataFrame) -> None:
+    """
+    Display the top unified days and prompt for the exclude-days-over-X,
+    short-sequence, and creation/modified-criteria exclusion thresholds,
+    mutating df['exclude'] in place.
+
+    Shared by main()'s "use existing metadata + recalculate" and "fresh scan"
+    flows (dedup: audit issue #64).
+    """
+    top_days = df['unified_day'].value_counts().head(20)
+    for idx, (day, count) in enumerate(top_days.items(), start=1):
+        logging.info("#{:02d} - {} - {} files".format(idx, day, count))
+
+    # Ask for exclusion threshold
+    default_exclude_threshold = CONFIG['processing_thresholds']['exclude_days_over_files']
+    exclude_threshold_input = input(f"Do you want to exclude days with more than X files? Enter X value, or zero if you don't want to exclude any file (default: {default_exclude_threshold}): ").strip()
+    exclude_threshold = int(exclude_threshold_input) if exclude_threshold_input else default_exclude_threshold
+    if exclude_threshold > 0:
+        df.loc[df['total_files_unified_day'] > exclude_threshold, 'exclude'] = 1
+
+    # Ask for short sequence exclusion threshold
+    default_short_seq_threshold = CONFIG['processing_thresholds']['exclude_short_sequences_over']
+    short_seq_threshold_input = input(f"Enter the maximum number of files in short sequence to exclude days (default: {default_short_seq_threshold}): ").strip()
+    short_seq_threshold = int(short_seq_threshold_input) if short_seq_threshold_input else default_short_seq_threshold
+    if short_seq_threshold > 0:
+        df.loc[df['short_sequence_count'] > short_seq_threshold, 'exclude'] = 1
+
+    # Check to exclude files based on criteria
+    exclude_criteria = CONFIG['behavior_flags']['exclude_creation_modified_criteria']
+    if not exclude_criteria:
+        exclude_criteria_input = input("Do you want to exclude files where the unified name is based on creation or modified dates? (Y/N): ").strip().lower()
+        exclude_criteria = exclude_criteria_input == 'y'
+    if exclude_criteria:
+        df.loc[df['criteria'].isin(['creation', 'modified']), 'exclude'] = 1
+
+
+def _confirm_copy_and_cleanup(df: pd.DataFrame, metadata_path: str) -> None:
+    """
+    Prompt to continue with copying, copy qualifying files, optionally delete
+    copied/discarded source files, then save the (possibly mutated) metadata
+    back to metadata_path.
+
+    Shared by main()'s "use existing metadata" and "fresh scan" flows (dedup:
+    audit issue #64).
+    """
+    # Check for confirmation to process files
+    continue_copy = CONFIG['behavior_flags']['continue_copy']
+    if not continue_copy:
+        continue_copy_input = input("Do you want to continue with copying the files? (Y/N): ").strip().lower()
+        continue_copy = continue_copy_input == 'y'
+    if not continue_copy:
+        logging.info("Process terminated by user before copying files")
+        return
+
+    # Proceed to copy files
+    logging.info("Copying files to destination folder")
+    copy_files(df)
+
+    # Check if user wants to delete the copied files
+    delete_files = CONFIG['behavior_flags']['auto_delete_copied_files']
+    if not delete_files:
+        delete_files_input = input("Do you want to delete the source files that were copied? (Y/N): ").strip().lower()
+        delete_files = delete_files_input == 'y'
+    if delete_files:
+        logging.info("Deleting source files that were copied")
+        delete_copied_files(df)
+
+    # Check if user wants to delete discarded files
+    delete_discarded = CONFIG['behavior_flags']['auto_delete_discarded_files']
+    if not delete_discarded:
+        delete_discarded_input = input("Do you want to delete the discarded files? (Y/N): ").strip().lower()
+        delete_discarded = delete_discarded_input == 'y'
+    if delete_discarded:
+        logging.info("Deleting discarded files")
+        delete_discarded_files(df)
+
+    # Save updated metadata
+    df.to_excel(metadata_path, index=False)
+    logging.info("Updated metadata saved to %s", metadata_path)
+    logging.info("Process completed")
+
+
 # Call this function at the beginning of your main function
 def main(source_folder: str, dest_folder: str) -> None:
     # Set up logging to save log file in the destination folder
@@ -615,75 +697,14 @@ def main(source_folder: str, dest_folder: str) -> None:
                 recalculate_logic = recalculate_logic_input == 'y'
             if recalculate_logic:
                 df = recalculate_metadata(df)
-
-                # Display top unified days
-                top_days = df['unified_day'].value_counts().head(20)
-                for idx, (day, count) in enumerate(top_days.items(), start=1):
-                    logging.info("#{:02d} - {} - {} files".format(idx, day, count))
-
-                # Ask for exclusion threshold
-                default_exclude_threshold = CONFIG['processing_thresholds']['exclude_days_over_files']
-                exclude_threshold_input = input(f"Do you want to exclude days with more than X files? Enter X value, or zero if you don't want to exclude any file (default: {default_exclude_threshold}): ").strip()
-                exclude_threshold = int(exclude_threshold_input) if exclude_threshold_input else default_exclude_threshold
-                if exclude_threshold > 0:
-                    df.loc[df['total_files_unified_day'] > exclude_threshold, 'exclude'] = 1
-
-                # Ask for short sequence exclusion threshold
-                default_short_seq_threshold = CONFIG['processing_thresholds']['exclude_short_sequences_over']
-                short_seq_threshold_input = input(f"Enter the maximum number of files in short sequence to exclude days (default: {default_short_seq_threshold}): ").strip()
-                short_seq_threshold = int(short_seq_threshold_input) if short_seq_threshold_input else default_short_seq_threshold
-                if short_seq_threshold > 0:
-                    df.loc[df['short_sequence_count'] > short_seq_threshold, 'exclude'] = 1
-
-                # Check to exclude files based on criteria
-                exclude_criteria = CONFIG['behavior_flags']['exclude_creation_modified_criteria']
-                if not exclude_criteria:
-                    exclude_criteria_input = input("Do you want to exclude files where the unified name is based on creation or modified dates? (Y/N): ").strip().lower()
-                    exclude_criteria = exclude_criteria_input == 'y'
-                if exclude_criteria:
-                    df.loc[df['criteria'].isin(['creation', 'modified']), 'exclude'] = 1
+                _apply_exclusion_thresholds(df)
 
                 current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
                 metadata_file = os.path.join(dest_folder, f'metadata_{current_time_str}.xlsx')
                 df.to_excel(metadata_file, index=False)
                 logging.info("Recalculated metadata and saved to %s", metadata_file)
 
-            # Check for confirmation to process files
-            continue_copy = CONFIG['behavior_flags']['continue_copy']
-            if not continue_copy:
-                continue_copy_input = input("Do you want to continue with copying the files? (Y/N): ").strip().lower()
-                continue_copy = continue_copy_input == 'y'
-            if not continue_copy:
-                logging.info("Process terminated by user before copying files")
-                return
-
-            # Proceed to copy files
-            logging.info("Copying files to destination folder")
-            copy_files(df)
-            logging.info("Process completed")
-
-            # Check if user wants to delete the copied files
-            delete_files = CONFIG['behavior_flags']['auto_delete_copied_files']
-            if not delete_files:
-                delete_files_input = input("Do you want to delete the source files that were copied? (Y/N): ").strip().lower()
-                delete_files = delete_files_input == 'y'
-            if delete_files:
-                logging.info("Deleting source files that were copied")
-                delete_copied_files(df)
-
-            # Check if user wants to delete discarded files
-            delete_discarded = CONFIG['behavior_flags']['auto_delete_discarded_files']
-            if not delete_discarded:
-                delete_discarded_input = input("Do you want to delete the discarded files? (Y/N): ").strip().lower()
-                delete_discarded = delete_discarded_input == 'y'
-            if delete_discarded:
-                logging.info("Deleting discarded files")
-                delete_discarded_files(df)
-
-            # Save updated metadata
-            df.to_excel(metadata_file, index=False)
-            logging.info("Updated metadata saved to %s", metadata_file)
-
+            _confirm_copy_and_cleanup(df, metadata_file)
             return
         else:
             logging.info("No file selected. Exiting.")
@@ -723,32 +744,7 @@ def main(source_folder: str, dest_folder: str) -> None:
     logging.info("Identifying duplicates")
     df = mark_duplicates(df)
 
-    # Display top unified days
-    top_days = df['unified_day'].value_counts().head(20)
-    for idx, (day, count) in enumerate(top_days.items(), start=1):
-        logging.info("#{:02d} - {} - {} files".format(idx, day, count))
-
-    # Ask for exclusion threshold
-    default_exclude_threshold = CONFIG['processing_thresholds']['exclude_days_over_files']
-    exclude_threshold_input = input(f"Do you want to exclude days with more than X files? Enter X value, or zero if you don't want to exclude any file (default: {default_exclude_threshold}): ").strip()
-    exclude_threshold = int(exclude_threshold_input) if exclude_threshold_input else default_exclude_threshold
-    if exclude_threshold > 0:
-        df.loc[df['total_files_unified_day'] > exclude_threshold, 'exclude'] = 1
-
-    # Ask for short sequence exclusion threshold
-    default_short_seq_threshold = CONFIG['processing_thresholds']['exclude_short_sequences_over']
-    short_seq_threshold_input = input(f"Enter the maximum number of files in short sequence to exclude days (default: {default_short_seq_threshold}): ").strip()
-    short_seq_threshold = int(short_seq_threshold_input) if short_seq_threshold_input else default_short_seq_threshold
-    if short_seq_threshold > 0:
-        df.loc[df['short_sequence_count'] > short_seq_threshold, 'exclude'] = 1
-
-    # Check to exclude files based on criteria
-    exclude_criteria = CONFIG['behavior_flags']['exclude_creation_modified_criteria']
-    if not exclude_criteria:
-        exclude_criteria_input = input("Do you want to exclude files where the unified name is based on creation or modified dates? (Y/N): ").strip().lower()
-        exclude_criteria = exclude_criteria_input == 'y'
-    if exclude_criteria:
-        df.loc[df['criteria'].isin(['creation', 'modified']), 'exclude'] = 1
+    _apply_exclusion_thresholds(df)
 
     # Save inventory to Excel before copying
     logging.info("Saving inventory to Excel")
@@ -756,42 +752,7 @@ def main(source_folder: str, dest_folder: str) -> None:
     df.to_excel(excel_path, index=False)
     logging.info("Inventory saved to %s", excel_path)
 
-    # Check to continue with copying
-    continue_copy = CONFIG['behavior_flags']['continue_copy']
-    if not continue_copy:
-        continue_copy_input = input("Do you want to continue with copying the files? (Y/N): ").strip().lower()
-        continue_copy = continue_copy_input == 'y'
-    if not continue_copy:
-        logging.info("Process terminated by user before copying files")
-        return
-
-    # Copy qualifying files to destination with unified naming
-    logging.info("Copying files to destination")
-    copy_files(df)
-
-    # Check if user wants to delete the copied files
-    delete_files = CONFIG['behavior_flags']['auto_delete_copied_files']
-    if not delete_files:
-        delete_files_input = input("Do you want to delete the source files that were copied? (Y/N): ").strip().lower()
-        delete_files = delete_files_input == 'y'
-    if delete_files:
-        logging.info("Deleting source files that were copied")
-        delete_copied_files(df)
-
-    # Check if user wants to delete discarded files before copying
-    delete_discarded = CONFIG['behavior_flags']['auto_delete_discarded_files']
-    if not delete_discarded:
-        delete_discarded_input = input("Do you want to delete the discarded files? (Y/N): ").strip().lower()
-        delete_discarded = delete_discarded_input == 'y'
-    if delete_discarded:
-        logging.info("Deleting discarded files")
-        delete_discarded_files(df)
-
-    # Save updated metadata
-    df.to_excel(excel_path, index=False)
-    logging.info("Updated metadata saved to %s", excel_path)
-
-    logging.info("Process completed")
+    _confirm_copy_and_cleanup(df, excel_path)
 
 if __name__ == "__main__":
     try:

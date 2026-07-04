@@ -6,9 +6,8 @@ import sys
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-import requests
-
 from utils import load_env_variables, load_json_config
+import utils as notion_utils
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +75,7 @@ def query_notion_database(
     start_iso = start_date.isoformat()
     end_iso = end_date.isoformat()
 
-    filter_body = {
+    query_body = {
         "filter": {
             "and": [
                 {
@@ -100,80 +99,30 @@ def query_notion_database(
             }
         ]
     }
-    
-    pages = []
-    start_cursor = None
-    
-    while True:
-        if start_cursor:
-            filter_body["start_cursor"] = start_cursor
-        
-        try:
-            response = requests.post(
-                f"https://api.notion.com/v1/databases/{database_id}/query",
-                headers=headers,
-                json=filter_body
-            )
-            response.raise_for_status()
-            
-            data = response.json()
-            results = data.get('results', [])
-            
-            if not results:
-                break
-            
-            pages.extend(results)
-            logger.info("📥 Retrieved %s entries (total: %s)", len(results), len(pages))
 
-            if not data.get("has_more", False):
-                break
+    return notion_utils.paginated_database_query(headers, database_id, query_body)
 
-            start_cursor = data.get("next_cursor")
+# Property types this extractor knows how to render as a display string.
+# Anything else (e.g. url, number, relation) falls through to "" - matches
+# the pre-dedup behavior, which only ever handled these six types.
+_HANDLED_PROPERTY_TYPES = {'title', 'rich_text', 'multi_select', 'select', 'checkbox', 'date'}
 
-        except requests.exceptions.RequestException as e:
-            logger.error("❌ Notion API error: %s", e)
-            if getattr(e, "response", None):
-                logger.error("📊 Status: %s", e.response.status_code)
-                logger.error("Response: %s", (e.response.text or "")[:500])
-            raise
-
-    return pages
 
 def extract_property_value(properties: dict[str, Any], property_name: str) -> str:
     """Extract string value from a Notion property, or empty string if missing."""
     prop = properties.get(property_name, {})
     prop_type = prop.get('type')
-    
-    if not prop_type:
+
+    if prop_type not in _HANDLED_PROPERTY_TYPES:
         return ""
-    
-    # Handle different property types
-    if prop_type == 'title':
-        title_content = prop.get('title', [])
-        return ''.join([segment.get('plain_text', '') for segment in title_content]).strip()
-    
-    elif prop_type == 'rich_text':
-        rich_text_content = prop.get('rich_text', [])
-        return ''.join([segment.get('plain_text', '') for segment in rich_text_content]).strip()
-    
-    elif prop_type == 'multi_select':
-        options = prop.get('multi_select', [])
-        return ', '.join([opt.get('name', '') for opt in options])
-    
-    elif prop_type == 'select':
-        option = prop.get('select', {})
-        return option.get('name', '') if option else ""
-    
-    elif prop_type == 'checkbox':
-        return "✓" if prop.get('checkbox', False) else ""
-    
-    elif prop_type == 'date':
-        date_obj = prop.get('date', {})
-        if date_obj:
-            return date_obj.get('start', '')
-        return ""
-    
-    return ""
+
+    value = notion_utils.extract_property(prop)
+
+    if isinstance(value, bool):
+        return "✓" if value else ""
+    if isinstance(value, list):
+        return ', '.join(value)
+    return value or ""
 
 def process_field_from_pages(pages: list[dict], field_config: dict[str, Any]) -> str:
     """Process one field from Notion pages; return formatted string with frequency counts."""

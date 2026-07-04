@@ -1,23 +1,10 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
 from PIL import Image, UnidentifiedImageError
-import os
 from pathlib import Path
 import logging
 
+from _image_to_jpg_converter import select_folder, convert_folder_to_jpg, show_completion_messagebox
+
 logger = logging.getLogger(__name__)
-
-def select_folder() -> str:
-    """Open folder dialog and return selected folder path"""
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-
-    folder_path = filedialog.askdirectory(
-        title="Select folder containing PNG images"
-    )
-
-    root.destroy()
-    return folder_path
 
 def validate_image_file(file_path: Path) -> bool:
     """Validate if a file is a valid image that can be opened"""
@@ -30,82 +17,35 @@ def validate_image_file(file_path: Path) -> bool:
         logger.error("Cannot identify image file '%s': %s", file_path, e)
         return False
 
+def _png_to_rgb(img: "Image.Image") -> "Image.Image":
+    """Convert to RGB if necessary (JPG doesn't support transparency)."""
+    if img.mode in ('RGBA', 'LA', 'P'):
+        # Create white background for transparent images
+        background = Image.new('RGB', img.size, (255, 255, 255))
+        if img.mode == 'P':
+            img = img.convert('RGBA')
+        background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+        img = background
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+    return img
+
+
 def convert_png_to_jpg(folder_path: str) -> None:
     """Convert all PNG images in the folder to JPG format with improved error handling"""
-    if not folder_path:
-        logger.info("No folder selected.")
-        return
-
-    folder = Path(folder_path)
-    if not folder.exists():
-        logger.error("Folder does not exist: %s", folder_path)
-        return
-
-    # Find all PNG files in the folder (case insensitive)
-    png_files = []
-    for file in folder.iterdir():
-        if file.is_file() and file.suffix.lower() == '.png':
-            png_files.append(file)
-
-    if not png_files:
-        logger.info("No PNG files found in the selected folder.")
-        return
-
-    converted_count = 0
-    error_count = 0
-
-    logger.info("Found %d PNG files in %s", len(png_files), folder_path)
-    logger.info("Starting conversion...")
-
-    for png_file in png_files:
-        # Validate the image file first
-        if not validate_image_file(png_file):
-            logger.warning("Skipping %s - invalid or corrupted image file", png_file.name)
-            error_count += 1
-            continue
-
-        # Create JPG filename with same name but .jpg extension
-        jpg_file = png_file.with_suffix('.jpg')
-
-        try:
-            # Open PNG image with explicit format
-            with Image.open(png_file) as img:
-                # Force load the image data
-                img.load()
-
-                # Convert to RGB if necessary (JPG doesn't support transparency)
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    # Create white background for transparent images
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
-                    img = background
-                elif img.mode != 'RGB':
-                    img = img.convert('RGB')
-
-                # Save as JPG with explicit format
-                img.save(jpg_file, 'JPEG', quality=95, optimize=True)
-                logger.info("Converted %s -> %s", png_file.name, jpg_file.name)
-                converted_count += 1
-
-        except UnidentifiedImageError as e:
-            logger.error("Error: Cannot identify image file '%s': %s", png_file, e)
-            error_count += 1
-        except OSError as e:
-            logger.error("Error: OS error processing '%s': %s", png_file, e)
-            error_count += 1
-        except Exception as e:
-            logger.error("Error converting %s: %s", png_file.name, e)
-            error_count += 1
-
-    logger.info("Conversion complete!")
-    logger.info("Converted: %d files", converted_count)
-    logger.info("Errors: %d files", error_count)
-
-    if error_count > 0:
-        logger.info("Note: %d files had errors and were skipped.", error_count)
-        logger.info("This could be due to corrupted files, unsupported formats, or permission issues.")
+    convert_folder_to_jpg(
+        folder_path,
+        source_extensions=['.png'],
+        validate_fn=validate_image_file,
+        convert_to_rgb_fn=_png_to_rgb,
+        save_kwargs={'quality': 95, 'optimize': True},
+        # Note: unlike heic_to_jpg_converter.py, this does NOT protect an
+        # existing same-named .jpg from being overwritten - preserved as-is
+        # (pre-existing behavior, not something this dedup changes).
+        skip_existing_jpg=False,
+        logger=logger,
+        kind_label='PNG',
+    )
 
 def main() -> None:
     """Main function to run the PNG to JPG converter"""
@@ -114,20 +54,17 @@ def main() -> None:
     logger.info("=" * 40)
 
     # Select folder
-    folder_path = select_folder()
+    folder_path = select_folder("Select folder containing PNG images")
 
     if folder_path:
         # Convert PNG files to JPG
         convert_png_to_jpg(folder_path)
 
         # Show completion message
-        root = tk.Tk()
-        root.withdraw()
-        messagebox.showinfo(
+        show_completion_messagebox(
             "Conversion Complete",
-            f"PNG to JPG conversion completed!\n\nCheck the selected folder for converted files."
+            "PNG to JPG conversion completed!\n\nCheck the selected folder for converted files."
         )
-        root.destroy()
     else:
         logger.info("No folder selected. Exiting.")
 

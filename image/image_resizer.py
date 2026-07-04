@@ -24,92 +24,51 @@ SUPPORTED_FORMATS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'}
 if HEIC_SUPPORT:
     SUPPORTED_FORMATS.update({'.heic', '.heif'})
 
-def resize_image_quality_only(image_path: Path, max_size_kb: float, quality_start: int = 95) -> bool:
-    """
-    Resize image by reducing only quality (not dimensions) to meet maximum file size requirement.
-    Returns True if successful, False otherwise.
-    """
-    try:
-        # Create a temporary file for the resized image
-        temp_path = image_path.parent / f"{image_path.stem}_temp{image_path.suffix}"
-        
-        # Open image
-        img = Image.open(image_path)
-        
-        # Convert RGBA to RGB if necessary for JPEG
-        if img.mode == 'RGBA' and image_path.suffix.lower() in ['.jpg', '.jpeg']:
-            rgb_img = Image.new('RGB', img.size, (255, 255, 255))
-            rgb_img.paste(img, mask=img.split()[3])
-            img = rgb_img
-        
-        # Convert HEIC to RGB for better compatibility when saving
-        if image_path.suffix.lower() in ['.heic', '.heif'] and img.mode != 'RGB':
-            img = img.convert('RGB')
-        
-        # Save the image with decreasing quality until the file size is under the limit
-        for quality in range(quality_start, 0, -5):
-            # Save with current quality without resizing
-            if image_path.suffix.lower() in ['.jpg', '.jpeg']:
-                img.save(temp_path, optimize=True, quality=quality)
-            elif image_path.suffix.lower() in ['.heic', '.heif']:
-                # Save HEIC as JPEG with quality control
-                temp_path = temp_path.with_suffix('.jpg')
-                img.save(temp_path, 'JPEG', optimize=True, quality=quality)
-            else:
-                img.save(temp_path, optimize=True)
-            
-            # Check the file size
-            new_size_kb = os.path.getsize(temp_path) / 1024
-            if new_size_kb <= max_size_kb:
-                # Size is good, save with proper name
-                if image_path.suffix.lower() in ['.heic', '.heif']:
-                    # Save HEIC as JPEG
-                    output_path = image_path.parent / f"{image_path.stem}_resize.jpg"
-                else:
-                    output_path = image_path.parent / f"{image_path.stem}_resize{image_path.suffix}"
-                temp_path.rename(output_path)
-                logger.info(f"Success: Resized to {new_size_kb:.2f} KB (quality: {quality}, dimensions unchanged)")
-                return True
-        
-        # If we reach here, we couldn't reduce the size enough with quality alone
-        logger.warning(f"Failed to resize {image_path} to under {max_size_kb} KB with quality reduction only")
-        return False
-    except Exception as e:
-        logger.error(f"Error processing {image_path}: {str(e)}")
-        return False
-
-def resize_image_to_max_size(image_path: Path, max_size_kb: float, quality_start: int = 95) -> bool:
+def resize_image_to_max_size(
+    image_path: Path,
+    max_size_kb: float,
+    quality_start: int = 95,
+    preserve_dimensions: bool = False,
+) -> bool:
     """
     Resize image to meet maximum file size requirement.
+
+    If preserve_dimensions is True, only quality is reduced (dimensions stay
+    fixed). Otherwise, dimensions are progressively shrunk (10% per step, via
+    LANCZOS-resampled thumbnail()) in addition to lowering quality.
+
     Returns True if successful, False otherwise.
     """
     try:
         # Create a temporary file for the resized image
         temp_path = image_path.parent / f"{image_path.stem}_temp{image_path.suffix}"
-        
+
         # Open image
         img = Image.open(image_path)
-        
+
         # Convert RGBA to RGB if necessary for JPEG
         if img.mode == 'RGBA' and image_path.suffix.lower() in ['.jpg', '.jpeg']:
             rgb_img = Image.new('RGB', img.size, (255, 255, 255))
             rgb_img.paste(img, mask=img.split()[3])
             img = rgb_img
-        
+
         # Convert HEIC to RGB for better compatibility when saving
         if image_path.suffix.lower() in ['.heic', '.heif'] and img.mode != 'RGB':
             img = img.convert('RGB')
-        
-        # Save the image with decreasing dimensions and quality until the file size is under the limit
+
         orig_width, orig_height = img.width, img.height
+
+        # Save the image with decreasing quality (and, unless preserve_dimensions,
+        # decreasing dimensions too) until the file size is under the limit
         for i, quality in enumerate(range(quality_start, 0, -5)):
-            # Shrink dimensions progressively each iteration (10% smaller per step),
-            # in addition to lowering quality - using LANCZOS resampling.
-            # img is re-opened at full size at the end of each iteration, so the
-            # target is computed against the original dimensions with a per-iteration factor.
-            factor = 0.9 ** i
-            target = (max(1, int(orig_width * factor)), max(1, int(orig_height * factor)))
-            img.thumbnail(target, Image.Resampling.LANCZOS)
+            if not preserve_dimensions:
+                # Shrink dimensions progressively each iteration (10% smaller per step),
+                # in addition to lowering quality - using LANCZOS resampling.
+                # img is re-opened at full size at the end of each iteration, so the
+                # target is computed against the original dimensions with a per-iteration factor.
+                factor = 0.9 ** i
+                target = (max(1, int(orig_width * factor)), max(1, int(orig_height * factor)))
+                img.thumbnail(target, Image.Resampling.LANCZOS)
 
             # Save with current quality
             if image_path.suffix.lower() in ['.jpg', '.jpeg']:
@@ -120,7 +79,7 @@ def resize_image_to_max_size(image_path: Path, max_size_kb: float, quality_start
                 img.save(temp_path, 'JPEG', optimize=True, quality=quality)
             else:
                 img.save(temp_path, optimize=True)
-            
+
             # Check the file size
             new_size_kb = os.path.getsize(temp_path) / 1024
             if new_size_kb <= max_size_kb:
@@ -131,17 +90,33 @@ def resize_image_to_max_size(image_path: Path, max_size_kb: float, quality_start
                 else:
                     output_path = image_path.parent / f"{image_path.stem}_resize{image_path.suffix}"
                 temp_path.rename(output_path)
-                logger.info(f"Success: Resized to {new_size_kb:.2f} KB (quality: {quality})")
+                if preserve_dimensions:
+                    logger.info(f"Success: Resized to {new_size_kb:.2f} KB (quality: {quality}, dimensions unchanged)")
+                else:
+                    logger.info(f"Success: Resized to {new_size_kb:.2f} KB (quality: {quality})")
                 return True
-            
-            # Reset image for the next iteration
-            img = Image.open(image_path)
-        
-        logger.warning(f"Failed to resize {image_path} to under {max_size_kb} KB")
+
+            if not preserve_dimensions:
+                # Reset image for the next iteration
+                img = Image.open(image_path)
+
+        # If we reach here, we couldn't reduce the size enough
+        if preserve_dimensions:
+            logger.warning(f"Failed to resize {image_path} to under {max_size_kb} KB with quality reduction only")
+        else:
+            logger.warning(f"Failed to resize {image_path} to under {max_size_kb} KB")
         return False
     except Exception as e:
         logger.error(f"Error processing {image_path}: {str(e)}")
         return False
+
+
+def resize_image_quality_only(image_path: Path, max_size_kb: float, quality_start: int = 95) -> bool:
+    """
+    Resize image by reducing only quality (not dimensions) to meet maximum file size requirement.
+    Returns True if successful, False otherwise.
+    """
+    return resize_image_to_max_size(image_path, max_size_kb, quality_start, preserve_dimensions=True)
 
 def process_folder(folder_path: Path, max_size_kb: float, preserve_dimensions: bool = False):
     """
@@ -151,7 +126,7 @@ def process_folder(folder_path: Path, max_size_kb: float, preserve_dimensions: b
         if file_path.suffix.lower() in SUPPORTED_FORMATS:
             logger.info(f"Processing {file_path}")
             if preserve_dimensions:
-                success = resize_image_quality_only(file_path, max_size_kb)
+                success = resize_image_to_max_size(file_path, max_size_kb, preserve_dimensions=True)
                 # Fall back to normal resize if quality-only didn't work
                 if not success:
                     logger.info(f"Trying standard resize with dimension reduction for {file_path}")

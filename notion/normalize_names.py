@@ -12,7 +12,6 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import os
 import re
@@ -22,6 +21,8 @@ from typing import Dict, List, Optional, Tuple, Any
 
 import requests
 from dotenv import load_dotenv
+
+import utils as notion_utils
 
 # Load environment variables from root .env file
 load_dotenv()
@@ -50,17 +51,7 @@ class NotionNameNormalizer:
     
     def _setup_api_credentials(self):
         """Setup API credentials and headers."""
-        self.notion_api_key = os.getenv('NOTION_API_TOKEN') or self.config.get('notion_api_key')
-        self.database_id = self.config.get('database_id')
-        
-        if not all([self.notion_api_key, self.database_id]):
-            raise ValueError("Missing required configuration values: notion_api_key and database_id")
-        
-        self.headers = {
-            'Authorization': f'Bearer {self.notion_api_key}',
-            'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json'
-        }
+        self.notion_api_key, self.database_id, self.headers = notion_utils.resolve_notion_credentials(self.config)
     
     def _load_word_lists(self):
         """Load word lists from configuration."""
@@ -92,74 +83,21 @@ class NotionNameNormalizer:
     
     def _load_config(self, config_path: str) -> Dict:
         """Load and parse the JSON configuration file."""
-        paths_to_try = [
-            config_path,
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), os.path.basename(config_path))
-        ]
-        
-        for path in paths_to_try:
-            try:
-                with open(path, 'r') as f:
-                    config = json.load(f)
-                if path != config_path:
-                    logging.info(f"📁 Loaded config from fallback path: {path}")
-                return config
-            except FileNotFoundError:
-                continue
-            except json.JSONDecodeError:
-                raise ValueError(f"Invalid JSON in configuration file: {path}")
-        
-        raise FileNotFoundError(f"Configuration file not found at {' or '.join(paths_to_try)}")
-    
+        return notion_utils.load_json_config_with_fallback(config_path, __file__)
+
     def _query_notion_database(self, days: int) -> List[Dict]:
         """Query Notion database for articles created in the last N days."""
         filter_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
         filter_date_str = filter_date.isoformat() + 'Z'
-        
+
         logging.info(f"🔍 Querying database for articles from last {days} days (since {filter_date_str})")
-        
-        filter_body = {
+
+        query_body = {
             "filter": {"and": [{"property": "created", "created_time": {"after": filter_date_str}}]},
             "sorts": [{"property": "created", "direction": "descending"}]
         }
-        
-        pages = []
-        start_cursor = None
-        
-        while True:
-            if start_cursor:
-                filter_body["start_cursor"] = start_cursor
-            
-            try:
-                response = requests.post(
-                    f"https://api.notion.com/v1/databases/{self.database_id}/query",
-                    headers=self.headers,
-                    json=filter_body
-                )
-                response.raise_for_status()
-                
-                data = response.json()
-                results = data.get('results', [])
-                
-                if not results:
-                    break
-                
-                pages.extend(results)
-                logging.debug(f"📥 Retrieved {len(results)} pages (total: {len(pages)})")
-                
-                if not data.get('has_more', False):
-                    break
-                
-                start_cursor = data.get('next_cursor')
-                
-            except requests.exceptions.RequestException as e:
-                logging.error(f"❌ Notion API error: {e}")
-                if hasattr(e, 'response') and e.response:
-                    logging.error(f"📊 Status: {e.response.status_code}, Response: {e.response.text[:200]}...")
-                raise
-        
-        logging.info(f"📊 Total pages retrieved: {len(pages)}")
-        return pages
+
+        return notion_utils.paginated_database_query(self.headers, self.database_id, query_body)
     
     def _extract_page_info(self, page: Dict) -> Optional[Tuple[str, str, str]]:
         """Extract essential information from a Notion page object."""

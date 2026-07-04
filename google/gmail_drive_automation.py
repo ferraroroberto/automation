@@ -6,7 +6,6 @@ Automatically creates and maintains a Google Sheets file with email data.
 
 # Standard library imports
 import argparse
-import json
 import logging
 import os
 import sys
@@ -15,12 +14,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 # Third-party library imports
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import pytz
+
+import _auth
 
 # Configure logging
 logging.basicConfig(
@@ -50,105 +48,36 @@ class GmailDriveAutomation:
     def load_config(self, config_path: str) -> Dict[str, Any]:
         """
         Load configuration from JSON file.
-        
+
         Args:
             config_path: Path to configuration file
-            
+
         Returns:
             Configuration dictionary
         """
-        logger.debug("📂 Loading configuration file")
-        
-        # Get the script directory and resolve config path relative to it
-        script_dir = Path(__file__).parent
-        if Path(config_path).is_absolute():
-            config_full_path = Path(config_path)
-        else:
-            config_full_path = script_dir / config_path
-            
-        if not config_full_path.exists():
-            logger.error(f"❌ Error: Configuration file not found at {config_full_path}")
-            raise FileNotFoundError(f"Configuration file not found: {config_full_path}")
-        
-        try:
-            with open(config_full_path, 'r', encoding='utf-8') as e:
-                config = json.load(e)
-            logger.info("✅ Configuration loaded successfully")
-            return config
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Error: Invalid JSON in configuration file: {e}")
-            raise
-            
+        return _auth.load_config(config_path, Path(__file__).parent)
+
     def authenticate_google_services(self) -> None:
         """Authenticate with Google Drive, Gmail, and Sheets APIs."""
         logger.info("🔐 Authenticating with Google services")
-        
+
         SCOPES = [
             # Drive API - Core scopes
             'https://www.googleapis.com/auth/drive',
             'https://www.googleapis.com/auth/drive.file',
-            
+
             # Gmail API - Core scopes
             'https://www.googleapis.com/auth/gmail.readonly',
             'https://www.googleapis.com/auth/gmail.metadata',
-            
+
             # Sheets API - Core scopes
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/spreadsheets.readonly'
         ]
-        
-        creds = None
-        
-        # Get the script directory and resolve paths relative to it
-        script_dir = Path(__file__).parent
-        
-        # Handle token file path
-        token_path = Path(self.config['auth']['token_file'])
-        if not token_path.is_absolute():
-            token_path = script_dir / token_path
-            
-        # Handle credentials file path
-        credentials_path = Path(self.config['auth']['credentials_file'])
-        if not credentials_path.is_absolute():
-            credentials_path = script_dir / credentials_path
-        
-        # Load existing token
-        if token_path.exists():
-            creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-            # Refresh credentials to ensure they're valid
-            try:
-                creds.refresh(Request())
-                logger.info("🔄 Credentials refreshed successfully")
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to refresh credentials: {e}")
-                creds = None
-            
-        # If there are no (valid) credentials, let the user log in
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                logger.info("🔄 Refreshing expired credentials")
-                creds.refresh(Request())
-            else:
-                logger.info("🔑 Requesting new authentication")
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    str(credentials_path), SCOPES
-                )
-                creds = flow.run_local_server(
-                    port=0,
-                    access_type="offline",  # get a refresh token
-                    prompt="consent",  # force the consent screen, don't reuse old grant
-                    include_granted_scopes=False  # don't merge with an older, narrower grant
-                )
-                # force a fresh access token right now
-                creds.refresh(Request())
-                logger.info(f"Granted scopes from token: {creds.scopes}")
-                
-            # Save credentials for next run
-            with open(token_path, 'w') as token:
-                token.write(creds.to_json())
-                
+
+        creds = _auth.authenticate(self.config, Path(__file__).parent, SCOPES)
         self.credentials = creds
-        
+
         # Build Google Drive API service
         try:
             self.drive_service = build('drive', 'v3', credentials=creds)
@@ -522,33 +451,14 @@ class GmailDriveAutomation:
 def load_config(config_path: str = "config.json") -> Dict[str, Any]:
     """
     Load configuration from JSON file.
-    
+
     Args:
         config_path: Path to configuration file
-        
+
     Returns:
         Configuration dictionary
     """
-    logger.debug("📂 Loading configuration file")
-    
-    script_dir = Path(__file__).parent
-    if Path(config_path).is_absolute():
-        config_full_path = Path(config_path)
-    else:
-        config_full_path = script_dir / config_path
-        
-    if not config_full_path.exists():
-        logger.error(f"❌ Error: Configuration file not found at {config_full_path}")
-        raise FileNotFoundError(f"Configuration file not found: {config_full_path}")
-    
-    try:
-        with open(config_full_path, 'r', encoding='utf-8') as e:
-            config = json.load(e)
-        logger.info("✅ Configuration loaded successfully")
-        return config
-    except json.JSONDecodeError as e:
-        logger.error(f"❌ Error: Invalid JSON in configuration file: {e}")
-        raise
+    return _auth.load_config(config_path, Path(__file__).parent)
 
 
 def main(config: Dict[str, Any]) -> None:
