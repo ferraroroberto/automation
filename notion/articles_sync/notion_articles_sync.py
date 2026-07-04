@@ -724,18 +724,104 @@ class NotionArticlesSync:
                 return True
         return False
     
+    def _index_source_by_rowid(self, source_items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """Index (non-excluded) source items by their 'rowid' property.
+
+        Shared by detect_changes_full_sync() and detect_changes_incremental()
+        (audit issue #67).
+        """
+        source_by_rowid: Dict[str, Dict[str, Any]] = {}
+        for item in source_items:
+            if self.should_exclude(item):
+                continue
+            rowid = self.normalize_rowid(
+                self.extract_value(item.get("properties", {}).get("rowid", {}))
+            )
+            if rowid:
+                source_by_rowid[rowid] = item
+        return source_by_rowid
+
+    def _index_target_by_source_rowid(self, target_items: List[Dict[str, Any]],
+                                       warn_on_duplicate: bool = False) -> Dict[str, Dict[str, Any]]:
+        """Index target items by their 'source rowid' property, keeping the
+        most recently edited item when the same source rowid appears more
+        than once.
+
+        Shared by detect_changes_full_sync() and detect_changes_incremental()
+        (audit issue #67).
+        """
+        target_by_source_rowid: Dict[str, Dict[str, Any]] = {}
+        for item in target_items:
+            source_rowid = self.normalize_rowid(
+                self.extract_value(item.get("properties", {}).get("source rowid", {}))
+            )
+            if not source_rowid:
+                continue
+            existing = target_by_source_rowid.get(source_rowid)
+            if existing is None:
+                target_by_source_rowid[source_rowid] = item
+                continue
+            existing_time = existing.get("last_edited_time", "")
+            new_time = item.get("last_edited_time", "")
+            if new_time > existing_time:
+                if warn_on_duplicate:
+                    logger.warning(f"⚠️ Found duplicate for {source_rowid}, keeping newer")
+                target_by_source_rowid[source_rowid] = item
+        return target_by_source_rowid
+
+    def _diff_source_and_target(
+        self,
+        source_by_rowid: Dict[str, Dict[str, Any]],
+        target_by_source_rowid: Dict[str, Dict[str, Any]],
+        detect_deletes: bool,
+    ) -> Tuple[List[Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]], List[Dict[str, Any]], int]:
+        """Classify indexed source items against an indexed target as
+        new/updated/unchanged, and (when detect_deletes) target items with no
+        matching source as deleted.
+
+        Shared diff step between detect_changes_full_sync() and
+        detect_changes_incremental() (audit issue #67 — the two used to
+        duplicate ~15-20 lines each of this same rowid -> target_by_rowid
+        lookup + "keep newer of duplicate" classification).
+
+        Returns:
+            Tuple of (new_items, updated_items, deleted_items, unchanged_count)
+        """
+        new_items: List[Dict[str, Any]] = []
+        updated_items: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
+        deleted_items: List[Dict[str, Any]] = []
+        unchanged_count = 0
+
+        for rowid, source_item in source_by_rowid.items():
+            target_item = target_by_source_rowid.get(rowid)
+            if target_item is None:
+                # Item only in source - needs to be created
+                new_items.append(source_item)
+            elif self.items_are_different(source_item, target_item):
+                updated_items.append((source_item, target_item))
+            else:
+                unchanged_count += 1
+
+        if detect_deletes:
+            for source_rowid, target_item in target_by_source_rowid.items():
+                if source_rowid not in source_by_rowid and not target_item.get("archived", False):
+                    # Item only in target - has been deleted from source
+                    deleted_items.append(target_item)
+
+        return new_items, updated_items, deleted_items, unchanged_count
+
     def detect_changes_full_sync(self) -> Tuple[List[Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]], List[Dict[str, Any]]]:
         """Detect changes using full database comparison.
-        
+
         Returns:
             Tuple of (new_items, updated_items, deleted_items)
         """
         logger.info("🔍 Performing full sync - loading both databases...")
-        
+
         # Reset API call counter for progress tracking
         with self.api_call_lock:
             self.api_call_count = 0
-        
+
         # Load databases (both databases concurrently if enabled)
         if self.parallel_fetching:
             logger.info("📥 Loading databases in parallel...")
@@ -753,97 +839,48 @@ class NotionArticlesSync:
             logger.info("📥 Loading source database...")
             source_items = self.fetch_all_items(self.source_db, show_progress=True)
             logger.info(f"📊 Loaded {len(source_items)} source items")
-            
+
             logger.info("📥 Loading target database...")
             target_items = self.fetch_all_items(self.target_db, show_progress=True)
             logger.info(f"📊 Loaded {len(target_items)} target items")
-        
+
         logger.info(f"📊 Total API calls for loading: {self.api_call_count}")
-        
+
         # Build lookup maps
         logger.info("🔗 Building relationship maps...")
-        
-        # Map source items by their rowid
-        source_by_rowid: Dict[str, Dict[str, Any]] = {}
-        for item in source_items:
-            if not self.should_exclude(item):
-                rowid = self.normalize_rowid(
-                    self.extract_value(item.get("properties", {}).get("rowid", {}))
-                )
-                if rowid:
-                    source_by_rowid[rowid] = item
-        
-        # Map target items by their source_rowid
-        target_by_source_rowid: Dict[str, Dict[str, Any]] = {}
-        for item in target_items:
-            source_rowid = self.normalize_rowid(
-                self.extract_value(item.get("properties", {}).get("source rowid", {}))
-            )
-            if source_rowid:
-                # Handle duplicates - keep the most recent
-                if source_rowid in target_by_source_rowid:
-                    existing = target_by_source_rowid[source_rowid]
-                    existing_time = existing.get("last_edited_time", "")
-                    new_time = item.get("last_edited_time", "")
-                    if new_time > existing_time:
-                        logger.warning(f"⚠️ Found duplicate for {source_rowid}, keeping newer")
-                        target_by_source_rowid[source_rowid] = item
-                else:
-                    target_by_source_rowid[source_rowid] = item
-        
-        # Detect changes
-        new_items: List[Dict[str, Any]] = []
-        updated_items: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
-        deleted_items: List[Dict[str, Any]] = []
-        unchanged_count = 0
-        
+        source_by_rowid = self._index_source_by_rowid(source_items)
+        target_by_source_rowid = self._index_target_by_source_rowid(target_items, warn_on_duplicate=True)
+
         logger.info("🔍 Analyzing changes...")
-        
-        # Check source items
-        for rowid, source_item in source_by_rowid.items():
-            if rowid in target_by_source_rowid:
-                # Item exists in both - check if needs update
-                target_item = target_by_source_rowid[rowid]
-                if self.items_are_different(source_item, target_item):
-                    updated_items.append((source_item, target_item))
-                else:
-                    unchanged_count += 1
-            else:
-                # Item only in source - needs to be created
-                new_items.append(source_item)
-        
-        # Check for deleted items
-        for source_rowid, target_item in target_by_source_rowid.items():
-            if source_rowid not in source_by_rowid:
-                # Item only in target - has been deleted from source
-                if not target_item.get("archived", False):
-                    deleted_items.append(target_item)
-        
+        new_items, updated_items, deleted_items, unchanged_count = self._diff_source_and_target(
+            source_by_rowid, target_by_source_rowid, detect_deletes=True
+        )
+
         logger.info(f"📊 Analysis complete:")
         logger.info(f"   ✨ New items: {len(new_items)}")
         logger.info(f"   🔄 Updated items: {len(updated_items)}")
         logger.info(f"   🗑️  Deleted items: {len(deleted_items)}")
         logger.info(f"   ✓ Unchanged items: {unchanged_count}")
-        
+
         return new_items, updated_items, deleted_items
-    
+
     def detect_changes_incremental(self) -> Tuple[List[Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]], List[Dict[str, Any]]]:
         """Detect changes using incremental sync based on last sync time.
-        
+
         Returns:
             Tuple of (new_items, updated_items, deleted_items)
         """
         logger.info("🔍 Detecting changes (incremental)...")
-        
+
         # Get last sync time
         last_sync_time = self.get_last_sync_time()
-        
+
         if last_sync_time:
             logger.info(f"⚡ Incremental sync - checking changes since {last_sync_time.isoformat()}")
         else:
             logger.info("📋 No previous sync found - performing full sync")
             return self.detect_changes_full_sync()
-        
+
         # Fetch only changed items from source
         logger.info("📥 Fetching changed items from source...")
         source_items = self.fetch_all_items(self.source_db, filter_after=last_sync_time, show_progress=True)
@@ -856,38 +893,12 @@ class NotionArticlesSync:
         target_items = self.fetch_all_items(self.target_db, show_progress=True)
         logger.info(f"📊 Loaded {len(target_items)} target items")
 
-        target_by_rowid: Dict[str, Dict[str, Any]] = {}
-        for t in target_items:
-            srid = self.normalize_rowid(
-                self.extract_value(t.get("properties", {}).get("source rowid", {}))
-            )
-            if not srid:
-                continue
-            existing = target_by_rowid.get(srid)
-            if existing is None or t.get("last_edited_time", "") > existing.get("last_edited_time", ""):
-                target_by_rowid[srid] = t
+        source_by_rowid = self._index_source_by_rowid(source_items)
+        target_by_source_rowid = self._index_target_by_source_rowid(target_items, warn_on_duplicate=False)
 
-        new_items: List[Dict[str, Any]] = []
-        updated_items: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
-        unchanged_count = 0
-
-        for item in source_items:
-            if self.should_exclude(item):
-                continue
-
-            source_rowid = self.normalize_rowid(
-                self.extract_value(item.get("properties", {}).get("rowid", {}))
-            )
-            if not source_rowid:
-                continue
-
-            target_item = target_by_rowid.get(source_rowid)
-            if target_item is None:
-                new_items.append(item)
-            elif self.items_are_different(item, target_item):
-                updated_items.append((item, target_item))
-            else:
-                unchanged_count += 1
+        new_items, updated_items, _deleted_items, unchanged_count = self._diff_source_and_target(
+            source_by_rowid, target_by_source_rowid, detect_deletes=False
+        )
 
         logger.info(f"📊 Changes detected: {len(new_items)} new, {len(updated_items)} updated, {unchanged_count} unchanged (skipped)")
 

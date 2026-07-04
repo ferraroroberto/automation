@@ -50,7 +50,10 @@ class WordToMarkdownConverter:
     
     def __init__(self):
         self.project_root = self._find_project_root()
-        self.test_folder = Path("system/test-word-to-markdown")
+        # Project-root-relative (not cwd-relative), so running from anywhere
+        # other than the repo root doesn't scatter test folders under the
+        # wrong CWD (audit issue #67).
+        self.test_folder = self.project_root / "system/test-word-to-markdown"
         
     def _find_project_root(self) -> Path:
         """Find the project root directory by looking for .git folder."""

@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy as np
 import pandas as pd
 from PIL import Image
 
@@ -60,53 +61,68 @@ def encode_message(image_path: str, message: str, output_path: str) -> None:
     """
     Encodes a hidden message into an image using LSB steganography.
 
+    Uses numpy array slicing + bit-shift over a flat pixel buffer instead of
+    per-pixel getpixel()/putpixel() calls, which is O(w*h) in pure Python
+    (audit issue #67).
+
     Parameters:
     - image_path: Path to the input image.
     - message: The message to encode into the image.
     - output_path: Path to save the output image with the encoded message.
     """
     img = Image.open(image_path)
-    encoded_img = img.copy()
-    width, height = img.size
-    index = 0
+    pixels = np.array(img)
+    if pixels.ndim != 3:
+        raise ValueError(f"encode_message requires a color image, got mode {img.mode!r}")
 
     # Convert the message into a binary string
-    binary_message = ''.join([format(ord(char), '08b') for char in message])
+    binary_message = ''.join(format(ord(char), '08b') for char in message)
     binary_message += '1111111111111110'  # Delimiter to indicate the end of the message
+    bits = np.frombuffer(binary_message.encode('ascii'), dtype=np.uint8) - ord('0')
 
-    # Iterate over each pixel in the image
-    for y in range(height):
-        for x in range(width):
-            if index < len(binary_message):
-                pixel = list(img.getpixel((x, y)))
+    # Only the RGB planes are modified (any alpha/extra channel is left untouched),
+    # matching the original per-pixel behavior.
+    n_color_channels = min(3, pixels.shape[-1])
+    rgb = pixels[..., :n_color_channels].copy()
+    flat = rgb.reshape(-1)
+    if bits.size > flat.size:
+        raise ValueError("Message is too long to encode in this image")
 
-                # Modify each RGB component of the pixel to encode the binary message
-                for n in range(3):
-                    if index < len(binary_message):
-                        pixel[n] = int(format(pixel[n], '08b')[:-1] + binary_message[index], 2)
-                        index += 1
-
-                # Place the modified pixel back into the image
-                encoded_img.putpixel((x, y), tuple(pixel))
+    # Clear the LSB of each targeted byte, then OR in the message bit
+    flat[:bits.size] = (flat[:bits.size] & 0xFE) | bits
+    pixels[..., :n_color_channels] = flat.reshape(rgb.shape)
 
     # Save the image with the encoded message
+    encoded_img = Image.fromarray(pixels, mode=img.mode)
     encoded_img.save(output_path)
 
-def load_dataframe(file_path: str, logger: logging.Logger, description: str = "file") -> pd.DataFrame:
-    """Load a DataFrame from an Excel file with error handling."""
+def load_dataframe(file_path: str, logger: logging.Logger, description: str = "file", max_retries: int = 3) -> pd.DataFrame:
+    """
+    Load a DataFrame from an Excel file with error handling.
+
+    Retries only on the "file locked/missing" error family (FileNotFoundError,
+    PermissionError) and only up to max_retries times, so a persistently
+    missing/locked file raises instead of looping forever (audit issue #67).
+    """
+    attempt = 0
     while True:
         try:
             df = pd.read_excel(file_path)
             logger.info(f"Successfully loaded {description} from {file_path}")
             return df
         except FileNotFoundError:
+            attempt += 1
+            if attempt >= max_retries:
+                logger.error(f"Error: {description.capitalize()} not found at {file_path} after {max_retries} attempts")
+                raise
             logger.error(f"Error: {description.capitalize()} not found at {file_path}")
             input("Press any key to try again...")
         except PermissionError:
+            attempt += 1
+            if attempt >= max_retries:
+                logger.error(f"Error: {description.capitalize()} is open at {file_path} after {max_retries} attempts")
+                raise
             logger.error(f"Error: {description.capitalize()} is open. Please close it and try again.")
-            input("Press any key to try again...")
-        except Exception as e:
-            logger.error(f"Error loading {description}: {str(e)}")
             input("Press any key to try again...")
 
 def parse_arguments() -> argparse.Namespace:

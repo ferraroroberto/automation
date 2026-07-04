@@ -982,7 +982,16 @@ class QuickDeck:
             sg.popup_error(error_msg, title="Copy Error")
     
     def execute_python_action(self, button_config: Dict[str, Any]) -> None:
-        """Execute Python code snippet safely."""
+        """
+        Execute a Python code snippet from the button config.
+
+        This runs arbitrary Python, not sandboxed code: only `__builtins__` is
+        restricted to a whitelist, which is trivially escapable (e.g. via
+        `().__class__.__mro__[-1].__subclasses__()`) and does not restrict
+        imports, file I/O, or process spawning. Only put trusted code in a
+        "python" button's config (audit issue #67 — this used to be
+        documented as "safely", which it isn't).
+        """
         try:
             code = button_config.get("code", "")
             if not code:

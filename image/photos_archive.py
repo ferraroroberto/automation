@@ -654,62 +654,64 @@ def _confirm_copy_and_cleanup(df: pd.DataFrame, metadata_path: str) -> None:
     logging.info("Process completed")
 
 
-# Call this function at the beginning of your main function
-def main(source_folder: str, dest_folder: str) -> None:
-    # Set up logging to save log file in the destination folder
-    current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
-    setup_logging(dest_folder)
+def _run_from_existing_metadata(dest_folder: str) -> None:
+    """
+    Prompt for an existing metadata Excel file via a Tkinter dialog, optionally
+    recalculate the duplicate/exclusion logic, then confirm/copy/cleanup.
 
-    # Check if user wants to use existing metadata
-    use_existing_metadata = CONFIG['behavior_flags']['use_existing_metadata']
-    if not use_existing_metadata:
-        use_existing_metadata_input = input("Do you want to use an existing metadata file? (Y/N): ").strip().lower()
-        use_existing_metadata = use_existing_metadata_input == 'y'
-    if use_existing_metadata:
-        # Ensure Tkinter is properly initialized
-        root = tk.Tk()
-        root.withdraw()  # Hide the root window
+    Split out of main()'s "use existing metadata" branch (audit issue #67).
+    """
+    # Ensure Tkinter is properly initialized
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
 
-        # Get the screen width and height
-        screen_width = root.winfo_screenwidth()
-        screen_height = root.winfo_screenheight()
+    # Get the screen width and height
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
 
-        # Set the geometry of the root window to the center of the screen
-        window_width = 300  # Width of the dialog window
-        window_height = 200  # Height of the dialog window
-        position_right = int(screen_width/2 - window_width/2)
-        position_down = int(screen_height/2 - window_height/2)
+    # Set the geometry of the root window to the center of the screen
+    window_width = 300  # Width of the dialog window
+    window_height = 200  # Height of the dialog window
+    position_right = int(screen_width/2 - window_width/2)
+    position_down = int(screen_height/2 - window_height/2)
 
-        # Adjust the geometry
-        root.geometry(f"{window_width}x{window_height}+{position_right}+{position_down}")
+    # Adjust the geometry
+    root.geometry(f"{window_width}x{window_height}+{position_right}+{position_down}")
 
-        # Open the file dialog
-        metadata_file = filedialog.askopenfilename(title="Select metadata Excel file", filetypes=[("Excel files", "*.xlsx")])
-        root.destroy()  # Properly destroy the Tkinter root window
-        if metadata_file:
-            df = pd.read_excel(metadata_file)
-            logging.info("Loaded metadata from %s", metadata_file)
+    # Open the file dialog
+    metadata_file = filedialog.askopenfilename(title="Select metadata Excel file", filetypes=[("Excel files", "*.xlsx")])
+    root.destroy()  # Properly destroy the Tkinter root window
+    if not metadata_file:
+        logging.info("No file selected. Exiting.")
+        return
 
-            # Check if user wants to recalculate the logic
-            recalculate_logic = CONFIG['behavior_flags']['recalculate_logic']
-            if not recalculate_logic:
-                recalculate_logic_input = input("Do you want to recalculate the logic? (Y/N): ").strip().lower()
-                recalculate_logic = recalculate_logic_input == 'y'
-            if recalculate_logic:
-                df = recalculate_metadata(df)
-                _apply_exclusion_thresholds(df)
+    df = pd.read_excel(metadata_file)
+    logging.info("Loaded metadata from %s", metadata_file)
 
-                current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
-                metadata_file = os.path.join(dest_folder, f'metadata_{current_time_str}.xlsx')
-                df.to_excel(metadata_file, index=False)
-                logging.info("Recalculated metadata and saved to %s", metadata_file)
+    # Check if user wants to recalculate the logic
+    recalculate_logic = CONFIG['behavior_flags']['recalculate_logic']
+    if not recalculate_logic:
+        recalculate_logic_input = input("Do you want to recalculate the logic? (Y/N): ").strip().lower()
+        recalculate_logic = recalculate_logic_input == 'y'
+    if recalculate_logic:
+        df = recalculate_metadata(df)
+        _apply_exclusion_thresholds(df)
 
-            _confirm_copy_and_cleanup(df, metadata_file)
-            return
-        else:
-            logging.info("No file selected. Exiting.")
-            return
+        current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
+        metadata_file = os.path.join(dest_folder, f'metadata_{current_time_str}.xlsx')
+        df.to_excel(metadata_file, index=False)
+        logging.info("Recalculated metadata and saved to %s", metadata_file)
 
+    _confirm_copy_and_cleanup(df, metadata_file)
+
+
+def _run_fresh_scan(source_folder: str, dest_folder: str, current_time_str: str) -> None:
+    """
+    Scan source_folder from scratch, compute duplicate/exclusion metadata,
+    save an inventory Excel, then confirm/copy/cleanup.
+
+    Split out of main()'s "fresh scan" branch (audit issue #67).
+    """
     # Check if hardcoded folders are valid
     if not (os.path.exists(source_folder) and os.path.isdir(source_folder)):
         source_folder = input("Enter the source folder path: ")
@@ -753,6 +755,24 @@ def main(source_folder: str, dest_folder: str) -> None:
     logging.info("Inventory saved to %s", excel_path)
 
     _confirm_copy_and_cleanup(df, excel_path)
+
+
+# Call this function at the beginning of your main function
+def main(source_folder: str, dest_folder: str) -> None:
+    # Set up logging to save log file in the destination folder
+    current_time_str = datetime.now().strftime('%Y%m%d-%H%M')
+    setup_logging(dest_folder)
+
+    # Check if user wants to use existing metadata
+    use_existing_metadata = CONFIG['behavior_flags']['use_existing_metadata']
+    if not use_existing_metadata:
+        use_existing_metadata_input = input("Do you want to use an existing metadata file? (Y/N): ").strip().lower()
+        use_existing_metadata = use_existing_metadata_input == 'y'
+
+    if use_existing_metadata:
+        _run_from_existing_metadata(dest_folder)
+    else:
+        _run_fresh_scan(source_folder, dest_folder, current_time_str)
 
 if __name__ == "__main__":
     try:

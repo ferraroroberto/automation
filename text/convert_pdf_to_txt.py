@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 from tkinter import Tk, filedialog
 
 # Setup logger

@@ -392,9 +392,8 @@ class TextExpanderGUI:
                 time.sleep(0.1)
                 keyboard.release(Key.alt)
                 time.sleep(0.3)  # Wait for window switch
-                from text_expander_monitor import KeyboardMonitor
-                monitor = KeyboardMonitor(self.core)
-                monitor._perform_expansion(expansion, 0)
+                from text_expander_monitor import perform_expansion
+                perform_expansion(expansion, 0)
                 logger.info(f"🚀 Launched abbreviation '{abbreviation}' from GUI")
             threading.Thread(target=do_expansion, daemon=True).start()
         except Exception as e:

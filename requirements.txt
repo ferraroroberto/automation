@@ -76,7 +76,7 @@ yt-dlp>=2024.1.0
 
 # PDF text extraction
 # Source: text/convert_pdf_to_txt.py
-PyPDF2>=3.0.0
+pypdf>=3.0.0
 
 # Excel file handling
 # Source: notion/notion_databases_dump.py

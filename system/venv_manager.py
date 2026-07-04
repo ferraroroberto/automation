@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import sys
 import ctypes
@@ -15,10 +16,14 @@ def is_in_virtualenv():
     # Additional check: look for VIRTUAL_ENV environment variable
     virtual_env = os.environ.get('VIRTUAL_ENV')
     
-    # Check if the Python executable path contains typical VENV paths
+    # Check if the Python executable path contains a typical VENV directory
+    # segment. Matched against whole path segments, not substrings — 'env'
+    # used to match any path containing it (e.g. "...\Envelope\..." or
+    # "...\environment\..."), producing false positives (audit issue #67).
     executable_path = sys.executable.lower()
-    venv_indicators = ['.venv', 'virtualenv', 'venv', 'env']
-    path_suggests_venv = any(indicator in executable_path for indicator in venv_indicators)
+    venv_indicators = {'.venv', 'virtualenv', 'venv'}
+    path_segments = re.split(r'[\\/]+', executable_path)
+    path_suggests_venv = any(segment in venv_indicators for segment in path_segments)
     
     return in_venv or bool(virtual_env) or path_suggests_venv
 
