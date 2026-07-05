@@ -63,6 +63,14 @@ Lists the files directly inside a chosen folder (top level only, not recursive) 
 - **How to run:** `python system/list_files_to_xls.py` — no command-line arguments. It always opens a Tkinter folder-picker dialog first; there is no way to pass the folder as an argument. On completion it shows a message box confirming the save path and file count.
 - **Requirements:** `openpyxl`, `tkinter`.
 
+## 🌡️ hwinfo_restart.py
+
+Restarts HWiNFO64 (a system monitoring app that stops reporting after a continuous 12-hour run) — terminates it if running, then relaunches it from its install path. Intended to be run on a recurring schedule (e.g. every 8 hours) by an external scheduler; the script itself does a single restart cycle per invocation with no internal loop or sleep.
+
+- **How to run:** `python system/hwinfo_restart.py` — no command-line arguments. Looks for the install path at `C:\Program Files\HWiNFO64\HWiNFO64.exe`, falling back to the `(x86)` variant; raises `FileNotFoundError` if neither exists.
+- **Launcher:** `hwinfo_restart.bat` calls `python hwinfo_restart.py` — no args needed.
+- **Requirements:** `psutil`. Windows only.
+
 ## Already documented
 
 These `system/` tools have their own dedicated doc file — see there instead of here:
