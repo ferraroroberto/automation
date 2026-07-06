@@ -1,6 +1,5 @@
 import logging
 import os
-import subprocess
 import sys
 import time
 
@@ -61,7 +60,13 @@ def restart() -> None:
     stop_running()
     install_path = find_install_path()
     log.info("Launching %s", install_path)
-    subprocess.Popen([install_path], close_fds=True)
+    # HWiNFO64.exe's requireAdministrator manifest only gets honored through
+    # ShellExecute-style launches (os.startfile) — subprocess.Popen's plain
+    # CreateProcess raises WinError 740 (elevation required) even from an
+    # already-elevated caller (empirically verified: IsUserAnAdmin()==1 in
+    # the calling process, subprocess.Popen still fails regardless of
+    # close_fds, while os.startfile succeeds).
+    os.startfile(install_path, cwd=os.path.dirname(install_path))
 
 
 def main() -> None:
