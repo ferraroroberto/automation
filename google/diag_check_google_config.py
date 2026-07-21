@@ -18,6 +18,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+# Suppress the console window each gcloud spawn would otherwise flash.
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
 def check_gcloud_config():
     """Check current gcloud configuration"""
     print("🔍 Checking gcloud configuration...")
@@ -37,8 +40,9 @@ def check_gcloud_config():
             try:
                 if path == 'gcloud':
                     # Try direct command
-                    result = subprocess.run(['gcloud', '--version'], 
-                                          capture_output=True, text=True, check=True)
+                    result = subprocess.run(['gcloud', '--version'],
+                                          capture_output=True, text=True, check=True,
+                                          creationflags=_NO_WINDOW)
                     gcloud_cmd = 'gcloud'
                     break
                 elif os.path.exists(path):
@@ -55,14 +59,16 @@ def check_gcloud_config():
     
     try:
         # Check current project
-        result = subprocess.run([gcloud_cmd, 'config', 'get-value', 'project'], 
-                              capture_output=True, text=True, check=True)
+        result = subprocess.run([gcloud_cmd, 'config', 'get-value', 'project'],
+                              capture_output=True, text=True, check=True,
+                              creationflags=_NO_WINDOW)
         current_project = result.stdout.strip()
         print(f"   📋 Current gcloud project: {current_project}")
         
         # Check account
-        result = subprocess.run([gcloud_cmd, 'auth', 'list', '--filter=status:ACTIVE'], 
-                              capture_output=True, text=True, check=True)
+        result = subprocess.run([gcloud_cmd, 'auth', 'list', '--filter=status:ACTIVE'],
+                              capture_output=True, text=True, check=True,
+                              creationflags=_NO_WINDOW)
         active_accounts = result.stdout.strip()
         print(f"   👤 Active gcloud accounts:\n{active_accounts}")
         

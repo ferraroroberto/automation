@@ -939,7 +939,8 @@ class QuickDeck:
                 cwd=cwd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             
             # Don't wait for completion to avoid blocking UI

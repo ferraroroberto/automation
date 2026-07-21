@@ -139,7 +139,12 @@ def main():
 
                     if excel_path and Path(excel_path).exists():
                         # Open the Excel file with default application
-                        subprocess.run(["start", "", excel_path], shell=True, check=True)
+                        subprocess.run(
+                            ["start", "", excel_path],
+                            shell=True,
+                            check=True,
+                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+                        )
                         st.success("✅ Excel file opened!")
                     else:
                         st.error(f"❌ Excel file not found: {excel_path}")

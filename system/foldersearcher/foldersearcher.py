@@ -20,6 +20,7 @@ import os
 import logging
 import ctypes
 import re
+import sys
 from ctypes import wintypes
 from pathlib import Path
 import subprocess
@@ -735,7 +736,12 @@ class FolderSearcher:
         except Exception as e:
             logger.error(f"Error opening folder: {e}")
             try:
-                subprocess.run(['explorer', full_path], check=True, shell=True)
+                subprocess.run(
+                    ['explorer', full_path],
+                    check=True,
+                    shell=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                )
                 logger.info(f"Opened folder using subprocess: {full_path}")
             except Exception as e2:
                 logger.error(f"Error opening folder with subprocess: {e2}")

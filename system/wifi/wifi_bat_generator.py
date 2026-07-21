@@ -42,7 +42,11 @@ _FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 def _run_netsh(args: List[str]) -> str:
     """Run a netsh command and return decoded stdout (best-effort decoding)."""
-    proc = subprocess.run(["netsh", *args], capture_output=True)
+    proc = subprocess.run(
+        ["netsh", *args],
+        capture_output=True,
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+    )
     raw = proc.stdout or b""
     for enc in NETSH_ENCODINGS:
         try:

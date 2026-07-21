@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import threading
 import tkinter as tk
@@ -130,7 +131,8 @@ def trim_video(input_path, start_sec, end_sec, progress_callback=None, status_ca
             ffmpeg_cmd,
             stderr=subprocess.PIPE,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         for line in process.stderr:
             if "time=" in line:
@@ -227,7 +229,13 @@ def cut_middle_video(
 
         cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file,
                "-c", "copy", "-movflags", "+faststart", output_file]
-        subprocess.run(cmd, check=True, capture_output=True, timeout=300)
+        subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            timeout=300,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
         return output_file
     finally:
         for p in (temp1, temp2, list_file):
