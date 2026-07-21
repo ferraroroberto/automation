@@ -50,6 +50,10 @@ POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 PNPUTIL = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "System32", "pnputil.exe")
 NVIDIA_VENDOR_PREFIX = "PCI\\VEN_10DE"
 
+# Suppress the console window each spawn would otherwise flash when this
+# tool runs unattended (e.g. relaunched via gpu_recovery.bat self-elevation).
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
 # Device Manager ConfigManagerErrorCode -> human meaning (the ones we care about).
 CODE_MEANINGS = {
     0: "OK - working normally",
@@ -77,6 +81,7 @@ def _powershell(script: str) -> str:
             capture_output=True,
             text=True,
             timeout=60,
+            creationflags=_NO_WINDOW,
         )
         return result.stdout.strip()
     except (subprocess.SubprocessError, OSError) as exc:
@@ -138,6 +143,7 @@ def nvidia_smi() -> Optional[str]:
             capture_output=True,
             text=True,
             timeout=30,
+            creationflags=_NO_WINDOW,
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
@@ -179,6 +185,7 @@ def enable_device(instance_id: str) -> bool:
             capture_output=True,
             text=True,
             timeout=60,
+            creationflags=_NO_WINDOW,
         )
     except (subprocess.SubprocessError, OSError) as exc:
         logger.error("❌ pnputil failed: %s", exc)

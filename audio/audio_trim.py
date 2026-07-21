@@ -4,6 +4,7 @@ from tkinter import filedialog, simpledialog, messagebox
 import subprocess
 import re
 import logging
+import sys
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
@@ -113,7 +114,11 @@ def trim_audio(input_path: str, start_time: str, end_time: str) -> None:
             output_file
         ]
 
-        subprocess.run(ffmpeg_cmd, check=True)
+        subprocess.run(
+            ffmpeg_cmd,
+            check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
 
         logger.info("✅ Audio trimming completed successfully")
         messagebox.showinfo("Success",

@@ -606,7 +606,11 @@ class TreeSizeApp:
         if platform.system() == 'Windows':
             # Normalize path and keep '/select,' in the same argument list
             norm_path = os.path.normpath(path)
-            subprocess.run(['explorer', '/select,', norm_path], check=False)
+            subprocess.run(
+                ['explorer', '/select,', norm_path],
+                check=False,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
         elif platform.system() == 'Darwin':
             subprocess.run(['open', '-R', path], check=False)
         else:

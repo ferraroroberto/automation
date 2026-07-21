@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import json
 import logging
 from pathlib import Path
@@ -7,6 +8,10 @@ from typing import List, Dict, Optional
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Suppress the console window ffmpeg/ffprobe would otherwise flash on every
+# spawn when this module runs under a console-less parent (pythonw, a GUI).
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 class AudioExtractor:
     """Extracts audio tracks from video files using FFmpeg."""
@@ -23,8 +28,8 @@ class AudioExtractor:
     def check_ffmpeg(self) -> bool:
         """Check if FFmpeg and FFprobe are available."""
         try:
-            subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
-            subprocess.run(['ffprobe', '-version'], capture_output=True, check=True)
+            subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True, creationflags=_NO_WINDOW)
+            subprocess.run(['ffprobe', '-version'], capture_output=True, check=True, creationflags=_NO_WINDOW)
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.error("FFmpeg or FFprobe not found. Please install FFmpeg.")
@@ -49,7 +54,7 @@ class AudioExtractor:
                 str(video_file)
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True, creationflags=_NO_WINDOW)
             data = json.loads(result.stdout)
             
             audio_tracks = []
@@ -94,7 +99,7 @@ class AudioExtractor:
                 str(output_file.with_suffix('.mp3'))
             ]
             
-            subprocess.run(cmd, capture_output=True, check=True)
+            subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW)
             logger.info(f"Extracted track {track_index} to {output_file.with_suffix('.mp3').name}")
             return True
             
@@ -143,7 +148,7 @@ class AudioExtractor:
                     str(output_file.with_suffix('.mp3'))
                 ]
             
-            subprocess.run(cmd, capture_output=True, check=True)
+            subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW)
             logger.info(f"Extracted and mixed all audio tracks to {output_file.with_suffix('.mp3').name}")
             return True
             

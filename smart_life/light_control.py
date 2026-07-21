@@ -276,6 +276,7 @@ def scan_network() -> None:
     subprocess.run(
         [sys.executable, "-m", "tinytuya", "scan"],
         check=False,
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
     )
 
 
@@ -318,6 +319,7 @@ def update_devices(devices_path: Path, snapshot_path: Path) -> None:
             ],
             cwd=str(devices_path.parent),
             check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
     finally:
         Path(tmp_path).unlink(missing_ok=True)

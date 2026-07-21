@@ -37,6 +37,7 @@ EBU R128 Benefits:
 """
 
 import os
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import subprocess
@@ -47,6 +48,10 @@ from typing import Dict, Optional, Tuple
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
+
+# Suppress the console window ffmpeg would otherwise flash on every spawn
+# when this module runs under a console-less parent (pythonw, a GUI).
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
 # -------------------------------------------------------
@@ -102,7 +107,8 @@ def analyze_audio_levels(input_path: str) -> Optional[Dict]:
             capture_output=True,
             text=True,
             encoding='utf-8',
-            errors='replace'
+            errors='replace',
+            creationflags=_NO_WINDOW,
         )
 
         if result.returncode != 0:
@@ -317,7 +323,8 @@ def normalize_audio(input_path: str, target_lufs: float) -> Optional[str]:
             capture_output=True,
             text=True,
             encoding='utf-8',
-            errors='replace'
+            errors='replace',
+            creationflags=_NO_WINDOW,
         )
 
         if measure_result.returncode != 0:
@@ -376,7 +383,9 @@ def normalize_audio(input_path: str, target_lufs: float) -> Optional[str]:
             output_file
         ]
 
-        result = subprocess.run(normalize_cmd, check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            normalize_cmd, check=True, capture_output=True, text=True, creationflags=_NO_WINDOW
+        )
 
         logger.info("✅ Audio normalization completed successfully")
         return output_file

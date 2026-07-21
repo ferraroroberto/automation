@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import threading
 import tkinter as tk
@@ -92,6 +93,7 @@ class VideoConcatenator:
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
                 bufsize=1,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             time_pat = re.compile(r"time=(\d+):(\d+):(\d+)\.(\d+)")
             for line in process.stderr:
@@ -169,7 +171,12 @@ class VideoConcatenator:
                 output_path,
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            )
             if result.returncode == 0:
                 if progress_callback:
                     progress_callback(100.0)

@@ -120,7 +120,12 @@ def extract_with_7zip(archive_path, output_dir, password=None, seven_zip_path=No
         cmd.append(f'-p{password}')
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
         if result.stdout.strip():
             logger.info("%s", result.stdout.strip())
 

@@ -89,6 +89,7 @@ def download_youtube(url, output_path, start_time=0, status_callback=None, progr
 
 def download_hls(m3u8_url, output_path, filename, headers=None, status_callback=None, progress_callback=None):
     import subprocess
+    import sys
     output_file = os.path.join(output_path, filename)
     command = ["ffmpeg", "-y"]
     if headers:
@@ -99,7 +100,11 @@ def download_hls(m3u8_url, output_path, filename, headers=None, status_callback=
         if status_callback:
             status_callback(f"Downloading HLS: {m3u8_url[:50]}...")
         # ffmpeg doesn't easily expose progress; run and signal 100% on success
-        subprocess.run(command, check=True)
+        subprocess.run(
+            command,
+            check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
         if progress_callback:
             progress_callback(100)
         if status_callback:

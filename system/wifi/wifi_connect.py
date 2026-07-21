@@ -1,10 +1,14 @@
 import logging
 import os
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
+
+# Suppress the console window each netsh spawn would otherwise flash.
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 def connect_to_wifi() -> None:
     try:
@@ -22,7 +26,9 @@ def connect_to_wifi() -> None:
 
         # Step 1: Check current Wi-Fi connection status
         log.info("Checking current Wi-Fi connection status...")
-        output = subprocess.check_output(['netsh', 'wlan', 'show', 'interfaces'], encoding='utf-8')
+        output = subprocess.check_output(
+            ['netsh', 'wlan', 'show', 'interfaces'], encoding='utf-8', creationflags=_NO_WINDOW
+        )
         log.info("Output of 'netsh wlan show interfaces':\n%s", output)
 
         # Parse the output to find the current SSID and interface name
@@ -46,7 +52,9 @@ def connect_to_wifi() -> None:
                 return
             else:
                 log.info("Connected to a different Wi-Fi: %s. Disconnecting...", current_ssid)
-                disconnect_result = subprocess.run(['netsh', 'wlan', 'disconnect'], capture_output=True, text=True)
+                disconnect_result = subprocess.run(
+                    ['netsh', 'wlan', 'disconnect'], capture_output=True, text=True, creationflags=_NO_WINDOW
+                )
                 log.info("Output of 'netsh wlan disconnect': %s", disconnect_result.stdout)
                 if disconnect_result.returncode != 0:
                     log.error("Error disconnecting: %s", disconnect_result.stderr)
@@ -54,7 +62,10 @@ def connect_to_wifi() -> None:
 
         # Step 2: Add the Wi-Fi profile using the XML file
         log.info("Adding profile from %s", xml_profile_path)
-        add_profile_result = subprocess.run(['netsh', 'wlan', 'add', 'profile', f'filename={xml_profile_path}'], capture_output=True, text=True)
+        add_profile_result = subprocess.run(
+            ['netsh', 'wlan', 'add', 'profile', f'filename={xml_profile_path}'],
+            capture_output=True, text=True, creationflags=_NO_WINDOW,
+        )
         log.info("Output of 'netsh wlan add profile': %s", add_profile_result.stdout)
         if add_profile_result.returncode != 0:
             log.error("Error adding profile: %s", add_profile_result.stderr)
@@ -62,7 +73,10 @@ def connect_to_wifi() -> None:
 
         # Step 3: Attempt to connect to the Wi-Fi network
         log.info("Attempting to connect to %s using interface %s...", target_ssid, interface_name)
-        result = subprocess.run(['netsh', 'wlan', 'connect', f'name={target_ssid}', f'interface={interface_name}'], capture_output=True, text=True)
+        result = subprocess.run(
+            ['netsh', 'wlan', 'connect', f'name={target_ssid}', f'interface={interface_name}'],
+            capture_output=True, text=True, creationflags=_NO_WINDOW,
+        )
         log.info("Output of 'netsh wlan connect': %s", result.stdout)
         if result.returncode == 0:
             log.info("Successfully connected to %s.", target_ssid)

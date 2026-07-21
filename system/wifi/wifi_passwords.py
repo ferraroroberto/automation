@@ -46,7 +46,12 @@ def export_profiles(tempdir: str) -> None:
     logger.debug(f"📂 Exporting WLAN profiles to temporary directory: {tempdir}")
     
     cmd = ["netsh", "wlan", "export", "profile", "key=clear", f"folder={tempdir}"]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+    )
     out = (proc.stdout or "") + (proc.stderr or "")
     
     if proc.returncode != 0:

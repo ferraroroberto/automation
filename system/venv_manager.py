@@ -8,6 +8,9 @@ import platform
 
 log = logging.getLogger(__name__)
 
+# Suppress the console window each pip spawn would otherwise flash.
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
 def is_in_virtualenv():
     """Check if currently running in a virtual environment."""
     # Check standard virtualenv indicators
@@ -73,8 +76,8 @@ def deactivate_venv():
 
 def get_installed_packages():
     """Get a list of installed packages."""
-    result = subprocess.run([sys.executable, "-m", "pip", "list", "--format=freeze"], 
-                           capture_output=True, text=True, check=True)
+    result = subprocess.run([sys.executable, "-m", "pip", "list", "--format=freeze"],
+                           capture_output=True, text=True, check=True, creationflags=_NO_WINDOW)
     return result.stdout.strip().split('\n')
 
 def is_admin():
@@ -122,7 +125,8 @@ def safe_uninstall_package(package):
         result = subprocess.run(
             [sys.executable, "-m", "pip", "uninstall", "-y", package],
             capture_output=True,
-            text=True
+            text=True,
+            creationflags=_NO_WINDOW,
         )
         
         # Check if there was a permission error
@@ -133,7 +137,8 @@ def safe_uninstall_package(package):
             user_result = subprocess.run(
                 [sys.executable, "-m", "pip", "uninstall", "--user", "-y", package],
                 capture_output=True,
-                text=True
+                text=True,
+                creationflags=_NO_WINDOW,
             )
             
             if user_result.returncode == 0:
