@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-Folder Searcher - A simple tool to search for folders containing specific words.
+Folder Searcher - a fast way to find and open folders by name.
 
-This application allows users to:
-1. Scan a folder structure and store it in memory
-2. Search for folders containing specific words
-3. Open found folders directly in Windows Explorer
-4. Persist folder structure data between sessions
-5. Search in the current active Explorer window path
+This module is the Tkinter/tray shell only. All matching, scanning,
+persistence and pruning logic lives in ``foldersearcher_core``, which has no
+GUI dependencies and is covered by ``test_foldersearcher_core.py``.
+
+The window is a two-tab notebook:
+
+- **Search / Access** (selected on open) searches the saved index without
+  rescanning, and opens a result in Explorer on double-click.
+- **Folders** manages the configured roots and rebuilds the index.
 
 The app runs from the system tray. Click the tray icon to open the window;
 closing the window minimizes it back to the tray. Quit from the tray menu.
@@ -15,23 +18,26 @@ closing the window minimizes it back to the tray. Quit from the tray menu.
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import json
-import os
-import logging
 import ctypes
-import re
+import logging
+import os
+import subprocess
 import sys
 from ctypes import wintypes
-from pathlib import Path
-import subprocess
-from typing import Dict, List, Optional
-import win32gui
-import win32process
-import win32api
-import win32con
-import psutil
+from typing import List, Optional
+
 import pystray
 from PIL import Image, ImageDraw
+
+from foldersearcher_core import (
+    FolderIndex,
+    FolderSearcherConfig,
+    SearchResult,
+    load_config,
+    normalize_root,
+    save_config,
+    search,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -63,13 +69,16 @@ class FolderSearcher:
 
     def __init__(self):
         """Initialize the FolderSearcher application."""
-        # Application state
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_file = os.path.join(script_dir, "foldersearcher.json")
         self.structure_file = os.path.join(script_dir, "folder_structure.txt")
-        self.folder_structure: Dict[str, List[str]] = {}
-        self.root_folder = ""
-        self.search_in_explorer = True  # Default to search in Explorer window path
+
+        # Configuration and index (both GUI-free)
+        self.config: FolderSearcherConfig = load_config(self.config_file, self.structure_file)
+        self.index = FolderIndex()
+
+        # Current result set, parallel to the results listbox rows
+        self.results: List[SearchResult] = []
 
         # Tk objects — created in the pystray setup callback
         self.root: Optional[tk.Tk] = None
@@ -77,22 +86,19 @@ class FolderSearcher:
         self._widgets_built = False
 
         # Tk variables — created once the Tk root exists
-        self.folder_var: Optional[tk.StringVar] = None
         self.search_var: Optional[tk.StringVar] = None
-        self.search_in_explorer_var: Optional[tk.BooleanVar] = None
+        self.skip_depth_var: Optional[tk.IntVar] = None
+        self.prune_var: Optional[tk.BooleanVar] = None
         self.status_var: Optional[tk.StringVar] = None
 
         # Widgets populated in setup_ui
-        self.folder_entry: Optional[ttk.Entry] = None
+        self.notebook: Optional[ttk.Notebook] = None
         self.search_entry: Optional[ttk.Entry] = None
-        self.scope_checkbox: Optional[ttk.Checkbutton] = None
         self.results_listbox: Optional[tk.Listbox] = None
+        self.roots_listbox: Optional[tk.Listbox] = None
 
         # Single-instance mutex handle — kept for the process lifetime
         self._mutex: Optional[int] = None
-
-        # Load configuration (no Tk required)
-        self.load_config()
 
         # Tray icon
         self._icon = pystray.Icon(
@@ -178,242 +184,85 @@ class FolderSearcher:
         self._widgets_built = True
         win.lift()
         win.focus_force()
+        if self.search_entry:
+            self.search_entry.focus_set()
 
     # ------------------------------------------------------------------
     # Config
     # ------------------------------------------------------------------
 
-    def load_config(self):
-        """Load configuration from JSON file."""
-        try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    self.root_folder = config.get('root_folder', '')
-                    # Keep the structure file in the same directory as the script
-                    script_dir = os.path.dirname(os.path.abspath(__file__))
-                    self.structure_file = os.path.join(script_dir, "folder_structure.txt")
-                    logger.info(f"Configuration loaded from {self.config_file}")
-            else:
-                # Create default configuration
-                self.create_default_config()
-        except Exception as e:
-            logger.error(f"Error loading configuration: {e}")
-            self.create_default_config()
-
-    def create_default_config(self):
-        """Create default configuration file."""
-        config = {
-            'root_folder': '',
-            'structure_file': 'folder_structure.txt',
-        }
-        try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
-            logger.info("Default configuration file created")
-        except Exception as e:
-            logger.error(f"Error creating default config: {e}")
-
-    def save_config(self):
-        """Save current configuration to JSON file."""
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        config = {
-            'root_folder': self.root_folder,
-            'structure_file': os.path.join(script_dir, "folder_structure.txt"),
-        }
-        try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
-            logger.info("Configuration saved")
-        except Exception as e:
-            logger.error(f"Error saving configuration: {e}")
-
-    # ------------------------------------------------------------------
-    # Explorer detection
-    # ------------------------------------------------------------------
-
-    def get_active_explorer_path(self) -> Optional[str]:
-        """
-        Get the path of the most recently active Windows Explorer window.
-
-        Returns:
-            Optional[str]: The path of the active Explorer window, or None if not found
-        """
-        try:
-            # Get all explorer.exe processes
-            explorer_processes = []
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                try:
-                    if proc.info['name'] and proc.info['name'].lower() == 'explorer.exe':
-                        explorer_processes.append(proc)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-
-            if not explorer_processes:
-                logger.warning("No Explorer processes found")
-                return None
-
-            # Collect all Explorer windows and their paths
-            all_explorer_windows = []
-
-            def enum_windows_callback(hwnd, windows):
-                if win32gui.IsWindowVisible(hwnd):
-                    try:
-                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                        # Check if this window belongs to any Explorer process
-                        if any(proc.pid == pid for proc in explorer_processes):
-                            title = win32gui.GetWindowText(hwnd)
-                            if title:
-                                # Try different patterns for extracting path from title
-                                potential_path = None
-
-                                # Pattern 1: "Path - File Explorer" (most common)
-                                if title.endswith(" - File Explorer"):
-                                    potential_path = title[:-15].strip()  # Remove " - File Explorer" and trim whitespace
-                                    if os.path.isdir(potential_path):
-                                        pass
-                                    else:
-                                        parent_dir = os.path.dirname(potential_path)
-                                        if os.path.isdir(parent_dir):
-                                            potential_path = parent_dir
-
-                                # Pattern 2: "Folder Name - C:\path\to\folder"
-                                elif " - " in title:
-                                    title_parts = title.split(" - ")
-                                    if len(title_parts) > 1:
-                                        potential_path = title_parts[-1]
-
-                                # Pattern 3: Just the path itself
-                                elif os.path.exists(title):
-                                    potential_path = title
-
-                                # Pattern 4: Check if title contains a drive letter
-                                # (regex instead of a hand-written A-Z drive-letter
-                                # list iterated twice per title; audit issue #67)
-                                elif re.search(r'\b[A-Z]:\\', title):
-                                    words = title.split()
-                                    for word in words:
-                                        if re.search(r'\b[A-Z]:\\', word):
-                                            if os.path.exists(word):
-                                                potential_path = word
-                                                break
-
-                                if potential_path and os.path.exists(potential_path):
-                                    windows.append({
-                                        'hwnd': hwnd,
-                                        'title': title,
-                                        'path': potential_path,
-                                        'pid': pid
-                                    })
-                                    logger.debug(f"Found Explorer window: '{title}' -> '{potential_path}'")
-                    except Exception as e:
-                        logger.debug(f"Error processing window {hwnd}: {e}")
-                return True
-
-            win32gui.EnumWindows(enum_windows_callback, all_explorer_windows)
-
-            if not all_explorer_windows:
-                logger.warning("No Explorer windows with valid paths found")
-                return None
-
-            # Try to find the most recently active window
-            active_window = win32gui.GetForegroundWindow()
-
+    def save_config(self) -> None:
+        """Persist the current roots and display settings."""
+        if self.skip_depth_var is not None:
             try:
-                _, _active_pid = win32process.GetWindowThreadProcessId(active_window)
-                for window in all_explorer_windows:
-                    if window['hwnd'] == active_window:
-                        logger.debug(f"Found active Explorer window: {window['path']}")
-                        return window['path']
-            except Exception as e:
-                logger.warning(f"Error getting active window info: {e}")
-
-            if all_explorer_windows:
-                first_window = all_explorer_windows[0]
-                logger.debug(f"Using first Explorer window: {first_window['path']}")
-                return first_window['path']
-
-            logger.warning("No active Explorer window with valid path found")
-            return None
-
-        except Exception as e:
-            logger.error(f"Error getting active Explorer path: {e}")
-            return None
+                self.config.skip_depth = max(0, int(self.skip_depth_var.get()))
+            except (tk.TclError, ValueError):
+                logger.warning("Invalid skip depth in the UI; keeping %d", self.config.skip_depth)
+                self.skip_depth_var.set(self.config.skip_depth)
+        if self.prune_var is not None:
+            self.config.prune_email_branches = bool(self.prune_var.get())
+        try:
+            save_config(self.config_file, self.config)
+            self.status_var.set("Configuration saved")
+        except OSError as exc:
+            logger.error("Error saving configuration: %s", exc)
+            messagebox.showerror("Error", f"Error saving configuration: {exc}", parent=self.window)
 
     # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------
 
-    def setup_ui(self):
-        """Build the widgets inside the Toplevel window."""
+    def setup_ui(self) -> None:
+        """Build the notebook and both tabs inside the Toplevel window."""
         parent = self.window
         assert parent is not None
 
-        # Main frame
-        main_frame = ttk.Frame(parent, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-
-        # Configure grid weights
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(3, weight=1)
 
-        # Folder selection section
-        ttk.Label(main_frame, text="Root Folder:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        container = ttk.Frame(parent, padding="10")
+        container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(0, weight=1)
 
-        folder_frame = ttk.Frame(main_frame)
-        folder_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-        folder_frame.columnconfigure(0, weight=1)
+        self.notebook = ttk.Notebook(container)
+        self.notebook.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        self.folder_entry = ttk.Entry(folder_frame, textvariable=self.folder_var, width=50)
-        self.folder_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 5))
+        search_tab = ttk.Frame(self.notebook, padding="10")
+        folders_tab = ttk.Frame(self.notebook, padding="10")
+        # Search / Access first, so it is the tab selected on open.
+        self.notebook.add(search_tab, text="Search / Access")
+        self.notebook.add(folders_tab, text="Folders")
+        self.notebook.select(search_tab)
 
-        ttk.Button(folder_frame, text="Browse", command=self.browse_folder).grid(row=0, column=1)
+        self._build_search_tab(search_tab)
+        self._build_folders_tab(folders_tab)
 
-        # Scan button
-        ttk.Button(main_frame, text="Scan Folder Structure",
-                   command=self.scan_folder_structure).grid(row=2, column=0, columnspan=2, pady=10)
+        status_bar = ttk.Label(container, textvariable=self.status_var, relief=tk.SUNKEN)
+        status_bar.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
 
-        # Search section
-        search_frame = ttk.LabelFrame(main_frame, text="Search Folders", padding="10")
-        search_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
-        search_frame.columnconfigure(0, weight=1)
-        search_frame.rowconfigure(1, weight=1)
+    def _build_search_tab(self, tab: ttk.Frame) -> None:
+        """Search box, results list, and the double-click-to-open binding."""
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(2, weight=1)
 
-        # Search input
-        search_input_frame = ttk.Frame(search_frame)
-        search_input_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=5)
-        search_input_frame.columnconfigure(0, weight=1)
+        input_frame = ttk.Frame(tab)
+        input_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=5)
+        input_frame.columnconfigure(0, weight=1)
 
-        ttk.Label(search_input_frame, text="Search word:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(input_frame, text="Search word(s):").grid(row=0, column=0, sticky=tk.W)
 
-        self.search_entry = ttk.Entry(search_input_frame, textvariable=self.search_var, width=40)
+        self.search_entry = ttk.Entry(input_frame, textvariable=self.search_var, width=40)
         self.search_entry.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
-
-        # Search scope option
-        scope_frame = ttk.Frame(search_input_frame)
-        scope_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-
-        self.scope_checkbox = ttk.Checkbutton(
-            scope_frame,
-            text="Search in current Explorer window path",
-            variable=self.search_in_explorer_var,
-            command=self.update_search_scope
-        )
-        self.scope_checkbox.grid(row=0, column=0, sticky=tk.W)
-
-        # Bind Enter key to search function
         self.search_entry.bind('<Return>', lambda event: self.search_folders())
 
-        ttk.Button(search_input_frame, text="Search",
+        ttk.Button(input_frame, text="Search",
                    command=self.search_folders).grid(row=1, column=1, padx=(5, 0))
 
-        # Results section
-        ttk.Label(search_frame, text="Results:").grid(row=1, column=0, sticky=tk.W, pady=(10, 5))
+        ttk.Label(tab, text="Results (double-click to open):").grid(
+            row=1, column=0, sticky=tk.W, pady=(10, 5))
 
-        # Results listbox with scrollbar
-        list_frame = ttk.Frame(search_frame)
+        list_frame = ttk.Frame(tab)
         list_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
@@ -425,306 +274,182 @@ class FolderSearcher:
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.results_listbox.configure(yscrollcommand=scrollbar.set)
 
-        # Bind double-click event
         self.results_listbox.bind('<Double-Button-1>', self.open_folder)
 
-        # Status bar
-        status_bar = ttk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN)
-        status_bar.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+    def _build_folders_tab(self, tab: ttk.Frame) -> None:
+        """Root management, display settings, and the scan trigger."""
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(1, weight=1)
 
-    def browse_folder(self):
-        """Open folder browser dialog."""
+        ttk.Label(tab, text="Root folders to scan:").grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
+
+        list_frame = ttk.Frame(tab)
+        list_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        list_frame.columnconfigure(0, weight=1)
+        list_frame.rowconfigure(0, weight=1)
+
+        self.roots_listbox = tk.Listbox(list_frame, height=8)
+        self.roots_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        roots_scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.roots_listbox.yview)
+        roots_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.roots_listbox.configure(yscrollcommand=roots_scrollbar.set)
+
+        button_frame = ttk.Frame(tab)
+        button_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=10)
+
+        ttk.Button(button_frame, text="Add Root", command=self.add_root).grid(row=0, column=0, padx=(0, 5))
+        ttk.Button(button_frame, text="Remove Selected", command=self.remove_root).grid(row=0, column=1, padx=5)
+        ttk.Button(button_frame, text="Scan All Roots", command=self.scan_all_roots).grid(row=0, column=2, padx=5)
+
+        options_frame = ttk.LabelFrame(tab, text="Display", padding="10")
+        options_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=5)
+
+        ttk.Label(options_frame, text="Skip path depth:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Spinbox(options_frame, from_=0, to=20, width=5,
+                    textvariable=self.skip_depth_var).grid(row=0, column=1, sticky=tk.W, padx=(5, 20))
+
+        ttk.Checkbutton(options_frame, text="Prune email branches to the owning item",
+                        variable=self.prune_var).grid(row=0, column=2, sticky=tk.W)
+
+        ttk.Button(options_frame, text="Save Config",
+                   command=self.save_config).grid(row=0, column=3, sticky=tk.W, padx=(20, 0))
+
+        self.refresh_roots_listbox()
+
+    def refresh_roots_listbox(self) -> None:
+        """Redraw the roots list from the current config."""
+        if self.roots_listbox is None:
+            return
+        self.roots_listbox.delete(0, tk.END)
+        for root_path in self.config.root_paths:
+            self.roots_listbox.insert(tk.END, root_path)
+
+    # ------------------------------------------------------------------
+    # Root management
+    # ------------------------------------------------------------------
+
+    def add_root(self) -> None:
+        """Pick a folder and add it as a root."""
         folder = filedialog.askdirectory(title="Select Root Folder", parent=self.window)
-        if folder:
-            self.folder_var.set(folder)
-            self.root_folder = folder
-            self.save_config()
-            logger.info(f"Selected folder: {folder}")
+        if not folder:
+            return
+        normalized = normalize_root(folder)
+        if normalized in self.config.root_paths:
+            self.status_var.set(f"Root already configured: {normalized}")
+            return
+        self.config.root_paths.append(normalized)
+        self.refresh_roots_listbox()
+        self.save_config()
+        self.status_var.set(f"Added root: {normalized}. Run Scan All Roots to index it.")
+        logger.info("Added root: %s", normalized)
 
-    def update_search_scope(self):
-        """Update the search scope based on checkbox state."""
-        self.search_in_explorer = self.search_in_explorer_var.get()
-        if self.search_in_explorer:
-            explorer_path = self.get_active_explorer_path()
-            if explorer_path:
-                logger.debug(f"Explorer path detected: {explorer_path}")
-                try:
-                    if os.path.exists(explorer_path):
-                        contents = os.listdir(explorer_path)
-                        logger.debug(f"Contents of {explorer_path}: {contents[:10]}...")
-                    else:
-                        logger.warning(f"Explorer path does not exist: {explorer_path}")
-                except Exception as e:
-                    logger.error(f"Error listing directory contents: {e}")
-
-                self.status_var.set(f"Search scope: Current Explorer path ({explorer_path})")
-            else:
-                self.status_var.set("Search scope: Current Explorer path (not found)")
-                self.search_in_explorer_var.set(False)
-                self.search_in_explorer = False
-                self.debug_explorer_windows()
-        else:
-            self.status_var.set("Search scope: Full scanned structure")
-        logger.debug(f"Search scope updated: {'Explorer path' if self.search_in_explorer else 'Full structure'}")
-
-    def debug_explorer_windows(self):
-        """Debug method to show all Explorer windows and their titles."""
-        try:
-            logger.debug("=== DEBUG: Explorer Windows Detection ===")
-
-            explorer_processes = []
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                try:
-                    if proc.info['name'] and proc.info['name'].lower() == 'explorer.exe':
-                        explorer_processes.append(proc)
-                        logger.debug(f"Found Explorer process: PID {proc.pid}")
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-
-            if not explorer_processes:
-                logger.warning("No Explorer processes found")
-                return
-
-            all_windows = []
-
-            def enum_windows_callback(hwnd, windows):
-                if win32gui.IsWindowVisible(hwnd):
-                    try:
-                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
-                        title = win32gui.GetWindowText(hwnd)
-                        if title and any(proc.pid == pid for proc in explorer_processes):
-                            windows.append({
-                                'hwnd': hwnd,
-                                'title': title,
-                                'pid': pid
-                            })
-                            logger.debug(f"Explorer window: '{title}' (PID: {pid})")
-                    except Exception as e:
-                        logger.debug(f"Error processing window {hwnd}: {e}")
-                return True
-
-            win32gui.EnumWindows(enum_windows_callback, all_windows)
-
-            logger.debug(f"Total Explorer windows found: {len(all_windows)}")
-            logger.debug("=== END DEBUG ===")
-
-        except Exception as e:
-            logger.error(f"Error in debug_explorer_windows: {e}")
+    def remove_root(self) -> None:
+        """Drop the selected root from the config."""
+        if self.roots_listbox is None:
+            return
+        selection = self.roots_listbox.curselection()
+        if not selection:
+            self.status_var.set("Select a root to remove")
+            return
+        removed = self.config.root_paths.pop(selection[0])
+        self.refresh_roots_listbox()
+        self.save_config()
+        self.status_var.set(f"Removed root: {removed}. Run Scan All Roots to rebuild the index.")
+        logger.info("Removed root: %s", removed)
 
     # ------------------------------------------------------------------
-    # Scan / load / save folder structure
+    # Scan / load
     # ------------------------------------------------------------------
 
-    def scan_folder_structure(self):
-        """Scan the folder structure and save it to file."""
-        root_folder = self.folder_var.get()
-        if not root_folder or not os.path.exists(root_folder):
-            messagebox.showerror("Error", "Please select a valid folder", parent=self.window)
+    def scan_all_roots(self) -> None:
+        """Rebuild the index across every configured root."""
+        if not self.config.root_paths:
+            messagebox.showerror("Error", "Add at least one root folder first", parent=self.window)
             return
 
         try:
             self.status_var.set("Scanning folder structure...")
             self.root.update()
 
-            self.folder_structure = {}
+            count = self.index.scan(self.config.root_paths)
+            self.index.save(self.config.structure_file)
 
-            for root, dirs, files in os.walk(root_folder):
-                rel_path = os.path.relpath(root, root_folder)
-                if rel_path == '.':
-                    rel_path = ''
-
-                folder_key = os.path.normpath(rel_path) if rel_path else 'root'
-
-                if folder_key not in self.folder_structure:
-                    self.folder_structure[folder_key] = []
-
-                    for dir_name in dirs:
-                        if folder_key == 'root':
-                            full_subdir_path = dir_name
-                        else:
-                            full_subdir_path = os.path.join(folder_key, dir_name)
-                        self.folder_structure[folder_key].append(full_subdir_path)
-
-            self.save_structure()
-
-            self.status_var.set(f"Scan complete. Found {len(self.folder_structure)} folders")
-            logger.info(f"Folder structure scanned and saved. Total folders: {len(self.folder_structure)}")
-
-        except Exception as e:
-            logger.error(f"Error scanning folder structure: {e}")
-            messagebox.showerror("Error", f"Error scanning folder structure: {e}", parent=self.window)
+            self.status_var.set(
+                f"Scan complete. {count} folders across {len(self.index.roots)} root(s)")
+            logger.info("Scan complete: %d folders", count)
+        except OSError as exc:
+            logger.error("Error scanning folder structure: %s", exc)
+            messagebox.showerror("Error", f"Error scanning folder structure: {exc}", parent=self.window)
             self.status_var.set("Scan failed")
 
-    def save_structure(self):
-        """Save folder structure to text file."""
-        try:
-            with open(self.structure_file, 'w', encoding='utf-8') as f:
-                for folder_path, subdirs in sorted(self.folder_structure.items()):
-                    f.write(f"{folder_path}\n")
-                    for subdir in sorted(subdirs):
-                        f.write(f"  {subdir}\n")
-                    f.write("\n")
-            logger.info(f"Folder structure saved to {self.structure_file}")
-        except Exception as e:
-            logger.error(f"Error saving structure: {e}")
+    def load_structure(self) -> None:
+        """Load the saved index without rescanning.
 
-    def load_structure(self):
-        """Load folder structure from file."""
-        if not os.path.exists(self.structure_file):
-            self.status_var.set("No structure file found. Please scan a folder.")
+        The first configured root doubles as the legacy root, so a
+        pre-multi-root ``folder_structure.txt`` of relative paths still
+        resolves to openable absolute paths.
+        """
+        legacy_root = self.config.root_paths[0] if self.config.root_paths else None
+        try:
+            count = self.index.load(self.config.structure_file, legacy_root=legacy_root)
+        except OSError as exc:
+            logger.error("Error loading structure: %s", exc)
+            self.status_var.set("Error loading structure file")
             return
 
-        try:
-            self.folder_structure = {}
-            current_folder = ""
-
-            with open(self.structure_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('  '):
-                        current_folder = line
-                        current_folder = os.path.normpath(current_folder)
-                        if current_folder not in self.folder_structure:
-                            self.folder_structure[current_folder] = []
-                    elif line.startswith('  ') and current_folder:
-                        subdir = line[2:]
-                        subdir = os.path.normpath(subdir)
-                        if subdir not in self.folder_structure[current_folder]:
-                            self.folder_structure[current_folder].append(subdir)
-
-            self.status_var.set(f"Structure loaded. {len(self.folder_structure)} folders available")
-            logger.info(f"Folder structure loaded from {self.structure_file}")
-            sample_entries = list(self.folder_structure.items())[:3]
-            for folder_path, subdirs in sample_entries:
-                logger.debug(f"Folder: '{folder_path}' -> Subdirs: {subdirs[:3]}")
-
-        except Exception as e:
-            logger.error(f"Error loading structure: {e}")
-            self.status_var.set("Error loading structure file")
+        if count:
+            self.status_var.set(f"Index loaded. {count} folders available")
+        else:
+            self.status_var.set("No index found. Add roots on the Folders tab, then Scan All Roots.")
 
     # ------------------------------------------------------------------
     # Search
     # ------------------------------------------------------------------
 
-    def search_folders(self):
-        """Search for folders containing the specified word(s)."""
+    def search_folders(self) -> None:
+        """Search the loaded index and render the results."""
         search_input = self.search_var.get().strip()
         if not search_input:
             messagebox.showwarning("Warning", "Please enter a search term", parent=self.window)
             return
 
-        search_input_processed = search_input.replace(';', ' ')
-        search_terms = [term.strip().lower() for term in search_input_processed.split() if term.strip()]
-        if not search_terms:
-            messagebox.showwarning("Warning", "Please enter valid search term(s)", parent=self.window)
+        if not len(self.index):
+            messagebox.showwarning(
+                "Warning",
+                "No index loaded. Add roots on the Folders tab, then Scan All Roots.",
+                parent=self.window,
+            )
             return
 
-        try:
-            self.status_var.set("Searching...")
-            self.root.update()
+        self.status_var.set("Searching...")
+        self.root.update()
 
-            self.results_listbox.delete(0, tk.END)
+        self.results = search(
+            self.index,
+            search_input,
+            skip_depth=self.config.skip_depth,
+            prune_email_branches=self.config.prune_email_branches,
+        )
 
-            matching_folders: set = set()
+        self.results_listbox.delete(0, tk.END)
+        for result in self.results:
+            self.results_listbox.insert(tk.END, result.display_path)
 
-            self.search_in_explorer = self.search_in_explorer_var.get()
+        scope = "pruning on" if self.config.prune_email_branches else "pruning off"
+        self.status_var.set(f"Found {len(self.results)} matching folders ({scope})")
+        logger.info("Search for '%s' returned %d results (%s)", search_input, len(self.results), scope)
 
-            if self.search_in_explorer:
-                explorer_path = self.get_active_explorer_path()
-                if not explorer_path:
-                    messagebox.showwarning(
-                        "Warning",
-                        "No active Explorer window found. Searching in full structure instead.",
-                        parent=self.window,
-                    )
-                    self.search_in_explorer_var.set(False)
-                    self.search_in_explorer = False
-                    self._search_in_full_structure(search_terms, matching_folders)
-                else:
-                    self._search_in_explorer_path(search_terms, explorer_path, matching_folders)
-            else:
-                if not self.folder_structure:
-                    messagebox.showwarning(
-                        "Warning",
-                        "No folder structure loaded. Please scan a folder first.",
-                        parent=self.window,
-                    )
-                    return
-                self._search_in_full_structure(search_terms, matching_folders)
-
-            matching_folders_sorted = sorted(list(matching_folders))
-
-            for folder in matching_folders_sorted:
-                self.results_listbox.insert(tk.END, folder)
-
-            scope_text = "Explorer path" if self.search_in_explorer else "full structure"
-            self.status_var.set(f"Found {len(matching_folders_sorted)} matching folders in {scope_text}")
-            logger.info(f"Search completed. Found {len(matching_folders_sorted)} folders containing '{search_input}' in {scope_text}")
-
-        except Exception as e:
-            logger.error(f"Error searching folders: {e}")
-            messagebox.showerror("Error", f"Error searching folders: {e}", parent=self.window)
-            self.status_var.set("Search failed")
-
-    def _search_in_full_structure(self, search_terms: List[str], matching_folders: set):
-        """Search in the full scanned folder structure."""
-        all_relative_paths = set()
-        for folder_path, subdirs in self.folder_structure.items():
-            if folder_path != 'root':
-                all_relative_paths.add(folder_path)
-            for subdir in subdirs:
-                all_relative_paths.add(subdir)
-
-        for rel_path in all_relative_paths:
-            full_path = os.path.join(self.root_folder, rel_path)
-            if all(term in full_path.lower() for term in search_terms):
-                matching_folders.add(rel_path)
-                logger.debug(f"Found match: '{rel_path}'")
-
-    def _search_in_explorer_path(self, search_terms: List[str], explorer_path: str, matching_folders: set):
-        """Search only in the current Explorer window path."""
-        try:
-            logger.debug(f"Starting search in Explorer path: {explorer_path}")
-            logger.debug(f"Search terms: {search_terms}")
-
-            for root, dirs, files in os.walk(explorer_path):
-                if all(term in root.lower() for term in search_terms):
-                    matching_folders.add(root)
-                    logger.debug(f"Found matching directory by full path: '{root}'")
-
-                for dir_name in dirs:
-                    full_path = os.path.join(root, dir_name)
-                    if all(term in full_path.lower() for term in search_terms):
-                        matching_folders.add(full_path)
-                        logger.debug(f"Found matching subdirectory by full path: '{full_path}'")
-
-            logger.debug(f"Search completed in Explorer path: {explorer_path}")
-
-        except Exception as e:
-            logger.error(f"Error searching in Explorer path: {e}")
-            raise
-
-    def open_folder(self, event):
-        """Open the selected folder in Windows Explorer."""
+    def open_folder(self, event) -> None:
+        """Open the selected result in Windows Explorer."""
         selection = self.results_listbox.curselection()
         if not selection:
             return
 
-        folder_path = self.results_listbox.get(selection[0])
-
-        logger.info(f"Selected folder path: '{folder_path}'")
-
-        if os.path.isabs(folder_path):
-            full_path = folder_path
-        else:
-            logger.info(f"Root folder: '{self.root_folder}'")
-            if folder_path == 'root':
-                full_path = self.root_folder
-            else:
-                full_path = os.path.join(self.root_folder, folder_path)
-
-        full_path = os.path.normpath(full_path)
-        logger.info(f"Constructed full path: '{full_path}'")
+        result = self.results[selection[0]]
+        # Results are stored absolute, so display trimming never affects this.
+        full_path = os.path.normpath(result.absolute_path)
+        logger.info("Opening folder: %s", full_path)
 
         if not os.path.exists(full_path):
             messagebox.showerror("Error", f"Folder does not exist: {full_path}", parent=self.window)
@@ -732,9 +457,8 @@ class FolderSearcher:
 
         try:
             os.startfile(full_path)
-            logger.info(f"Opened folder: {full_path}")
-        except Exception as e:
-            logger.error(f"Error opening folder: {e}")
+        except OSError as exc:
+            logger.error("Error opening folder: %s", exc)
             try:
                 subprocess.run(
                     ['explorer', full_path],
@@ -742,10 +466,10 @@ class FolderSearcher:
                     shell=True,
                     creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
                 )
-                logger.info(f"Opened folder using subprocess: {full_path}")
-            except Exception as e2:
-                logger.error(f"Error opening folder with subprocess: {e2}")
-                messagebox.showerror("Error", f"Error opening folder: {e2}", parent=self.window)
+                logger.info("Opened folder using subprocess: %s", full_path)
+            except (OSError, subprocess.SubprocessError) as exc2:
+                logger.error("Error opening folder with subprocess: %s", exc2)
+                messagebox.showerror("Error", f"Error opening folder: {exc2}", parent=self.window)
 
     # ------------------------------------------------------------------
     # Single-instance lock and pystray setup
@@ -781,12 +505,12 @@ class FolderSearcher:
         self.root.withdraw()
 
         # Now that a Tk root exists, build tk variables
-        self.folder_var = tk.StringVar(value=self.root_folder)
         self.search_var = tk.StringVar()
-        self.search_in_explorer_var = tk.BooleanVar(value=False)
+        self.skip_depth_var = tk.IntVar(value=self.config.skip_depth)
+        self.prune_var = tk.BooleanVar(value=self.config.prune_email_branches)
         self.status_var = tk.StringVar(value="Ready")
 
-        # Load persisted structure (uses status_var)
+        # Load the persisted index up front so Search / Access works on open
         self.load_structure()
 
         self.root.mainloop()
@@ -796,13 +520,13 @@ class FolderSearcher:
         except Exception:
             pass
 
-    def run(self):
+    def run(self) -> None:
         """Start the tray application. Blocks until Quit."""
         logger.info("Starting Folder Searcher (tray)")
         self._icon.run(setup=self._setup_pystray)
 
 
-def main():
+def main() -> None:
     """Main entry point for the application."""
     app = FolderSearcher()
     app.run()

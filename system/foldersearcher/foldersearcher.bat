@@ -1,6 +1,9 @@
 @echo off
 REM Activates the virtual environment and runs foldersearcher.py
 
+REM Run from this script's own folder so foldersearcher_core.py resolves
+cd /d "%~dp0"
+
 REM Path to your virtual environment
 set VENV_DIR=E:\automation\automation\.venv\
 
