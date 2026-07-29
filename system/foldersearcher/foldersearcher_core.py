@@ -76,6 +76,17 @@ def normalize_roots(paths: Iterable[str]) -> List[str]:
     return result
 
 
+def join_path(parent: str, name: str) -> str:
+    """Join a normalized parent with a child name.
+
+    A drive root normalizes to "E:/" (the trailing slash is significant
+    there), so a naive f"{parent}/{name}" would yield "E://foo" while the
+    walk key for that same folder is "E:/foo" — two spellings of one path,
+    which shows up as duplicate result rows.
+    """
+    return f"{parent.rstrip('/')}/{name}"
+
+
 def is_email_folder_name(name: str) -> bool:
     """True when a folder's own name looks like an email address."""
     return bool(EMAIL_FOLDER_RE.match(name.strip()))
@@ -216,7 +227,7 @@ class FolderIndex:
             logger.info("Scanning root: %s", root)
             for current, dirs, _files in os.walk(root):
                 key = normalize_root(current)
-                children = [f"{key}/{name}" for name in dirs]
+                children = [join_path(key, name) for name in dirs]
                 # os.walk yields each directory once, but a root nested
                 # inside another root would revisit it — merge rather than
                 # overwrite so neither pass loses children.
@@ -316,7 +327,7 @@ class FolderIndex:
             cleaned = relative.strip().replace("\\", "/").strip("/")
             if not cleaned or cleaned == "root":
                 return root
-            return f"{root}/{cleaned}"
+            return join_path(root, cleaned)
 
         current_folder = ""
         for line in lines:

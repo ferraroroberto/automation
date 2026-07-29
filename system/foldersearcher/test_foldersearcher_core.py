@@ -38,6 +38,22 @@ class TestRootNormalization(unittest.TestCase):
         self.assertEqual(roots, ["E:/b", "E:/a"])
 
 
+class TestJoinPath(unittest.TestCase):
+    def test_ordinary_parent(self):
+        self.assertEqual(core.join_path("E:/docs", "clientes"), "E:/docs/clientes")
+
+    def test_drive_root_does_not_double_the_separator(self):
+        # A drive root keeps its trailing slash, so a naive join would give
+        # "E://clientes" and split one folder into two result rows.
+        self.assertEqual(core.join_path("E:/", "clientes"), "E:/clientes")
+
+    def test_drive_root_child_matches_the_walk_key_spelling(self):
+        self.assertEqual(
+            core.join_path(core.normalize_root("E:\\"), "clientes"),
+            core.normalize_root("E:\\clientes"),
+        )
+
+
 class TestConfigMigration(unittest.TestCase):
     def test_legacy_root_folder_migrates(self):
         config = core.FolderSearcherConfig.from_dict(
