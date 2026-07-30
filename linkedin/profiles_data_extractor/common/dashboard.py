@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from loaders import load_config, load_excel_data  # noqa: F401 — re-exported for callers
+from _lib import generate_color_gradient
 
 # Page config is now handled in main.py
 
@@ -110,25 +111,6 @@ def create_contact_chart(df_filtered, df_all, group_col):
 
     # Return stats sorted by Total_People descending for tables
     return fig, stats.sort_values('Total_People', ascending=False)
-
-def generate_color_gradient(start_hex, end_hex, n):
-    """Generate a gradient of n colors between start_hex and end_hex."""
-    if n < 1: return []
-    if n == 1: return [start_hex]
-    
-    def hex_to_rgb(h):
-        return tuple(int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
-    
-    start_rgb = hex_to_rgb(start_hex)
-    end_rgb = hex_to_rgb(end_hex)
-    
-    colors = []
-    for i in range(n):
-        ratio = i / (n - 1)
-        rgb = tuple(int(start_rgb[j] + (end_rgb[j] - start_rgb[j]) * ratio) for j in range(3))
-        colors.append('#{:02x}{:02x}{:02x}'.format(*rgb))
-        
-    return colors
 
 def main(df_filtered, df_all, filter_params=None):
     """Main dashboard function that orchestrates the Streamlit app."""

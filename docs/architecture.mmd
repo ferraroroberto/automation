@@ -22,7 +22,7 @@ flowchart TB
     EXCEL["excel/\naccounting_stripe/"]
     HTML["html/\ncountdown_timer.html"]
     SMARTLIFE["smart_life/\ndevice automation (despacho_switch.bat, devices.sample.json)"]
-    SYSTEM["system/\nkeycaster · quickdeck/ · textexpander/ · wifi/ ·\nmarkdown_preview · mouse_mover · apple/ ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests)"]
+    SYSTEM["system/\nkeycaster · quickdeck/ · textexpander/ · wifi/ ·\nmarkdown_preview · mouse_mover · apple/ ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests) ·\n_lib/single_instance.py (shared Windows-mutex single-instance guard,\nused by mouse_mover.py + foldersearcher.py)"]
   end
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains
@@ -59,7 +59,13 @@ flowchart TB
     CHECKIP["check_ip/\nreverse-image search (config.py holds Imgur + SerpAPI keys)"]
     OPENPROF["open_profiles/\nExcel-driven profile/company page opener"]
     PROFEXTRACT["profiles_data_extractor/\nDevTools extraction + common/dashboard.py\n(Streamlit + Plotly dashboard) + Excel formatting"]
+    PELIB["common/_lib.py\nshared fuzzy search + Excel save/format + color gradient,\nused by dataentry/reachout/history/dashboard"]
+    PELOG["common/_logging_setup.py\nshared logging bootstrap (history_manager.py, excel_format_manager.py)"]
+    PECHROME["devtools/_chrome_client.py\nshared ChromeDevToolsClient + window-activation helpers,\nused by all 3 devtools scripts"]
   end
+  PROFEXTRACT --> PELIB
+  PROFEXTRACT --> PELOG
+  PROFEXTRACT --> PECHROME
   ENV --> CHECKIP
   CHECKIP --> IMGUR["Imgur API"]
   CHECKIP --> SERPAPI["SerpAPI (Google Lens)"]

@@ -6,148 +6,15 @@ and pagination information, eliminating the need for text copy-paste operations.
 """
 
 import json
-import logging
 import os
-import re
 import time
-import requests
-import websocket
-from typing import Optional, Dict, List, Tuple, Set, Any
+from typing import Optional, Dict, List, Set
 import pandas as pd
-import win32gui
-import win32con
 from pynput import keyboard
-from pathlib import Path
 
-# Configure logging to file only (INFO level) and console (WARNING+ only)
-log_file = Path(__file__).parent.parent / "logging.log"
-log_file.parent.mkdir(parents=True, exist_ok=True)
+from _chrome_client import ChromeDevToolsClient, setup_logging, activate_chrome
 
-# Create file handler for detailed logs
-file_handler = logging.FileHandler(log_file, encoding='utf-8')
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-
-# Create console handler for warnings and errors only
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.WARNING)
-console_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
-
-# Configure logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
-
-
-class ChromeDevToolsClient:
-    """Chrome DevTools Protocol client for DOM manipulation and data extraction."""
-
-    def __init__(self, debug_port: int = 9222):
-        """Initialize Chrome DevTools client.
-
-        Args:
-            debug_port: Chrome remote debugging port (default: 9222)
-        """
-        self.debug_port = debug_port
-        self.ws_url = None
-        self.ws = None
-        self.command_id = 1
-
-    def connect_to_chrome(self) -> bool:
-        """Connect to Chrome's debugging interface.
-
-        Returns:
-            True if connection successful, False otherwise
-        """
-        try:
-            # Get list of available tabs
-            response = requests.get(f"http://localhost:{self.debug_port}/json", timeout=5)
-            response.raise_for_status()
-            tabs = response.json()
-
-            # Find a LinkedIn tab
-            linkedin_tab = None
-            for tab in tabs:
-                if 'linkedin.com' in tab.get('url', '').lower():
-                    linkedin_tab = tab
-                    break
-
-            if not linkedin_tab:
-                # If no LinkedIn tab found, use the first tab
-                if tabs:
-                    linkedin_tab = tabs[0]
-                    logger.warning("⚠️  No LinkedIn tab found, using first available tab")
-                else:
-                    logger.error("❌ No Chrome tabs found. Make sure Chrome is running with --remote-debugging-port=9222 --remote-allow-origins=*")
-                    return False
-
-            self.ws_url = linkedin_tab['webSocketDebuggerUrl']
-            logger.info(f"✅ Connected to Chrome tab: {linkedin_tab.get('title', 'Unknown')}")
-
-            # Connect to WebSocket
-            self.ws = websocket.create_connection(self.ws_url)
-            logger.info("✅ WebSocket connection established")
-            return True
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"❌ Failed to connect to Chrome debugging port: {e}")
-            logger.error("   Make sure Chrome is running with: chrome.exe --remote-debugging-port=9222 --remote-allow-origins=*")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Failed to establish WebSocket connection: {e}")
-            return False
-
-    def send_command(self, method: str, params: Dict = None) -> Dict:
-        """Send a command to Chrome DevTools.
-
-        Args:
-            method: DevTools method name
-            params: Method parameters
-
-        Returns:
-            Response from DevTools
-        """
-        if not self.ws:
-            raise Exception("WebSocket not connected")
-
-        command = {
-            "id": self.command_id,
-            "method": method,
-            "params": params or {}
-        }
-
-        self.ws.send(json.dumps(command))
-        self.command_id += 1
-
-        # Receive response
-        response = json.loads(self.ws.recv())
-        if 'error' in response:
-            raise Exception(f"DevTools error: {response['error']}")
-
-        return response.get('result', {})
-
-    def evaluate_javascript(self, script: str) -> Any:
-        """Execute JavaScript in the page context.
-
-        Args:
-            script: JavaScript code to execute
-
-        Returns:
-            Result of JavaScript execution
-        """
-        result = self.send_command("Runtime.evaluate", {
-            "expression": script,
-            "returnByValue": True
-        })
-        return result.get('result', {}).get('value')
-
-    def close(self):
-        """Close the WebSocket connection."""
-        if self.ws:
-            self.ws.close()
-            self.ws = None
-            logger.info("🔌 WebSocket connection closed")
+logger = setup_logging(__name__)
 
 
 class LinkedInProfileSearchCheckerDevTools:
@@ -163,53 +30,6 @@ class LinkedInProfileSearchCheckerDevTools:
         self.keyboard_controller = keyboard.Controller()
         self.config = self.load_config(config_path)
         self.chrome = ChromeDevToolsClient(debug_port)
-
-    def find_chrome_window(self) -> Optional[int]:
-        """Find Chrome window handle using win32gui.
-
-        Returns:
-            Window handle (HWND) if found, None otherwise.
-        """
-        chrome_windows = []
-
-        def enum_handler(hwnd, windows):
-            if win32gui.IsWindowVisible(hwnd):
-                window_title = win32gui.GetWindowText(hwnd)
-                if "Google Chrome" in window_title:
-                    windows.append(hwnd)
-
-        try:
-            win32gui.EnumWindows(enum_handler, chrome_windows)
-            # Return the first Chrome window found
-            return chrome_windows[0] if chrome_windows else None
-        except Exception as e:
-            logger.error(f"❌ Error finding Chrome window: {e}")
-            return None
-
-    def activate_chrome(self) -> bool:
-        """Find and activate Chrome window.
-
-        Returns:
-            True if Chrome was found and activated, False otherwise.
-        """
-        hwnd = self.find_chrome_window()
-        if not hwnd:
-            logger.error("❌ Chrome window not found. Please open Chrome first.")
-            return False
-
-        try:
-            # Restore window if minimized
-            if win32gui.IsIconic(hwnd):
-                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-
-            # Bring window to foreground
-            win32gui.SetForegroundWindow(hwnd)
-            time.sleep(0.8)  # Wait for focus to settle
-            logger.info("✅ Chrome window activated")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Failed to activate Chrome window: {e}")
-            return False
 
     def load_config(self, config_path: str) -> Dict:
         """Load configuration from JSON file.
@@ -401,7 +221,7 @@ class LinkedInProfileSearchCheckerDevTools:
         time.sleep(5)
 
         # Activate Chrome window
-        if not self.activate_chrome():
+        if not activate_chrome():
             logger.error("❌ Could not activate Chrome. Please make sure Chrome is open.")
             return {}
 

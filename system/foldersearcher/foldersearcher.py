@@ -18,16 +18,19 @@ closing the window minimizes it back to the tray. Quit from the tray menu.
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import ctypes
 import logging
 import os
 import subprocess
 import sys
-from ctypes import wintypes
+from pathlib import Path
 from typing import List, Optional
 
 import pystray
 from PIL import Image, ImageDraw
+
+# _lib/ lives one level up (system/_lib/), alongside this package
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _lib.single_instance import acquire_named_mutex
 
 from foldersearcher_core import (
     FolderIndex,
@@ -61,11 +64,9 @@ class FolderSearcher:
     """
 
     _ICON_SIZE = 64
-    # Single-instance via a Windows named mutex. A fixed loopback TCP port is
-    # unreliable here: Windows reserves large high-port ranges (Hyper-V/WSL),
-    # so bind() can fail with WinError 10013 even when no instance is running.
+    # Single-instance via a Windows named mutex — see _lib/single_instance.py
+    # for why a fixed loopback TCP port is unreliable here.
     _MUTEX_NAME = "foldersearcher_singleton_v1"
-    _ERROR_ALREADY_EXISTS = 183
 
     def __init__(self):
         """Initialize the FolderSearcher application."""
@@ -481,11 +482,8 @@ class FolderSearcher:
         The mutex is released automatically when the process exits, so no
         explicit cleanup is needed.
         """
-        k = ctypes.windll.kernel32
-        k.CreateMutexW.restype = wintypes.HANDLE
-        k.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
-        self._mutex = k.CreateMutexW(None, True, self._MUTEX_NAME)
-        return k.GetLastError() != self._ERROR_ALREADY_EXISTS
+        self._mutex, acquired = acquire_named_mutex(self._MUTEX_NAME)
+        return acquired
 
     def _setup_pystray(self, icon: pystray.Icon) -> None:
         """Run on pystray's worker thread once the icon is visible.

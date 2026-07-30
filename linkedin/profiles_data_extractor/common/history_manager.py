@@ -3,28 +3,11 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 import pandas as pd
-import logging
 import openpyxl
 
-# Configure logging to file only (INFO level) and console (WARNING+ only)
-log_file = Path(__file__).parent.parent / "logging.log"
-log_file.parent.mkdir(parents=True, exist_ok=True)
+from _logging_setup import setup_logging
 
-# Create file handler for detailed logs
-file_handler = logging.FileHandler(log_file, encoding='utf-8')
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-
-# Create console handler for warnings and errors only
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.WARNING)
-console_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
-
-# Configure logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+logger = setup_logging(__name__)
 
 def load_config():
     """Load configuration from the JSON file in the same directory."""

@@ -33,12 +33,13 @@ import threading
 import time
 import tkinter as tk
 import ctypes
-from ctypes import wintypes
 from typing import Optional
 
 import pyautogui
 import pystray
 from PIL import Image, ImageDraw
+
+from _lib.single_instance import acquire_named_mutex
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -167,11 +168,9 @@ class MouseMoverApp:
     """
 
     _ICON_SIZE = 64
-    # Single-instance via a Windows named mutex. A fixed loopback TCP port is
-    # unreliable here: Windows reserves large high-port ranges (Hyper-V/WSL),
-    # so bind() can fail with WinError 10013 even when no instance is running.
+    # Single-instance via a Windows named mutex — see _lib/single_instance.py
+    # for why a fixed loopback TCP port is unreliable here.
     _MUTEX_NAME = "mouse_mover_singleton_v1"
-    _ERROR_ALREADY_EXISTS = 183
 
     def __init__(self, args: argparse.Namespace):
         self.args = args
@@ -294,11 +293,8 @@ class MouseMoverApp:
         The mutex is released automatically when the process exits, so no
         explicit cleanup is needed.
         """
-        k = ctypes.windll.kernel32
-        k.CreateMutexW.restype = wintypes.HANDLE
-        k.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
-        self._mutex = k.CreateMutexW(None, True, self._MUTEX_NAME)
-        return k.GetLastError() != self._ERROR_ALREADY_EXISTS
+        self._mutex, acquired = acquire_named_mutex(self._MUTEX_NAME)
+        return acquired
 
     def _setup_pystray(self, icon: pystray.Icon) -> None:
         """Run on pystray's worker thread once the icon is visible."""

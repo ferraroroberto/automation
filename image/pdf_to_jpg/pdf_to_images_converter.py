@@ -11,6 +11,13 @@ Features:
 - Console logging (no file logging)
 - Parallel processing support
 - Progress tracking
+
+Related but intentionally separate from ``image/carrousel_pdf_to_jpg.py``,
+which is a pdf2image/poppler-based batch converter with recursive folder
+scanning and stale-image cleanup, meant to be run from this repo's own venv
+against a folder tree rather than distributed. Pick this module when you need
+a distributable single-file exe (see ``README_PDF_Converter.md``); pick the
+other for ad-hoc batch runs.
 """
 
 import os

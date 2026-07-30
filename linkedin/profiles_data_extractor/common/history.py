@@ -6,6 +6,7 @@ import openpyxl
 # Import history manager functions
 from history_manager import get_history_file_path
 from loaders import load_config
+from _lib import fuzzy_search_names
 
 def load_history_data():
     """Load history data from the history Excel file."""
@@ -67,96 +68,6 @@ def delete_history_records(indices_to_delete):
     
     except Exception as e:
         return False, f"Error deleting records: {e}"
-
-def fuzzy_search_names(df, search_query, max_results=50):
-    """
-    Perform intelligent fuzzy search on names with multi-word support and relevance ranking.
-
-    Adapted from dataentry.py for history search.
-    """
-    import re
-    import difflib
-
-    if not search_query.strip() or 'name' not in df.columns:
-        return df.head(0)
-
-    # Split search query into words and normalize
-    search_words = [word.lower().strip() for word in re.split(r'\s+', search_query.strip()) if word.strip()]
-    if not search_words:
-        return df.head(0)
-
-    results = []
-
-    for idx, row in df.iterrows():
-        name = str(row.get('name', '')).lower().strip()
-        if not name:
-            continue
-
-        # Split name into words for comparison
-        name_words = re.split(r'\s+', name)
-
-        # Calculate relevance score using multi-strategy matching
-        total_score = 0
-        matched_words = 0
-
-        for search_word in search_words:
-            best_score = 0
-
-            for name_word in name_words:
-                name_word_lower = name_word.lower()
-
-                # Strategy 1: Exact match (highest priority)
-                if search_word == name_word_lower:
-                    best_score = 100
-                    break
-
-                # Strategy 2: Partial substring match
-                elif search_word in name_word_lower:
-                    score = 80 * (len(search_word) / len(name_word_lower))
-                    if score > best_score:
-                        best_score = score
-
-                # Strategy 3: Fuzzy matching for typos/similar words
-                else:
-                    ratio = difflib.SequenceMatcher(None, search_word, name_word_lower).ratio()
-                    if ratio > 0.8:  # Only high similarity matches
-                        score = 60 * ratio
-                        if score > best_score:
-                            best_score = score
-
-                    # Strategy 4: Prefix matching for abbreviations
-                    if len(search_word) >= 2 and len(name_word_lower) > len(search_word):
-                        if name_word_lower.startswith(search_word):
-                            score = 70 * (len(search_word) / len(name_word_lower))
-                            if score > best_score:
-                                best_score = score
-
-            # Accumulate score if we found any match for this search word
-            if best_score > 0:
-                total_score += best_score
-                matched_words += 1
-
-        # Only include results that match at least one search word
-        if matched_words > 0:
-            # Apply final scoring bonuses
-            word_match_bonus = matched_words * 10
-            exact_bonus = 20 if any(
-                any(search_word == name_word.lower() for name_word in name_words)
-                for search_word in search_words
-            ) else 0
-
-            final_score = total_score + word_match_bonus + exact_bonus
-            results.append((idx, final_score, row))
-
-    # Sort by score (descending) and return top results
-    results.sort(key=lambda x: x[1], reverse=True)
-
-    # Extract the rows and return as DataFrame
-    if results:
-        top_results = results[:max_results]
-        return pd.DataFrame([row for _, _, row in top_results])
-    else:
-        return df.head(0)
 
 def main():
     """Main history viewer function."""
