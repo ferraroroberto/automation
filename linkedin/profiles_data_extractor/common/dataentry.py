@@ -1,28 +1,12 @@
-import logging
 from pathlib import Path
 from datetime import datetime
-import re
-import difflib
-
-log = logging.getLogger(__name__)
 
 import pandas as pd
 import streamlit as st
 
-# Import Excel formatting functions
-from excel_format_manager import convert_url_columns_to_hyperlinks, apply_format_from_json
 from history_manager import log_history
 from loaders import load_config, load_excel_data
-
-def save_to_excel(df, file_path):
-    """Save DataFrame to Excel file."""
-    try:
-        with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='Sheet1', index=False)
-        return True
-    except Exception as e:
-        st.error(f"Error saving to Excel: {e}")
-        return False
+from _lib import fuzzy_search_names, save_to_excel, apply_excel_formatting
 
 def update_existing_record(df, original_name, record_data):
     """Update an existing record by original name."""
@@ -38,151 +22,6 @@ def update_existing_record(df, original_name, record_data):
         return df, "updated"
     else:
         return df, "not_found"
-
-def apply_excel_formatting(excel_path, json_path):
-    """Apply Excel formatting: convert URLs to hyperlinks and apply format from JSON."""
-    try:
-        log.info("🔗 Converting URL columns to hyperlinks...")
-        # Convert URL columns to hyperlinks
-        url_success = convert_url_columns_to_hyperlinks(excel_path)
-        if url_success:
-            log.info("✅ URL hyperlinks conversion completed")
-        else:
-            log.error("❌ URL hyperlinks conversion failed")
-
-        log.info("🎨 Applying formatting from JSON specification...")
-        # Apply formatting from JSON
-        format_success = apply_format_from_json(excel_path, json_path)
-        if format_success:
-            log.info("✅ JSON formatting applied successfully")
-        else:
-            log.error("❌ JSON formatting application failed")
-
-        overall_success = url_success and format_success
-        log.info("🎯 Excel formatting process %s", 'completed successfully' if overall_success else 'failed')
-        return overall_success
-    except Exception as e:
-        log.error("❌ Error applying Excel formatting: %s", e)
-        return False
-
-def fuzzy_search_names(df, search_query, max_results=50):
-    """
-    Perform intelligent fuzzy search on names with multi-word support and relevance ranking.
-
-    This function implements a sophisticated search algorithm that:
-    - Splits search queries into multiple words
-    - Matches each word against name components using multiple strategies
-    - Ranks results by relevance score based on match quality and coverage
-    - Supports partial matches, fuzzy matching, and prefix matching
-
-    Args:
-        df (pandas.DataFrame): DataFrame containing a 'name' column to search
-        search_query (str): Search string that can contain multiple words separated by spaces
-        max_results (int): Maximum number of results to return (default: 50)
-
-    Returns:
-        pandas.DataFrame: Filtered DataFrame sorted by relevance score (highest first)
-                         Empty DataFrame if no matches found
-
-    Examples:
-        >>> df = pd.DataFrame({'name': ['Ana Izquierdo', 'Juan Pérez', 'Ana García']})
-        >>> fuzzy_search_names(df, 'ana izq')  # Returns Ana Izquierdo first
-        >>> fuzzy_search_names(df, 'ana')      # Returns all Ana* names
-    """
-    if not search_query.strip() or 'name' not in df.columns:
-        return df.head(0)
-
-    # Split search query into words and normalize
-    search_words = [word.lower().strip() for word in re.split(r'\s+', search_query.strip()) if word.strip()]
-    if not search_words:
-        return df.head(0)
-
-    results = []
-
-    for idx, row in df.iterrows():
-        name = str(row.get('name', '')).lower().strip()
-        if not name:
-            continue
-
-        # Split name into words for comparison
-        name_words = re.split(r'\s+', name)
-
-        # Calculate relevance score using multi-strategy matching
-        # Each search word is matched against each word in the name
-        total_score = 0
-        matched_words = 0
-
-        for search_word in search_words:
-            best_score = 0
-            best_match_type = 'none'
-
-            for name_word in name_words:
-                name_word_lower = name_word.lower()
-
-                # Strategy 1: Exact match (highest priority)
-                # "ana" exactly matches "ana" → 100 points
-                if search_word == name_word_lower:
-                    best_score = 100
-                    best_match_type = 'exact'
-                    break
-
-                # Strategy 2: Partial substring match
-                # "izq" is substring of "izquierdo" → 80 points scaled by length ratio
-                elif search_word in name_word_lower:
-                    score = 80 * (len(search_word) / len(name_word_lower))
-                    if score > best_score:
-                        best_score = score
-                        best_match_type = 'partial'
-
-                # Strategy 3: Fuzzy matching for typos/similar words
-                else:
-                    # Use difflib for sequence similarity (handles typos like "izq" ≈ "izqu")
-                    ratio = difflib.SequenceMatcher(None, search_word, name_word_lower).ratio()
-                    if ratio > 0.8:  # Only high similarity matches
-                        score = 60 * ratio
-                        if score > best_score:
-                            best_score = score
-                            best_match_type = 'fuzzy'
-
-                    # Strategy 4: Prefix matching for abbreviations
-                    # "ana" matches start of "ana maría" → 70 points scaled by coverage
-                    if len(search_word) >= 2 and len(name_word_lower) > len(search_word):
-                        if name_word_lower.startswith(search_word):
-                            score = 70 * (len(search_word) / len(name_word_lower))
-                            if score > best_score:
-                                best_score = score
-                                best_match_type = 'prefix'
-
-            # Accumulate score if we found any match for this search word
-            if best_score > 0:
-                total_score += best_score
-                matched_words += 1
-
-        # Only include results that match at least one search word
-        if matched_words > 0:
-            # Apply final scoring bonuses for better ranking:
-
-            # Bonus for matching multiple search words (encourages comprehensive matches)
-            word_match_bonus = matched_words * 10
-
-            # Bonus for having at least one exact word match (prioritizes precision)
-            exact_bonus = 20 if any(
-                any(search_word == name_word.lower() for name_word in name_words)
-                for search_word in search_words
-            ) else 0
-
-            final_score = total_score + word_match_bonus + exact_bonus
-            results.append((idx, final_score, row))
-
-    # Sort by score (descending) and return top results
-    results.sort(key=lambda x: x[1], reverse=True)
-
-    # Extract the rows and return as DataFrame
-    if results:
-        indices = [idx for idx, score, row in results[:max_results]]
-        return df.loc[indices].copy()
-    else:
-        return df.head(0)
 
 def main():
     """

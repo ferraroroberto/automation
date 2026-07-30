@@ -324,18 +324,26 @@ def process_files(source_folder: str, dest_folder: str, skip_dest_folder: bool) 
 
     return pd.DataFrame(file_records)
 
-def delete_discarded_files(df: pd.DataFrame) -> None:
+def _delete_flagged_files(df: pd.DataFrame, mask: pd.Series, log_label: str) -> None:
     """
-    Deletes the source files that are marked as discarded in the metadata.
+    Delete the source files selected by `mask`, marking df['deleted'] in place.
+
+    Shared by delete_discarded_files and delete_copied_files, which differ
+    only in which rows they select for deletion.
 
     Args:
-    df (pd.DataFrame): DataFrame containing file metadata.
+        df (pd.DataFrame): DataFrame containing file metadata (needs
+            'file_path' and 'deleted' columns).
+        mask (pd.Series): Boolean Series (aligned to df's index) selecting
+            which rows to attempt deletion for.
+        log_label (str): Noun phrase used in progress/summary log messages,
+            e.g. "discarded files" or "files".
     """
     deleted_files_count = 0
     last_logged_count = 0
 
     for index, row in df.iterrows():
-        if row['deleted'] == 0 and row['discard'] == 1:
+        if mask.loc[index]:
             try:
                 os.remove(row['file_path'])
                 df.at[index, 'deleted'] = 1
@@ -348,10 +356,19 @@ def delete_discarded_files(df: pd.DataFrame) -> None:
                 df.at[index, 'deleted'] = -1
 
         if deleted_files_count // 1000 > last_logged_count // 1000:
-            logging.info("%d discarded files deleted", deleted_files_count)
+            logging.info("%d %s deleted", deleted_files_count, log_label)
             last_logged_count = deleted_files_count
 
-    logging.info("%d discarded files deleted", deleted_files_count)
+    logging.info("%d %s deleted", deleted_files_count, log_label)
+
+def delete_discarded_files(df: pd.DataFrame) -> None:
+    """
+    Deletes the source files that are marked as discarded in the metadata.
+
+    Args:
+    df (pd.DataFrame): DataFrame containing file metadata.
+    """
+    _delete_flagged_files(df, (df['deleted'] == 0) & (df['discard'] == 1), "discarded files")
 
 def calculate_sha256(file_path: str) -> str:
     """
@@ -552,25 +569,7 @@ def delete_copied_files(df: pd.DataFrame) -> None:
     Args:
     df (pd.DataFrame): DataFrame containing file metadata.
     """
-    deleted_files_count = 0
-    last_logged_count = 0
-
-    for index, row in df.iterrows():
-        if row['copy_success'] == 1:
-            try:
-                os.remove(row['file_path'])
-                df.at[index, 'deleted'] = 1
-                deleted_files_count += 1
-            except Exception as e:
-                logging.error(f"Error deleting file {row['file_path']}: {e}")
-                df.at[index, 'deleted'] = -1
-
-        # Log and print progress every 1000 files, only once for each milestone
-        if deleted_files_count // 1000 > last_logged_count // 1000:
-            logging.info("%d files deleted", deleted_files_count)
-            last_logged_count = deleted_files_count
-
-    logging.info("%d files deleted", deleted_files_count)
+    _delete_flagged_files(df, df['copy_success'] == 1, "files")
 
 def _apply_exclusion_thresholds(df: pd.DataFrame) -> None:
     """

@@ -1,3 +1,16 @@
+"""
+Batch-convert PDFs found under a source folder (recursive walk) to JPGs,
+via pdf2image/poppler, with stale-image cleanup for PDFs already converted.
+
+Related but intentionally separate from ``pdf_to_jpg/pdf_to_images_converter.py``,
+which is a standalone PyMuPDF-based converter (parallel workers, DPI control,
+delete-after-convert, PyInstaller-buildable exe) meant to be handed to
+non-technical users as a double-clickable app rather than run from this repo.
+Pick this module for ad-hoc batch runs against a folder tree with the venv
+already set up; pick the other for a distributable single-file tool. See that
+module's own docstring / ``README_PDF_Converter.md`` for its side.
+"""
+
 import logging
 import os
 import sys
