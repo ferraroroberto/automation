@@ -199,7 +199,7 @@ def load_config() -> Dict[str, Any]:
     
     # Fallback default configuration
     return {
-        "default_output": "wifi_passwords.json",
+        "default_output": "wifi_export.json",
         "temp_dir_prefix": "wifi_export_",
         "logging": {
             "level": "INFO",

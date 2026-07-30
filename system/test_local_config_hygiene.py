@@ -19,6 +19,7 @@ This test locks both down. Run it directly:
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import unittest
@@ -86,6 +87,27 @@ class LocalConfigHygieneTests(unittest.TestCase):
             tracked_files(),
             f"default_output '{default_output}' is a tracked path; a default run would "
             "rewrite a tracked file",
+        )
+
+    def test_wifi_export_fallback_default_does_not_overwrite_tracked_config(self) -> None:
+        """load_config()'s in-code fallback (used when wifi_passwords.json can't be
+        read) must not default to the tracked config file's own name either."""
+        wifi_dir = REPO_ROOT / "system" / "wifi"
+        source = (wifi_dir / "wifi_passwords.py").read_text(encoding="utf-8")
+        match = re.search(
+            r"#\s*Fallback default configuration\s*\n\s*return\s*\{\s*\n\s*\"default_output\"\s*:\s*\"([^\"]+)\"",
+            source,
+        )
+        self.assertIsNotNone(
+            match,
+            "Could not locate load_config()'s fallback default_output literal — "
+            "update this test if load_config() was restructured",
+        )
+        self.assertNotEqual(
+            match.group(1),
+            "wifi_passwords.json",
+            "load_config()'s fallback default_output points at the tracked config "
+            "file itself, so a run with a missing/unreadable config would overwrite it",
         )
 
 
