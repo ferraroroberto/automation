@@ -4,8 +4,12 @@
 # configuration files with user sensitive information
 .env
 google/config.json
+google/config_gmail_drive.json
+google/config_weekly_photo.json
 google/client_secret.json
 google/token*.json
+system/wifi/wifi_connect.xml
+system/wifi/wifi_export.json
 system/quickdeck/quickdeck.json
 linkedin/open_profiles/linkedin_open.json
 linkedin/genially_profiles_extractor/config.json

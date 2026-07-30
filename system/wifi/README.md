@@ -40,12 +40,21 @@ From the repo root, in PowerShell:
    the same PC, on another PC, or after a Windows reinstall. The BAT
    carries the full credentials inside it.
 
-## Editing the hardcoded `wifi_connect` profile
+## Setting up the local `wifi_connect` profile
 
-`wifi_connect.xml` holds the SSID and password used by `wifi_connect.py`.
-To change them, edit the SSID and password at the top of `wifi_connect.ps1`
-and run it from PowerShell — it rewrites `wifi_connect.xml` for you. Or
-edit `wifi_connect.xml` by hand.
+`wifi_connect.xml` holds the SSID and passphrase used by `wifi_connect.py`. It
+is a machine-local file and is **gitignored** — only `wifi_connect.xml.sample`
+is tracked. Generate or update it by passing the values to `wifi_connect.ps1`
+at call time:
+
+```powershell
+.\system\wifi\wifi_connect.ps1 -Ssid "MyNetwork" -Password "my-passphrase"
+```
+
+The script also reads `WIFI_SSID` / `WIFI_PASSWORD` from the environment when
+the parameters are omitted. Alternatively, copy `wifi_connect.xml.sample` to
+`wifi_connect.xml` and fill in the placeholders by hand. Never edit values into
+`wifi_connect.ps1` itself — that file is tracked in git.
 
 ## Notes
 

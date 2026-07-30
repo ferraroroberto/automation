@@ -1,10 +1,16 @@
 <?xml version="1.0"?>
+<!--
+  Template for the local, untracked wifi_connect.xml consumed by wifi_connect.py.
+  Copy this file to wifi_connect.xml and fill in the three placeholders, or run
+  wifi_connect.ps1 (which generates the file for you). wifi_connect.xml is
+  gitignored: it holds a passphrase in cleartext and must never be committed.
+-->
 <WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
-  <name>REDWIFI_dGYG</name>
+  <name>REPLACE_WITH_YOUR_SSID</name>
   <SSIDConfig>
     <SSID>
-      <hex>524544574946495F64475947</hex>
-      <name>REDWIFI_dGYG</name>
+      <hex>REPLACE_WITH_SSID_HEX</hex>
+      <name>REPLACE_WITH_YOUR_SSID</name>
     </SSID>
   </SSIDConfig>
   <connectionType>ESS</connectionType>
@@ -19,7 +25,7 @@
       <sharedKey>
         <keyType>passPhrase</keyType>
         <protected>false</protected>
-        <keyMaterial>HfUC6XyRXxb7b4NF</keyMaterial>
+        <keyMaterial>REPLACE_WITH_YOUR_WIFI_PASSWORD</keyMaterial>
       </sharedKey>
     </security>
   </MSM>
