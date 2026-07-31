@@ -4,24 +4,29 @@ A comprehensive collection of Python automation tools for audio processing, imag
 
 ## 🎯 Overview
 
-This repository contains a diverse set of automation tools designed to streamline common digital tasks. Each module is built with a focus on reliability, user experience, and cross-platform compatibility. The tools follow consistent coding standards with proper error handling, logging, and configuration management.
+This repository contains a diverse set of automation tools designed to streamline common digital tasks. Each folder is an independent set of scripts rather than part of one application — most target Windows, a few are cross-platform, and they vary in maturity. Shared conventions (secrets, verification, branch pipeline) are listed under [Conventions](#-conventions).
 
 ## 🏗️ Project Structure
 
 ```
 automation/
 ├── 📁 audio/           # Audio recording, transcription, and conversion tools
+├── 📁 docs/            # Durable reference docs (see architecture.mmd below)
 ├── 📁 excel/           # Excel automation (e.g. Stripe accounting)
+├── 📁 git-housekeeping/ # Git author-email policy and history-rewrite recipes
 ├── 📁 google/          # Gmail, Drive, and Google Photos automation
 ├── 📁 html/            # HTML utilities (e.g. countdown timer)
 ├── 📁 image/           # Image processing, formatting, and Instagram tools
 ├── 📁 linkedin/        # LinkedIn reverse-image search, profile opening, and profile data extraction
 ├── 📁 notion/          # Notion API integration and database management
+├── 📁 scripts/         # Repo-level scripts (verification gate)
 ├── 📁 smart_life/      # Smart Life / IoT device automation
 ├── 📁 system/          # System utilities and virtual environment management
 ├── 📁 text/            # Text processing and PDF conversion tools
 └── 📁 video/           # Screen recording and video processing tools
 ```
+
+[`docs/architecture.mmd`](docs/architecture.mmd) is the hand-authored Mermaid diagram of how those folders relate — the domain folders, the shared per-domain helpers (`google/_auth.py`, `notion/utils.py`), and the external services each domain talks to. `CLAUDE.md` requires it be updated in the same PR as any structural change.
 
 Configuration uses a root `.env` file (see [Configuration](#️-configuration)); copy from `.env.sample` if present.
 
@@ -113,7 +118,7 @@ Reference for the previously-undocumented tools above: [`image/README.md`](image
 - **`quickdeck/`** - Quick Deck / Stream Deck integration
 - **`textexpander/`** - Text expander and prompt templates
 - **`wifi/`** - Wi‑Fi connection scripts, saved‑password export, BAT generator GUI, and network device scanner — see [`system/wifi/README.md`](system/wifi/README.md)
-- **`apple/`** - Apple-related conversion and utilities
+- **`apple/`** - vCard tools: `convert_to_apple.py` (GUI converter to Apple-compatible vCard 3.0) and `unify_vcards.py` (interactive duplicate-contact merging) — see [`system/apple/convert_to_apple.md`](system/apple/convert_to_apple.md)
 
 **File & Document Operations**
 - **`unzip_with_password.py`** - Password-protected archive extraction
@@ -166,7 +171,7 @@ Full per-script reference: [`text/README.md`](text/README.md).
 ## 🚀 Quick Start
 
 ### **Prerequisites**
-- Python 3.8+ installed
+- Python 3.9+ installed — the floor is set by `requirements.txt`, whose pinned `en-core-web-sm` 3.8.0 wheel requires spaCy ≥ 3.8 (`Requires-Python >=3.9`). Developed and verified on 3.14.
 - FFmpeg for audio/video processing
 - Windows (for Outlook automation tools)
 - Git for repository management
@@ -343,51 +348,20 @@ Most scripts support debug mode:
 python script.py --debug
 ```
 
-## 🔒 Security & Best Practices
+## 🔒 Secrets
 
-### **API Key Management**
-- Store sensitive data in `.env` files
-- Never commit API keys to version control
-- Use environment variables for configuration
+- API keys, tokens, and machine-local paths live in the root `.env` (git-ignored); `.env.sample` documents the keys.
+- `client_secret.json` and `token.json` under `google/` are credentials — never commit them.
+- Git author email is pinned to the GitHub noreply address; see [`git-housekeeping/email-policy.md`](git-housekeeping/email-policy.md).
 
-### **Data Privacy**
-- Implement data sanitization for sensitive information
-- Use secure file handling practices
-- Follow GDPR and privacy regulations
+## 🧪 Conventions
 
-### **Error Handling**
-- All modules include comprehensive error handling
-- Graceful degradation for non-critical failures
-- Detailed logging for debugging
+This is a grab-bag of independent scripts, not a single application — there is no linter config, no CI workflow, and no repo-wide test suite. What the repo does hold itself to:
 
-## 📚 Documentation
-
-### **Module Documentation**
-Each module includes:
-- Detailed docstrings and type hints
-- Usage examples and configuration options
-- Error handling and troubleshooting guides
-
-### **Code Standards**
-- Follows PEP 8 and PEP 20 guidelines
-- Comprehensive type hints throughout
-- Consistent logging and error handling
-- Clear function and variable naming
-
-## 🤝 Contributing
-
-### **Development Setup**
-1. Fork the repository
-2. Create a feature branch
-3. Follow the coding standards in `CLAUDE.md`
-4. Include comprehensive documentation
-5. Submit a pull request following the conventions in `CLAUDE.md`
-
-### **Code Quality**
-- All code must pass linting checks
-- Include type hints for all functions
-- Add comprehensive docstrings
-- Follow the project's error handling patterns
+- **Verification before shipping:** `powershell -File scripts\verify-before-ship.ps1` — byte-compiles every module and runs the two unit-test suites that do exist (`system/foldersearcher`, `system/test_local_config_hygiene.py`). It must exit 0.
+- **The repo `.venv`, by path:** `& .\.venv\Scripts\python.exe ...` — a bare `python`/`py` is not reliably on PATH on this machine.
+- **Branch-based pipeline** (no forks): one issue → one `<type>/<issue-N>-<slug>` branch → one PR → squash-merge. Never commit to `main` directly. Full rules in [`CLAUDE.md`](CLAUDE.md).
+- **New or moved domain folders and shared helpers** update [`docs/architecture.mmd`](docs/architecture.mmd) in the same PR.
 
 ## 📄 License
 
@@ -402,5 +376,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-*Python version: 3.8+*
+*Python version: 3.9+ (developed on 3.14)*
 *Platform: Windows, Linux, macOS*

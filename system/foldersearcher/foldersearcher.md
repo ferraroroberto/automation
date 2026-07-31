@@ -31,7 +31,9 @@ pip install -r ../../requirements.txt
 
 ### Launching
 
-Run `foldersearcher.bat` (it activates the repo `.venv` and starts the app from this folder). The app starts in the tray — click the tray icon, or choose **Open**, to show the window.
+Run `system\foldersearcher.bat` — the launcher one level up, alongside the other `system/` launchers. It starts `foldersearcher.py` silently with the repo `.venv`'s `pythonw.exe`, so no console window appears. The app starts in the tray — click the tray icon, or choose **Open**, to show the window.
+
+(There is a second `foldersearcher.bat` inside this folder: a superseded console-mode launcher with a hardcoded venv path and a blocking `pause`. Don't use it — the root one is canonical.)
 
 ### First-time setup
 

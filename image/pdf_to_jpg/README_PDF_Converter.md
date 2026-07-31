@@ -42,7 +42,7 @@ Use the `build_minimal.bat` script to create a clean executable:
 
 1. **Navigate to the project directory:**
    ```cmd
-   cd "path\to\notion-automation\home\image\pdf_to_jpg"
+   cd "path\to\automation\image\pdf_to_jpg"
    ```
 
 2. **Run the build script:**
@@ -183,7 +183,7 @@ pdf_to_jpg/
 
 ## License
 
-This application is part of the notion-automation project.
+This application is part of the [automation](../../README.md) project and is covered by its MIT license.
 
 ## Support
 
