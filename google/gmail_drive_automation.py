@@ -448,28 +448,15 @@ class GmailDriveAutomation:
             raise
 
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """
-    Load configuration from JSON file.
-
-    Args:
-        config_path: Path to configuration file
-
-    Returns:
-        Configuration dictionary
-    """
-    return _auth.load_config(config_path, Path(__file__).parent)
-
-
-def main(config: Dict[str, Any]) -> None:
+def main(config_path: str = "config.json") -> None:
     """
     Main function to run the automation.
-    
+
     Args:
-        config: Configuration dictionary
+        config_path: Path to the configuration file
     """
     try:
-        automation = GmailDriveAutomation()
+        automation = GmailDriveAutomation(config_path)
         automation.run_automation()
         logger.info("✅ Script completed successfully")
     except Exception as e:
@@ -489,8 +476,7 @@ if __name__ == "__main__":
             logging.getLogger().setLevel(logging.DEBUG)
             logger.setLevel(logging.DEBUG)
 
-        config = load_config(args.config)
-        main(config)
+        main(args.config)
 
     except Exception as e:
         logger.error("❌ Script failed: %s", e)

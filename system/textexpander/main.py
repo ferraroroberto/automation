@@ -16,10 +16,10 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Import our modules
-from text_expander_core import TextExpanderCore, ConfigError
-from text_expander_gui import TextExpanderGUI
-from text_expander_monitor import KeyboardMonitor
-from text_expander_tray import TextExpanderTray
+from .text_expander_core import TextExpanderCore, ConfigError
+from .text_expander_gui import TextExpanderGUI
+from .text_expander_monitor import KeyboardMonitor
+from .text_expander_tray import TextExpanderTray
 
 class TextExpanderApp:
     """Main text expander application orchestrator."""

@@ -194,29 +194,29 @@ def cut_middle_video(
     os.close(fd_list)
 
     try:
+        # `temp1`/`temp2` always hold the paths mkstemp actually created, so the
+        # `finally` block can clean up the unused part file too. Which parts are
+        # in play is tracked by the booleans, never by nulling the path out.
+
         # Part 1: 0 to cut_start_sec (keep before the cut)
         has_part1 = cut_start_sec > 0
         if has_part1:
             trim_video(input_path, 0, cut_start_sec, output_path=temp1,
                        progress_callback=progress_callback, status_callback=status_callback)
-        else:
-            temp1 = None
 
         # Part 2: cut_end_sec to end (keep after the cut)
         has_part2 = cut_end_sec < duration_sec
         if has_part2:
             trim_video(input_path, cut_end_sec, duration_sec, output_path=temp2,
                        progress_callback=progress_callback, status_callback=status_callback)
-        else:
-            temp2 = None
 
         # Handle edge cases
-        if temp1 is None and temp2 is None:
+        if not has_part1 and not has_part2:
             raise ValueError("Nothing left after cut.")
-        if temp1 is None:
+        if not has_part1:
             os.rename(temp2, output_file)
             return output_file
-        if temp2 is None:
+        if not has_part2:
             os.rename(temp1, output_file)
             return output_file
 
@@ -239,7 +239,7 @@ def cut_middle_video(
         return output_file
     finally:
         for p in (temp1, temp2, list_file):
-            if p is not None and os.path.exists(p):
+            if os.path.exists(p):
                 try:
                     os.remove(p)
                 except OSError:

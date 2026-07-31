@@ -41,11 +41,19 @@ def main():
         database_details = client.databases.retrieve(notion_db_id)
         database_name = database_details['title'][0]['text']['content']
 
-        # Now, query the database to get the number of rows (pages), paginating fully
+        # notion-client 2.x removed Client.databases.query; rows are queried
+        # through the database's data source instead.
+        data_sources = database_details.get("data_sources") or []
+        if not data_sources:
+            log.error("No data sources on this database (Notion API 2025+). Check integration access.")
+            return
+        data_source_id = data_sources[0]["id"]
+
+        # Now, query the data source to get the number of rows (pages), paginating fully
         total_rows = 0
         start_cursor = None
         while True:
-            page = client.databases.query(notion_db_id, start_cursor=start_cursor)
+            page = client.data_sources.query(data_source_id, start_cursor=start_cursor)
             total_rows += len(page['results'])
             if not page.get('has_more'):
                 break
@@ -56,6 +64,7 @@ def main():
 
     except APIResponseError as e:
         log.error("Failed to fetch database details: %s", e)
+        return
 
     # Step 2: Ask for confirmation to proceed
     input("Press Enter to continue...")
@@ -74,7 +83,7 @@ def main():
             page_ids = []
             start_cursor = None
             while True:
-                response = client.databases.query(notion_db_id, start_cursor=start_cursor)
+                response = client.data_sources.query(data_source_id, start_cursor=start_cursor)
                 page_ids.extend(page['id'] for page in response['results'])
                 if not response.get('has_more'):
                     break

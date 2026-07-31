@@ -263,10 +263,11 @@ Use `\n` for line breaks in JSON:
 
 ### Automation Integration
 
-The module can be imported by other automation scripts:
+The module can be imported by other automation scripts (from the repo root, so
+the `system.textexpander` package resolves):
 
 ```python
-from .text_expander_core import TextExpanderCore
+from system.textexpander.text_expander_core import TextExpanderCore
 
 core = TextExpanderCore()
 core.add_abbreviation("mysig", "My Custom Signature")

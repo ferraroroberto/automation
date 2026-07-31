@@ -29,7 +29,7 @@ def load_metadata(metadata_path):
     log.info("📂 Loading metadata from: %s", metadata_path)
     return pd.read_excel(metadata_path)
 
-def clean_data(row, col_value, row_num=None):
+def clean_data(row, col_value, row_num=None, verbose: bool = False):
     database = row['database']
     col = row['column']
     clean = row['clean']
@@ -81,7 +81,7 @@ def clean_data(row, col_value, row_num=None):
     else:
         return col_value
 
-def process_databases(databases_to_process, metadata):
+def process_databases(databases_to_process, metadata, dump_path: str, verbose: bool = False):
     log.info("📊 Databases to process: %d", len(databases_to_process))
 
     for _, database in databases_to_process.iterrows():
@@ -107,7 +107,7 @@ def process_databases(databases_to_process, metadata):
                 if verbose:
                     log.debug("🧹 Cleaning column: %s", col)
                 # Create a cleaned column
-                df[f"{col}_clean"] = df.apply(lambda row: clean_data(metadata_row.iloc[0], row[col], row.name + 1), axis=1)
+                df[f"{col}_clean"] = df.apply(lambda row: clean_data(metadata_row.iloc[0], row[col], row.name + 1, verbose), axis=1)
                 # Replace "[]" with NaN
                 df[f"{col}_clean"] = df[f"{col}_clean"].replace("[]", pd.NA)
 
@@ -200,7 +200,7 @@ def main():
     log.info("📊 Found %d databases to process", len(databases_to_process))
 
     log.info("🚀 Starting database cleaning...")
-    process_databases(databases_to_process, metadata)
+    process_databases(databases_to_process, metadata, dump_path, verbose)
     log.info("✅ All database cleaning completed")
 
 
