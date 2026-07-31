@@ -70,7 +70,7 @@ Becomes: "john.doe@company.com"
 
 ### Configuration File Structure
 
-The application uses JSON configuration stored in `text_expander_config.json`:
+The application uses JSON configuration stored in `text_expander_config.json`. Copy `text_expander_config.example.json` (the one tracked example) to that name on first run:
 
 ```json
 {

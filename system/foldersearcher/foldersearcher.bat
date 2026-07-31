@@ -1,17 +1,19 @@
 @echo off
-REM Activates the virtual environment and runs foldersearcher.py
+REM Runs foldersearcher.py with the repo virtual environment's interpreter
 
 REM Run from this script's own folder so foldersearcher_core.py resolves
 cd /d "%~dp0"
 
-REM Path to your virtual environment
-set VENV_DIR=E:\automation\automation\.venv\
-
-REM Activate the venv
-call %VENV_DIR%\Scripts\activate.bat
+REM Interpreter of the repo virtual environment, resolved relative to this file
+set "VENV_PY=%~dp0..\..\.venv\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
+)
 
 REM Run the script with Python from the venv
-python foldersearcher.py
+"%VENV_PY%" foldersearcher.py
 
 REM Pause so you can read any error messages
 pause 

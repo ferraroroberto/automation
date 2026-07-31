@@ -16,11 +16,11 @@ set "VENV_DIR=E:\automation\automation\.venv"
 REM Set the path to the linkedin scripts
 set "SCRIPT_DIR=E:\automation\automation\linkedin\profiles_data_extractor\common"
 
-echo [INFO] Activating virtual environment...
-call "%VENV_DIR%\Scripts\activate.bat"
-if errorlevel 1 (
-    echo [ERROR] Failed to activate virtual environment. Make sure it exists at %VENV_DIR%
-    echo [INFO] Attempting to continue without virtual environment activation...
+set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
 )
 
 echo [INFO] Changing to script directory: "%SCRIPT_DIR%"
@@ -32,7 +32,7 @@ if errorlevel 1 (
 
 echo [INFO] Running main.py with Streamlit...
 echo [INFO] The LinkedIn Reachout Hub should open in your default browser.
-streamlit run main.py --browser.gatherUsageStats false --server.headless false
+"%VENV_PY%" -m streamlit run main.py --browser.gatherUsageStats false --server.headless false
 
 if errorlevel 1 (
     echo [ERROR] Application failed with error code %errorlevel%

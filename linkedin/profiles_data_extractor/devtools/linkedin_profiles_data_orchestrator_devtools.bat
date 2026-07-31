@@ -28,11 +28,11 @@ set "VENV_DIR=E:\automation\automation\.venv"
 REM Get the directory where this batch file is located
 set "SCRIPT_DIR=%~dp0"
 
-echo [INFO] Activating virtual environment...
-call "%VENV_DIR%\Scripts\activate.bat"
-if errorlevel 1 (
-    echo [ERROR] Failed to activate virtual environment. Make sure it exists at %VENV_DIR%
-    echo [INFO] Attempting to continue without virtual environment activation...
+set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
 )
 
 echo [INFO] Changing to script directory: "%SCRIPT_DIR%"
@@ -44,7 +44,7 @@ if errorlevel 1 (
 
 REM Run the Python script
 echo [INFO] Running linkedin_profiles_data_orchestrator_devtools.py...
-python "%SCRIPT_DIR%linkedin_profiles_data_orchestrator_devtools.py"
+"%VENV_PY%" "%SCRIPT_DIR%linkedin_profiles_data_orchestrator_devtools.py"
 
 if errorlevel 1 (
     echo [ERROR] Script failed with error code %errorlevel%

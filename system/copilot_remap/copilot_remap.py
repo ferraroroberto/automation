@@ -20,10 +20,13 @@ from __future__ import annotations
 import argparse
 import ctypes
 import json
+import logging
 import sys
 import time
 from ctypes import wintypes
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 CONFIG = Path(__file__).with_name("chord.json")
 DEFAULT_TARGET_VK = 0xA3  # VK_RCONTROL
@@ -135,7 +138,7 @@ def send_vk(vk: int, key_up: bool) -> None:
 # ---- detect mode -------------------------------------------------------------
 
 def detect() -> None:
-    print("Press the Copilot key once. Capturing for ~0.5s after the first event...")
+    log.info("Press the Copilot key once. Capturing for ~0.5s after the first event...")
     captured: list[tuple[float, int, int]] = []
     first_t: list[float | None] = [None]
 
@@ -176,9 +179,9 @@ def detect() -> None:
             seen[vk] = sc
 
     chord = list(seen.items())
-    print("Detected chord:")
+    log.info("Detected chord:")
     for vk, sc in chord:
-        print(f"  vk=0x{vk:02X} ({vk_name(vk)})  scan=0x{sc:02X}")
+        log.info("  vk=0x%02X (%s)  scan=0x%02X", vk, vk_name(vk), sc)
 
     triggers = [vk for vk, _ in chord if vk not in MODIFIER_VKS]
     if not triggers:
@@ -195,8 +198,8 @@ def detect() -> None:
     }
     CONFIG.write_text(json.dumps(cfg, indent=2))
     chord_str = " + ".join(cfg["_human_chord"])
-    print(f"\nSaved -> {CONFIG}")
-    print(f"Will remap [{chord_str}] -> {cfg['_human_target']}")
+    log.info("Saved -> %s", CONFIG)
+    log.info("Will remap [%s] -> %s", chord_str, cfg["_human_target"])
 
 
 # ---- run mode ----------------------------------------------------------------
@@ -206,10 +209,10 @@ def show() -> None:
         sys.exit(f"No config at {CONFIG}. Run detect first.")
     cfg = json.loads(CONFIG.read_text())
     chord_str = " + ".join(cfg.get("_human_chord", []))
-    print(f"{CONFIG}")
-    print(f"  chord  : [{chord_str}]")
-    print(f"  target : {cfg.get('_human_target', vk_name(cfg['target_vk']))}")
-    print(f"  raw    : {json.dumps(cfg, indent=2)}")
+    log.info("%s", CONFIG)
+    log.info("  chord  : [%s]", chord_str)
+    log.info("  target : %s", cfg.get("_human_target", vk_name(cfg["target_vk"])))
+    log.info("  raw    : %s", json.dumps(cfg, indent=2))
 
 
 def run() -> None:
@@ -265,7 +268,7 @@ def run() -> None:
         sys.exit(f"SetWindowsHookEx failed (err {ctypes.get_last_error()})")
 
     chord_str = " + ".join(vk_name(v) for v in (*sorted(modifier_vks), trigger_vk))
-    print(f"Remapping [{chord_str}] -> {vk_name(target_vk)}. Running.")
+    log.info("Remapping [%s] -> %s. Running.", chord_str, vk_name(target_vk))
 
     try:
         msg = ctypes.create_string_buffer(48)
@@ -278,6 +281,7 @@ def run() -> None:
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("mode", choices=["detect", "run", "show"])
     args = ap.parse_args()

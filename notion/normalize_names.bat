@@ -16,11 +16,11 @@ set "VENV_DIR=E:\automation\automation\.venv"
 REM Set the path to the notion scripts
 set "SCRIPT_DIR=E:\automation\automation\notion"
 
-echo [INFO] Activating virtual environment...
-call "%VENV_DIR%\Scripts\activate.bat"
-if errorlevel 1 (
-    echo [ERROR] Failed to activate virtual environment. Make sure it exists at %VENV_DIR%
-    echo [INFO] Attempting to continue without virtual environment activation...
+set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
 )
 
 echo [INFO] Changing to script directory: "%SCRIPT_DIR%"
@@ -31,7 +31,7 @@ if errorlevel 1 (
 )
 
 echo [INFO] Running normalize_names.py...
-python normalize_names.py --days 14 --config normalize_names.json
+"%VENV_PY%" normalize_names.py --days 14 --config normalize_names.json
 if errorlevel 1 (
     echo [ERROR] normalize_names.py failed with error code %errorlevel%
     pause

@@ -3,7 +3,7 @@ chcp 65001 >nul
 
 set "PROJECT_DIR=E:\automation\automation"
 set "SCRIPT_PATH=E:\automation\automation\image\screenshot.py"
-set "VENV_ACTIVATE=%PROJECT_DIR%\.venv\Scripts\activate.bat"
+set "VENV_PY=%PROJECT_DIR%\.venv\Scripts\python.exe"
 
 echo [INFO] Changing to project directory: "%PROJECT_DIR%\home\image"
 cd /d "E:\automation\automation"
@@ -12,20 +12,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Check for virtual environment
-if exist "%VENV_ACTIVATE%" (
-    echo [INFO] Activating virtual environment: "%VENV_ACTIVATE%"
-    call "%VENV_ACTIVATE%"
-    if errorlevel 1 (
-        echo [ERROR] Failed to activate virtual environment.
-        exit /b 1
-    )
-) else (
-    echo [INFO] No virtual environment found. Using system Python.
+REM Require the project virtual environment's interpreter
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%".
+    exit /b 1
 )
 
 echo [INFO] Running script: "%SCRIPT_PATH%" with 3
-python "%SCRIPT_PATH%" 3
+"%VENV_PY%" "%SCRIPT_PATH%" 3
 set "PY_EXIT_CODE=%ERRORLEVEL%"
 
 if not "%PY_EXIT_CODE%"=="0" (

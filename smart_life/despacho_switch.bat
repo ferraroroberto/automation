@@ -1,11 +1,14 @@
 @echo off
 REM Toggles "luz despacho": if ON turns OFF, if OFF turns ON.
-REM Uses the project virtual environment (same pattern as run_foldersearcher.bat).
+REM Runs from this script's own folder with the repo virtual environment's interpreter.
+cd /d "%~dp0"
+set "VENV_PY=%~dp0..\.venv\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
+)
 
-set VENV_DIR=E:\automation\automation\.venv\
-
-call %VENV_DIR%\Scripts\activate.bat
-
-python light_control.py switch --light "luz despacho"
+"%VENV_PY%" light_control.py switch --light "luz despacho"
 
 pause
