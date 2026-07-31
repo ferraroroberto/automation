@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `check_google_config.py` script is a diagnostic tool that helps troubleshoot Google Cloud authentication and configuration issues. It performs comprehensive checks on your gcloud CLI setup, credentials, and project configuration to identify common problems.
+The `diag_check_google_config.py` script is a diagnostic tool that helps troubleshoot Google Cloud authentication and configuration issues. It performs comprehensive checks on your gcloud CLI setup, credentials, and project configuration to identify common problems.
 
 ## What the Script Does
 
@@ -84,7 +84,7 @@ gcloud config list
 ### Basic Run
 ```powershell
 cd automation/google
-python check_google_config.py
+..\.venv\Scripts\python.exe diag_check_google_config.py
 ```
 
 ### What to Expect
@@ -232,8 +232,8 @@ gcloud components install COMPONENT_NAME
 
 ```
 automation/google/
-├── check_google_config.py      # Main diagnostic script
-├── check_google_config.md      # This documentation
+├── diag_check_google_config.py # Main diagnostic script
+├── diag_check_google_config.md # This documentation
 ├── client_secret.json          # OAuth2 credentials (required)
 ├── token.json                  # Authentication tokens (generated)
 └── README.md                   # General project documentation

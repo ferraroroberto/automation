@@ -30,13 +30,18 @@ The converter ensures:
 
 ## 🚀 Quick Start
 
-### Windows Users
-1. Double-click `run_converter.bat`
-2. Or run: `python convert_to_apple.py`
+Run it through the repo `.venv` from this folder:
 
-### All Platforms
+**Windows PowerShell:**
+```powershell
+cd system\apple
+..\..\.venv\Scripts\python.exe convert_to_apple.py
+```
+
+**Unix/Linux/macOS:**
 ```bash
-python convert_to_apple.py
+cd system/apple
+../../.venv/bin/python convert_to_apple.py
 ```
 
 ## 📖 How to Use
@@ -64,11 +69,40 @@ python convert_to_apple.py
 ```
 automation/system/apple/
 ├── convert_to_apple.py      # Main GUI application
-├── run_converter.bat        # Windows launcher (double-click to run)
-├── convert_to_apple.md      # This documentation
-├── contacts.vcf             # Your original file (example)
-└── contacts_apple.vcf       # Converted Apple format (output)
+├── unify_vcards.py          # Interactive duplicate-merging tool (see below)
+├── _vcard_fields.py         # Shared vCard TYPE-label parsing helper
+└── convert_to_apple.md      # This documentation
 ```
+
+Input and output `.vcf` files are not kept in the repo — you point the app at your own file, and the converted copy is written next to it.
+
+## 🔁 Companion tool: `unify_vcards.py`
+
+`convert_to_apple.py` changes a vCard's *format*; `unify_vcards.py` changes its *contents* — it merges duplicate contacts in a `.vcf` export before you import it. It is an interactive terminal tool (with a Tkinter file picker for choosing the input), not a GUI app.
+
+**What it does**
+
+- Parses every vCard in the file into name, phone, email, address, and organisation fields (`_vcard_fields.py` supplies the shared TYPE-label parsing that `convert_to_apple.py` also uses).
+- Groups likely duplicates by fuzzy name similarity (`difflib.SequenceMatcher`) and by shared normalised phone numbers.
+- Walks you through each duplicate group in the terminal: pick which record to keep, merge them, edit the resulting name, or skip. Enter accepts the suggested default.
+- Re-runs the duplicate scan on the merged result (up to 10 passes) so newly-adjacent duplicates are caught too.
+- Writes the unified vCard plus a Markdown report of every decision.
+
+**Running it**
+
+```powershell
+cd system\apple
+
+# Pick the input file with a dialog; outputs land next to it
+..\..\.venv\Scripts\python.exe unify_vcards.py
+
+# Or pass paths explicitly: input [output] [report]
+..\..\.venv\Scripts\python.exe unify_vcards.py contacts.vcf contacts_unified.vcf report.md
+```
+
+With no arguments it opens a file dialog. Output paths default to `<input>_unified.vcf` and `<input>_unification_report.md` in the input's folder. `Ctrl+C` exits cleanly without writing.
+
+Typical order: **unify first, then convert** — dedupe the export with `unify_vcards.py`, then run `convert_to_apple.py` on the unified file to produce the Apple-compatible vCard 3.0.
 
 ## 🔧 Requirements
 

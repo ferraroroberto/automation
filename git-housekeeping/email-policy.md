@@ -23,26 +23,7 @@ git config --global user.name "Roberto Ferraro"
 git config --global core.hooksPath "$HOME/.githooks"
 ```
 
-Hook content:
-
-```sh
-#!/bin/sh
-ALLOWED="35553560+ferraroroberto@users.noreply.github.com"
-AUTHOR_EMAIL=$(git var GIT_AUTHOR_IDENT | sed 's/.*<\(.*\)>.*/\1/')
-if [ "$AUTHOR_EMAIL" != "$ALLOWED" ]; then
-  echo ""
-  echo "  COMMIT BLOCKED: author email '$AUTHOR_EMAIL' is not on the allowlist."
-  echo "  Expected: $ALLOWED"
-  echo ""
-  echo "  Fix with:"
-  echo "    git config user.email \"$ALLOWED\""
-  echo ""
-  echo "  Or bypass once (if intentional):"
-  echo "    git commit --no-verify"
-  echo ""
-  exit 1
-fi
-```
+The hook compares `git var GIT_AUTHOR_IDENT` against the allowlisted noreply address and exits 1 with a fix hint when they differ, so a mis-configured machine can never land a commit under the wrong identity. Its body is written by step 2 of [Setting up a new machine](#setting-up-a-new-machine) below — that script is the single copy in this document; don't transcribe a second one here.
 
 Bypass for intentional one-offs: `git commit --no-verify`
 
@@ -92,11 +73,20 @@ Note: new machines only need the config above — they do **not** need to re-run
 
 Use this if a repo accumulates bad-email commits (e.g. after a new machine was set up without Layer 1/2):
 
+Fill the `bad` list in locally before running — the whole point of the rewrite is to get those addresses *out* of public history, so this repo does not carry a literal copy of them. Get the actual set from the repo you are about to rewrite:
+
+```powershell
+# Which author/committer emails does this repo's history actually contain?
+git log --all --format='%ae%n%ce' | Sort-Object -Unique
+```
+
+Then paste the ones to remap into the callback (leave the exclusions below as-is):
+
 ```powershell
 # Prerequisites: pip install git-filter-repo
 
 $remote = git remote get-url origin
-git filter-repo --force --email-callback "bad = [b'roberto.ferraro-at-gmail.com', b'roberto.ferraro@gmail.com', b'rferraro@caixabank.com']
+git filter-repo --force --email-callback "bad = [b'OLD_PERSONAL_ADDRESS', b'OLD_EMPLOYER_ADDRESS']
 return b'35553560+ferraroroberto@users.noreply.github.com' if email in bad else email"
 git remote add origin $remote
 git push --force origin --all
