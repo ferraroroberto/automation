@@ -31,9 +31,7 @@ pip install -r ../../requirements.txt
 
 ### Launching
 
-Run `system\foldersearcher.bat` — the launcher one level up, alongside the other `system/` launchers. It starts `foldersearcher.py` silently with the repo `.venv`'s `pythonw.exe`, so no console window appears. The app starts in the tray — click the tray icon, or choose **Open**, to show the window.
-
-(There is a second `foldersearcher.bat` inside this folder: a superseded console-mode launcher with a hardcoded venv path and a blocking `pause`. Don't use it — the root one is canonical.)
+Run `system\foldersearcher.bat` — the launcher one level up, alongside the other `system/` launchers, and the only one. It starts `foldersearcher.py` silently with the repo `.venv`'s `pythonw.exe`, so no console window appears. The app starts in the tray — click the tray icon, or choose **Open**, to show the window.
 
 ### First-time setup
 
@@ -85,7 +83,6 @@ Set it to `false` (or untick the Folders-tab checkbox) to get every matching bra
 foldersearcher.py                # Tray + Tkinter UI only
 foldersearcher_core.py           # All logic: scan, persist, search, prune (no GUI imports)
 test_foldersearcher_core.py      # Focused tests for the core
-foldersearcher.bat               # Launcher (activates the repo .venv)
 foldersearcher.json              # Configuration
 folder_structure.txt             # Index (auto-generated)
 foldersearcher.md                # This documentation

@@ -17,10 +17,6 @@ plotly>=5.18.0
 # AUDIO PROCESSING MODULES
 # =============================================================================
 
-# Audio recording and playback
-# Source: (voice-transcriber sibling repo — extracted; retained for local audio capture scripts)
-sounddevice>=0.4.6
-
 # Audio file manipulation and processing
 # Source: audio/audio_normalize.py, audio/audio_trim.py
 scipy>=1.10.0
@@ -160,7 +156,6 @@ easygui>=0.98.3
 # Text Expander functionality
 pystray>=0.19.4
 keyboard>=0.13.5
-win10toast>=0.9
 
 # Markdown preview tray app (renders via Edge WebView2)
 # Source: system/markdown_preview.py
@@ -208,14 +203,6 @@ rarfile>=4.0
 # Word document processing
 # Source: system/word_to_markdown.py
 python-docx>=0.8.11
-
-# =============================================================================
-# DEVELOPMENT AND TESTING (OPTIONAL)
-# =============================================================================
-
-# Type checking support
-# Source: Various modules use typing hints
-typing-extensions>=4.0.0
 
 # =============================================================================
 # SYSTEM REQUIREMENTS

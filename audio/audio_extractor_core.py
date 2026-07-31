@@ -156,13 +156,25 @@ class AudioExtractor:
             logger.error(f"Error extracting unified audio from {video_file.name}: {e}")
             return False
     
-    def process_video_file(self, video_file: Path) -> None:
-        """Process a single video file and extract all audio tracks.
+    def process_video_file(
+        self,
+        video_file: Path,
+        extract_unified: bool = True,
+        extract_individual: bool = True,
+    ) -> None:
+        """Process a single video file and extract its audio tracks.
         
         Args:
             video_file: Path to the video file.
+            extract_unified: Write the mixed-down `_audio_unified.mp3`.
+            extract_individual: Write one `_audio_track{N}.mp3` per track, when
+                the video has more than one audio track.
         """
         logger.info(f"Processing {video_file.name}")
+
+        if not extract_unified and not extract_individual:
+            logger.warning(f"Nothing to extract for {video_file.name} - both outputs disabled")
+            return
         
         audio_tracks = self.get_audio_tracks(video_file)
         
@@ -174,11 +186,12 @@ class AudioExtractor:
         output_dir = video_file.parent
         
         # Extract unified audio (mixed tracks)
-        unified_output = output_dir / f"{base_name}_audio_unified"
-        self.extract_all_audio_unified(video_file, unified_output)
+        if extract_unified:
+            unified_output = output_dir / f"{base_name}_audio_unified"
+            self.extract_all_audio_unified(video_file, unified_output)
         
         # Extract individual tracks if there are multiple
-        if len(audio_tracks) > 1:
+        if extract_individual and len(audio_tracks) > 1:
             for i, track in enumerate(audio_tracks):
                 track_output = output_dir / f"{base_name}_audio_track{i + 1}"
                 self.extract_audio_track(video_file, i, track_output)
