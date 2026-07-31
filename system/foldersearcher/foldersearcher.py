@@ -461,10 +461,13 @@ class FolderSearcher:
         except OSError as exc:
             logger.error("Error opening folder: %s", exc)
             try:
+                # No shell=True: it would flatten the list into one cmd.exe
+                # command line, so an ordinary folder name containing `&`
+                # ("R&D", "Terms & Conditions") would split into two commands
+                # and open the wrong thing. Explorer needs no shell.
                 subprocess.run(
                     ['explorer', full_path],
                     check=True,
-                    shell=True,
                     creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
                 )
                 logger.info("Opened folder using subprocess: %s", full_path)

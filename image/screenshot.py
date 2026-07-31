@@ -51,6 +51,23 @@ def get_bottom_left_monitor(monitors: List[dict]) -> dict:
     """Find the monitor at the bottom-left position."""
     return min(monitors[1:], key=lambda m: (m["top"], m["left"]))
 
+def get_primary_monitor_index(monitors: List[dict]) -> int:
+    """Find the index of the primary monitor in ``mss().monitors``.
+
+    ``monitors[0]`` is the virtual bounding box covering every display, so the
+    physical displays start at index 1. Newer mss builds tag the primary display
+    with ``is_primary``; otherwise fall back to the display sitting at the origin
+    of the virtual screen (where Windows always places the primary one), and
+    finally to the first physical display.
+    """
+    for idx, monitor in enumerate(monitors[1:], start=1):
+        if monitor.get("is_primary"):
+            return idx
+    for idx, monitor in enumerate(monitors[1:], start=1):
+        if monitor["left"] == 0 and monitor["top"] == 0:
+            return idx
+    return 1
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     output_folder = os.environ.get("SCREENSHOT_OUTPUT_FOLDER", str(Path.home() / "Downloads" / "snaps"))
@@ -66,7 +83,7 @@ if __name__ == "__main__":
             bottom_left_monitor = get_bottom_left_monitor(monitors)
             monitor_index = monitors.index(bottom_left_monitor)
         elif param == "primary":
-            monitor_index = 3  # The primary monitor is always at index 1
+            monitor_index = get_primary_monitor_index(monitors)
         else:
             log.error("Invalid parameter. Use a monitor number, 'primary', or 'bottom_left'.")
             sys.exit(1)

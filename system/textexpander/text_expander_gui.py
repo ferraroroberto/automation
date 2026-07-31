@@ -12,7 +12,7 @@ from pathlib import Path
 import threading
 import win32gui
 
-from text_expander_core import TextExpanderCore, ConfigError
+from .text_expander_core import TextExpanderCore, ConfigError
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -392,7 +392,7 @@ class TextExpanderGUI:
                 time.sleep(0.1)
                 keyboard.release(Key.alt)
                 time.sleep(0.3)  # Wait for window switch
-                from text_expander_monitor import perform_expansion
+                from .text_expander_monitor import perform_expansion
                 perform_expansion(expansion, 0)
                 logger.info(f"🚀 Launched abbreviation '{abbreviation}' from GUI")
             threading.Thread(target=do_expansion, daemon=True).start()

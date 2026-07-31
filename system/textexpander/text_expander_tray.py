@@ -20,7 +20,7 @@ except ImportError:
     Image = None
     ImageDraw = None
 
-from text_expander_core import TextExpanderCore
+from .text_expander_core import TextExpanderCore
 
 # Configure module logger
 logger = logging.getLogger(__name__)
