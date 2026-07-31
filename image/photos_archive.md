@@ -36,6 +36,16 @@ Configure `behavior_flags` in `photos_archive.json` to skip prompts:
 - Python 3.7+
 - Required packages: `pandas`, `pillow`, `pymediainfo`, `tkinter`
 
+### Layout
+| File | Holds |
+| --- | --- |
+| `photos_archive.py` | Entry point: prompts, copy/delete operations, the two run flows |
+| `photos_archive_config.py` | Loads/validates `photos_archive.json`, sets up the run's log file |
+| `photos_archive_metadata.py` | EXIF / video / filename date extraction, source-folder scan |
+| `photos_archive_duplicates.py` | Duplicate marking, SHA256 confirmation, per-day grouping |
+
+The config is read lazily on first use rather than at import, so a bad `photos_archive.json` reports through the entry point's error handling instead of a bare traceback. Run the tool from inside `image/` — the siblings are imported as top-level modules.
+
 ## 🔧 Configuration
 
 Configuration is managed via `photos_archive.json` following AGENTS.md guidelines.

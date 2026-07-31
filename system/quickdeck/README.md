@@ -18,6 +18,16 @@ python quickdeck.py [optional path to config]
 
 If no config is provided, it will look for `quickdeck.json` in the current directory.
 
+### Layout
+| File | Holds |
+| --- | --- |
+| `quickdeck.py` | Entry point: config load/create, main window, event loop, CLI |
+| `quickdeck_config_gui.py` | The settings window and per-button edit dialog |
+| `quickdeck_render.py` | PIL emoji + label button-image rendering (no GUI toolkit) |
+| `quickdeck_actions.py` | The shell / url / copy / python executors (no GUI toolkit) |
+
+The last two import no GUI toolkit, so they run without a PySimpleGUI licence — the app injects its status line and popups into the executors via `ActionContext`.
+
 ### Button Types
 - **shell**: Execute shell commands
 - **url**: Open URLs in default browser
