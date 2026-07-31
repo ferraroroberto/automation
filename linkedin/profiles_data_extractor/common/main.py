@@ -103,7 +103,10 @@ def main():
     
     # Theme Toggle
     current_mode = get_current_theme_mode()
-    if st.sidebar.button(f"Switch to {'Light' if current_mode == 'dark' else 'Dark'} Mode"):
+    if st.sidebar.button(
+        f"Switch to {'Light' if current_mode == 'dark' else 'Dark'} Mode",
+        key="main_theme_toggle",
+    ):
         toggle_theme()
         
     st.sidebar.divider()
@@ -117,7 +120,7 @@ def main():
     selected_company = 'All'
     if 'company' in df_filtered.columns:
         companies = ['All'] + sorted(df_filtered['company'].dropna().unique().tolist())
-        selected_company = st.sidebar.selectbox("Select Company", companies)
+        selected_company = st.sidebar.selectbox("Select Company", companies, key="main_filter_company")
         if selected_company != 'All':
             df_filtered = df_filtered[df_filtered['company'] == selected_company]
 
@@ -125,7 +128,7 @@ def main():
     selected_type = 'All'
     if 'search_type' in df_filtered.columns:
         search_types = ['All'] + sorted(df_filtered['search_type'].dropna().unique().tolist())
-        selected_type = st.sidebar.selectbox("Select Search Type", search_types)
+        selected_type = st.sidebar.selectbox("Select Search Type", search_types, key="main_filter_search_type")
         if selected_type != 'All':
             df_filtered = df_filtered[df_filtered['search_type'] == selected_type]
 
@@ -144,9 +147,9 @@ def main():
 
             col_date1, col_date2 = st.sidebar.columns(2)
             with col_date1:
-                start_date = st.sidebar.date_input("Contacted From", value=min_date, min_value=min_date, max_value=max_date)
+                start_date = st.sidebar.date_input("Contacted From", value=min_date, min_value=min_date, max_value=max_date, key="main_filter_contacted_from")
             with col_date2:
-                end_date = st.sidebar.date_input("Contacted To", value=max_date, min_value=min_date, max_value=max_date)
+                end_date = st.sidebar.date_input("Contacted To", value=max_date, min_value=min_date, max_value=max_date, key="main_filter_contacted_to")
 
             # Apply date filter
             # Convert date objects to pandas Timestamps for proper comparison
@@ -161,7 +164,8 @@ def main():
     contacted_filter = st.sidebar.selectbox(
         "Contacted Status",
         ["All", "Contacted Only", "Uncontacted Only"],
-        help="Filter by whether profiles have been contacted"
+        help="Filter by whether profiles have been contacted",
+        key="main_filter_contacted_status"
     )
 
     if contacted_filter == "Contacted Only":
@@ -173,7 +177,8 @@ def main():
     connected_filter = st.sidebar.selectbox(
         "Connected Status",
         ["All", "Connected Only", "Unconnected Only"],
-        help="Filter by whether profiles have connected"
+        help="Filter by whether profiles have connected",
+        key="main_filter_connected_status"
     )
 
     if connected_filter == "Connected Only":

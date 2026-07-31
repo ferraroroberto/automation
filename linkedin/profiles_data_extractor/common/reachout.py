@@ -61,7 +61,7 @@ def main(df_filtered, df_all):
 
     # Filter to only show uncontacted profiles (day is null) from the already filtered data
     # Create view selector
-    view_mode = st.radio("View Mode", ["Uncontacted Profiles", "Revoked Contacts", "Discarded Contacts"], horizontal=True)
+    view_mode = st.radio("View Mode", ["Uncontacted Profiles", "Revoked Contacts", "Discarded Contacts"], horizontal=True, key="reachout_view_mode")
 
     if view_mode == "Uncontacted Profiles":
         # Filter for profiles that are not contacted AND not discarded
@@ -103,7 +103,8 @@ def main(df_filtered, df_all):
                 "Show profiles revoked at least:",
                 ["All Revoked", "4 Weeks Ago", "8 Weeks Ago", "12 Weeks Ago"],
                 horizontal=True,
-                label_visibility="collapsed"
+                label_visibility="collapsed",
+                key="reachout_age_filter"
             )
             
             if age_filter != "All Revoked":
@@ -322,6 +323,10 @@ def main(df_filtered, df_all):
 
         if st.session_state.reachout_editing and st.session_state.reachout_selected_record:
             record = st.session_state.reachout_selected_record
+            # Widget keys are namespaced by the selected profile: an explicit key makes
+            # Streamlit reuse the stored widget state and ignore `value=`, so a key that
+            # did not vary per profile would show the previously edited profile's values.
+            record_key = str(st.session_state.reachout_original_name or "")
 
             with st.form("reachout_edit_form"):
 
@@ -330,7 +335,8 @@ def main(df_filtered, df_all):
                 name = st.text_input(
                     "Name *",
                     value=record.get('name', ''),
-                    help="Full name of the LinkedIn profile"
+                    help="Full name of the LinkedIn profile",
+                    key=f"reachout_name_{record_key}"
                 )
 
                 # Handle date_contacted field - convert to date if it's not None/NaT
@@ -350,7 +356,8 @@ def main(df_filtered, df_all):
                 day = st.date_input(
                     "Day Contacted",
                     value=date_contacted_value,
-                    help="Date when this profile was contacted (leave empty if not contacted yet)"
+                    help="Date when this profile was contacted (leave empty if not contacted yet)",
+                    key=f"reachout_day_contacted_{record_key}"
                 )
 
                 # Show revocation info if present
@@ -376,7 +383,8 @@ def main(df_filtered, df_all):
                 date_discarded = st.date_input(
                     "Date Discarded",
                     value=date_discarded_value,
-                    help="Date when this profile was discarded (leave empty if not discarded)"
+                    help="Date when this profile was discarded (leave empty if not discarded)",
+                    key=f"reachout_date_discarded_{record_key}"
                 )
 
                 # Get distinct reach out types from the full dataframe
@@ -389,46 +397,53 @@ def main(df_filtered, df_all):
                     "Reachout Type",
                     options=reachout_types,
                     index=reachout_types.index(record.get('reach_out_type', '')) if record.get('reach_out_type', '') in reachout_types else 0,
-                    help="Type of reachout made to this profile"
+                    help="Type of reachout made to this profile",
+                    key=f"reachout_reach_out_type_{record_key}"
                 )
 
                 search_type = st.text_input(
                     "Search Type",
                     value=record.get('search_type', ''),
-                    help="How this profile was found (e.g., keyword search, mutual connections, etc.)"
+                    help="How this profile was found (e.g., keyword search, mutual connections, etc.)",
+                    key=f"reachout_search_type_{record_key}"
                 )
 
                 job_title = st.text_input(
                     "Job Title",
                     value=record.get('job_title', ''),
-                    help="Current job position"
+                    help="Current job position",
+                    key=f"reachout_job_title_{record_key}"
                 )
 
                 follows_from = st.text_input(
                     "Follows From",
                     value=record.get('follows_from', ''),
-                    help="How you connected with this person"
+                    help="How you connected with this person",
+                    key=f"reachout_follows_from_{record_key}"
                 )
 
                 company = st.text_input(
                     "Company",
                     value=record.get('company', ''),
-                    help="Company name"
+                    help="Company name",
+                    key=f"reachout_company_{record_key}"
                 )
 
                 location = st.text_input(
                     "Location",
                     value=record.get('location', ''),
-                    help="Location/city"
+                    help="Location/city",
+                    key=f"reachout_location_{record_key}"
                 )
 
                 url = st.text_input(
                     "Profile URL",
                     value=record.get('url_profile', ''),
-                    help="LinkedIn profile URL"
+                    help="LinkedIn profile URL",
+                    key=f"reachout_url_profile_{record_key}"
                 )
 
-                submitted = st.form_submit_button("💾 Save Changes")
+                submitted = st.form_submit_button("💾 Save Changes", key="reachout_submit")
 
                 if submitted:
                     if not name.strip():

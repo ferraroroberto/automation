@@ -1,32 +1,31 @@
 @echo off
 REM Weekly Photo Automation - Windows Batch Script
-REM This script activates the virtual environment and runs the automation
+REM This script runs the automation with the repo virtual environment's interpreter
 
 echo ========================================
 echo    Weekly Photo Album Automation
 echo ========================================
 echo.
 
-REM Check if virtual environment exists
-if not exist ".venv\Scripts\activate.bat" (
-    echo ERROR: Virtual environment not found!
-    echo Please run the installation steps first:
-    echo   python -m venv .venv
-    echo   .venv\Scripts\activate
-    echo   pip install -r requirements.txt
+REM Run from this script's own folder: the automation resolves its config relative to CWD
+cd /d "%~dp0"
+
+REM Interpreter of the repo virtual environment (one level up), invoked directly
+set "VENV_PY=%~dp0..\.venv\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo ERROR: Virtual environment interpreter not found at "%VENV_PY%"
+    echo Please run the installation steps first, from the repo root:
+    echo   py -m venv .venv
+    echo   .venv\Scripts\python.exe -m pip install -r requirements.txt
     pause
     exit /b 1
 )
-
-REM Activate virtual environment and run script
-echo Activating virtual environment...
-call .venv\Scripts\activate.bat
 
 echo.
 echo Running photo automation...
 echo.
 
-python weekly_photo_automation.py %*
+"%VENV_PY%" weekly_photo_automation.py %*
 
 if %ERRORLEVEL% EQU 0 (
     echo.

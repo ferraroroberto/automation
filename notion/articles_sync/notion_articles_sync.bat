@@ -16,11 +16,11 @@ set "VENV_DIR=E:\automation\automation\.venv"
 REM Set the path to the notion articles sync scripts
 set "SCRIPT_DIR=E:\automation\automation\notion\articles_sync"
 
-echo [INFO] Activating virtual environment...
-call "%VENV_DIR%\Scripts\activate.bat"
-if errorlevel 1 (
-    echo [ERROR] Failed to activate virtual environment. Make sure it exists at %VENV_DIR%
-    echo [INFO] Attempting to continue without virtual environment activation...
+set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
 )
 
 echo [INFO] Changing to script directory: "%SCRIPT_DIR%"
@@ -31,7 +31,7 @@ if errorlevel 1 (
 )
 
 echo [INFO] Running notion_articles_sync.py...
-python notion_articles_sync.py
+"%VENV_PY%" notion_articles_sync.py
 if errorlevel 1 (
     echo [ERROR] notion_articles_sync.py returned an error code.
     pause

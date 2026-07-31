@@ -173,6 +173,11 @@ def main():
     st.subheader("📝 Step 3: Edit Record Data")
 
     if st.session_state.selected_record:
+        # Widget keys are namespaced by the selected record: an explicit key makes
+        # Streamlit reuse the stored widget state and ignore `value=`, so a key that
+        # did not vary per record would show the previously edited record's values.
+        record_key = str(st.session_state.original_name or "")
+
         with st.form("edit_form"):
             # First row: Name and Answered (same line)
             col_name, col_answered = st.columns(2)
@@ -181,7 +186,8 @@ def main():
                 name = st.text_input(
                     "Name *",
                     value=st.session_state.selected_record.get('name', ''),
-                    help="Full name of the LinkedIn profile"
+                    help="Full name of the LinkedIn profile",
+                    key=f"dataentry_name_{record_key}"
                 )
 
             with col_answered:
@@ -195,7 +201,8 @@ def main():
                     "Answered",
                     options=[0, 1],
                     index=answered_index,
-                    help="0 = Not answered, 1 = Answered"
+                    help="0 = Not answered, 1 = Answered",
+                    key=f"dataentry_answered_{record_key}"
                 )
 
             # Second row: All four date fields with clear checkboxes (8 columns total)
@@ -205,7 +212,8 @@ def main():
                 day_contacted = st.date_input(
                     "Contacted",
                     value=st.session_state.selected_record.get('date_contacted') if pd.notna(st.session_state.selected_record.get('date_contacted')) else None,
-                    help="Date when the contact was made"
+                    help="Date when the contact was made",
+                    key=f"dataentry_date_contacted_{record_key}"
                 )
 
             with col_clear_contacted:
@@ -219,7 +227,8 @@ def main():
                 date_connected = st.date_input(
                     "Connected",
                     value=st.session_state.selected_record.get('date_connected') if pd.notna(st.session_state.selected_record.get('date_connected')) else None,
-                    help="Date when the connection was made"
+                    help="Date when the connection was made",
+                    key=f"dataentry_date_connected_{record_key}"
                 )
 
             with col_clear_connected:
@@ -233,7 +242,8 @@ def main():
                 revocation_date = st.date_input(
                     "Revocation",
                     value=st.session_state.selected_record.get('date_revocation') if pd.notna(st.session_state.selected_record.get('date_revocation')) else None,
-                    help="Date when the contact was revoked"
+                    help="Date when the contact was revoked",
+                    key=f"dataentry_date_revocation_{record_key}"
                 )
 
             with col_clear_revocation:
@@ -247,7 +257,8 @@ def main():
                 date_discarded = st.date_input(
                     "Discarded",
                     value=st.session_state.selected_record.get('date_discarded') if pd.notna(st.session_state.selected_record.get('date_discarded')) else None,
-                    help="Date when the profile was discarded"
+                    help="Date when the profile was discarded",
+                    key=f"dataentry_date_discarded_{record_key}"
                 )
 
             with col_clear_discarded:
@@ -261,7 +272,8 @@ def main():
             chat_url = st.text_input(
                 "LinkedIn Chat URL",
                 value=st.session_state.selected_record.get('url_chat', ''),
-                help="URL to the LinkedIn chat/messaging thread"
+                help="URL to the LinkedIn chat/messaging thread",
+                key=f"dataentry_url_chat_{record_key}"
             )
 
             # Fourth row: Company and Reachout Type (same line)
@@ -271,7 +283,8 @@ def main():
                 company = st.text_input(
                     "Company",
                     value=st.session_state.selected_record.get('company', ''),
-                    help="Company name"
+                    help="Company name",
+                    key=f"dataentry_company_{record_key}"
                 )
 
             with col_reachout:
@@ -298,7 +311,8 @@ def main():
                     "Reachout Type",
                     options=reachout_types,
                     index=reachout_index,
-                    help="Type of reachout made to this profile"
+                    help="Type of reachout made to this profile",
+                    key=f"dataentry_reach_out_type_{record_key}"
                 )
 
             # Fifth row: Job Title and Location (same line)
@@ -308,17 +322,19 @@ def main():
                 job_title = st.text_input(
                     "Job Title",
                     value=st.session_state.selected_record.get('job_title', ''),
-                    help="Job title/position"
+                    help="Job title/position",
+                    key=f"dataentry_job_title_{record_key}"
                 )
 
             with col_location:
                 location = st.text_input(
                     "Location",
                     value=st.session_state.selected_record.get('location', ''),
-                    help="Location/city"
+                    help="Location/city",
+                    key=f"dataentry_location_{record_key}"
                 )
 
-            submitted = st.form_submit_button("💾 Update Record")
+            submitted = st.form_submit_button("💾 Update Record", key="dataentry_submit")
 
             if submitted:
                 if not name.strip():
@@ -390,7 +406,7 @@ def main():
         """)
     
     with col_format_btn:
-        if st.button("🎨 Apply Formatting", type="primary", width="stretch"):
+        if st.button("🎨 Apply Formatting", type="primary", width="stretch", key="dataentry_apply_formatting"):
             json_path = Path(__file__).parent / "excel_format_spec.json"
             if not json_path.exists():
                 st.error("❌ Format specification file not found!")
