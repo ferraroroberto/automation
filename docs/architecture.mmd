@@ -16,13 +16,13 @@ flowchart TB
 
   subgraph domains["Domain folders — mostly independent scripts, each usually paired\nwith a .bat launcher, a per-script .md doc, and/or a JSON config"]
     AUDIO["audio/\naudio_extractor_core/gui · audio_normalize · audio_trim ·\nconvert_ogg_mp3 · transcript_collate"]
-    IMAGE["image/\nillustrations_formatter(_gui) · photos_archive · image_resizer ·\ncarrousel_pdf_to_jpg · pdf_to_jpg/ · screenshot · imgur_check_rate"]
+    IMAGE["image/\nillustrations_formatter(_gui) · image_resizer ·\ncarrousel_pdf_to_jpg · pdf_to_jpg/ · screenshot · imgur_check_rate ·\nphotos_archive (CLI) + photos_archive_config/_metadata/_duplicates\n(config+logging / date extraction+scan / duplicate analysis)"]
     VIDEO["video/\nscreen_recorder · video_download · video_reencoder ·\nvideo_trim/concatenator · gpu_recovery"]
     TEXT["text/\nconvert_pdf_to_txt · clean_sensitive_data"]
     EXCEL["excel/\naccounting_stripe/"]
     HTML["html/\ncountdown_timer.html"]
     SMARTLIFE["smart_life/\ndevice automation (despacho_switch.bat, devices.sample.json)"]
-    SYSTEM["system/\nkeycaster · quickdeck/ · textexpander/ · wifi/ ·\nmarkdown_preview · mouse_mover · apple/ ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests) ·\n_lib/single_instance.py (shared Windows-mutex single-instance guard,\nused by mouse_mover.py + foldersearcher.py)"]
+    SYSTEM["system/\nkeycaster · textexpander/ · wifi/ ·\nmarkdown_preview · mouse_mover · apple/ ·\nquickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsettings editor; quickdeck_render.py = GUI-free PIL button images;\nquickdeck_actions.py = GUI-free action executors) ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests) ·\n_lib/single_instance.py (shared Windows-mutex single-instance guard,\nused by mouse_mover.py + foldersearcher.py)"]
   end
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains
