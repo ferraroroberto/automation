@@ -276,7 +276,7 @@ Most modules use JSON configuration files for flexible settings:
 ## 🔧 Dependencies
 
 ### **Core Dependencies**
-- **Audio**: `openai-whisper`, `sounddevice`, `scipy`, `pydub`
+- **Audio**: `openai-whisper`, `scipy`, `pydub`
 - **Image**: `Pillow`, `pillow-heif`, `pymediainfo`
 - **Video**: `opencv-python`, `mss`, `pyautogui`
 - **PDF**: `pypdf`, `openpyxl`

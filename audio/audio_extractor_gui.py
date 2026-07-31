@@ -144,7 +144,14 @@ class AudioExtractorGUI:
         if not self.selected_files:
             messagebox.showwarning("No files", "Please select video files first.")
             return
-        
+
+        if not self.extract_unified_var.get() and not self.extract_individual_var.get():
+            messagebox.showwarning(
+                "Nothing to extract",
+                "Tick at least one of the extraction options."
+            )
+            return
+
         # Check FFmpeg
         if not self.extractor.check_ffmpeg():
             messagebox.showerror("FFmpeg not found", 
@@ -157,18 +164,30 @@ class AudioExtractorGUI:
         self.process_btn.config(state=tk.DISABLED)
         self.progress.start(10)
         
+        # Read the option vars here, on the main thread — tkinter variables must
+        # not be touched from the worker thread.
+        extract_unified = self.extract_unified_var.get()
+        extract_individual = self.extract_individual_var.get()
+
         # Process files in a separate thread
-        thread = threading.Thread(target=self._process_files_thread)
+        thread = threading.Thread(
+            target=self._process_files_thread,
+            args=(extract_unified, extract_individual)
+        )
         thread.daemon = True
         thread.start()
-    
-    def _process_files_thread(self):
+
+    def _process_files_thread(self, extract_unified, extract_individual):
         """Process files in a separate thread."""
         try:
             # Process each file
             for video_file in self.selected_files:
-                self.extractor.process_video_file(video_file)
-            
+                self.extractor.process_video_file(
+                    video_file,
+                    extract_unified=extract_unified,
+                    extract_individual=extract_individual
+                )
+
             # Show completion message
             self.root.after(0, self._processing_complete)
         except Exception as e:

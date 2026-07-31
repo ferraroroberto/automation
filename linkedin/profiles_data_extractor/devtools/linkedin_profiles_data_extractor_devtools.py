@@ -2,12 +2,12 @@
 LinkedIn Profiles Data Extractor Module - Chrome DevTools Version
 
 Extracts profile data from multiple Chrome tabs using DevTools Protocol.
-Cycles through all open tabs, extracts profile information, and saves to Excel.
+Cycles through all open tabs and extracts profile information; persistence to
+Excel is the orchestrator's job (`merge_to_excel`).
 """
 
 from typing import Dict, List, Tuple
 
-import pandas as pd
 from pynput import keyboard
 
 from _chrome_client import ChromeDevToolsClient, setup_logging
@@ -355,32 +355,6 @@ class LinkedInProfileExtractorDevTools:
 
         finally:
             self.chrome.close()
-
-    def save_to_excel(profiles: List[Dict[str, str]], output_file: str) -> None:
-        """Save profiles to Excel file.
-
-        Args:
-            profiles: List of profile dictionaries.
-            output_file: Path to output Excel file.
-        """
-        if not profiles:
-            logger.warning("⚠️  No profiles to save")
-            return
-
-        try:
-            df = pd.DataFrame(profiles)
-
-            # Convert empty strings to NaN for better Excel handling
-            df = df.replace('', pd.NA)
-
-            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name='Profiles', index=False)
-
-            logger.info(f"✅ Saved {len(profiles)} profiles to {output_file}")
-
-        except Exception as e:
-            logger.error(f"❌ Failed to save to Excel: {e}")
-            raise
 
 
 def main() -> None:

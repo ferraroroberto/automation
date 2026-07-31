@@ -23,7 +23,7 @@ Requires FFmpeg and FFprobe on `PATH`.
 
 ## 🖥️ audio_extractor_gui.py
 
-Tkinter GUI front-end for the same extraction logic as `audio_extractor_core.py`: a "Select Video Files" button (filtered to `.mkv`/`.mp4`), an "Extract Audio" button, a live scrolling log panel fed from the `logging` module, and an indeterminate progress bar while extraction runs on a background thread. It always produces the unified mix plus per-track files when a video has multiple audio tracks, the same as the core script — the "Extract unified audio" / "Extract individual tracks" checkboxes in the Options panel are display-only and are not read by the processing code.
+Tkinter GUI front-end for the same extraction logic as `audio_extractor_core.py`: a "Select Video Files" button (filtered to `.mkv`/`.mp4`), an "Extract Audio" button, a live scrolling log panel fed from the `logging` module, and an indeterminate progress bar while extraction runs on a background thread. The "Extract unified audio (all tracks)" / "Extract individual tracks" checkboxes in the Options panel select which outputs are written; both are ticked by default, which reproduces the core script's behaviour (unified mix plus per-track files when a video has multiple audio tracks). Unticking both is refused with a warning.
 
 ```bash
 python audio/audio_extractor_gui.py

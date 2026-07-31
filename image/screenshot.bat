@@ -5,8 +5,8 @@ set "PROJECT_DIR=E:\automation\automation"
 set "SCRIPT_PATH=E:\automation\automation\image\screenshot.py"
 set "VENV_PY=%PROJECT_DIR%\.venv\Scripts\python.exe"
 
-echo [INFO] Changing to project directory: "%PROJECT_DIR%\home\image"
-cd /d "E:\automation\automation"
+echo [INFO] Changing to project directory: "%PROJECT_DIR%"
+cd /d "%PROJECT_DIR%"
 if errorlevel 1 (
     echo [ERROR] Failed to change directory.
     exit /b 1
