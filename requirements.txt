@@ -203,36 +203,3 @@ rarfile>=4.0
 # Word document processing
 # Source: system/word_to_markdown.py
 python-docx>=0.8.11
-
-# =============================================================================
-# SYSTEM REQUIREMENTS
-# =============================================================================
-
-# FFmpeg must be installed separately for audio/video processing
-# Windows: Use Chocolatey (choco install ffmpeg) or download from https://ffmpeg.org/
-# Linux: sudo apt-get install ffmpeg
-# macOS: brew install ffmpeg
-
-# =============================================================================
-# STANDARD LIBRARY MODULES (NO INSTALLATION NEEDED)
-# =============================================================================
-
-# The following modules are part of Python's standard library:
-# - tkinter (GUI framework)
-# - argparse (Command line parsing)
-# - pathlib (Path manipulation)
-# - concurrent.futures (Parallel processing)
-# - subprocess (Process management)
-# - os, sys, re, json, datetime, threading, queue
-# - tempfile, shutil, logging, hashlib
-# - urllib.parse, webbrowser, ctypes, platform
-
-# =============================================================================
-# INSTALLATION NOTES
-# =============================================================================
-
-# Install all dependencies:
-# pip install -r requirements.txt
-
-# Note: Some modules may require system-level dependencies (FFmpeg, WinRAR, etc.)
-# See individual module documentation for specific requirements.
