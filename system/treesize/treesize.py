@@ -10,10 +10,10 @@ import io
 import ctypes
 import sys
 import platform
-import subprocess                 # NEW
+import subprocess
 from typing import Any, List
 
-# --- NEW: Analyzer class for logic ---
+
 class TreeSizeAnalyzer:
     def __init__(self) -> None:
         self.folder_sizes = {}      # Cache for folder sizes
@@ -158,11 +158,11 @@ class TreeSizeApp:
         
         self.current_path = None
         self.size_threads = {}      # Track running threads
-        self._calc_start: dict[str, datetime] = {}      # NEW – track batch timers
+        self._calc_start: dict[str, datetime] = {}      # Track batch timers
         
         # Metric selection - default to space on disk
         self.size_metric = tk.StringVar(value="disk")
-        self.analyzer = TreeSizeAnalyzer()  # NEW: use analyzer
+        self.analyzer = TreeSizeAnalyzer()
         
         self.setup_ui()
         
@@ -234,7 +234,7 @@ class TreeSizeApp:
         
         self.folder_tree.heading("#0", text="Folder", anchor=tk.W)
         self.folder_tree.heading("size", text="Size", anchor=tk.E)
-        self.folder_tree.column("size", width=90, anchor=tk.E, stretch=False)   # NARROWER
+        self.folder_tree.column("size", width=90, anchor=tk.E, stretch=False)
         self.folder_tree.column("path", width=0, stretch=False)  # Hidden column for path
         
         self.folder_tree.bind("<<TreeviewOpen>>", self.on_folder_expand)
@@ -260,8 +260,8 @@ class TreeSizeApp:
         
         self.file_tree.heading("#0", text="File Name", anchor=tk.W)
         self.file_tree.heading("size", text="Size", anchor=tk.E)
-        self.file_tree.column("size", width=90, anchor=tk.E, stretch=False)     # NARROWER
-        self.file_tree.column("path", width=0, stretch=False)  # NEW hide full path
+        self.file_tree.column("size", width=90, anchor=tk.E, stretch=False)
+        self.file_tree.column("path", width=0, stretch=False)  # Hidden column holding the full path
         
         # Log area frame
         log_frame = ttk.LabelFrame(main_paned, text="Log")
@@ -285,9 +285,9 @@ class TreeSizeApp:
         self.status_bar = ttk.Label(self.root, text="Ready", relief=tk.SUNKEN)
         self.status_bar.pack(fill=tk.X, side=tk.BOTTOM)
         
-        ttk.Button(control_frame, text="Refresh", command=self.refresh).pack(side=tk.LEFT, padx=5)        # NEW
-        ttk.Button(control_frame, text="Open Folder", command=self.open_selected_folder).pack(side=tk.RIGHT, padx=5)         # NEW
-        ttk.Button(control_frame, text="Open File Location", command=self.open_selected_file_location).pack(side=tk.RIGHT)    # NEW
+        ttk.Button(control_frame, text="Refresh", command=self.refresh).pack(side=tk.LEFT, padx=5)
+        ttk.Button(control_frame, text="Open Folder", command=self.open_selected_folder).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(control_frame, text="Open File Location", command=self.open_selected_file_location).pack(side=tk.RIGHT)
         
     def on_metric_change(self) -> None:
         """Handle change in size metric selection"""
@@ -324,8 +324,8 @@ class TreeSizeApp:
                     # Reload files with new metric
                     self._update_file_tree(self.analyzer.file_cache[folder_path])
                     
-        self._sort_tree_by_size("")                       # NEW – resort root
-        for top in self.folder_tree.get_children(""):     # NEW – resort each branch
+        self._sort_tree_by_size("")                       # Resort root
+        for top in self.folder_tree.get_children(""):     # Resort each branch
             self._sort_tree_by_size(top)
             
     def update_item_sizes(self, item: str) -> None:
@@ -427,7 +427,7 @@ class TreeSizeApp:
                 calculation_needed.append((node, folder_path))
         
         if calculation_needed:
-            self._calc_start[parent] = datetime.now()    # NEW – start timer
+            self._calc_start[parent] = datetime.now()    # Start batch timer
             logger.info(f"Calculating sizes for {len(calculation_needed)} folders...")
             for node, folder_path in calculation_needed:
                 thread = threading.Thread(target=self._calculate_and_update_size, args=(node, folder_path, parent))
@@ -449,7 +449,7 @@ class TreeSizeApp:
             # After a batch of updates, sort the tree
             self.root.after(100, lambda: self._sort_tree_by_size(parent))
             
-            # --- NEW : finished-batch detection ---
+            # Finished-batch detection
             def _maybe_done() -> bool:
                 for child in self.folder_tree.get_children(parent):
                     val = self.folder_tree.item(child, "values")[0]
@@ -557,12 +557,11 @@ class TreeSizeApp:
             
     def _update_file_tree(self, files: List[Any]) -> None:
         self.file_tree.delete(*self.file_tree.get_children())
-        for filename, size, full_path in files:             # CHANGED – keep full path
+        for filename, size, full_path in files:             # Keep the full path for open-location
             size_str = self.analyzer.format_size(size)
             self.file_tree.insert("", tk.END, text=filename, values=(size_str, full_path))
         self.status_bar.config(text="Ready")
-        
-    # ---------- NEW METHODS ----------
+
     def refresh(self) -> None:
         """Clear caches and reload current folder."""
         if not self.current_path:
@@ -615,7 +614,6 @@ class TreeSizeApp:
             subprocess.run(['open', '-R', path], check=False)
         else:
             subprocess.run(['xdg-open', os.path.dirname(path)], check=False)
-    # ---------- END NEW METHODS ----------
 
     def on_folder_expand(self, event: Any) -> None:
         """Handle folder expansion - load subfolders if not already loaded"""
