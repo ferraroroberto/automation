@@ -20,6 +20,16 @@ the working fix (`pnputil /enable-device`) and verifies recovery with
 `nvidia-smi`. Enabling a device needs administrator rights; `gpu_recovery.bat`
 self-elevates before launching this script.
 
+Reading the three console tools
+-------------------------------
+`powershell`, `nvidia-smi` and `pnputil` are native Windows console tools:
+they write their own console code page, so their output is captured as raw
+bytes and decoded explicitly through `system/_lib/console_output.py` - never
+with `text=` or `encoding=`, which decode with the *parent's* locale instead
+(`#106`, `#108`). Every query here therefore answers in a tri-state:
+`GpuQuery.known` and `SmiReading.known` say whether the fact was established
+at all, so "could not read the GPU" is never reported as "the GPU is gone".
+
 Usage
 -----
     python gpu_recovery.py            # diagnose, then fix if disabled
@@ -33,7 +43,13 @@ import logging
 import os
 import subprocess
 import sys
-from typing import Optional
+from pathlib import Path
+from typing import NamedTuple, Optional, Sequence
+
+# system/_lib holds the shared native-console-tool decoder (see #106/#108).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "system"))
+from _lib.console_output import NO_WINDOW as _NO_WINDOW  # noqa: E402
+from _lib.console_output import decode_console_bytes  # noqa: E402
 
 # UTF-8 stdout so emoji/box characters survive redirected/captured runs on
 # Windows (cp1252 fallback otherwise throws UnicodeEncodeError under capture).
@@ -49,10 +65,6 @@ logger = logging.getLogger("gpu_recovery")
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 PNPUTIL = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "System32", "pnputil.exe")
 NVIDIA_VENDOR_PREFIX = "PCI\\VEN_10DE"
-
-# Suppress the console window each spawn would otherwise flash when this
-# tool runs unattended (e.g. relaunched via gpu_recovery.bat self-elevation).
-_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 # Device Manager ConfigManagerErrorCode -> human meaning (the ones we care about).
 CODE_MEANINGS = {
@@ -73,27 +85,124 @@ def is_admin() -> bool:
         return False
 
 
-def _powershell(script: str) -> str:
-    """Run a Windows PowerShell snippet and return its stdout (empty on error)."""
+class ConsoleRun(NamedTuple):
+    """Outcome of one native-console-tool invocation.
+
+    `ran` is the state that must never be folded into a negative answer: a
+    query that could not run, or whose output could not be read, is
+    *unknown* - not "the GPU is gone".
+    """
+
+    ran: bool
+    returncode: int
+    stdout: str
+    stderr: str
+    encoding: Optional[str]
+
+    @property
+    def succeeded(self) -> bool:
+        """True when the tool ran and reported success."""
+        return self.ran and self.returncode == 0
+
+    @property
+    def has_output(self) -> bool:
+        """True when stdout carries something to parse."""
+        return bool(self.stdout.strip())
+
+
+def _run_console(command: Sequence[str], *, timeout: int, label: str) -> ConsoleRun:
+    """Run a native Windows console tool and decode its output explicitly.
+
+    Captures raw bytes - never `text=`, never `encoding=` - because those
+    decode with the *parent's* locale rather than the child's console code
+    page. See `system/_lib/console_output.py` for the measured failure mode
+    (`#106`, `#108`); the short version is that under `PYTHONUTF8=1` a bad
+    decode empties the whole output while still reporting exit 0, which is
+    indistinguishable from "the tool answered nothing".
+
+    Never raises. Every failure path logs, so a `ConsoleRun` that could not
+    be read leaves a breadcrumb instead of a silent negative.
+    """
     try:
-        result = subprocess.run(
-            [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
+        proc = subprocess.run(
+            command,
             capture_output=True,
-            text=True,
-            timeout=60,
+            timeout=timeout,
             creationflags=_NO_WINDOW,
         )
-        return result.stdout.strip()
     except (subprocess.SubprocessError, OSError) as exc:
-        logger.warning("⚠️  PowerShell call failed: %s", exc)
-        return ""
+        logger.warning("⚠️  %s could not run: %s", label, exc)
+        return ConsoleRun(ran=False, returncode=-1, stdout="", stderr="", encoding=None)
+
+    stdout, encoding = decode_console_bytes(proc.stdout or b"")
+    stderr, _ = decode_console_bytes(proc.stderr or b"")
+
+    if proc.returncode != 0:
+        logger.debug(
+            "ℹ️  %s exited %d: %s", label, proc.returncode, (stderr or stdout).strip()
+        )
+    elif (proc.stdout or b"") and not stdout.strip():
+        # Bytes came back but decoded to nothing - the answer is unknown,
+        # never an empty result. This is exactly the shape #108 is about.
+        logger.error(
+            "❌ %s exited 0 but produced no readable output "
+            "(%d raw bytes, decoded as %s) - result is unknown, not empty.",
+            label,
+            len(proc.stdout or b""),
+            encoding,
+        )
+
+    return ConsoleRun(
+        ran=True,
+        returncode=proc.returncode,
+        stdout=stdout,
+        stderr=stderr,
+        encoding=encoding,
+    )
 
 
-def find_nvidia_gpus() -> list[dict]:
+def _powershell(script: str, label: str) -> ConsoleRun:
+    """Run a Windows PowerShell snippet and return its decoded result.
+
+    Returns a `ConsoleRun` rather than a bare string so callers can tell
+    "PowerShell answered nothing" apart from "PowerShell could not be read";
+    an empty string used to mean both, silently.
+    """
+    run = _run_console(
+        [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
+        timeout=60,
+        label=f"PowerShell ({label})",
+    )
+    if not run.ran:
+        return run
+    if run.returncode != 0:
+        logger.warning(
+            "⚠️  PowerShell (%s) exited %d: %s",
+            label,
+            run.returncode,
+            (run.stderr or run.stdout).strip() or "<no output>",
+        )
+    return run
+
+
+class GpuQuery(NamedTuple):
+    """Tri-state answer to "which NVIDIA display adapters are present?".
+
+    `known` is False when the PowerShell query itself failed or could not be
+    parsed, in which case an empty `gpus` means nothing - it must not be
+    reported as "the card is physically absent".
+    """
+
+    gpus: list[dict]
+    known: bool
+
+
+def find_nvidia_gpus() -> GpuQuery:
     """Discover present NVIDIA display adapters and their problem state.
 
-    Returns a list of dicts: {FriendlyName, InstanceId, Status, ConfigManagerErrorCode}.
-    The instance id is discovered dynamically so the tool is portable across
+    Returns a `GpuQuery` whose `gpus` are dicts of
+    {FriendlyName, InstanceId, Status, ConfigManagerErrorCode}. The instance
+    id is discovered dynamically so the tool is portable across
     machines/cards - nothing is hardcoded.
     """
     script = (
@@ -102,15 +211,26 @@ def find_nvidia_gpus() -> list[dict]:
         "Select-Object FriendlyName, InstanceId, Status, ConfigManagerErrorCode | "
         "ConvertTo-Json -Compress"
     )
-    raw = _powershell(script)
+    run = _powershell(script, "enumerate display adapters")
+    if not run.succeeded:
+        return GpuQuery(gpus=[], known=False)
+    raw = run.stdout.strip()
     if not raw:
-        return []
+        # ConvertTo-Json emits nothing when the pipeline is empty, so a
+        # zero-exit empty stdout genuinely means "no NVIDIA adapter".
+        return GpuQuery(gpus=[], known=True)
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
+    except json.JSONDecodeError as exc:
+        logger.error(
+            "❌ Could not parse the adapter query output as JSON (%s, decoded as %s): %s",
+            exc,
+            run.encoding,
+            raw[:200],
+        )
+        return GpuQuery(gpus=[], known=False)
     # ConvertTo-Json emits a bare object for a single item, a list for many.
-    return data if isinstance(data, list) else [data]
+    return GpuQuery(gpus=data if isinstance(data, list) else [data], known=True)
 
 
 def read_config_flags(instance_id: str) -> Optional[int]:
@@ -122,34 +242,53 @@ def read_config_flags(instance_id: str) -> Optional[int]:
         "-Name ConfigFlags -ErrorAction SilentlyContinue; "
         "if ($null -ne $k) { $k.ConfigFlags } else { 'NA' }"
     )
-    raw = _powershell(script)
+    run = _powershell(script, "read ConfigFlags")
     try:
-        return int(raw)
+        return int(run.stdout.strip())
     except (TypeError, ValueError):
         return None
 
 
-def nvidia_smi() -> Optional[str]:
-    """Return a one-line nvidia-smi summary, or None if the GPU isn't live."""
+class SmiReading(NamedTuple):
+    """Tri-state answer to "is the GPU live?".
+
+    `known` is False when nvidia-smi could not be run or its output could not
+    be read. That case must never be shown as "the GPU isn't live" - it is
+    the single alarm condition this tool exists to detect, and reporting a
+    healthy card as gone is worse than reporting nothing at all.
+    """
+
+    summary: Optional[str]
+    known: bool
+
+
+def _smi_command() -> list[str]:
+    """Build the nvidia-smi argv (seam: the test swaps in a stand-in child)."""
     smi = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "System32", "nvidia-smi.exe")
     exe = smi if os.path.exists(smi) else "nvidia-smi"
-    try:
-        result = subprocess.run(
-            [
-                exe,
-                "--query-gpu=name,driver_version,memory.total,temperature.gpu,utilization.gpu",
-                "--format=csv,noheader",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            creationflags=_NO_WINDOW,
+    return [
+        exe,
+        "--query-gpu=name,driver_version,memory.total,temperature.gpu,utilization.gpu",
+        "--format=csv,noheader",
+    ]
+
+
+def nvidia_smi() -> SmiReading:
+    """Return a one-line nvidia-smi summary, distinguishing dead from unreadable."""
+    run = _run_console(_smi_command(), timeout=30, label="nvidia-smi")
+    if not run.ran:
+        return SmiReading(summary=None, known=False)
+    if run.returncode != 0:
+        # nvidia-smi ran and refused: the GPU genuinely is not live.
+        logger.debug("ℹ️  nvidia-smi exited %d - GPU not responding.", run.returncode)
+        return SmiReading(summary=None, known=True)
+    if not run.has_output:
+        logger.error(
+            "❌ nvidia-smi exited 0 with no readable output - the GPU state is "
+            "UNKNOWN, not 'not live'."
         )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except (subprocess.SubprocessError, OSError):
-        pass
-    return None
+        return SmiReading(summary=None, known=False)
+    return SmiReading(summary=run.stdout.strip(), known=True)
 
 
 def recent_events(instance_id: str) -> list[str]:
@@ -168,8 +307,8 @@ def recent_events(instance_id: str) -> list[str]:
         "Select-Object -First 12 TimeCreated, Id, ProviderName | "
         "ForEach-Object { '{0}  [{1}] {2}' -f $_.TimeCreated, $_.Id, $_.ProviderName }"
     )
-    raw = _powershell(script)
-    return [line for line in raw.splitlines() if line.strip()]
+    run = _powershell(script, "recent device events")
+    return [line for line in run.stdout.splitlines() if line.strip()]
 
 
 def enable_device(instance_id: str) -> bool:
@@ -179,19 +318,21 @@ def enable_device(instance_id: str) -> bool:
                      "Run gpu_recovery.bat (it self-elevates).")
         return False
     logger.info("🔧 Enabling via: pnputil /enable-device \"%s\"", instance_id)
-    try:
-        result = subprocess.run(
-            [PNPUTIL, "/enable-device", instance_id],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            creationflags=_NO_WINDOW,
-        )
-    except (subprocess.SubprocessError, OSError) as exc:
-        logger.error("❌ pnputil failed: %s", exc)
+    run = _run_console(
+        [PNPUTIL, "/enable-device", instance_id], timeout=60, label="pnputil /enable-device"
+    )
+    if not run.ran:
+        logger.error("❌ pnputil could not be run - the device was not enabled.")
         return False
-    logger.info(result.stdout.strip() or result.stderr.strip())
-    return result.returncode == 0
+    evidence = run.stdout.strip() or run.stderr.strip()
+    if evidence:
+        logger.info(evidence)
+    else:
+        logger.warning(
+            "⚠️  pnputil exited %d but said nothing readable - judging the enable "
+            "by its exit code alone.", run.returncode
+        )
+    return run.returncode == 0
 
 
 def describe_code(code: Optional[int]) -> str:
@@ -200,17 +341,23 @@ def describe_code(code: Optional[int]) -> str:
     return CODE_MEANINGS.get(code, f"Code {code} (see Microsoft Device Manager error codes)")
 
 
-def diagnose() -> list[dict]:
+def diagnose() -> GpuQuery:
     """Print a diagnostic report and return the discovered GPU records."""
     logger.info("=" * 70)
     logger.info("NVIDIA GPU diagnostic")
     logger.info("=" * 70)
 
-    gpus = find_nvidia_gpus()
+    query = find_nvidia_gpus()
+    gpus = query.gpus
+    if not query.known:
+        logger.error("❌ Could not enumerate display adapters - the GPU state is "
+                     "UNKNOWN. This is not the same as 'no card found'; see the "
+                     "error above for why the query could not be read.")
+        return query
     if not gpus:
         logger.warning("⚠️  No present NVIDIA display adapter found. The card may "
                        "be physically absent, or not enumerating on the PCIe bus.")
-        return gpus
+        return query
 
     for gpu in gpus:
         name = gpu.get("FriendlyName", "NVIDIA GPU")
@@ -224,14 +371,17 @@ def diagnose() -> list[dict]:
         logger.info("    ConfigFlags  : %s%s", flags,
                     "  (0 = enabled in registry)" if flags == 0 else "")
 
-    smi = nvidia_smi()
+    reading = nvidia_smi()
     logger.info("")
-    if smi:
-        logger.info("✅ nvidia-smi: %s", smi)
-    else:
+    if reading.summary:
+        logger.info("✅ nvidia-smi: %s", reading.summary)
+    elif reading.known:
         logger.info("ℹ️  nvidia-smi: no response (expected while the GPU is disabled).")
+    else:
+        logger.warning("⚠️  nvidia-smi: could not be read - GPU liveness is UNKNOWN, "
+                       "not 'not live'.")
 
-    return gpus
+    return query
 
 
 def main() -> int:
@@ -240,11 +390,11 @@ def main() -> int:
                         help="Report only; make no changes.")
     args = parser.parse_args()
 
-    gpus = diagnose()
-    if not gpus:
+    query = diagnose()
+    if not query.known or not query.gpus:
         return 1
 
-    disabled = [g for g in gpus if g.get("ConfigManagerErrorCode") == 22]
+    disabled = [g for g in query.gpus if g.get("ConfigManagerErrorCode") == 22]
 
     if not disabled:
         logger.info("")
@@ -268,15 +418,19 @@ def main() -> int:
     logger.info("")
     logger.info("Verifying...")
     post = find_nvidia_gpus()
-    still_bad = [g for g in post if g.get("ConfigManagerErrorCode") == 22]
-    smi = nvidia_smi()
+    still_bad = [g for g in post.gpus if g.get("ConfigManagerErrorCode") == 22]
+    reading = nvidia_smi()
 
-    if not still_bad and smi:
-        logger.info("✅ Recovered. nvidia-smi: %s", smi)
+    if post.known and not still_bad and reading.summary:
+        logger.info("✅ Recovered. nvidia-smi: %s", reading.summary)
         return 0
 
     all_ok = False
-    logger.warning("⚠️  GPU still not fully live after the enable.")
+    if not post.known or not reading.known:
+        logger.warning("⚠️  Could not confirm the GPU's state after the enable - "
+                       "recovery is UNKNOWN, not failed. Re-run --diagnose.")
+    else:
+        logger.warning("⚠️  GPU still not fully live after the enable.")
     if still_bad:
         logger.warning("    Still Code 22 - something may be actively re-disabling it.")
         hints = recent_events(still_bad[0].get("InstanceId", ""))
