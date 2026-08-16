@@ -26,9 +26,10 @@ Run through this repo's own `.venv` by path — a bare `python`/`py` is not reli
 & .\.venv\Scripts\python.exe -m compileall -q -x '\.venv' .
 & .\.venv\Scripts\python.exe -m unittest discover -s system/foldersearcher -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest system.test_local_config_hygiene
+& .\.venv\Scripts\python.exe -m unittest discover -s system/wifi -p "test_*.py"
 ```
 
-All three must exit 0 / report `OK`. Report failures with the actual output — never claim "tests pass" without having run them. One canonical entry point running the same sequence: `powershell -File scripts\verify-before-ship.ps1`.
+All four must exit 0 / report `OK`. Report failures with the actual output — never claim "tests pass" without having run them. One canonical entry point running the same sequence: `powershell -File scripts\verify-before-ship.ps1`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py` (must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root).
 

@@ -22,7 +22,7 @@ flowchart TB
     EXCEL["excel/\naccounting_stripe/"]
     HTML["html/\ncountdown_timer.html"]
     SMARTLIFE["smart_life/\ndevice automation (despacho_switch.bat, devices.sample.json)"]
-    SYSTEM["system/\nkeycaster · textexpander/ · wifi/ ·\nmarkdown_preview · mouse_mover · apple/ ·\nquickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsettings editor; quickdeck_render.py = GUI-free PIL button images;\nquickdeck_actions.py = GUI-free action executors) ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests) ·\n_lib/single_instance.py (shared Windows-mutex single-instance guard,\nused by mouse_mover.py + foldersearcher.py)"]
+    SYSTEM["system/\nkeycaster · textexpander/ · apple/ ·\nmarkdown_preview · mouse_mover ·\nwifi/ (_netsh.py = shared netsh runner: byte capture + explicit decoding,\nused by wifi_connect.py + wifi_passwords.py + wifi_bat_generator.py) ·\nquickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsettings editor; quickdeck_render.py = GUI-free PIL button images;\nquickdeck_actions.py = GUI-free action executors) ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests) ·\n_lib/single_instance.py (shared Windows-mutex single-instance guard,\nused by mouse_mover.py + foldersearcher.py)"]
   end
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains

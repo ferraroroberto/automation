@@ -18,7 +18,6 @@ import base64
 import logging
 import os
 import re
-import subprocess
 import sys
 import tempfile
 import tkinter as tk
@@ -27,51 +26,15 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, Dict, List, Optional
 
-# Reuse the saved-profile exporter from the sibling module.
+# Reuse the saved-profile exporter and the shared netsh runner from the siblings.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _netsh import CurrentSsid, current_ssid  # noqa: E402
 from wifi_passwords import export_profiles, parse_profile_xmls  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# Accept the same Windows console locales the rest of the suite assumes.
-NETSH_ENCODINGS = ("utf-8", "cp1252", "cp850", "mbcs")
-
 _FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
-
-
-def _run_netsh(args: List[str]) -> str:
-    """Run a netsh command and return decoded stdout (best-effort decoding)."""
-    proc = subprocess.run(
-        ["netsh", *args],
-        capture_output=True,
-        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-    )
-    raw = proc.stdout or b""
-    for enc in NETSH_ENCODINGS:
-        try:
-            return raw.decode(enc)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("utf-8", errors="replace")
-
-
-def get_current_ssid() -> Optional[str]:
-    """Return the SSID of the currently connected Wi-Fi, or None."""
-    try:
-        output = _run_netsh(["wlan", "show", "interfaces"])
-    except FileNotFoundError:
-        logger.error("❌ netsh not found - this tool only runs on Windows.")
-        return None
-
-    for line in output.splitlines():
-        # SSID line contains "SSID" but not "BSSID"; the value follows the colon.
-        if "SSID" in line and "BSSID" not in line:
-            _, _, value = line.partition(":")
-            ssid = value.strip()
-            if ssid:
-                return ssid
-    return None
 
 
 def list_saved_profiles() -> List[Dict[str, str]]:
@@ -216,7 +179,7 @@ class WifiBatApp(tk.Tk):
         self.minsize(560, 320)
 
         self._profiles: List[Dict[str, str]] = []
-        self._current_ssid: Optional[str] = None
+        self._current_ssid: CurrentSsid = CurrentSsid(ssid=None, known=False)
 
         self._build_ui()
         self.refresh()
@@ -267,7 +230,7 @@ class WifiBatApp(tk.Tk):
         self.status_var.set("Loading saved profiles…")
         self.update_idletasks()
         try:
-            self._current_ssid = get_current_ssid()
+            self._current_ssid = current_ssid()
             self._profiles = list_saved_profiles()
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to load saved profiles")
@@ -275,18 +238,21 @@ class WifiBatApp(tk.Tk):
             self.status_var.set("Error loading profiles.")
             return
 
-        self.current_var.set(
-            f"Currently connected: {self._current_ssid}"
-            if self._current_ssid
-            else "Currently connected: (none)"
-        )
+        # "Unknown" is its own state: a failed netsh query must not be shown as
+        # "(none)", which would read as a confirmed "not connected".
+        if not self._current_ssid.known:
+            self.current_var.set("Currently connected: (unknown - netsh query failed)")
+        elif self._current_ssid.ssid:
+            self.current_var.set(f"Currently connected: {self._current_ssid.ssid}")
+        else:
+            self.current_var.set("Currently connected: (none)")
 
         for row in self.tree.get_children():
             self.tree.delete(row)
         self._profiles.sort(key=lambda p: p.get("ssid", "").lower())
         for profile in self._profiles:
             ssid = profile.get("ssid", "")
-            tag = "active" if self._current_ssid and ssid == self._current_ssid else ""
+            tag = "active" if ssid and ssid == self._current_ssid.ssid else ""
             self.tree.insert(
                 "",
                 tk.END,

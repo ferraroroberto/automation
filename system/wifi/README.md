@@ -60,6 +60,20 @@ the parameters are omitted. Alternatively, copy `wifi_connect.xml.sample` to
 
 - `wifi_connect.*`, `wifi_passwords.py`, and `wifi_bat_generator.py` use
   only `netsh` (built into Windows). No admin rights needed.
+- All three reach `netsh` through `_netsh.py`, which captures raw bytes and
+  decodes them explicitly (UTF-8 → OEM console page → ANSI → lossy UTF-8)
+  instead of letting `subprocess`'s `text=True` decode with the *parent's*
+  locale. Without that, running under a parent in Python's UTF-8 mode
+  (`PYTHONUTF8=1` — a tray app, a wrapper `.bat`, a scheduled job) silently
+  mangles or empties the output, and the tools then report "not connected" /
+  "no profiles" / "export failed" for reasons unrelated to the network.
+  `_netsh.py` also keeps "the query failed" distinct from "the answer is
+  nothing", so an unreadable state is never shown as a confirmed negative.
+  Guarded by `test_netsh_decoding.py`:
+
+  ```powershell
+  & .\.venv\Scripts\python.exe -m unittest discover -s system/wifi -p "test_*.py"
+  ```
 - `network_scanner.py` uses raw sockets via scapy. **Run as
   Administrator** and install Npcap first
   (<https://npcap.com/#download>). See `network_scanner.md` for details.

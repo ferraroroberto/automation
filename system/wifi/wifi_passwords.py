@@ -11,7 +11,6 @@ Usage:
     python wifi_passwords.py --debug
 """
 
-import subprocess
 import tempfile
 import os
 import glob
@@ -22,6 +21,10 @@ import argparse
 import logging
 from typing import List, Dict, Any, Optional
 from pathlib import Path
+
+# _netsh.py is a sibling; make it importable when this file is run as a script.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _netsh import run_netsh  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -44,20 +47,18 @@ def export_profiles(tempdir: str) -> None:
         RuntimeError: If netsh export command fails
     """
     logger.debug(f"📂 Exporting WLAN profiles to temporary directory: {tempdir}")
-    
-    cmd = ["netsh", "wlan", "export", "profile", "key=clear", f"folder={tempdir}"]
-    proc = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-    )
-    out = (proc.stdout or "") + (proc.stderr or "")
-    
+
+    proc = run_netsh(["wlan", "export", "profile", "key=clear", f"folder={tempdir}"])
+    out = proc.combined
+
+    if not proc.ran:
+        logger.error(f"❌ netsh could not be run: {proc.error}")
+        raise RuntimeError(f"netsh could not be run: {proc.error}")
+
     if proc.returncode != 0:
         logger.error(f"❌ netsh export failed: {out.strip()}")
         raise RuntimeError(f"netsh export failed: {out.strip()}")
-    
+
     logger.info("✅ WLAN profiles exported successfully")
 
 def parse_profile_xmls(tempdir: str) -> List[Dict[str, Any]]:
