@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, then the two existing unittest suites.
+# pass/fail: byte-compile, then the existing unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -42,6 +42,10 @@ try {
     Write-Host "==> unittest (system/wifi)..." -ForegroundColor Cyan
     & $python -m unittest discover -s system/wifi -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "wifi netsh decoding unittest suite failed." }
+
+    Write-Host "==> unittest (video)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s video -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "gpu_recovery console decoding unittest suite failed." }
 }
 finally {
     Pop-Location

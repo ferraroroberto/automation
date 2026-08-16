@@ -17,22 +17,12 @@ explicitly rather than inherited.
 So every call here captures raw bytes — never `text=`, never `encoding=` —
 and decodes explicitly.
 
-Why a candidate list rather than one pinned codec
--------------------------------------------------
-The usual fleet remedy is to pin `encoding="oem", errors="replace"`, on the
-grounds that these tools emit the OEM code page. Measured on this machine
-(Windows 11, `GetConsoleOutputCP()` == `GetOEMCP()` == 850), that is only
-half true for `netsh`: profile names come back as **UTF-8** regardless of
-the console page — the SSID `Roberto’s iPhone` arrives as the bytes
-`e2 80 99` — so a pinned `oem` decode turns it into `RobertoÔÇÖs iPhone`.
-netsh's own localized labels *do* follow the console page, so one stream
-can legitimately mix both encodings.
-
-Hence the ordered list below: UTF-8 first (correct for the measured case),
-then the OEM console page (correct for localized labels on a stream that is
-not valid UTF-8), then ANSI, and finally a lossy UTF-8 pass so that one odd
-byte costs a character rather than the whole result. Decoding therefore
-never raises and never silently yields "" for non-empty output.
+The decoder itself, and the measured rationale for its ordered candidate
+list, moved to `system/_lib/console_output.py` in `#108` so the second
+instance of this bug (`video/gpu_recovery.py`) could reuse it rather than
+re-derive it. The names below are re-exported unchanged: this module's
+callers and its test suite still reach `decode_console_bytes`, `NO_WINDOW`
+and `NETSH_ENCODINGS` through `_netsh`.
 """
 
 from __future__ import annotations
@@ -41,33 +31,32 @@ import logging
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import NamedTuple, Optional, Sequence, Tuple
+
+# _lib/ lives two levels up (system/_lib/), alongside this package's parent.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from _lib.console_output import (  # noqa: E402
+    CONSOLE_ENCODINGS,
+    NO_WINDOW,
+    decode_console_bytes,
+)
 
 logger = logging.getLogger(__name__)
 
-# Ordered decode candidates — see the module docstring for why each is here.
-# "oem"/"mbcs" are Windows-only codec aliases, so POSIX gets UTF-8 alone.
-NETSH_ENCODINGS: Tuple[str, ...] = (
-    ("utf-8", "oem", "mbcs") if sys.platform == "win32" else ("utf-8",)
-)
+# Re-exported under this module's historical name (see the docstring).
+NETSH_ENCODINGS: Tuple[str, ...] = CONSOLE_ENCODINGS
 
-# Suppress the console window each netsh spawn would otherwise flash.
-NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-
-
-def decode_console_bytes(raw: bytes) -> Tuple[str, str]:
-    """Decode native-console-tool output.
-
-    Returns the decoded text and the codec that produced it. Never raises:
-    the final candidate decodes with ``errors="replace"``, so unexpected
-    bytes cost a character rather than the whole output.
-    """
-    for encoding in NETSH_ENCODINGS:
-        try:
-            return raw.decode(encoding), encoding
-        except (UnicodeDecodeError, LookupError):
-            continue
-    return raw.decode("utf-8", errors="replace"), "utf-8/replace"
+__all__ = [
+    "CurrentSsid",
+    "NETSH_ENCODINGS",
+    "NO_WINDOW",
+    "NetshResult",
+    "current_ssid",
+    "decode_console_bytes",
+    "parse_ssid",
+    "run_netsh",
+]
 
 
 @dataclass(frozen=True)

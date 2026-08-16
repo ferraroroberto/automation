@@ -17,12 +17,12 @@ flowchart TB
   subgraph domains["Domain folders — mostly independent scripts, each usually paired\nwith a .bat launcher, a per-script .md doc, and/or a JSON config"]
     AUDIO["audio/\naudio_extractor_core/gui · audio_normalize · audio_trim ·\nconvert_ogg_mp3 · transcript_collate"]
     IMAGE["image/\nillustrations_formatter(_gui) · image_resizer ·\ncarrousel_pdf_to_jpg · pdf_to_jpg/ · screenshot · imgur_check_rate ·\nphotos_archive (CLI) + photos_archive_config/_metadata/_duplicates\n(config+logging / date extraction+scan / duplicate analysis)"]
-    VIDEO["video/\nscreen_recorder · video_download · video_reencoder ·\nvideo_trim/concatenator · gpu_recovery"]
+    VIDEO["video/\nscreen_recorder · video_download · video_reencoder ·\nvideo_trim/concatenator · _ffmpeg_utils.py (shared ffmpeg/ffprobe helpers) ·\ngpu_recovery (reads powershell/nvidia-smi/pnputil via _lib/console_output)"]
     TEXT["text/\nconvert_pdf_to_txt · clean_sensitive_data"]
     EXCEL["excel/\naccounting_stripe/"]
     HTML["html/\ncountdown_timer.html"]
     SMARTLIFE["smart_life/\ndevice automation (despacho_switch.bat, devices.sample.json)"]
-    SYSTEM["system/\nkeycaster · textexpander/ · apple/ ·\nmarkdown_preview · mouse_mover ·\nwifi/ (_netsh.py = shared netsh runner: byte capture + explicit decoding,\nused by wifi_connect.py + wifi_passwords.py + wifi_bat_generator.py) ·\nquickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsettings editor; quickdeck_render.py = GUI-free PIL button images;\nquickdeck_actions.py = GUI-free action executors) ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests) ·\n_lib/single_instance.py (shared Windows-mutex single-instance guard,\nused by mouse_mover.py + foldersearcher.py)"]
+    SYSTEM["system/\nkeycaster · textexpander/ · apple/ ·\nmarkdown_preview · mouse_mover ·\nwifi/ (_netsh.py = shared netsh runner: byte capture + explicit decoding,\nused by wifi_connect.py + wifi_passwords.py + wifi_bat_generator.py) ·\nquickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsettings editor; quickdeck_render.py = GUI-free PIL button images;\nquickdeck_actions.py = GUI-free action executors) ·\nfoldersearcher/ (foldersearcher_core.py = GUI-free logic + tests) ·\n_lib/ = the repo's shared-helper package:\nsingle_instance.py (Windows-mutex single-instance guard, used by\nmouse_mover.py + foldersearcher.py) and console_output.py\n(native-console-tool byte capture + ordered explicit decode, used by\nwifi/_netsh.py + video/gpu_recovery.py)"]
   end
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains
