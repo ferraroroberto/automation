@@ -1,26 +1,18 @@
 # Project Instructions
 
-Canonical instructions for AI coding agents working in this repository. Claude Code reads this file directly as project memory. Other agents (Cursor, Codex, etc.) reach it via the one-line `AGENTS.md` pointer.
-
-## Streamlit conventions
-*Apply only if this project uses Streamlit.*
-
-- `st.set_page_config(layout="wide", page_title="...")` MUST be the first Streamlit call.
-- Use `width="stretch"` (and `width="content"` where appropriate) in new and modified code. **Never** introduce new `use_container_width=True` — it is deprecated. When you touch existing code that uses `use_container_width`, migrate it.
-- All mutable state in `st.session_state`. No module-level globals.
-- `@st.cache_data` for DataFrames/files; `@st.cache_resource` for DB clients/models.
-- Every widget needs a stable, explicit `key=`.
-- UI code only in the UI directory (e.g. `app/`). Data logic stays in the non-UI package (e.g. `src/`). Never import `streamlit` from non-UI code.
-- User feedback via `st.error()` / `st.warning()` / `st.success()`, not `st.write()`.
-- **App layout:** main file (e.g. `app.py`) handles only page config, shared state, sidebar, and tab/radio routing. Each tab/mode lives in its own file exposing a `main(...)` (or `render_*`) function. Default to `st.tabs()`; use a sidebar radio only when asked.
+Canonical agent instructions for this repo; `AGENTS.md` points here.
 
 ## This repository
-Personal automation monorepo: independent Python scripts and small tools across multiple domains (audio, video, image, google, notion, linkedin, system, etc.) on Windows + PowerShell.
-See `README.md` for setup, layout, and usage.
+
+Personal automation monorepo on Windows + PowerShell: independent Python scripts and small tools across domains (`audio`, `video`, `image`, `google`, `notion`, `linkedin`, `system`, …).
+
+## Streamlit
+
+This repo's only Streamlit surface is `linkedin/profiles_data_extractor/common/`. The conventions are owned by `project-scaffolding`'s `CLAUDE.md` § "Streamlit conventions" — read it before touching that code, and never fork a local copy (the copy formerly kept here had already gone stale on tabs-vs-multipage nav). Two that bite existing code here: never introduce new `use_container_width=True` (deprecated — migrate existing uses when you touch them), and never import `streamlit` from non-UI code.
 
 ## Verification (before declaring a task done)
 
-Run through this repo's own `.venv` by path — a bare `python`/`py` is not reliably on PATH on this machine:
+One canonical entry point runs the whole sequence: `powershell -File scripts\verify-before-ship.ps1`. It runs, in order:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m compileall -q -x '\.venv' .
@@ -30,10 +22,10 @@ Run through this repo's own `.venv` by path — a bare `python`/`py` is not reli
 & .\.venv\Scripts\python.exe -m unittest discover -s video -p "test_*.py"
 ```
 
-All five must exit 0 / report `OK`. Report failures with the actual output — never claim "tests pass" without having run them. One canonical entry point running the same sequence: `powershell -File scripts\verify-before-ship.ps1`.
+All five must exit 0 / report `OK`.
 
-Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py` (must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root).
+Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
 ## Internal architecture
 
-[`docs/architecture.mmd`](docs/architecture.mmd) is a hand-authored Mermaid diagram of this repo's own internal structure (the domain folders, shared per-domain helpers like `google/_auth.py` and `notion/utils.py`, and the external services each domain talks to). Update it in the same PR as any material structural change (a new domain folder, a shared helper added/moved, a script relocated) — same anti-staleness contract as this repo's `.fleet.toml` `description` field. It is not auto-generated and not covered by any test suite.
+[`docs/architecture.mmd`](docs/architecture.mmd) is a hand-authored Mermaid diagram of this repo's internal structure — the domain folders, shared per-domain helpers (`google/_auth.py`, `notion/utils.py`), and the external services each domain talks to. Update it in the same PR as any material structural change: a new domain folder, a shared helper added/moved, a script relocated. Not auto-generated, not covered by any test suite.
