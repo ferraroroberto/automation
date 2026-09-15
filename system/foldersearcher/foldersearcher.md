@@ -52,6 +52,34 @@ The **Search / Access** tab is selected when the window opens and already has th
 - The window's **Close** (X) button hides the app back into the tray; the index and last search stay loaded.
 - To fully exit, right-click the tray icon and choose **Quit**.
 
+### Headless scan (CLI)
+
+`foldersearcher_cli.py` rebuilds `folder_structure.txt` without the tray app, from the roots in `foldersearcher.json`. From the repo root:
+
+```powershell
+& .\.venv\Scripts\python.exe system\foldersearcher\foldersearcher_cli.py scan
+```
+
+It logs the roots, folder count and duration to stdout. Unlike **Scan All Roots** it is built for unattended runs:
+
+- **A missing root aborts the run** and leaves the existing index byte-identical — the core would otherwise skip that root and silently shrink the index.
+- **The index is written atomically**: to a temp file in the same folder, then swapped in with `os.replace`, so the tray never reads a half-written file.
+- It imports no GUI module, takes no single-instance mutex, and never writes `foldersearcher.json` back (a legacy `root_folder` config is migrated in memory only), so it runs fine while the tray app is open.
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Every configured root existed and the index was replaced. |
+| `1` | The index could not be written, or an unexpected crash. |
+| `2` | Usage error (unknown subcommand). |
+| `3` | No roots configured — index left untouched. |
+| `4` | One or more configured roots are missing — index left untouched. |
+
+The tray app picks up a rebuilt index without a restart: whenever the window opens or a search runs, it reloads `folder_structure.txt` if the file's modification time changed since it was loaded.
+
+### Nightly job
+
+`run-scan-nightly.bat` runs the CLI scan in the foreground with the repo `.venv`'s `python.exe` (`PYTHONUTF8=1`) and exits with its exit code. It is registered in app-launcher as the machine-local job `foldersearcher-scan-nightly` (schedule `none`, `session_less`, `alert_on_failure`), chained from both `on_success` and `on_failure` of `email-archiver-scan-nightly` — so the nightly chain is backup → email-archiver scan → folder scan, and folders created during the day are in the next morning's index.
+
 ## Configuration
 
 `foldersearcher.json`, alongside the script:
@@ -82,7 +110,11 @@ Set it to `false` (or untick the Folders-tab checkbox) to get every matching bra
 ```
 foldersearcher.py                # Tray + Tkinter UI only
 foldersearcher_core.py           # All logic: scan, persist, search, prune (no GUI imports)
+foldersearcher_cli.py            # Headless `scan` subcommand (atomic write, strict roots)
+run-scan-nightly.bat             # Foreground launcher for the nightly app-launcher job
 test_foldersearcher_core.py      # Focused tests for the core
+test_foldersearcher_cli.py       # CLI: rebuild, missing/no roots, atomic write
+test_foldersearcher_tray_reload.py  # Tray reloads an index rewritten on disk
 foldersearcher.json              # Configuration
 folder_structure.txt             # Index (auto-generated)
 foldersearcher.md                # This documentation
@@ -120,7 +152,7 @@ From the repo root:
 & .\.venv\Scripts\python.exe -m unittest discover -s system/foldersearcher -p "test_*.py"
 ```
 
-Covers root normalization, legacy config migration, sectioned round-trip, legacy index loading, search matching, `skip_depth` display, and pruning with the flag on and off.
+Covers root normalization, legacy config migration, sectioned round-trip, legacy index loading, search matching, `skip_depth` display, and pruning with the flag on and off; the headless CLI's rebuild, missing-root and no-root refusals (old index byte-identical), and atomic write; and the tray's reload of an index rewritten on disk.
 
 ## Troubleshooting
 
@@ -129,6 +161,7 @@ Covers root normalization, legacy config migration, sectioned round-trip, legacy
 | "No index found" on open | Add roots on the **Folders** tab, then **Scan All Roots**. |
 | "No index loaded" when searching | Same — the index file is missing or empty. |
 | A root's folders are missing after a scan | The root was unreachable at scan time; the log records `Skipping missing root: …`. Reconnect the drive and rescan. |
+| Nightly job `foldersearcher-scan-nightly` failed with exit 4 | A configured root was unreachable; the run's `output.log` names it. The previous index was kept. |
 | Results show too many rows per item | `prune_email_branches` is off, or the item has no direct email-named child. |
 | Result rows are unreadably long | Raise `skip_depth` on the Folders tab and **Save Config**. |
 | "Folder does not exist" on double-click | The index is stale — rescan. |
@@ -136,7 +169,7 @@ Covers root normalization, legacy config migration, sectioned round-trip, legacy
 
 ## Logging
 
-Startup, config load/save, scan progress, search result counts, and errors are logged to the console. Raise verbosity by changing the `logging.basicConfig` level in `foldersearcher.py`.
+Startup, config load/save, scan progress, search result counts, and errors are logged to the console. The headless CLI logs to stdout, which the nightly job captures in its `output.log`. Raise verbosity by changing the `logging.basicConfig` level in `foldersearcher.py`.
 
 ## License
 

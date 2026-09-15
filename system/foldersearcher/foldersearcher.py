@@ -77,6 +77,9 @@ class FolderSearcher:
         # Configuration and index (both GUI-free)
         self.config: FolderSearcherConfig = load_config(self.config_file, self.structure_file)
         self.index = FolderIndex()
+        # mtime of the index file when it was last loaded, so a rebuild by
+        # the headless CLI (foldersearcher_cli.py) is picked up without a restart
+        self._index_mtime: Optional[float] = None
 
         # Current result set, parallel to the results listbox rows
         self.results: List[SearchResult] = []
@@ -160,6 +163,7 @@ class FolderSearcher:
     # ------------------------------------------------------------------
 
     def _show_window(self) -> None:
+        self.reload_structure_if_changed()
         if not self._widgets_built:
             self._build_window()
             return
@@ -375,6 +379,8 @@ class FolderSearcher:
 
             count = self.index.scan(self.config.root_paths)
             self.index.save(self.config.structure_file)
+            # The in-memory index already matches what was just written.
+            self._index_mtime = self._structure_file_mtime()
 
             self.status_var.set(
                 f"Scan complete. {count} folders across {len(self.index.roots)} root(s)")
@@ -392,6 +398,9 @@ class FolderSearcher:
         resolves to openable absolute paths.
         """
         legacy_root = self.config.root_paths[0] if self.config.root_paths else None
+        # Read before loading: a rewrite landing mid-load then still differs
+        # from the recorded mtime and is reloaded on the next check.
+        self._index_mtime = self._structure_file_mtime()
         try:
             count = self.index.load(self.config.structure_file, legacy_root=legacy_root)
         except OSError as exc:
@@ -404,6 +413,26 @@ class FolderSearcher:
         else:
             self.status_var.set("No index found. Add roots on the Folders tab, then Scan All Roots.")
 
+    def _structure_file_mtime(self) -> Optional[float]:
+        """The index file's mtime, or None when it does not exist."""
+        try:
+            return os.path.getmtime(self.config.structure_file)
+        except OSError:
+            return None
+
+    def reload_structure_if_changed(self) -> bool:
+        """Reload the index when the file on disk changed since it was loaded.
+
+        Any differing mtime counts, not only a newer one, so a restored older
+        index is picked up too. Returns True when a reload happened.
+        """
+        mtime = self._structure_file_mtime()
+        if mtime is None or mtime == self._index_mtime:
+            return False
+        logger.info("ℹ️ Index file changed on disk; reloading %s", self.config.structure_file)
+        self.load_structure()
+        return True
+
     # ------------------------------------------------------------------
     # Search
     # ------------------------------------------------------------------
@@ -415,6 +444,7 @@ class FolderSearcher:
             messagebox.showwarning("Warning", "Please enter a search term", parent=self.window)
             return
 
+        self.reload_structure_if_changed()
         if not len(self.index):
             messagebox.showwarning(
                 "Warning",

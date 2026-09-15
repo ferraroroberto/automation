@@ -129,7 +129,7 @@ Reference for the previously-undocumented tools above: [`image/README.md`](image
 - **`list_files_to_xls.py`** - List a folder's files to an Excel workbook
 - **`background.py`** - Set desktop/taskbar color theme (black or light grey)
 - **`markdown_preview.py`** - Tray-resident GitHub-style Markdown previewer (Edge WebView2) with light/dark toggle and live reload — see [`system/markdown_preview.md`](system/markdown_preview.md)
-- **`foldersearcher/`** - Tray-resident multi-root folder-name search with email-branch pruning and path-depth display — see [`system/foldersearcher/foldersearcher.md`](system/foldersearcher/foldersearcher.md)
+- **`foldersearcher/`** - Tray-resident multi-root folder-name search with email-branch pruning and path-depth display, plus a headless `scan` CLI run nightly as an app-launcher job — see [`system/foldersearcher/foldersearcher.md`](system/foldersearcher/foldersearcher.md)
 - **`treesize/`** - Folder size utilities
 
 Reference for the previously-undocumented `system/` scripts (background, keycaster, unzip_with_password, rename_files, copy_git_project, word_to_markdown, list_files_to_xls): [`system/README.md`](system/README.md).
