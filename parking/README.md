@@ -51,12 +51,18 @@ A dedicated Chrome window opens (profile in `parking/.browser-profile/`): sign i
 | `holiday_region`, `skip_dates` | days never booked: the `holidays` calendar for that country/subdivision (ES/CT) plus your own `skip_dates` for local days the library lacks (e.g. `2026-09-24`, La Mercè). Review the list each year |
 | `centers`, `sizes` | ids and names, tried in this order; `type` is `standard` |
 | `treat_placeless_as_covered` | `true`: a day with an ACTIVE booking that has no slot number counts as booked |
-| `poll_minutes`, `poll_windows`, `timezone` | default minutes between polls; ordered `{start, end, every_minutes}` windows override it (`0` = don't poll, end exclusive, may wrap midnight; first match wins); clock for both |
+| `poll_minutes`, `poll_windows`, `timezone` | default minutes between polls; ordered `{start, end, every_minutes}` windows override it (`0` = don't poll, end exclusive, may wrap midnight; first match wins); optional `days` (e.g. `["thu"]`, default every day) and `verbose` (live log to Telegram, see below); clock for all |
 | `jitter_max_seconds`, `request_pause_seconds` | politeness toward the site |
 
 ## Schedule
 
 Registered in the app-launcher Jobs tab as `parking-poll`, a 5-minute heartbeat running `parking/run-poll.bat` (hidden window). The launcher only supports a flat interval, so the poller decides per run whether it is due: `poll_windows` picks the interval for the time of day and each successful run sets `next_allowed` (the same field failure backoff uses); runs that arrive early exit before any network call. Nothing runs on the Mac Mini.
+
+## Thursday 16:00 (critical poll)
+
+The site releases new slots every Thursday at 16:00. The two Thursday windows in `poll_windows` poll every 5 minutes from 15:45, so nothing blocks the first poll after 16:00 (it lands within the launcher's 5-minute tick, not to the second), and the 16:00-16:15 window is `verbose`: each poll sends a live log to Telegram (started, bookings checked, free slots found, booking, booked, finished). Every other poll only notifies on a successful booking and on the usual alerts. `horizon_days` (30) already covers this week and next.
+
+Rehearsal for whoever follows along: `& .\.venv\Scripts\python.exe -m parking.demo` runs the real poll code against a fake site and sends the messages to the real chat, each prefixed `[DEMO]`. Nothing is booked.
 
 ## Tests
 
