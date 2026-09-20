@@ -217,17 +217,17 @@ def at(hour, minute=0):
 
 
 @pytest.mark.parametrize("hour, minute, expected", [
-    (19, 0, 5), (20, 55, 5),   # evening window, start inclusive
-    (21, 0, 15), (12, 0, 15),  # end exclusive; default elsewhere
-    (22, 0, 0), (23, 30, 0), (3, 0, 0), (5, 59, 0), (6, 0, 15),  # overnight window wraps midnight
+    (19, 0, 5), (22, 55, 5), (5, 0, 5), (8, 55, 5),  # evening and morning windows, start inclusive
+    (23, 0, 0), (2, 0, 0), (4, 59, 0),                # overnight off window wraps midnight, end exclusive
+    (9, 0, 15), (12, 0, 15), (18, 55, 15),            # default elsewhere
 ])
 def test_poll_interval_by_time_window(cfg, hour, minute, expected):
     assert poller.poll_interval(cfg, at(hour, minute)) == expected
 
 
 def test_success_schedules_the_next_run_by_window(cfg, env):
-    _, _, state = run(cfg, env, FakeApi([], {}), now=at(20))
-    assert state.next_allowed == at(20) + timedelta(minutes=5, seconds=-cfg.jitter_max_seconds)
+    _, _, state = run(cfg, env, FakeApi([], {}), now=at(21))
+    assert state.next_allowed == at(21) + timedelta(minutes=5, seconds=-cfg.jitter_max_seconds)
     _, _, state = run(cfg, env, FakeApi([], {}), now=at(12))
     assert state.next_allowed == at(12) + timedelta(minutes=15, seconds=-cfg.jitter_max_seconds)
 
