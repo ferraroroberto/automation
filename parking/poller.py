@@ -72,7 +72,12 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
     if placeless:
         logger.info("ℹ️ days with an ACTIVE booking but no place assigned: %s (covered=%s)",
                     sorted(placeless), cfg.treat_placeless_as_covered)
-    targets = planner.target_dates(now.date(), cfg.weekdays, cfg.horizon_days)
+    holidays = planner.holiday_dates(cfg.holiday_country, cfg.holiday_subdiv, cfg.skip_dates,
+                                     now.date(), cfg.horizon_days)
+    all_targets = planner.target_dates(now.date(), cfg.weekdays, cfg.horizon_days)
+    targets = [d for d in all_targets if d not in holidays]
+    if len(targets) < len(all_targets):
+        logger.info("ℹ️ skipping holiday(s): %s", [d for d in all_targets if d in holidays])
     pending = planner.pending_dates(targets, covered)
     if not pending:
         logger.info("ℹ️ every target day is already booked (%d checked)", len(targets))

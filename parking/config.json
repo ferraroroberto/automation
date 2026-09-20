@@ -13,6 +13,8 @@
     {"id": 1, "name": "Small"}
   ],
   "treat_placeless_as_covered": true,
+  "holiday_region": {"country": "ES", "subdiv": "CT"},
+  "skip_dates": ["2026-09-24"],
   "poll_minutes": 15,
   "active_hours": {"start": "06:00", "end": "22:00"},
   "timezone": "Europe/Madrid",

@@ -16,7 +16,7 @@ Each run (`python -m parking.poller`, from the repo root):
 
 1. Load `config.json` and `.env`; skip if outside active hours or in backoff.
 2. Read my bookings. A day with an ACTIVE booking is **never booked again**.
-3. Work out the target days (configured weekdays inside the horizon) that have no booking.
+3. Work out the target days (configured weekdays inside the horizon, minus holidays) that have no booking.
 4. For each centre x size (in config order, 1.5-3 s jittered pauses) ask which days are bookable.
 5. For each uncovered target day with a free slot, book **that one day**, re-read my bookings to confirm, and notify.
 
@@ -48,6 +48,7 @@ A dedicated Chrome window opens (profile in `parking/.browser-profile/`): sign i
 | `dry_run` | `true` (default): look and report only, never book. Go live locally with `PARKING_DRY_RUN=false` in `parking/.env` (only an explicit false/0/no counts), so the tracked file stays untouched |
 | `weekdays` | days you need a spot, e.g. `["mon","thu","fri"]` |
 | `horizon_days` | how far ahead to look |
+| `holiday_region`, `skip_dates` | days never booked: the `holidays` calendar for that country/subdivision (ES/CT) plus your own `skip_dates` for local days the library lacks (e.g. `2026-09-24`, La Mercè). Review the list each year |
 | `centers`, `sizes` | ids and names, tried in this order; `type` is `standard` |
 | `treat_placeless_as_covered` | `true`: a day with an ACTIVE booking that has no slot number counts as booked |
 | `poll_minutes`, `active_hours`, `timezone` | heartbeat, window and clock for the schedule |
