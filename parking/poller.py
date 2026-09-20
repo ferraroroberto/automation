@@ -24,7 +24,7 @@ import requests
 from parking import auth, planner
 from parking.api import ApiError, AuthError, ParkingApi, RateLimited, ServerError
 from parking.config import (
-    CONFIG_PATH, LOG_DIR, STATE_PATH, Config, apply_env_overrides, load_config, load_env,
+    CONFIG_PATH, LOG_DIR, STATE_PATH, Config, PollWindow, apply_env_overrides, load_config, load_env,
 )
 from parking.notify import FleetNotifier, Notifier
 from parking.state import State, load_state, save_state
@@ -43,14 +43,26 @@ class RunResult:
     would_book: List[str] = field(default_factory=list)
 
 
-def poll_interval(cfg: Config, now: datetime) -> int:
-    """Minutes between polls right now: the first matching window, else `poll_minutes`. 0 = don't poll."""
+def _window(cfg: Config, now: datetime) -> Optional[PollWindow]:
     at = now.timetz().replace(tzinfo=None)
     for window in cfg.poll_windows:
+        if window.days and now.weekday() not in window.days:
+            continue
         wraps = window.start > window.end
         if (window.start <= at or at < window.end) if wraps else (window.start <= at < window.end):
-            return window.every_minutes
-    return cfg.poll_minutes
+            return window
+    return None
+
+
+def poll_interval(cfg: Config, now: datetime) -> int:
+    """Minutes between polls right now: the first matching window, else `poll_minutes`. 0 = don't poll."""
+    window = _window(cfg, now)
+    return window.every_minutes if window else cfg.poll_minutes
+
+
+def is_verbose(cfg: Config, now: datetime) -> bool:
+    window = _window(cfg, now)
+    return bool(window and window.verbose)
 
 
 def _alert(state: State, notifier: Notifier, key: str, text: str, now: datetime,
@@ -72,7 +84,8 @@ def _combos(cfg: Config) -> List[planner.Combo]:
 
 
 def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: Notifier,
-           state: State, sleep: Callable[[float], None], rng: random.Random) -> RunResult:
+           state: State, sleep: Callable[[float], None], rng: random.Random,
+           say: Callable[[str], object]) -> RunResult:
     bookings = api.my_bookings()
     covered, placeless = planner.covered_and_placeless(bookings, cfg.treat_placeless_as_covered)
     if placeless:
@@ -87,8 +100,11 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
     pending = planner.pending_dates(targets, covered)
     if not pending:
         logger.info("ℹ️ every target day is already booked (%d checked)", len(targets))
+        say("Every target day already has a parking. Nothing to do.")
         return RunResult("nothing-pending")
     logger.info("ℹ️ %d target day(s) without a booking: %s", len(pending), pending)
+    say(f"Checked my bookings: {len(pending)} day(s) still without a parking: {', '.join(pending)}.")
+    say("Looking for free slots on the site...")
 
     slots = []
     for index, combo in enumerate(_combos(cfg)):
@@ -99,7 +115,9 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
         slots.append((combo, days))
     found = planner.candidates_by_day(pending, slots)
     if not found:
+        say("No free slot for those days yet.")
         return RunResult("no-slots", pending=pending)
+    say(f"Free slot found for: {', '.join(sorted(found))}.")
 
     result = RunResult("checked", pending=pending)
     for day in pending:
@@ -112,6 +130,7 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
                 key = f"dry-run:{day}:{now.date().isoformat()}"
                 _alert(state, notifier, key, f"[dry-run] a slot is free: {label}", now, timedelta(days=1))
                 break
+            say(f"Booking {label}...")
             try:
                 api.create_booking(candidate.combo.center_id, candidate.combo.size_id, cfg.type,
                                    plate, candidate.raw_day)
@@ -151,6 +170,9 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
         logger.info("ℹ️ polling is off in this time window")
         return RunResult("inactive")
 
+    say = notifier.send if is_verbose(cfg, now) else (lambda _text: None)
+    say(f"Parking poll started ({now:%a %H:%M}).")
+
     token = auth.normalize_token(env.get("PARKING_TOKEN"))
     if not token:
         _alert(state, notifier, "login-needed",
@@ -171,7 +193,7 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
     if not endpoint or not plate:
         raise SystemExit("PARKING_API_URL and PARKING_LICENSE_PLATE must be set in .env")
     try:
-        result = _cycle(cfg, api_factory(endpoint, token), plate, now, notifier, state, sleep, rng)
+        result = _cycle(cfg, api_factory(endpoint, token), plate, now, notifier, state, sleep, rng, say)
     except AuthError:
         logger.error("❌ token rejected (401/403)")
         _alert(state, notifier, "login-needed",
@@ -184,11 +206,13 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
         if state.failures == cfg.repeated_error_threshold:
             notifier.send(f"Parking: {state.failures} consecutive errors ({type(exc).__name__}); backing off")
         _backoff(cfg, state, now)
+        say(f"Poll failed ({type(exc).__name__}); will retry.")
         return RunResult("error")
     state.failures = 0
     # The scheduler fires at the finest interval; later runs exit at the in_backoff check above.
     # Minus the start jitter, so a run that jitters earlier than the last one is not skipped.
     state.next_allowed = now + timedelta(minutes=interval, seconds=-cfg.jitter_max_seconds)
+    say(f"Poll finished: {result.status}, booked {len(result.booked)} day(s).")
     return result
 
 

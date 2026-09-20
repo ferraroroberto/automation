@@ -10,6 +10,8 @@ from datetime import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from parking.planner import WEEKDAYS
+
 logger = logging.getLogger("parking.config")
 
 ROOT = Path(__file__).resolve().parent
@@ -28,11 +30,17 @@ class Named:
 
 @dataclass(frozen=True)
 class PollWindow:
-    """Between `start` and `end` (end exclusive, may wrap midnight) poll every `every_minutes`; 0 = don't."""
+    """Between `start` and `end` (end exclusive, may wrap midnight) poll every `every_minutes`; 0 = don't.
+
+    `days` limits it to those weekdays (Mon=0, empty = every day; checked on the clock's day).
+    `verbose` sends a live log of the poll to Telegram.
+    """
 
     start: time
     end: time
     every_minutes: int
+    days: Tuple[int, ...] = ()
+    verbose: bool = False
 
 
 @dataclass(frozen=True)
@@ -61,6 +69,14 @@ def _parse_hhmm(value: str) -> time:
     return time(int(hours), int(minutes))
 
 
+def _parse_window(raw: dict) -> PollWindow:
+    return PollWindow(
+        _parse_hhmm(raw["start"]), _parse_hhmm(raw["end"]), int(raw["every_minutes"]),
+        days=tuple(WEEKDAYS.index(d.strip().lower()[:3]) for d in raw.get("days", [])),
+        verbose=bool(raw.get("verbose", False)),
+    )
+
+
 def load_config(path: Path = CONFIG_PATH) -> Config:
     raw = json.loads(path.read_text(encoding="utf-8"))
     pause = raw.get("request_pause_seconds", [1.5, 3.0])
@@ -77,8 +93,7 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         holiday_subdiv=str(region.get("subdiv", "")),
         skip_dates=[str(d) for d in raw.get("skip_dates", [])],
         poll_minutes=int(raw.get("poll_minutes", 15)),
-        poll_windows=[PollWindow(_parse_hhmm(w["start"]), _parse_hhmm(w["end"]), int(w["every_minutes"]))
-                      for w in raw.get("poll_windows", [])],
+        poll_windows=[_parse_window(w) for w in raw.get("poll_windows", [])],
         timezone=str(raw.get("timezone", "Europe/Madrid")),
         jitter_max_seconds=int(raw.get("jitter_max_seconds", 0)),
         request_pause_seconds=(float(pause[0]), float(pause[1])),

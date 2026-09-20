@@ -240,3 +240,46 @@ def test_run_arriving_before_it_is_due_makes_no_api_call(cfg, env):
     assert early.status == "backoff" and api.slot_calls == []
     due, _, _ = run(cfg, env, api, state=state, now=at(12, 15))
     assert due.status == "no-slots"
+
+
+THU = datetime(2026, 9, 24, 16, 2, tzinfo=ZoneInfo("Europe/Madrid"))  # Thursday
+THU_MON = "2026-09-28T10:00:00.000Z"  # 24 Sept is a holiday; the next Monday is not
+
+
+def test_thursday_16h_window_sends_a_live_log(cfg, env):
+    from dataclasses import replace
+
+    api = FakeApi([], {(1, 3): [THU_MON]})
+    weekdays_cfg = replace(cfg, weekdays=["mon"])
+    result, notifier, _ = run(weekdays_cfg, env, api, now=THU)
+    assert result.booked == ["2026-09-28"]
+    log = " | ".join(notifier.sent)
+    for step in ("poll started", "Checked my bookings", "Looking for free slots", "Free slot found",
+                 "Booking 2026-09-28", "Parking booked", "Poll finished"):
+        assert step in log
+    assert notifier.sent.index(next(t for t in notifier.sent if "Booking" in t)) < notifier.sent.index(
+        "Parking booked: 2026-09-28 at 22@ (Large)")
+
+
+def test_quiet_polls_only_notify_on_booking(cfg, env):
+    from dataclasses import replace
+
+    api = FakeApi([], {(1, 3): [THU_MON]})
+    result, notifier, _ = run(replace(cfg, weekdays=["mon"]), env, api, now=THU.replace(hour=12))
+    assert result.booked == ["2026-09-28"]
+    assert notifier.sent == ["Parking booked: 2026-09-28 at 22@ (Large)"]
+
+
+def test_thursday_window_is_thursday_only(cfg):
+    monday = THU + timedelta(days=4)
+    assert poller.is_verbose(cfg, THU) and not poller.is_verbose(cfg, monday)
+    assert poller.poll_interval(cfg, THU.replace(hour=15, minute=50)) == 5
+    assert poller.poll_interval(cfg, monday.replace(hour=15, minute=50)) == 15
+
+
+def test_run_just_before_16h_does_not_block_the_16h_poll(cfg, env):
+    from dataclasses import replace
+
+    quiet = replace(cfg, jitter_max_seconds=120)
+    _, _, state = run(quiet, env, FakeApi([], {}), now=THU.replace(hour=15, minute=58))
+    assert not state.in_backoff(THU)  # 16:02; a 15-minute interval would block until 16:11

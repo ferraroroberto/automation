@@ -17,6 +17,8 @@
   "skip_dates": ["2026-09-24"],
   "poll_minutes": 15,
   "poll_windows": [
+    {"days": ["thu"], "start": "16:00", "end": "16:15", "every_minutes": 5, "verbose": true},
+    {"days": ["thu"], "start": "15:45", "end": "16:00", "every_minutes": 5},
     {"start": "19:00", "end": "23:00", "every_minutes": 5},
     {"start": "05:00", "end": "09:00", "every_minutes": 5},
     {"start": "23:00", "end": "05:00", "every_minutes": 0}
