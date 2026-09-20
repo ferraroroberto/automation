@@ -24,7 +24,7 @@ import requests
 from parking import auth, planner
 from parking.api import ApiError, AuthError, ParkingApi, RateLimited, ServerError
 from parking.config import (
-    CONFIG_PATH, LOG_DIR, STATE_PATH, Config, load_config, load_env,
+    CONFIG_PATH, LOG_DIR, STATE_PATH, Config, apply_env_overrides, load_config, load_env,
 )
 from parking.notify import FleetNotifier, Notifier
 from parking.state import State, load_state, save_state
@@ -92,6 +92,7 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
 
     result = RunResult("checked", pending=pending)
     for day in pending:
+        last_error: Optional[ApiError] = None
         for candidate in found.get(day, []):
             label = f"{day} at {candidate.combo.center_name} ({candidate.combo.size_name})"
             if cfg.dry_run:
@@ -107,6 +108,7 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
                 if isinstance(exc, (AuthError, RateLimited, ServerError)):
                     raise
                 logger.warning("⚠️ booking %s failed (%s); trying the next slot", label, exc)
+                last_error = exc
                 continue
             confirmed = planner.covered_and_placeless(api.my_bookings(), False)[0]
             if day in confirmed:
@@ -117,6 +119,11 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
                 logger.error("❌ createBooking returned but %s is not confirmed in my bookings", day)
                 notifier.send(f"Parking: booking {label} was sent but not confirmed - check the site")
             break
+        else:
+            if last_error is not None:
+                _alert(state, notifier, f"book-failed:{day}",
+                       f"Parking: a slot was free for {day} but booking failed ({last_error}). "
+                       "Check the site.", now, timedelta(hours=1))
     return result
 
 
@@ -192,6 +199,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     _setup_logging()
     cfg = load_config(Path(args.config))
     env = load_env()
+    cfg = apply_env_overrides(cfg, env)
+    logger.info("ℹ️ mode: %s", "dry-run (no bookings)" if cfg.dry_run else "LIVE (will book)")
     if cfg.jitter_max_seconds and not args.no_jitter:
         delay = random.uniform(0, cfg.jitter_max_seconds)
         logger.info("ℹ️ jitter: waiting %.0fs", delay)

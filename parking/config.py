@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import time
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -71,6 +71,21 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         token_warning_days=int(raw.get("token_warning_days", 3)),
         repeated_error_threshold=int(raw.get("repeated_error_threshold", 3)),
     )
+
+
+LIVE_VALUES = {"false", "0", "no"}
+
+
+def apply_env_overrides(cfg: Config, env: Dict[str, str]) -> Config:
+    """`PARKING_DRY_RUN` in .env overrides `dry_run` from config.json.
+
+    Only an explicit false/0/no turns dry-run off; anything else (unset, garbage,
+    true) keeps the config value, so a typo can never enable live booking.
+    """
+    raw = env.get("PARKING_DRY_RUN", "").strip().lower()
+    if raw in LIVE_VALUES:
+        return replace(cfg, dry_run=False)
+    return cfg
 
 
 def read_env_file(path: Path = ENV_PATH) -> Dict[str, str]:

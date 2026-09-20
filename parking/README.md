@@ -20,7 +20,7 @@ Each run (`python -m parking.poller`, from the repo root):
 4. For each centre x size (in config order, 1.5-3 s jittered pauses) ask which days are bookable.
 5. For each uncovered target day with a free slot, book **that one day**, re-read my bookings to confirm, and notify.
 
-No slot found is silent. It alerts on: booked, login needed, token expiring (3 days), repeated errors. It stops and backs off (state in `parking/state/state.json`) on 401/403/429/5xx instead of pushing through.
+No slot found is silent. It alerts on: booked, a free slot whose booking failed, login needed, token expiring (3 days), repeated errors. It stops and backs off (state in `parking/state/state.json`) on 401/403/429/5xx instead of pushing through.
 
 ## Setup
 
@@ -45,7 +45,7 @@ A dedicated Chrome window opens (profile in `parking/.browser-profile/`): sign i
 
 | Key | Meaning |
 |---|---|
-| `dry_run` | `true` (default): look and report only, never book |
+| `dry_run` | `true` (default): look and report only, never book. Go live locally with `PARKING_DRY_RUN=false` in `parking/.env` (only an explicit false/0/no counts), so the tracked file stays untouched |
 | `weekdays` | days you need a spot, e.g. `["mon","thu","fri"]` |
 | `horizon_days` | how far ahead to look |
 | `centers`, `sizes` | ids and names, tried in this order; `type` is `standard` |

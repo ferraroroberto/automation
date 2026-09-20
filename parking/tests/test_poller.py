@@ -179,3 +179,25 @@ def test_token_value_never_logged(cfg, env, caplog):
     caplog.set_level("DEBUG")
     run(cfg, env, FakeApi([], {}))
     assert env["PARKING_TOKEN"] not in caplog.text
+
+
+def test_all_booking_attempts_failing_alerts_once_per_hour(cfg, env):
+    errors = {(1, 3): ApiError("bad date format"), (2, 2): ApiError("bad date format")}
+    state = State()
+    notifier = FakeNotifier()
+    first = run(cfg, env, FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, errors),
+                state=state, notifier=notifier)[0]
+    assert first.booked == []
+    run(cfg, env, FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, errors),
+        state=state, notifier=notifier, now=NOW + timedelta(minutes=15))
+    failed = [t for t in notifier.sent if "booking failed" in t]
+    assert len(failed) == 1 and "2026-09-21" in failed[0] and "bad date format" in failed[0]
+    run(cfg, env, FakeApi([], {(1, 3): [MON]}, {(1, 3): ApiError("still bad")}),
+        state=state, notifier=notifier, now=NOW + timedelta(hours=2))
+    assert len([t for t in notifier.sent if "booking failed" in t]) == 2
+
+
+def test_no_failure_alert_when_a_later_slot_books(cfg, env):
+    api = FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, {(1, 3): ApiError("taken")})
+    _, notifier, _ = run(cfg, env, api)
+    assert not any("booking failed" in t for t in notifier.sent)
