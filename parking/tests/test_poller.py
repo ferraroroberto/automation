@@ -154,7 +154,7 @@ def test_auth_error_alerts_and_backs_off(cfg, env):
     assert again.status == "backoff"
 
 
-def test_outside_active_hours_does_nothing(cfg, env):
+def test_off_window_does_nothing(cfg, env):
     api = FakeApi([], {(1, 3): [MON]})
     late = NOW.replace(hour=23)
     result, _, _ = run(cfg, env, api, now=late)
@@ -210,3 +210,33 @@ def test_holiday_target_day_is_never_queried_or_booked(cfg, env):
     result, notifier, _ = run(replace(cfg, skip_dates=["2026-09-21"]), env, api)
     assert result.status == "nothing-pending"
     assert api.slot_calls == [] and api.created == [] and notifier.sent == []
+
+
+def at(hour, minute=0):
+    return NOW.replace(hour=hour, minute=minute)
+
+
+@pytest.mark.parametrize("hour, minute, expected", [
+    (19, 0, 5), (20, 55, 5),   # evening window, start inclusive
+    (21, 0, 15), (12, 0, 15),  # end exclusive; default elsewhere
+    (22, 0, 0), (23, 30, 0), (3, 0, 0), (5, 59, 0), (6, 0, 15),  # overnight window wraps midnight
+])
+def test_poll_interval_by_time_window(cfg, hour, minute, expected):
+    assert poller.poll_interval(cfg, at(hour, minute)) == expected
+
+
+def test_success_schedules_the_next_run_by_window(cfg, env):
+    _, _, state = run(cfg, env, FakeApi([], {}), now=at(20))
+    assert state.next_allowed == at(20) + timedelta(minutes=5, seconds=-cfg.jitter_max_seconds)
+    _, _, state = run(cfg, env, FakeApi([], {}), now=at(12))
+    assert state.next_allowed == at(12) + timedelta(minutes=15, seconds=-cfg.jitter_max_seconds)
+
+
+def test_run_arriving_before_it_is_due_makes_no_api_call(cfg, env):
+    api = FakeApi([], {})
+    _, _, state = run(cfg, env, api, now=at(12))
+    api.slot_calls.clear()
+    early, _, _ = run(cfg, env, api, state=state, now=at(12, 5))
+    assert early.status == "backoff" and api.slot_calls == []
+    due, _, _ = run(cfg, env, api, state=state, now=at(12, 15))
+    assert due.status == "no-slots"

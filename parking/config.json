@@ -16,7 +16,10 @@
   "holiday_region": {"country": "ES", "subdiv": "CT"},
   "skip_dates": ["2026-09-24"],
   "poll_minutes": 15,
-  "active_hours": {"start": "06:00", "end": "22:00"},
+  "poll_windows": [
+    {"start": "19:00", "end": "21:00", "every_minutes": 5},
+    {"start": "22:00", "end": "06:00", "every_minutes": 0}
+  ],
   "timezone": "Europe/Madrid",
   "jitter_max_seconds": 120,
   "request_pause_seconds": [1.5, 3.0],
