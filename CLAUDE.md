@@ -20,9 +20,10 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m unittest system.test_local_config_hygiene
 & .\.venv\Scripts\python.exe -m unittest discover -s system/wifi -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s video -p "test_*.py"
+& .\.venv\Scripts\python.exe -m pytest -q parking
 ```
 
-All five must exit 0 / report `OK`.
+All six must exit 0 / report `OK`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 

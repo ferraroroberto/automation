@@ -46,6 +46,10 @@ try {
     Write-Host "==> unittest (video)..." -ForegroundColor Cyan
     & $python -m unittest discover -s video -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "gpu_recovery console decoding unittest suite failed." }
+
+    Write-Host "==> pytest (parking)..." -ForegroundColor Cyan
+    & $python -m pytest -q parking
+    if ($LASTEXITCODE -ne 0) { Fail "parking pytest suite failed." }
 }
 finally {
     Pop-Location
