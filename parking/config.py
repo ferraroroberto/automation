@@ -35,6 +35,9 @@ class Config:
     centers: List[Named]
     sizes: List[Named]
     treat_placeless_as_covered: bool
+    holiday_country: str
+    holiday_subdiv: str
+    skip_dates: List[str]
     poll_minutes: int
     active_start: time
     active_end: time
@@ -54,6 +57,7 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
     raw = json.loads(path.read_text(encoding="utf-8"))
     pause = raw.get("request_pause_seconds", [1.5, 3.0])
     hours = raw.get("active_hours", {})
+    region = raw.get("holiday_region", {})
     return Config(
         dry_run=bool(raw.get("dry_run", True)),
         weekdays=[str(w) for w in raw["weekdays"]],
@@ -62,6 +66,9 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         centers=[Named(int(c["id"]), str(c["name"])) for c in raw["centers"]],
         sizes=[Named(int(s["id"]), str(s["name"])) for s in raw["sizes"]],
         treat_placeless_as_covered=bool(raw.get("treat_placeless_as_covered", True)),
+        holiday_country=str(region.get("country", "ES")),
+        holiday_subdiv=str(region.get("subdiv", "")),
+        skip_dates=[str(d) for d in raw.get("skip_dates", [])],
         poll_minutes=int(raw.get("poll_minutes", 15)),
         active_start=_parse_hhmm(hours.get("start", "00:00")),
         active_end=_parse_hhmm(hours.get("end", "23:59")),

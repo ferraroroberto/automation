@@ -204,8 +204,9 @@ rarfile>=4.0
 # Source: system/word_to_markdown.py
 python-docx>=0.8.11
 
-# Parking poller (parking/): browser login helper, timezone data, tests
+# Parking poller (parking/): browser login helper, timezone data, holiday calendar, tests
 # Source: parking/login.py, parking/poller.py, parking/tests
 playwright>=1.48
 tzdata>=2024.1
+holidays>=0.50
 pytest>=8.0

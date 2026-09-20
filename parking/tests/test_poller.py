@@ -201,3 +201,12 @@ def test_no_failure_alert_when_a_later_slot_books(cfg, env):
     api = FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, {(1, 3): ApiError("taken")})
     _, notifier, _ = run(cfg, env, api)
     assert not any("booking failed" in t for t in notifier.sent)
+
+
+def test_holiday_target_day_is_never_queried_or_booked(cfg, env):
+    from dataclasses import replace
+
+    api = FakeApi([], {(1, 3): [MON]})
+    result, notifier, _ = run(replace(cfg, skip_dates=["2026-09-21"]), env, api)
+    assert result.status == "nothing-pending"
+    assert api.slot_calls == [] and api.created == [] and notifier.sent == []

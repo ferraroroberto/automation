@@ -69,3 +69,15 @@ def test_normalize_token_strips_quotes_and_bearer():
     assert auth.normalize_token('"Bearer abc.def.ghi"') == "abc.def.ghi"
     assert auth.normalize_token("  ") is None
     assert auth.normalize_token(None) is None
+
+
+def test_holiday_dates_merges_library_calendar_and_extra_dates():
+    skip = planner.holiday_dates("ES", "CT", ["2026-09-24"], date(2026, 9, 20), 30)
+    assert "2026-09-24" in skip  # La Mercè: owner-supplied, the library lacks it
+    assert "2026-10-12" in skip  # national holiday from the library
+    assert "2026-09-21" not in skip
+
+
+def test_holiday_dates_covers_year_rollover():
+    skip = planner.holiday_dates("ES", "CT", [], date(2026, 12, 20), 30)
+    assert {"2026-12-25", "2027-01-01"} <= skip
