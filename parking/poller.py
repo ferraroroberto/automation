@@ -43,8 +43,14 @@ class RunResult:
     would_book: List[str] = field(default_factory=list)
 
 
-def in_active_hours(cfg: Config, now: datetime) -> bool:
-    return cfg.active_start <= now.timetz().replace(tzinfo=None) <= cfg.active_end
+def poll_interval(cfg: Config, now: datetime) -> int:
+    """Minutes between polls right now: the first matching window, else `poll_minutes`. 0 = don't poll."""
+    at = now.timetz().replace(tzinfo=None)
+    for window in cfg.poll_windows:
+        wraps = window.start > window.end
+        if (window.start <= at or at < window.end) if wraps else (window.start <= at < window.end):
+            return window.every_minutes
+    return cfg.poll_minutes
 
 
 def _alert(state: State, notifier: Notifier, key: str, text: str, now: datetime,
@@ -138,10 +144,11 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
              rng: Optional[random.Random] = None) -> RunResult:
     rng = rng or random.Random()
     if state.in_backoff(now):
-        logger.info("ℹ️ in backoff until %s", state.next_allowed.isoformat())
+        logger.info("ℹ️ not due until %s", state.next_allowed.isoformat())
         return RunResult("backoff")
-    if not in_active_hours(cfg, now):
-        logger.info("ℹ️ outside active hours")
+    interval = poll_interval(cfg, now)
+    if not interval:
+        logger.info("ℹ️ polling is off in this time window")
         return RunResult("inactive")
 
     token = auth.normalize_token(env.get("PARKING_TOKEN"))
@@ -179,7 +186,9 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
         _backoff(cfg, state, now)
         return RunResult("error")
     state.failures = 0
-    state.next_allowed = None
+    # The scheduler fires at the finest interval; later runs exit at the in_backoff check above.
+    # Minus the start jitter, so a run that jitters earlier than the last one is not skipped.
+    state.next_allowed = now + timedelta(minutes=interval, seconds=-cfg.jitter_max_seconds)
     return result
 
 

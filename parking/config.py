@@ -27,6 +27,15 @@ class Named:
 
 
 @dataclass(frozen=True)
+class PollWindow:
+    """Between `start` and `end` (end exclusive, may wrap midnight) poll every `every_minutes`; 0 = don't."""
+
+    start: time
+    end: time
+    every_minutes: int
+
+
+@dataclass(frozen=True)
 class Config:
     dry_run: bool
     weekdays: List[str]
@@ -39,8 +48,7 @@ class Config:
     holiday_subdiv: str
     skip_dates: List[str]
     poll_minutes: int
-    active_start: time
-    active_end: time
+    poll_windows: List[PollWindow]
     timezone: str
     jitter_max_seconds: int
     request_pause_seconds: Tuple[float, float]
@@ -56,7 +64,6 @@ def _parse_hhmm(value: str) -> time:
 def load_config(path: Path = CONFIG_PATH) -> Config:
     raw = json.loads(path.read_text(encoding="utf-8"))
     pause = raw.get("request_pause_seconds", [1.5, 3.0])
-    hours = raw.get("active_hours", {})
     region = raw.get("holiday_region", {})
     return Config(
         dry_run=bool(raw.get("dry_run", True)),
@@ -70,8 +77,8 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         holiday_subdiv=str(region.get("subdiv", "")),
         skip_dates=[str(d) for d in raw.get("skip_dates", [])],
         poll_minutes=int(raw.get("poll_minutes", 15)),
-        active_start=_parse_hhmm(hours.get("start", "00:00")),
-        active_end=_parse_hhmm(hours.get("end", "23:59")),
+        poll_windows=[PollWindow(_parse_hhmm(w["start"]), _parse_hhmm(w["end"]), int(w["every_minutes"]))
+                      for w in raw.get("poll_windows", [])],
         timezone=str(raw.get("timezone", "Europe/Madrid")),
         jitter_max_seconds=int(raw.get("jitter_max_seconds", 0)),
         request_pause_seconds=(float(pause[0]), float(pause[1])),

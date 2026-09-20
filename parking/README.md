@@ -1,6 +1,6 @@
 # parking
 
-Parking reservation automation. Slots free up when someone cancels, so a small deterministic poller (no LLM) checks every 15 minutes and books any free slot on the days you need, then sends a Telegram message.
+Parking reservation automation. Slots free up when someone cancels, so a small deterministic poller (no LLM) checks every 5-15 minutes (by time of day) and books any free slot on the days you need, then sends a Telegram message.
 
 ## Hard rules
 
@@ -14,7 +14,7 @@ Parking reservation automation. Slots free up when someone cancels, so a small d
 
 Each run (`python -m parking.poller`, from the repo root):
 
-1. Load `config.json` and `.env`; skip if outside active hours or in backoff.
+1. Load `config.json` and `.env`; skip if not due (backoff / last run too recent) or if the time window says don't poll.
 2. Read my bookings. A day with an ACTIVE booking is **never booked again**.
 3. Work out the target days (configured weekdays inside the horizon, minus holidays) that have no booking.
 4. For each centre x size (in config order, 1.5-3 s jittered pauses) ask which days are bookable.
@@ -51,12 +51,12 @@ A dedicated Chrome window opens (profile in `parking/.browser-profile/`): sign i
 | `holiday_region`, `skip_dates` | days never booked: the `holidays` calendar for that country/subdivision (ES/CT) plus your own `skip_dates` for local days the library lacks (e.g. `2026-09-24`, La Mercè). Review the list each year |
 | `centers`, `sizes` | ids and names, tried in this order; `type` is `standard` |
 | `treat_placeless_as_covered` | `true`: a day with an ACTIVE booking that has no slot number counts as booked |
-| `poll_minutes`, `active_hours`, `timezone` | heartbeat, window and clock for the schedule |
+| `poll_minutes`, `poll_windows`, `timezone` | default minutes between polls; ordered `{start, end, every_minutes}` windows override it (`0` = don't poll, end exclusive, may wrap midnight; first match wins); clock for both |
 | `jitter_max_seconds`, `request_pause_seconds` | politeness toward the site |
 
 ## Schedule
 
-Registered in the app-launcher Jobs tab as `parking-poll`, a 15-minute heartbeat running `parking/run-poll.bat` (hidden window). Nothing runs on the Mac Mini.
+Registered in the app-launcher Jobs tab as `parking-poll`, a 5-minute heartbeat running `parking/run-poll.bat` (hidden window). The launcher only supports a flat interval, so the poller decides per run whether it is due: `poll_windows` picks the interval for the time of day and each successful run sets `next_allowed` (the same field failure backoff uses); runs that arrive early exit before any network call. Nothing runs on the Mac Mini.
 
 ## Tests
 
