@@ -1,0 +1,23 @@
+{
+  "dry_run": true,
+  "weekdays": ["mon", "thu", "fri"],
+  "horizon_days": 30,
+  "type": "standard",
+  "centers": [
+    {"id": 1, "name": "22@"},
+    {"id": 2, "name": "CINC"}
+  ],
+  "sizes": [
+    {"id": 3, "name": "Large"},
+    {"id": 2, "name": "Medium"},
+    {"id": 1, "name": "Small"}
+  ],
+  "treat_placeless_as_covered": true,
+  "poll_minutes": 15,
+  "active_hours": {"start": "06:00", "end": "22:00"},
+  "timezone": "Europe/Madrid",
+  "jitter_max_seconds": 120,
+  "request_pause_seconds": [1.5, 3.0],
+  "token_warning_days": 3,
+  "repeated_error_threshold": 3
+}

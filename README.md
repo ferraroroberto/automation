@@ -19,6 +19,7 @@ automation/
 ├── 📁 image/           # Image processing, formatting, and Instagram tools
 ├── 📁 linkedin/        # LinkedIn reverse-image search, profile opening, and profile data extraction
 ├── 📁 notion/          # Notion API integration and database management
+├── 📁 parking/         # Parking reservation poller (15-min heartbeat, books a free slot)
 ├── 📁 scripts/         # Repo-level scripts (verification gate)
 ├── 📁 smart_life/      # Smart Life / IoT device automation
 ├── 📁 system/          # System utilities and virtual environment management
@@ -89,6 +90,10 @@ Reference for the previously-undocumented tools above: [`image/README.md`](image
 
 **GPU Maintenance**
 - **`gpu_recovery.py`** - Diagnose & recover an NVIDIA GPU stuck "disabled" (Device Manager Code 22); restores NVENC acceleration for the tools above (see `gpu_recovery.md`)
+
+### 🅿️ Parking Reservation (`parking/`)
+
+A deterministic poller (no LLM) that checks every 15 minutes for a free parking slot on the configured weekdays, books one day per call, and sends a Telegram message. Runs as the app-launcher Jobs entry `parking-poll`; dry-run by default. Usage, config and the monthly login: [`parking/README.md`](parking/README.md).
 
 ### 📚 Notion Integration (`notion/`)
 
