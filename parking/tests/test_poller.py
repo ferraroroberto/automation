@@ -52,7 +52,8 @@ def cfg(tmp_path):
 
     raw = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text())
     raw.update({"weekdays": ["mon"], "horizon_days": 7, "dry_run": False,
-                "treat_placeless_as_covered": False, "jitter_max_seconds": 0})
+                "treat_placeless_as_covered": False, "jitter_max_seconds": 0,
+                "sweep_report_until": None})
     path = tmp_path / "config.json"
     path.write_text(json.dumps(raw))
     return load_config(path)
@@ -283,3 +284,33 @@ def test_run_just_before_16h_does_not_block_the_16h_poll(cfg, env):
     quiet = replace(cfg, jitter_max_seconds=120)
     _, _, state = run(quiet, env, FakeApi([], {}), now=THU.replace(hour=15, minute=58))
     assert not state.in_backoff(THU)  # 16:02; a 15-minute interval would block until 16:11
+
+
+def test_sweep_report_sends_one_line_per_sweep_until_the_end_time(cfg, env):
+    from dataclasses import replace
+
+    until = NOW + timedelta(hours=1)
+    trial = replace(cfg, sweep_report_until=until)
+    _, notifier, _ = run(trial, env, FakeApi([], {}))
+    assert notifier.sent == ["Parking sweep Sun 12:00 ✅ 1 open day(s), no free slot for them."]
+    _, notifier, _ = run(trial, env, FakeApi([], {(1, 3): [MON]}))
+    assert notifier.sent == ["Parking booked: 2026-09-21 at 22@ (Large)",
+                             "Parking sweep Sun 12:00 ✅ 1 open day(s), booked: 2026-09-21."]
+    _, notifier, _ = run(trial, env, FakeApi([], {}), now=until)
+    assert notifier.sent == []
+
+
+def test_sweep_report_says_when_a_sweep_fails_and_skips_early_runs(cfg, env):
+    from dataclasses import replace
+
+    from parking.api import ServerError
+
+    class Broken(FakeApi):
+        def my_bookings(self):
+            raise ServerError("503")
+
+    trial = replace(cfg, sweep_report_until=NOW + timedelta(hours=1))
+    _, notifier, state = run(trial, env, Broken([], {}))
+    assert notifier.sent == ["Parking sweep Sun 12:00 ❌ failed (ServerError), will retry."]
+    _, notifier, _ = run(trial, env, FakeApi([], {}), state=state)
+    assert notifier.sent == []  # still backing off: no sweep, no report

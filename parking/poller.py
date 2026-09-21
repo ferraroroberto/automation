@@ -41,6 +41,7 @@ class RunResult:
     pending: List[str] = field(default_factory=list)
     booked: List[str] = field(default_factory=list)
     would_book: List[str] = field(default_factory=list)
+    error: str = ""
 
 
 def _window(cfg: Config, now: datetime) -> Optional[PollWindow]:
@@ -111,7 +112,8 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
         if index:
             sleep(rng.uniform(*cfg.request_pause_seconds))
         days = api.slot_days(combo.center_id, combo.size_id, cfg.type)
-        logger.info("ℹ️ %s / %s: %d free day(s)", combo.center_name, combo.size_name, len(days))
+        logger.info("ℹ️ %s / %s: %d free day(s) %s", combo.center_name, combo.size_name, len(days),
+                    sorted(planner.day_key(d) for d in days))
         slots.append((combo, days))
     found = planner.candidates_by_day(pending, slots)
     if not found:
@@ -157,11 +159,40 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
     return result
 
 
+def sweep_summary(result: RunResult, now: datetime) -> str:
+    """One line saying how a sweep ended, for the `sweep_report_until` trial."""
+    head = f"Parking sweep {now:%a %H:%M}"
+    if result.status == "nothing-pending":
+        return f"{head} ✅ every target day already booked."
+    if result.status in ("no-token", "token-expired"):
+        return f"{head} ❌ login needed ({result.status}), site not checked."
+    if result.status == "error":
+        return f"{head} ❌ failed ({result.error}), will retry."
+    open_days = f"{len(result.pending)} open day(s)"
+    if result.booked:
+        return f"{head} ✅ {open_days}, booked: {', '.join(result.booked)}."
+    if result.would_book:
+        return f"{head} ✅ {open_days}, free (dry-run): {', '.join(result.would_book)}."
+    if result.status == "no-slots":
+        return f"{head} ✅ {open_days}, no free slot for them."
+    return f"{head} ⚠️ {open_days}, a slot was free but booking failed - check the site."
+
+
 def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, state: State,
              api_factory: Callable[[str, str], ParkingApi] = ParkingApi,
              sleep: Callable[[float], None] = time_module.sleep,
              rng: Optional[random.Random] = None) -> RunResult:
-    rng = rng or random.Random()
+    result = _run(cfg, env, now, notifier, state, api_factory, sleep, rng or random.Random())
+    reporting = cfg.sweep_report_until is not None and now < cfg.sweep_report_until
+    # Skipped runs are not sweeps; verbose windows already end with their own "Poll finished".
+    if reporting and result.status not in ("backoff", "inactive") and not is_verbose(cfg, now):
+        notifier.send(sweep_summary(result, now))
+    return result
+
+
+def _run(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, state: State,
+         api_factory: Callable[[str, str], ParkingApi], sleep: Callable[[float], None],
+         rng: random.Random) -> RunResult:
     if state.in_backoff(now):
         logger.info("ℹ️ not due until %s", state.next_allowed.isoformat())
         return RunResult("backoff")
@@ -199,7 +230,7 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
         _alert(state, notifier, "login-needed",
                "Parking: the site rejected the token. Run: python -m parking.login", now)
         _backoff(cfg, state, now, MAX_BACKOFF_MINUTES)
-        return RunResult("error")
+        return RunResult("error", error="token rejected")
     except (RateLimited, ServerError, requests.RequestException, ApiError) as exc:
         state.failures += 1
         logger.error("❌ %s (failure #%d)", type(exc).__name__, state.failures)
@@ -207,7 +238,7 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
             notifier.send(f"Parking: {state.failures} consecutive errors ({type(exc).__name__}); backing off")
         _backoff(cfg, state, now)
         say(f"Poll failed ({type(exc).__name__}); will retry.")
-        return RunResult("error")
+        return RunResult("error", error=type(exc).__name__)
     state.failures = 0
     # The scheduler fires at the finest interval; later runs exit at the in_backoff check above.
     # Minus the start jitter, so a run that jitters earlier than the last one is not skipped.
