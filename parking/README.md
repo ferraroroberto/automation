@@ -53,6 +53,7 @@ A dedicated Chrome window opens (profile in `parking/.browser-profile/`): sign i
 | `treat_placeless_as_covered` | `true`: a day with an ACTIVE booking that has no slot number counts as booked |
 | `poll_minutes`, `poll_windows`, `timezone` | default minutes between polls; ordered `{start, end, every_minutes}` windows override it (`0` = don't poll, end exclusive, may wrap midnight; first match wins); optional `days` (e.g. `["thu"]`, default every day) and `verbose` (live log to Telegram, see below); clock for all |
 | `jitter_max_seconds`, `request_pause_seconds` | politeness toward the site |
+| `sweep_report_until` | optional trial switch, local ISO time (e.g. `2026-09-23T00:00`): until then every sweep that reaches the site (or fails trying) sends one Telegram line with its outcome; early/skipped runs send nothing. Remove it or let it pass to go quiet again |
 
 ## Schedule
 

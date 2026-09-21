@@ -6,9 +6,10 @@ import json
 import logging
 import os
 from dataclasses import dataclass, replace
-from datetime import time
+from datetime import datetime, time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from parking.planner import WEEKDAYS
 
@@ -62,6 +63,15 @@ class Config:
     request_pause_seconds: Tuple[float, float]
     token_warning_days: int
     repeated_error_threshold: int
+    # Until then, every sweep sends a one-line summary to Telegram (None = off).
+    sweep_report_until: Optional[datetime] = None
+
+
+def _parse_until(value: Optional[str], tz: str) -> Optional[datetime]:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=ZoneInfo(tz))
 
 
 def _parse_hhmm(value: str) -> time:
@@ -99,6 +109,8 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         request_pause_seconds=(float(pause[0]), float(pause[1])),
         token_warning_days=int(raw.get("token_warning_days", 3)),
         repeated_error_threshold=int(raw.get("repeated_error_threshold", 3)),
+        sweep_report_until=_parse_until(raw.get("sweep_report_until"),
+                                        str(raw.get("timezone", "Europe/Madrid"))),
     )
 
 
