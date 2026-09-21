@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -60,7 +60,7 @@ def cfg(tmp_path):
 
 @pytest.fixture
 def env():
-    token = make_token(datetime.now(timezone.utc) + timedelta(days=20))
+    token = make_token(NOW + timedelta(days=20))
     return {"PARKING_TOKEN": token, "PARKING_API_URL": "https://example.invalid/graphql",
             "PARKING_LICENSE_PLATE": "TEST123"}
 
@@ -135,7 +135,7 @@ def test_missing_token_alerts_once_per_day(cfg):
 
 
 def test_expiring_token_alerts_but_still_polls(cfg, env):
-    env = dict(env, PARKING_TOKEN=make_token(datetime.now(timezone.utc) + timedelta(days=2)))
+    env = dict(env, PARKING_TOKEN=make_token(NOW + timedelta(days=2)))
     api = FakeApi([], {})
     result, notifier, _ = run(cfg, env, api)
     assert result.status == "no-slots"
