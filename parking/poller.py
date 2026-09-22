@@ -25,7 +25,7 @@ from parking import auth, planner
 from parking import screenshot as site_screenshot
 from parking.api import ApiError, AuthError, ParkingApi, RateLimited, ServerError
 from parking.config import (
-    CONFIG_PATH, LOG_DIR, PROFILE_DIR, STATE_PATH, Config, PollWindow, ThursdayBurst,
+    CONFIG_PATH, LOG_DIR, MESSAGE_LEDGER_PATH, PROFILE_DIR, STATE_PATH, Config, PollWindow, ThursdayBurst,
     apply_env_overrides, load_config, load_env,
 )
 from parking.notify import FleetNotifier, Notifier
@@ -86,7 +86,7 @@ def _in_burst_watch_band(burst: ThursdayBurst, now: datetime) -> bool:
     it doesn't matter which of the day's ticks it is, since the burst itself
     self-times a precise wait to `target` regardless of when it started.
     """
-    if now.weekday() != WEEKDAYS.index("thu"):
+    if now.weekday() != WEEKDAYS.index("thu") and now.date() not in burst.trial_dates:
         return False
     target = _burst_target(burst, now)
     start = target - timedelta(minutes=burst.watch_before_minutes)
@@ -144,6 +144,10 @@ def _run_burst(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifi
     target = _burst_target(burst, now)
     site_url = env.get("PARKING_URL", "")
     logger.info("⚡ Thursday burst armed: waiting for %s", target.isoformat())
+    kind = "Thursday" if now.weekday() == WEEKDAYS.index("thu") else "trial"
+    mode = "dry-run, no bookings" if cfg.dry_run else "LIVE, will book"
+    notifier.send(f"⚡ Parking {kind} burst armed ({mode}): checking every {burst.poll_interval_seconds:g}s "
+                  f"for {burst.duration_seconds}s from {target:%H:%M:%S}.", disposable=True)
     _sleep_until_precise(target, sleep, now_fn)
 
     api = api_factory(endpoint, token)
@@ -152,8 +156,10 @@ def _run_burst(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifi
     deadline = now_fn() + timedelta(seconds=burst.duration_seconds)
     result = RunResult("nothing-pending")
     logger.info("⚡ Thursday burst started")
+    checks = 0
     while now_fn() < deadline:
         cycle_now = now_fn()
+        checks += 1
         try:
             result = _cycle(burst_cfg, api, plate, cycle_now, notifier, state, sleep, rng, say, site_url)
         except AuthError:
@@ -161,19 +167,39 @@ def _run_burst(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifi
             _alert(state, notifier, "login-needed",
                    "Parking: the site rejected the token. Run: python -m parking.login", cycle_now)
             _backoff(cfg, state, cycle_now, MAX_BACKOFF_MINUTES)
-            return RunResult("error", error="token rejected")
+            result = RunResult("error", error="token rejected")
         except (RateLimited, ServerError, requests.RequestException, ApiError) as exc:
             logger.error("❌ burst: %s - stopping the burst rather than pushing through", type(exc).__name__)
-            return RunResult("error", error=type(exc).__name__)
+            result = RunResult("error", error=type(exc).__name__)
+        notifier.ping(f"⚡ #{checks} {cycle_now:%H:%M:%S}.{cycle_now.microsecond // 10000:02d} "
+                      f"{burst_check_line(result)}")
+        if result.status == "error":
+            break
         if not result.pending or set(result.booked) >= set(result.pending):
             logger.info("✅ burst: every target day booked, stopping early")
             break
         sleep(burst.poll_interval_seconds)
     logger.info("⚡ Thursday burst finished: %s", result.status)
+    notifier.ping(f"⚡ burst finished after {checks} check(s): {burst_check_line(result)}")
     return result
 
 
-def _notify(notifier: Notifier, cfg: Config, site_url: str, text: str) -> bool:
+def burst_check_line(result: RunResult) -> str:
+    """A few words saying what one burst check saw, for its Telegram ping."""
+    if result.status == "error":
+        return f"❌ {result.error}, stopped"
+    if result.status == "nothing-pending":
+        return "✅ every day booked"
+    if result.booked:
+        return f"✅ booked {', '.join(result.booked)}"
+    if result.would_book:
+        return f"🟢 free (dry-run): {', '.join(result.would_book)}"
+    if result.status == "no-slots":
+        return f"{len(result.pending)} open, nothing free"
+    return f"⚠️ {len(result.pending)} open, booking failed"
+
+
+def _notify(notifier: Notifier, cfg: Config, site_url: str, text: str, disposable: bool = False) -> bool:
     """Send `text`, attaching each center's calendar (this month + next) as one
     Telegram message when screenshots can be captured.
 
@@ -188,15 +214,15 @@ def _notify(notifier: Notifier, cfg: Config, site_url: str, text: str) -> bool:
         try:
             str_paths = [str(p) for p in paths]
             if len(str_paths) == 1:
-                if notifier.send_file(text, str_paths[0]):
+                if notifier.send_file(text, str_paths[0], disposable=disposable):
                     return True
             elif str_paths:
-                if notifier.send_files(text, str_paths):
+                if notifier.send_files(text, str_paths, disposable=disposable):
                     return True
         finally:
             for path in paths:
                 path.unlink(missing_ok=True)
-    return notifier.send(text)
+    return notifier.send(text, disposable=disposable)
 
 
 def _alert(state: State, notifier: Notifier, key: str, text: str, now: datetime,
@@ -324,7 +350,7 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
     reporting = cfg.sweep_report_until is not None and now < cfg.sweep_report_until
     # Skipped runs are not sweeps; verbose windows already end with their own "Poll finished".
     if reporting and result.status not in ("backoff", "inactive") and not is_verbose(cfg, now):
-        _notify(notifier, cfg, env.get("PARKING_URL", ""), sweep_summary(result, now))
+        _notify(notifier, cfg, env.get("PARKING_URL", ""), sweep_summary(result, now), disposable=True)
     return result
 
 
@@ -339,7 +365,8 @@ def _run(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, st
         logger.info("ℹ️ polling is off in this time window")
         return RunResult("inactive")
 
-    say = notifier.send if is_verbose(cfg, now) else (lambda _text: None)
+    say: Callable[[str], object] = ((lambda text: notifier.send(text, disposable=True))
+                                    if is_verbose(cfg, now) else (lambda _text: None))
     say(f"Parking poll started ({now:%a %H:%M}).")
 
     token = auth.normalize_token(env.get("PARKING_TOKEN"))
@@ -386,6 +413,15 @@ def _run(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, st
     return result
 
 
+def burst_action(cfg: Config, state: State, now: datetime) -> str:
+    """"burst" to arm the burst now, "skip" when one is already armed for this
+    window, else "normal" for a regular poll."""
+    burst = cfg.thursday_burst
+    if not (burst and burst.enabled and _in_burst_watch_band(burst, now)):
+        return "normal"
+    return "burst" if state.alert_due(BURST_STATE_KEY, now, BURST_COOLDOWN) else "skip"
+
+
 def _setup_logging() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -412,18 +448,27 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     state = load_state(STATE_PATH)
     now = datetime.now(ZoneInfo(cfg.timezone))
-    burst = cfg.thursday_burst
-    if (burst and burst.enabled and _in_burst_watch_band(burst, now)
-            and state.alert_due(BURST_STATE_KEY, now, BURST_COOLDOWN)):
-        result = _run_burst(cfg, env, now, FleetNotifier(env), state, ParkingApi, time_module.sleep,
-                            random.Random(), lambda: datetime.now(ZoneInfo(cfg.timezone)))
-    else:
-        if cfg.jitter_max_seconds and not args.no_jitter:
-            delay = random.uniform(0, cfg.jitter_max_seconds)
-            logger.info("ℹ️ jitter: waiting %.0fs", delay)
-            time_module.sleep(delay)
-        now = datetime.now(ZoneInfo(cfg.timezone))
-        result = run_once(cfg, env, now, FleetNotifier(env), state)
+    action = burst_action(cfg, state, now)
+    if action == "skip":
+        # A burst lasts longer than the 5-minute tick, so the next tick can land
+        # mid-burst; it must not poll the site or post to (and clean up) the chat
+        # alongside it, nor save a stale copy of the state over the burst's.
+        logger.info("ℹ️ a burst is already running in this window; nothing to do")
+        return 0
+    notifier = FleetNotifier(env, ledger_path=MESSAGE_LEDGER_PATH)
+    try:
+        if action == "burst":
+            result = _run_burst(cfg, env, now, notifier, state, ParkingApi, time_module.sleep,
+                                random.Random(), lambda: datetime.now(ZoneInfo(cfg.timezone)))
+        else:
+            if cfg.jitter_max_seconds and not args.no_jitter:
+                delay = random.uniform(0, cfg.jitter_max_seconds)
+                logger.info("ℹ️ jitter: waiting %.0fs", delay)
+                time_module.sleep(delay)
+            now = datetime.now(ZoneInfo(cfg.timezone))
+            result = run_once(cfg, env, now, notifier, state)
+    finally:
+        notifier.close()
     save_state(STATE_PATH, state)
     logger.info("ℹ️ run finished: %s (booked=%s, would_book=%s)", result.status, result.booked,
                 result.would_book)

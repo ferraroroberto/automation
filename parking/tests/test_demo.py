@@ -9,7 +9,7 @@ class Recorder:
     def __init__(self):
         self.sent = []
 
-    def send(self, text):
+    def send(self, text, disposable=False):
         self.sent.append(text)
         return True
 
