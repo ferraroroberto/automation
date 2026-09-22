@@ -34,7 +34,7 @@ logger = logging.getLogger("parking.poller")
 
 MAX_BACKOFF_MINUTES = 360
 ALERT_COOLDOWN = timedelta(hours=24)
-SCREENSHOT_PATH = LOG_DIR / "last-site.png"
+SCREENSHOT_DIR = LOG_DIR / "screenshots"
 
 
 @dataclass
@@ -68,23 +68,40 @@ def is_verbose(cfg: Config, now: datetime) -> bool:
     return bool(window and window.verbose)
 
 
-def _notify(notifier: Notifier, site_url: str, text: str) -> bool:
-    """Send `text`, attaching a screenshot of the site when one can be captured.
+def _notify(notifier: Notifier, cfg: Config, site_url: str, text: str) -> bool:
+    """Send `text`, attaching each center's calendar (this month + next) as one
+    Telegram message when screenshots can be captured.
 
-    Best-effort: a missing `PARKING_URL` or any capture failure (locked
-    profile, navigation error) falls back to a plain text notification rather
-    than losing the alert.
+    Best-effort throughout: a missing `PARKING_URL`, no screenshots captured,
+    or the send itself failing all fall back to a plain text notification.
+    Whatever was captured is deleted after the send attempt either way, so
+    screenshots never accumulate between polls.
     """
-    if site_url and site_screenshot.capture(site_url, SCREENSHOT_PATH, PROFILE_DIR):
-        if notifier.send_file(text, str(SCREENSHOT_PATH)):
-            return True
+    if site_url:
+        paths = site_screenshot.capture_all([c.name for c in cfg.centers], site_url,
+                                            SCREENSHOT_DIR, PROFILE_DIR)
+        try:
+            str_paths = [str(p) for p in paths]
+            if len(str_paths) == 1:
+                if notifier.send_file(text, str_paths[0]):
+                    return True
+            elif str_paths:
+                if notifier.send_files(text, str_paths):
+                    return True
+        finally:
+            for path in paths:
+                path.unlink(missing_ok=True)
     return notifier.send(text)
 
 
 def _alert(state: State, notifier: Notifier, key: str, text: str, now: datetime,
-           cooldown: timedelta = ALERT_COOLDOWN, site_url: str = "") -> None:
+           cooldown: timedelta = ALERT_COOLDOWN, cfg: Optional[Config] = None,
+           site_url: str = "") -> None:
     if state.alert_due(key, now, cooldown):
-        _notify(notifier, site_url, text)
+        if cfg is not None:
+            _notify(notifier, cfg, site_url, text)
+        else:
+            notifier.send(text)
         state.mark_alert(key, now)
 
 
@@ -161,16 +178,17 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
             if day in confirmed:
                 logger.info("✅ booked %s", label)
                 result.booked.append(day)
-                _notify(notifier, site_url, f"Parking booked: {label}")
+                _notify(notifier, cfg, site_url, f"Parking booked: {label}")
             else:
                 logger.error("❌ createBooking returned but %s is not confirmed in my bookings", day)
-                _notify(notifier, site_url, f"Parking: booking {label} was sent but not confirmed - check the site")
+                _notify(notifier, cfg, site_url,
+                       f"Parking: booking {label} was sent but not confirmed - check the site")
             break
         else:
             if last_error is not None:
                 _alert(state, notifier, f"book-failed:{day}",
                        f"Parking: a slot was free for {day} but booking failed ({last_error}). "
-                       "Check the site.", now, timedelta(hours=1), site_url=site_url)
+                       "Check the site.", now, timedelta(hours=1), cfg=cfg, site_url=site_url)
     return result
 
 
@@ -201,7 +219,7 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
     reporting = cfg.sweep_report_until is not None and now < cfg.sweep_report_until
     # Skipped runs are not sweeps; verbose windows already end with their own "Poll finished".
     if reporting and result.status not in ("backoff", "inactive") and not is_verbose(cfg, now):
-        _notify(notifier, env.get("PARKING_URL", ""), sweep_summary(result, now))
+        _notify(notifier, cfg, env.get("PARKING_URL", ""), sweep_summary(result, now))
     return result
 
 

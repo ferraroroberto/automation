@@ -17,6 +17,7 @@ class FakeNotifier:
     def __init__(self):
         self.sent = []
         self.sent_files = []
+        self.sent_file_groups = []
 
     def send(self, text):
         self.sent.append(text)
@@ -24,6 +25,10 @@ class FakeNotifier:
 
     def send_file(self, text, path):
         self.sent_files.append((text, path))
+        return True
+
+    def send_files(self, text, paths):
+        self.sent_file_groups.append((text, list(paths)))
         return True
 
 
@@ -321,67 +326,103 @@ def test_sweep_report_says_when_a_sweep_fails_and_skips_early_runs(cfg, env):
     assert notifier.sent == []  # still backing off: no sweep, no report
 
 
-def test_booked_notification_attaches_screenshot_when_capture_succeeds(cfg, env, monkeypatch):
-    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+def _make_pngs(tmp_path, n):
+    paths = []
+    for i in range(n):
+        path = tmp_path / f"shot{i}.png"
+        path.write_bytes(b"\x89PNG")
+        paths.append(path)
+    return paths
+
+
+def test_booked_notification_attaches_all_screenshots_as_one_message(cfg, env, monkeypatch, tmp_path):
+    shots = _make_pngs(tmp_path, 4)
+    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
     api = FakeApi([], {(1, 3): [MON]})
     notifier = FakeNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
-    assert notifier.sent == []
-    assert notifier.sent_files == [
-        ("Parking booked: 2026-09-21 at 22@ (Large)", str(poller.SCREENSHOT_PATH))]
+    assert notifier.sent == [] and notifier.sent_files == []
+    assert notifier.sent_file_groups == [
+        ("Parking booked: 2026-09-21 at 22@ (Large)", [str(p) for p in shots])]
+    assert not any(p.exists() for p in shots)  # deleted after the send attempt
 
 
-def test_booked_notification_falls_back_to_text_when_capture_fails(cfg, env, monkeypatch):
-    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: False)
+def test_booked_notification_uses_single_file_send_for_one_screenshot(cfg, env, monkeypatch, tmp_path):
+    shots = _make_pngs(tmp_path, 1)
+    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
+    api = FakeApi([], {(1, 3): [MON]})
+    notifier = FakeNotifier()
+    run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
+    assert notifier.sent_file_groups == []
+    assert notifier.sent_files == [("Parking booked: 2026-09-21 at 22@ (Large)", str(shots[0]))]
+    assert not shots[0].exists()
+
+
+def test_booked_notification_falls_back_to_text_when_nothing_captured(cfg, env, monkeypatch):
+    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: [])
     api = FakeApi([], {(1, 3): [MON]})
     notifier = FakeNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
     assert notifier.sent == ["Parking booked: 2026-09-21 at 22@ (Large)"]
-    assert notifier.sent_files == []
+    assert notifier.sent_files == [] and notifier.sent_file_groups == []
 
 
-def test_booked_notification_falls_back_to_text_when_file_send_fails(cfg, env, monkeypatch):
-    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+def test_booked_notification_falls_back_to_text_when_group_send_fails(cfg, env, monkeypatch, tmp_path):
+    shots = _make_pngs(tmp_path, 4)
+    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
 
-    class FailingFileNotifier(FakeNotifier):
-        def send_file(self, text, path):
-            self.sent_files.append((text, path))
+    class FailingGroupNotifier(FakeNotifier):
+        def send_files(self, text, paths):
+            self.sent_file_groups.append((text, list(paths)))
             return False
 
     api = FakeApi([], {(1, 3): [MON]})
-    notifier = FailingFileNotifier()
+    notifier = FailingGroupNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
     assert notifier.sent == ["Parking booked: 2026-09-21 at 22@ (Large)"]
-    assert len(notifier.sent_files) == 1
+    assert len(notifier.sent_file_groups) == 1
+    assert not any(p.exists() for p in shots)  # cleaned up even though the send failed
 
 
 def test_no_screenshot_attempt_without_parking_url(cfg, env, monkeypatch):
     called = []
-    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: called.append(1) or True)
+    monkeypatch.setattr(poller.site_screenshot, "capture_all",
+                        lambda *a, **k: called.append(1) or [])
     api = FakeApi([], {(1, 3): [MON]})
     notifier = FakeNotifier()
     run(cfg, env, api, notifier=notifier)  # env fixture has no PARKING_URL
     assert called == []
     assert notifier.sent == ["Parking booked: 2026-09-21 at 22@ (Large)"]
-    assert notifier.sent_files == []
+    assert notifier.sent_files == [] and notifier.sent_file_groups == []
 
 
-def test_booking_failed_alert_attaches_screenshot_when_available(cfg, env, monkeypatch):
-    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+def test_booked_notification_passes_both_configured_centers_to_capture(cfg, env, monkeypatch):
+    seen = []
+    monkeypatch.setattr(poller.site_screenshot, "capture_all",
+                        lambda centers, *a, **k: seen.append(list(centers)) or [])
+    api = FakeApi([], {(1, 3): [MON]})
+    run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api)
+    assert seen == [["22@", "CINC"]]
+
+
+def test_booking_failed_alert_attaches_screenshots_when_available(cfg, env, monkeypatch, tmp_path):
+    shots = _make_pngs(tmp_path, 4)
+    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
     errors = {(1, 3): ApiError("bad date format"), (2, 2): ApiError("bad date format")}
     notifier = FakeNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"),
         FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, errors), notifier=notifier)
     assert notifier.sent == []
-    assert len(notifier.sent_files) == 1 and "booking failed" in notifier.sent_files[0][0]
+    assert len(notifier.sent_file_groups) == 1 and "booking failed" in notifier.sent_file_groups[0][0]
 
 
-def test_sweep_report_attaches_screenshot_when_available(cfg, env, monkeypatch):
+def test_sweep_report_attaches_screenshots_when_available(cfg, env, monkeypatch, tmp_path):
     from dataclasses import replace
 
-    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+    shots = _make_pngs(tmp_path, 4)
+    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
     trial = replace(cfg, sweep_report_until=NOW + timedelta(hours=1))
     notifier = FakeNotifier()
     run(trial, dict(env, PARKING_URL="https://example.invalid/book"), FakeApi([], {}), notifier=notifier)
     assert notifier.sent == []
-    assert len(notifier.sent_files) == 1 and "Parking sweep" in notifier.sent_files[0][0]
+    assert len(notifier.sent_file_groups) == 1 and "Parking sweep" in notifier.sent_file_groups[0][0]

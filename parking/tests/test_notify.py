@@ -21,3 +21,10 @@ def test_category_defaults_to_attention():
 def test_file_command_carries_file_and_text():
     cmd = FleetNotifier({**BASE, "NOTIFY_CHAT": "-100123"}).file_command("hi", "C:/tmp/site.png")
     assert cmd == ["py.exe", "notify_send.py", "--chat", "-100123", "--file", "C:/tmp/site.png", "--text", "hi"]
+
+
+def test_files_command_carries_all_files_and_text():
+    cmd = FleetNotifier({**BASE, "NOTIFY_CHAT": "-100123"}).files_command(
+        "hi", ["C:/tmp/a.png", "C:/tmp/b.png"])
+    assert cmd == ["py.exe", "notify_send.py", "--chat", "-100123",
+                   "--files", "C:/tmp/a.png", "C:/tmp/b.png", "--text", "hi"]
