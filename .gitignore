@@ -3,9 +3,12 @@
 
 # configuration files with user sensitive information
 .env
-# parking poller: login browser profile + run state (its .env is covered by .env above)
+# parking poller: login browser profile + run state + logs/screenshots (its
+# .env is covered by .env above; screenshots can show real booking/account
+# details and this repo is public)
 parking/.browser-profile/
 parking/state/
+parking/logs/
 google/config.json
 google/config_gmail_drive.json
 google/config_weekly_photo.json

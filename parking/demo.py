@@ -46,6 +46,11 @@ class DemoNotifier:
         self._pause(MESSAGE_PAUSE_SECONDS)
         return sent
 
+    def send_files(self, text: str, paths: List[str]) -> bool:
+        sent = self._inner.send_files(f"[DEMO] {text}", paths)
+        self._pause(MESSAGE_PAUSE_SECONDS)
+        return sent
+
 
 class DemoApi:
     """A site with one free slot (22@ / Large) on each of `days`; booking just records it."""

@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import subprocess
 import sys
-from typing import Dict, Protocol
+from typing import Dict, List, Protocol
 
 logger = logging.getLogger("parking.notify")
 
@@ -20,6 +20,7 @@ CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform ==
 class Notifier(Protocol):
     def send(self, text: str) -> bool: ...
     def send_file(self, text: str, path: str) -> bool: ...
+    def send_files(self, text: str, paths: List[str]) -> bool: ...
 
 
 class FleetNotifier:
@@ -39,6 +40,10 @@ class FleetNotifier:
     def file_command(self, text: str, path: str) -> list:
         """Argv for a text message with an attached file (e.g. a screenshot)."""
         return [self._python, self._script, *self._target(), "--file", path, "--text", text]
+
+    def files_command(self, text: str, paths: List[str]) -> list:
+        """Argv for a text message with 2-10 attached files, sent as one Telegram message."""
+        return [self._python, self._script, *self._target(), "--files", *paths, "--text", text]
 
     def _run(self, argv: list, timeout: float) -> bool:
         if not (self._python and self._script):
@@ -62,3 +67,6 @@ class FleetNotifier:
 
     def send_file(self, text: str, path: str) -> bool:
         return self._run(self.file_command(text, path), timeout=120)
+
+    def send_files(self, text: str, paths: List[str]) -> bool:
+        return self._run(self.files_command(text, paths), timeout=180)

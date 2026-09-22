@@ -22,7 +22,7 @@ Each run (`python -m parking.poller`, from the repo root):
 
 No slot found is silent. It alerts on: booked, a free slot whose booking failed, login needed, token expiring (3 days), repeated errors. It stops and backs off (state in `parking/state/state.json`) on 401/403/429/5xx instead of pushing through.
 
-The booked confirmation, the not-confirmed and booking-failed alerts, and the sweep-summary report (see below) attach a headless screenshot of the site (same logged-in profile as `login.py`) so the outcome can be verified at a glance. Capture is best-effort: if it fails (site unreachable, profile in use), the message still goes out as plain text.
+The booked confirmation, the not-confirmed and booking-failed alerts, and the sweep-summary report (see below) attach up to 4 headless screenshots as one Telegram message - each configured center's calendar, this month and next (same logged-in profile as `login.py`) - so the outcome can be verified at a glance without opening the site. Capture is best-effort and per-shot: a failure on one center doesn't lose the others, fewer than 4 still goes out as whatever was captured, and none captured (or the send itself failing) falls back to plain text. The screenshots are deleted right after the send attempt, pass or fail, so they never pile up in `parking/logs/screenshots/` between polls.
 
 ## Setup
 
