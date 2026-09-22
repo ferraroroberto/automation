@@ -416,6 +416,159 @@ def test_booking_failed_alert_attaches_screenshots_when_available(cfg, env, monk
     assert len(notifier.sent_file_groups) == 1 and "booking failed" in notifier.sent_file_groups[0][0]
 
 
+class FakeClock:
+    """A controllable clock: `sleep()` advances `now` instead of blocking."""
+
+    def __init__(self, start):
+        self.now = start
+
+    def sleep(self, seconds):
+        self.now += timedelta(seconds=seconds)
+
+    def now_fn(self):
+        return self.now
+
+
+THU_1602 = datetime(2026, 9, 24, 16, 2, tzinfo=ZoneInfo("Europe/Madrid"))
+BURST_TARGET = THU_1602.replace(hour=16, minute=0, second=0, microsecond=0)
+
+
+def test_burst_watch_band_covers_the_lead_in_and_the_burst_itself(cfg):
+    burst = cfg.thursday_burst
+    assert burst.watch_before_minutes == 6 and burst.duration_seconds == 90
+    assert poller._in_burst_watch_band(burst, BURST_TARGET - timedelta(minutes=6)) is True
+    assert poller._in_burst_watch_band(burst, BURST_TARGET) is True
+    assert poller._in_burst_watch_band(burst, BURST_TARGET + timedelta(seconds=89)) is True
+    assert poller._in_burst_watch_band(burst, BURST_TARGET - timedelta(minutes=6, seconds=1)) is False
+    assert poller._in_burst_watch_band(burst, BURST_TARGET + timedelta(seconds=91)) is False
+
+
+def test_burst_watch_band_is_thursday_only(cfg):
+    burst = cfg.thursday_burst
+    not_thursday = BURST_TARGET - timedelta(days=1)
+    assert poller._in_burst_watch_band(burst, not_thursday) is False
+
+
+def test_sleep_until_precise_busy_polls_the_final_stretch():
+    clock = FakeClock(BURST_TARGET - timedelta(seconds=10))
+    calls = []
+    def sleep(seconds):
+        calls.append(seconds)
+        clock.sleep(seconds)
+    poller._sleep_until_precise(BURST_TARGET, sleep, clock.now_fn)
+    assert clock.now == BURST_TARGET
+    assert calls[0] == pytest.approx(10 - poller.BURST_FINE_APPROACH_SECONDS)
+    assert all(c == poller.BURST_FINE_POLL_SECONDS for c in calls[1:])
+    assert len(calls) > 1  # actually busy-polled, not one long sleep
+
+
+def test_sleep_until_precise_skips_the_coarse_sleep_when_already_close():
+    clock = FakeClock(BURST_TARGET - timedelta(seconds=1))
+    calls = []
+    poller._sleep_until_precise(BURST_TARGET, lambda s: (calls.append(s), clock.sleep(s)), clock.now_fn)
+    assert all(c == poller.BURST_FINE_POLL_SECONDS for c in calls)
+
+
+def test_burst_marks_and_saves_state_before_sleeping(cfg, env, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
+    clock = FakeClock(BURST_TARGET - timedelta(seconds=5))
+    state = State()
+    api = FakeApi([], {})
+    poller._run_burst(cfg, env, clock.now, FakeNotifier(), state, lambda *_: api,
+                      clock.sleep, random.Random(0), clock.now_fn)
+    assert not state.alert_due(poller.BURST_STATE_KEY, clock.now, poller.BURST_COOLDOWN)
+    saved = poller.load_state(tmp_path / "state.json")
+    assert poller.BURST_STATE_KEY in saved.alerts  # persisted before the sleep, not just in memory
+
+
+def test_burst_polls_repeatedly_until_booked_then_stops_early(cfg, env, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
+    clock = FakeClock(BURST_TARGET - timedelta(seconds=3))
+    state = State()
+    notifier = FakeNotifier()
+
+    class FlakyApi(FakeApi):
+        """No slot for the first two cycles, then one appears - proves the
+        burst actually re-checks the site instead of stopping after one look."""
+
+        def __init__(self):
+            super().__init__([], {})
+            self.cycle = 0
+
+        def my_bookings(self):
+            self.cycle += 1
+            return super().my_bookings()
+
+        def slot_days(self, center_id, size_id, type_):
+            self.slot_calls.append((center_id, size_id))
+            if self.cycle < 3:
+                return []
+            # 2026-09-24 is a Thursday and a configured skip_date; the next
+            # Monday (weekdays=["mon"]) within the horizon is 2026-09-28.
+            return {(1, 3): ["2026-09-28T10:00:00.000Z"]}.get((center_id, size_id), [])
+
+    api = FlakyApi()
+    result = poller._run_burst(cfg, env, clock.now, notifier, state, lambda *_a: api,
+                               clock.sleep, random.Random(0), clock.now_fn)
+    assert result.booked == ["2026-09-28"]
+    assert api.cycle >= 3  # re-checked at least until the slot appeared
+    assert any("Parking booked" in t for t in notifier.sent + [g[0] for g in notifier.sent_file_groups]
+              + [f[0] for f in notifier.sent_files])
+
+
+def test_burst_stops_on_the_first_exception_without_retrying(cfg, env, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
+    clock = FakeClock(BURST_TARGET - timedelta(seconds=1))
+    state = State()
+
+    class BrokenApi(FakeApi):
+        def __init__(self):
+            super().__init__([], {})
+            self.attempts = 0
+
+        def my_bookings(self):
+            self.attempts += 1
+            raise ApiError("boom")
+
+    api = BrokenApi()
+    result = poller._run_burst(cfg, env, clock.now, FakeNotifier(), state, lambda *_a: api,
+                               clock.sleep, random.Random(0), clock.now_fn)
+    assert result.status == "error"
+    assert api.attempts == 1  # one attempt, no retry into the same failure
+
+
+def test_burst_respects_the_duration_cap_when_nothing_ever_frees_up(cfg, env, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
+    clock = FakeClock(BURST_TARGET)
+    state = State()
+
+    class CountingApi(FakeApi):
+        def __init__(self):
+            super().__init__([], {})  # never any free slot
+            self.cycles = 0
+
+        def my_bookings(self):
+            self.cycles += 1
+            return super().my_bookings()
+
+    api = CountingApi()
+    result = poller._run_burst(cfg, env, clock.now, FakeNotifier(), state, lambda *_a: api,
+                               clock.sleep, random.Random(0), clock.now_fn)
+    assert result.status == "no-slots"
+    expected_iterations = cfg.thursday_burst.duration_seconds / cfg.thursday_burst.poll_interval_seconds
+    assert api.cycles <= expected_iterations + 1  # bounded, didn't loop forever
+    assert clock.now >= BURST_TARGET + timedelta(seconds=cfg.thursday_burst.duration_seconds)
+
+
+def test_burst_not_armed_without_a_token(cfg, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
+    clock = FakeClock(BURST_TARGET)
+    state = State()
+    result = poller._run_burst(cfg, {}, clock.now, FakeNotifier(), state, lambda *_: FakeApi([], {}),
+                               clock.sleep, random.Random(0), clock.now_fn)
+    assert result.status == "no-token"
+
+
 def test_sweep_report_attaches_screenshots_when_available(cfg, env, monkeypatch, tmp_path):
     from dataclasses import replace
 
