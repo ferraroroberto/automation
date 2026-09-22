@@ -36,20 +36,26 @@ class DemoNotifier:
         self._inner = inner
         self._pause = pause
 
-    def send(self, text: str) -> bool:
-        sent = self._inner.send(f"[DEMO] {text}")
+    def send(self, text: str, disposable: bool = False) -> bool:
+        sent = self._inner.send(f"[DEMO] {text}", disposable=disposable)
         self._pause(MESSAGE_PAUSE_SECONDS)
         return sent
 
-    def send_file(self, text: str, path: str) -> bool:
-        sent = self._inner.send_file(f"[DEMO] {text}", path)
+    def send_file(self, text: str, path: str, disposable: bool = False) -> bool:
+        sent = self._inner.send_file(f"[DEMO] {text}", path, disposable=disposable)
         self._pause(MESSAGE_PAUSE_SECONDS)
         return sent
 
-    def send_files(self, text: str, paths: List[str]) -> bool:
-        sent = self._inner.send_files(f"[DEMO] {text}", paths)
+    def send_files(self, text: str, paths: List[str], disposable: bool = False) -> bool:
+        sent = self._inner.send_files(f"[DEMO] {text}", paths, disposable=disposable)
         self._pause(MESSAGE_PAUSE_SECONDS)
         return sent
+
+    def ping(self, text: str) -> None:
+        self._inner.ping(f"[DEMO] {text}")
+
+    def close(self) -> None:
+        self._inner.close()
 
 
 class DemoApi:

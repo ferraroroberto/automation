@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, replace
-from datetime import datetime, time
+from datetime import date, datetime, time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent
 ENV_PATH = ROOT / ".env"
 CONFIG_PATH = ROOT / "config.json"
 STATE_PATH = ROOT / "state" / "state.json"
+MESSAGE_LEDGER_PATH = ROOT / "state" / "sent_messages.json"
 LOG_DIR = ROOT / "logs"
 PROFILE_DIR = Path(os.environ.get("PARKING_PROFILE_DIR", ROOT / ".browser-profile"))
 
@@ -50,7 +51,9 @@ class ThursdayBurst:
 
     Any regular invocation landing within `watch_before_minutes` of `target`
     sleeps precisely to `target`, then polls every `poll_interval_seconds`
-    for `duration_seconds` instead of the normal cadence.
+    for `duration_seconds` instead of the normal cadence. `trial_dates` are
+    extra (non-Thursday) days that burst the same way - a rehearsal to watch
+    it work before a real release.
     """
 
     enabled: bool
@@ -58,6 +61,7 @@ class ThursdayBurst:
     watch_before_minutes: int
     duration_seconds: int
     poll_interval_seconds: float
+    trial_dates: Tuple[date, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,6 +117,7 @@ def _parse_thursday_burst(raw: Optional[dict]) -> Optional[ThursdayBurst]:
         watch_before_minutes=int(raw.get("watch_before_minutes", 6)),
         duration_seconds=int(raw.get("duration_seconds", 90)),
         poll_interval_seconds=float(raw.get("poll_interval_seconds", 1.5)),
+        trial_dates=tuple(date.fromisoformat(str(d)) for d in raw.get("trial_dates", [])),
     )
 
 

@@ -18,18 +18,34 @@ class FakeNotifier:
         self.sent = []
         self.sent_files = []
         self.sent_file_groups = []
+        self.pings = []
+        self.disposable = []  # text of every send marked disposable
+        self.closed = False
 
-    def send(self, text):
+    def _mark(self, text, disposable):
+        if disposable:
+            self.disposable.append(text)
+
+    def send(self, text, disposable=False):
         self.sent.append(text)
+        self._mark(text, disposable)
         return True
 
-    def send_file(self, text, path):
+    def send_file(self, text, path, disposable=False):
         self.sent_files.append((text, path))
+        self._mark(text, disposable)
         return True
 
-    def send_files(self, text, paths):
+    def send_files(self, text, paths, disposable=False):
         self.sent_file_groups.append((text, list(paths)))
+        self._mark(text, disposable)
         return True
+
+    def ping(self, text):
+        self.pings.append(text)
+
+    def close(self):
+        self.closed = True
 
 
 class FakeApi:
@@ -372,7 +388,7 @@ def test_booked_notification_falls_back_to_text_when_group_send_fails(cfg, env, 
     monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
 
     class FailingGroupNotifier(FakeNotifier):
-        def send_files(self, text, paths):
+        def send_files(self, text, paths, disposable=False):
             self.sent_file_groups.append((text, list(paths)))
             return False
 
@@ -444,9 +460,75 @@ def test_burst_watch_band_covers_the_lead_in_and_the_burst_itself(cfg):
 
 
 def test_burst_watch_band_is_thursday_only(cfg):
-    burst = cfg.thursday_burst
+    from dataclasses import replace
+
+    burst = replace(cfg.thursday_burst, trial_dates=())
     not_thursday = BURST_TARGET - timedelta(days=1)
     assert poller._in_burst_watch_band(burst, not_thursday) is False
+
+
+def test_burst_watch_band_also_covers_a_trial_date(cfg):
+    from dataclasses import replace
+
+    wednesday = BURST_TARGET - timedelta(days=1)
+    burst = replace(cfg.thursday_burst, trial_dates=(wednesday.date(),))
+    assert poller._in_burst_watch_band(burst, wednesday) is True
+    assert poller._in_burst_watch_band(burst, wednesday - timedelta(minutes=7)) is False
+    assert poller._in_burst_watch_band(burst, BURST_TARGET) is True  # Thursday unaffected
+    assert poller._in_burst_watch_band(burst, BURST_TARGET - timedelta(days=2)) is False
+
+
+def test_burst_announces_itself_and_pings_every_check(cfg, env, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
+    clock = FakeClock(BURST_TARGET - timedelta(minutes=3))
+    notifier = FakeNotifier()
+
+    class CountingApi(FakeApi):
+        def __init__(self):
+            super().__init__([], {})
+            self.cycles = 0
+
+        def my_bookings(self):
+            self.cycles += 1
+            return super().my_bookings()
+
+    api = CountingApi()
+    poller._run_burst(cfg, env, clock.now, notifier, State(), lambda *_a: api,
+                      clock.sleep, random.Random(0), clock.now_fn)
+    assert len(notifier.sent) == 1 and "burst armed" in notifier.sent[0]
+    assert notifier.disposable == notifier.sent  # the announcement is cleaned up next run
+    assert len(notifier.pings) == api.cycles + 1  # one per check, plus the finish line
+    assert notifier.pings[0].startswith("⚡ #1 16:00:00")
+    assert "nothing free" in notifier.pings[0]
+    assert notifier.pings[-1].startswith(f"⚡ burst finished after {api.cycles} check(s)")
+
+
+def test_burst_error_is_pinged_before_stopping(cfg, env, tmp_path, monkeypatch):
+    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
+    clock = FakeClock(BURST_TARGET)
+    notifier = FakeNotifier()
+
+    class BrokenApi(FakeApi):
+        def my_bookings(self):
+            raise ApiError("boom")
+
+    result = poller._run_burst(cfg, env, clock.now, notifier, State(), lambda *_a: BrokenApi([], {}),
+                               clock.sleep, random.Random(0), clock.now_fn)
+    assert result.status == "error"
+    assert len(notifier.pings) == 2 and "❌ ApiError, stopped" in notifier.pings[0]
+
+
+def test_booked_notification_is_kept_but_sweep_report_is_disposable(cfg, env):
+    from dataclasses import replace
+
+    trial = replace(cfg, sweep_report_until=NOW + timedelta(hours=1))
+    notifier = FakeNotifier()
+    run(trial, env, FakeApi([], {(1, 3): [MON]}), notifier=notifier)
+    booked = [t for t in notifier.sent if t.startswith("Parking booked")]
+    sweeps = [t for t in notifier.sent if t.startswith("Parking sweep")]
+    assert booked and sweeps
+    assert not set(booked) & set(notifier.disposable)  # proof of booking is never deleted
+    assert set(sweeps) <= set(notifier.disposable)
 
 
 def test_sleep_until_precise_busy_polls_the_final_stretch():
@@ -579,3 +661,12 @@ def test_sweep_report_attaches_screenshots_when_available(cfg, env, monkeypatch,
     run(trial, dict(env, PARKING_URL="https://example.invalid/book"), FakeApi([], {}), notifier=notifier)
     assert notifier.sent == []
     assert len(notifier.sent_file_groups) == 1 and "Parking sweep" in notifier.sent_file_groups[0][0]
+
+
+def test_a_tick_landing_mid_burst_is_skipped_not_polled(cfg):
+    state = State()
+    armed_at = BURST_TARGET - timedelta(minutes=4)
+    assert poller.burst_action(cfg, state, armed_at) == "burst"
+    state.mark_alert(poller.BURST_STATE_KEY, armed_at)
+    assert poller.burst_action(cfg, state, BURST_TARGET + timedelta(seconds=30)) == "skip"
+    assert poller.burst_action(cfg, state, BURST_TARGET + timedelta(minutes=5)) == "normal"  # band over
