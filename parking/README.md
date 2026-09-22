@@ -22,6 +22,8 @@ Each run (`python -m parking.poller`, from the repo root):
 
 No slot found is silent. It alerts on: booked, a free slot whose booking failed, login needed, token expiring (3 days), repeated errors. It stops and backs off (state in `parking/state/state.json`) on 401/403/429/5xx instead of pushing through.
 
+The booked confirmation, the not-confirmed and booking-failed alerts, and the sweep-summary report (see below) attach a headless screenshot of the site (same logged-in profile as `login.py`) so the outcome can be verified at a glance. Capture is best-effort: if it fails (site unreachable, profile in use), the message still goes out as plain text.
+
 ## Setup
 
 ```powershell

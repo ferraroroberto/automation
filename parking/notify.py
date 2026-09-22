@@ -19,6 +19,7 @@ CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform ==
 
 class Notifier(Protocol):
     def send(self, text: str) -> bool: ...
+    def send_file(self, text: str, path: str) -> bool: ...
 
 
 class FleetNotifier:
@@ -28,19 +29,24 @@ class FleetNotifier:
         self._category = env.get("NOTIFY_CATEGORY", "attention")
         self._chat = env.get("NOTIFY_CHAT", "")
 
-    def command(self, text: str) -> list:
-        """Notifier argv: an explicit chat id wins over the routing category."""
-        target = ["--chat", self._chat] if self._chat else ["--category", self._category]
-        return [self._python, self._script, *target, "--text", text]
+    def _target(self) -> list:
+        """An explicit chat id wins over the routing category."""
+        return ["--chat", self._chat] if self._chat else ["--category", self._category]
 
-    def send(self, text: str) -> bool:
+    def command(self, text: str) -> list:
+        return [self._python, self._script, *self._target(), "--text", text]
+
+    def file_command(self, text: str, path: str) -> list:
+        """Argv for a text message with an attached file (e.g. a screenshot)."""
+        return [self._python, self._script, *self._target(), "--file", path, "--text", text]
+
+    def _run(self, argv: list, timeout: float) -> bool:
         if not (self._python and self._script):
-            logger.warning("⚠️ NOTIFY_PYTHON/NOTIFY_SCRIPT not set; notification only logged: %s", text)
+            logger.warning("⚠️ NOTIFY_PYTHON/NOTIFY_SCRIPT not set; notification only logged: %s", argv[-1])
             return False
         try:
             result = subprocess.run(
-                self.command(text),
-                capture_output=True, text=True, timeout=60, creationflags=CREATE_NO_WINDOW,
+                argv, capture_output=True, text=True, timeout=timeout, creationflags=CREATE_NO_WINDOW,
             )
         except (OSError, subprocess.SubprocessError) as exc:
             logger.error("❌ notifier failed to start: %s", exc)
@@ -50,3 +56,9 @@ class FleetNotifier:
             return False
         logger.info("✅ notification sent")
         return True
+
+    def send(self, text: str) -> bool:
+        return self._run(self.command(text), timeout=60)
+
+    def send_file(self, text: str, path: str) -> bool:
+        return self._run(self.file_command(text, path), timeout=120)
