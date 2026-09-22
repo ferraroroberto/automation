@@ -16,9 +16,14 @@ NOW = datetime(2026, 9, 20, 12, 0, tzinfo=ZoneInfo("Europe/Madrid"))  # Sunday; 
 class FakeNotifier:
     def __init__(self):
         self.sent = []
+        self.sent_files = []
 
     def send(self, text):
         self.sent.append(text)
+        return True
+
+    def send_file(self, text, path):
+        self.sent_files.append((text, path))
         return True
 
 
@@ -314,3 +319,69 @@ def test_sweep_report_says_when_a_sweep_fails_and_skips_early_runs(cfg, env):
     assert notifier.sent == ["Parking sweep Sun 12:00 ❌ failed (ServerError), will retry."]
     _, notifier, _ = run(trial, env, FakeApi([], {}), state=state)
     assert notifier.sent == []  # still backing off: no sweep, no report
+
+
+def test_booked_notification_attaches_screenshot_when_capture_succeeds(cfg, env, monkeypatch):
+    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+    api = FakeApi([], {(1, 3): [MON]})
+    notifier = FakeNotifier()
+    run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
+    assert notifier.sent == []
+    assert notifier.sent_files == [
+        ("Parking booked: 2026-09-21 at 22@ (Large)", str(poller.SCREENSHOT_PATH))]
+
+
+def test_booked_notification_falls_back_to_text_when_capture_fails(cfg, env, monkeypatch):
+    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: False)
+    api = FakeApi([], {(1, 3): [MON]})
+    notifier = FakeNotifier()
+    run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
+    assert notifier.sent == ["Parking booked: 2026-09-21 at 22@ (Large)"]
+    assert notifier.sent_files == []
+
+
+def test_booked_notification_falls_back_to_text_when_file_send_fails(cfg, env, monkeypatch):
+    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+
+    class FailingFileNotifier(FakeNotifier):
+        def send_file(self, text, path):
+            self.sent_files.append((text, path))
+            return False
+
+    api = FakeApi([], {(1, 3): [MON]})
+    notifier = FailingFileNotifier()
+    run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
+    assert notifier.sent == ["Parking booked: 2026-09-21 at 22@ (Large)"]
+    assert len(notifier.sent_files) == 1
+
+
+def test_no_screenshot_attempt_without_parking_url(cfg, env, monkeypatch):
+    called = []
+    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: called.append(1) or True)
+    api = FakeApi([], {(1, 3): [MON]})
+    notifier = FakeNotifier()
+    run(cfg, env, api, notifier=notifier)  # env fixture has no PARKING_URL
+    assert called == []
+    assert notifier.sent == ["Parking booked: 2026-09-21 at 22@ (Large)"]
+    assert notifier.sent_files == []
+
+
+def test_booking_failed_alert_attaches_screenshot_when_available(cfg, env, monkeypatch):
+    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+    errors = {(1, 3): ApiError("bad date format"), (2, 2): ApiError("bad date format")}
+    notifier = FakeNotifier()
+    run(cfg, dict(env, PARKING_URL="https://example.invalid/book"),
+        FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, errors), notifier=notifier)
+    assert notifier.sent == []
+    assert len(notifier.sent_files) == 1 and "booking failed" in notifier.sent_files[0][0]
+
+
+def test_sweep_report_attaches_screenshot_when_available(cfg, env, monkeypatch):
+    from dataclasses import replace
+
+    monkeypatch.setattr(poller.site_screenshot, "capture", lambda *a, **k: True)
+    trial = replace(cfg, sweep_report_until=NOW + timedelta(hours=1))
+    notifier = FakeNotifier()
+    run(trial, dict(env, PARKING_URL="https://example.invalid/book"), FakeApi([], {}), notifier=notifier)
+    assert notifier.sent == []
+    assert len(notifier.sent_files) == 1 and "Parking sweep" in notifier.sent_files[0][0]

@@ -16,3 +16,8 @@ def test_category_used_when_no_chat():
 
 def test_category_defaults_to_attention():
     assert FleetNotifier(BASE).command("hi")[2:4] == ["--category", "attention"]
+
+
+def test_file_command_carries_file_and_text():
+    cmd = FleetNotifier({**BASE, "NOTIFY_CHAT": "-100123"}).file_command("hi", "C:/tmp/site.png")
+    assert cmd == ["py.exe", "notify_send.py", "--chat", "-100123", "--file", "C:/tmp/site.png", "--text", "hi"]
