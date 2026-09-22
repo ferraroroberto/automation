@@ -56,6 +56,7 @@ A dedicated Chrome window opens (profile in `parking/.browser-profile/`): sign i
 | `poll_minutes`, `poll_windows`, `timezone` | default minutes between polls; ordered `{start, end, every_minutes}` windows override it (`0` = don't poll, end exclusive, may wrap midnight; first match wins); optional `days` (e.g. `["thu"]`, default every day) and `verbose` (live log to Telegram, see below); clock for all |
 | `jitter_max_seconds`, `request_pause_seconds` | politeness toward the site |
 | `sweep_report_until` | optional trial switch, local ISO time (e.g. `2026-09-23T00:00`): until then every sweep that reaches the site (or fails trying) sends one Telegram line with its outcome; early/skipped runs send nothing. Remove it or let it pass to go quiet again |
+| `thursday_burst` | optional; see "Thursday 16:00" below. `{enabled, target, watch_before_minutes, duration_seconds, poll_interval_seconds}` |
 
 ## Schedule
 
@@ -63,7 +64,7 @@ Registered in the app-launcher Jobs tab as `parking-poll`, a 5-minute heartbeat 
 
 ## Thursday 16:00 (critical poll)
 
-The site releases new slots every Thursday at 16:00. The two Thursday windows in `poll_windows` poll every 5 minutes from 15:45, so nothing blocks the first poll after 16:00 (it lands within the launcher's 5-minute tick, not to the second), and the 16:00-16:15 window is `verbose`: each poll sends a live log to Telegram (started, bookings checked, free slots found, booking, booked, finished). Every other poll only notifies on a successful booking and on the usual alerts. `horizon_days` (30) already covers this week and next.
+The site releases new slots every Thursday at 16:00, and they're gone within about 20 seconds to other people refreshing manually - the 5-minute poll_windows cadence alone can't compete. `thursday_burst` in `config.json` handles the last stretch precisely: whichever regular 5-minute invocation happens to land within `watch_before_minutes` of `target` (the launcher's own scheduling isn't wall-clock-aligned or sub-minute, so it doesn't matter which one) sleeps precisely to the target second, then polls every `poll_interval_seconds` for `duration_seconds`, stopping early once everything pending is booked - at most once per Thursday (state-guarded), and stopping immediately on any error rather than retrying into a failure. It checks all pending days/centers each pass, not just "the" contested day, since more than one could free up at once. Outside that narrow window, the two Thursday `poll_windows` (every 5 minutes from 15:45, the 16:00-16:15 one `verbose` with a live log to Telegram) cover the rest of the day as before. `horizon_days` (30) already covers this week and next.
 
 Rehearsal for whoever follows along: `& .\.venv\Scripts\python.exe -m parking.demo` runs the real poll code against a fake site and sends the messages to the real chat, each prefixed `[DEMO]`. Nothing is booked.
 

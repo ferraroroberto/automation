@@ -45,6 +45,22 @@ class PollWindow:
 
 
 @dataclass(frozen=True)
+class ThursdayBurst:
+    """A once-per-Thursday burst of fast polling around a slot-release time.
+
+    Any regular invocation landing within `watch_before_minutes` of `target`
+    sleeps precisely to `target`, then polls every `poll_interval_seconds`
+    for `duration_seconds` instead of the normal cadence.
+    """
+
+    enabled: bool
+    target: time
+    watch_before_minutes: int
+    duration_seconds: int
+    poll_interval_seconds: float
+
+
+@dataclass(frozen=True)
 class Config:
     dry_run: bool
     weekdays: List[str]
@@ -65,6 +81,7 @@ class Config:
     repeated_error_threshold: int
     # Until then, every sweep sends a one-line summary to Telegram (None = off).
     sweep_report_until: Optional[datetime] = None
+    thursday_burst: Optional[ThursdayBurst] = None
 
 
 def _parse_until(value: Optional[str], tz: str) -> Optional[datetime]:
@@ -84,6 +101,18 @@ def _parse_window(raw: dict) -> PollWindow:
         _parse_hhmm(raw["start"]), _parse_hhmm(raw["end"]), int(raw["every_minutes"]),
         days=tuple(WEEKDAYS.index(d.strip().lower()[:3]) for d in raw.get("days", [])),
         verbose=bool(raw.get("verbose", False)),
+    )
+
+
+def _parse_thursday_burst(raw: Optional[dict]) -> Optional[ThursdayBurst]:
+    if not raw:
+        return None
+    return ThursdayBurst(
+        enabled=bool(raw.get("enabled", True)),
+        target=_parse_hhmm(raw["target"]),
+        watch_before_minutes=int(raw.get("watch_before_minutes", 6)),
+        duration_seconds=int(raw.get("duration_seconds", 90)),
+        poll_interval_seconds=float(raw.get("poll_interval_seconds", 1.5)),
     )
 
 
@@ -111,6 +140,7 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         repeated_error_threshold=int(raw.get("repeated_error_threshold", 3)),
         sweep_report_until=_parse_until(raw.get("sweep_report_until"),
                                         str(raw.get("timezone", "Europe/Madrid"))),
+        thursday_burst=_parse_thursday_burst(raw.get("thursday_burst")),
     )
 
 
