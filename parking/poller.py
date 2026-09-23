@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import random
 import sys
 import time as time_module
@@ -441,6 +442,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--no-jitter", action="store_true", help="skip the random start delay")
     args = parser.parse_args(argv)
     _setup_logging()
+    logger.info("ℹ️ poller starting (pid=%d)", os.getpid())
     cfg = load_config(Path(args.config))
     env = load_env()
     cfg = apply_env_overrides(cfg, env)
