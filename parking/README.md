@@ -16,9 +16,12 @@ Each run (`python -m parking.poller`, from the repo root):
 
 1. Load `config.json` and `.env`; skip if not due (backoff / last run too recent) or if the time window says don't poll.
 2. Read my bookings. A day with an ACTIVE booking is **never booked again**.
-3. Work out the target days (configured weekdays inside the horizon, minus holidays) that have no booking.
+3. Work out the target days that have no booking: configured weekdays inside the horizon, minus holidays, and only days **already released**. The site opens the following week every Thursday at 16:00, so until then only this week counts (through Sunday); from then on, through next week's Sunday.
 4. For each centre x size (in config order, 1.5-3 s jittered pauses) ask which days are bookable.
-5. For each uncovered target day with a free slot, book **that one day**, re-read my bookings to confirm, and notify.
+5. For each uncovered target day with a free slot, book **that one day**, trying the free slots in preference order: the site answers a slot that has just gone with a booking in state `REJECTED` (not an error), so that moves straight on to the next slot. An answer that is neither `ACTIVE` nor `REJECTED` is re-checked against my bookings, and if still unclear the day stops there rather than risk a second booking. Every `createBooking` answer (id, state, place) is logged.
+6. Only once every day has been tried, notify: one message for everything booked, one per failure.
+
+**All covered = quiet.** When every released target day already has a booking, the poller makes no site calls at all (not even reading my bookings) until the next Thursday release, when the burst takes over. A day cancelled by hand in the meantime is a day not needed. Every API call logs how long it took.
 
 No slot found is silent. It alerts on: booked, a free slot whose booking failed, login needed, token expiring (3 days), repeated errors. It stops and backs off (state in `parking/state/state.json`) on 401/403/429/5xx instead of pushing through.
 
@@ -49,9 +52,9 @@ A dedicated Chrome window opens (profile in `parking/.browser-profile/`): sign i
 |---|---|
 | `dry_run` | `true` (default): look and report only, never book. Go live locally with `PARKING_DRY_RUN=false` in `parking/.env` (only an explicit false/0/no counts), so the tracked file stays untouched |
 | `weekdays` | days you need a spot, e.g. `["mon","thu","fri"]` |
-| `horizon_days` | how far ahead to look |
+| `horizon_days` | upper cap on how far ahead to look; days not yet released (see "How it works") are never pending anyway |
 | `holiday_region`, `skip_dates` | days never booked: the `holidays` calendar for that country/subdivision (ES/CT) plus your own `skip_dates` for local days the library lacks (e.g. `2026-09-24`, La Mercè). Review the list each year |
-| `centers`, `sizes` | ids and names, tried in this order; `type` is `standard` |
+| `centers`, `sizes` | ids and names, tried in this order (every size of the first centre before the next centre; CINC first by preference); `type` is `standard` |
 | `treat_placeless_as_covered` | `true`: a day with an ACTIVE booking that has no slot number counts as booked |
 | `poll_minutes`, `poll_windows`, `timezone` | default minutes between polls; ordered `{start, end, every_minutes}` windows override it (`0` = don't poll, end exclusive, may wrap midnight; first match wins); optional `days` (e.g. `["thu"]`, default every day) and `verbose` (live log to Telegram, see below); clock for all |
 | `jitter_max_seconds`, `request_pause_seconds` | politeness toward the site |
@@ -64,9 +67,20 @@ Registered in the app-launcher Jobs tab as `parking-poll`, a 5-minute heartbeat 
 
 ## Thursday 16:00 (critical poll)
 
-The site releases new slots every Thursday at 16:00, and they're gone within about 20 seconds to other people refreshing manually - the 5-minute poll_windows cadence alone can't compete. `thursday_burst` in `config.json` handles the last stretch precisely: whichever regular 5-minute invocation happens to land within `watch_before_minutes` of `target` (the launcher's own scheduling isn't wall-clock-aligned or sub-minute, so it doesn't matter which one) sleeps precisely to the target second, then polls every `poll_interval_seconds` for `duration_seconds`, stopping early once everything pending is booked - at most once per Thursday (state-guarded), and stopping immediately on any error rather than retrying into a failure. It checks all pending days/centers each pass, not just "the" contested day, since more than one could free up at once. Outside that narrow window, the two Thursday `poll_windows` (every 5 minutes from 15:45, the 16:00-16:15 one `verbose` with a live log to Telegram) cover the rest of the day as before. `horizon_days` (30) already covers this week and next.
+The site releases new slots every Thursday at 16:00, and they're gone within about 20 seconds to other people refreshing manually - the 5-minute poll_windows cadence alone can't compete. `thursday_burst` in `config.json` handles it: whichever regular 5-minute invocation lands within `watch_before_minutes` of `target` becomes the **orchestrator** (at most once per Thursday, state-guarded):
 
-While a burst runs, Telegram gets one "burst armed" message when it arms and a short ping per check (time to the hundredth of a second, plus what it saw), then a "finished" line. The pings go out from a background thread so the check loop never waits on the network, at most one message per 3.2s (Telegram's ~20/minute group limit); checks that happen in between are batched into the next message, so none is lost. A burst outlasts the 5-minute tick, so a tick that lands in the window after a burst has armed exits immediately - no site poll, no chat message, no state write.
+1. Before the target it reads my bookings and works out the days released at the target that still need a parking (typically Monday, Thursday and Friday of next week). None -> nothing to do, quiet until next Thursday.
+2. It starts **one worker per day** (`python -m parking.burst_worker`), each in **its own console window** showing its live log. Each worker checks its day isn't already booked, waits precisely for the target second, then scans the centres/sizes in config order and books the first free one; a `REJECTED` answer moves to the next, and when nothing sticks it scans again every `poll_interval_seconds` until its day is booked or `duration_seconds` runs out. A centre/size rejected once is not retried in that burst (every rejected attempt leaves a record on the site). One day's slow step never delays another.
+3. It opens **one headed Chrome window per day** on the bookings list (a single Chrome on the login profile, cascaded, titled with the day). They are watch-only: loaded before the target and reloaded once when that day's worker finishes, never during the fast loop, so they add no load on the site at the release moment. They stay up 2 minutes after the last result; the worker consoles close 2 minutes after their own.
+4. Once every worker has a result it sends the confirmation (with screenshots) - never between two bookings: on 2026-09-24 a screenshot taken after the first booking cost 2.5 minutes and the other two days (#139).
+
+Workers write progress to `parking/state/burst/<day>.jsonl` (relayed to Telegram, below) and their own log to `parking/logs/burst/<day>.log`. A worker that exits without a result is reported as an error, one silent past the window as unknown - neither is ever counted as booked. While the burst runs (marker `parking/state/burst/running.json`), every other tick exits without touching the site or the chat. Outside the burst, the two Thursday `poll_windows` (every 5 minutes from 15:45, the 16:00-16:15 one `verbose` with a live log to Telegram) cover the rest of the day as before.
+
+While a burst runs, Telegram gets one "burst armed" message, a short ping per worker check (day, time to the hundredth of a second, what it saw), then a "finished" line with each day's result. The pings go out from a background thread, at most one message per 3.2s (Telegram's ~20/minute group limit); checks that happen in between are batched into the next message, so none is lost.
+
+**Job time limit.** The burst outlives a normal poll (up to 6 minutes of waiting, 90 s of checks, the windows' hold and the report), so the app-launcher job `parking-poll` needs an explicit `"max_runtime_seconds": 1200` in app-launcher's local `config/jobs.json`; without it the launcher derives about 6 minutes from past runs and kills the burst (it did on 2026-09-24).
+
+**Rehearsal.** `& .\.venv\Scripts\python.exe -m parking.poller --rehearse-burst` runs the whole burst about 20 seconds from now for 30 seconds - windows, consoles, real read-only queries against the site - in **forced dry-run** whatever `.env` says: `createBooking` is never called, `state.json` is untouched and nothing goes to Telegram (messages only go to the log). Days already booked still get a worker so there is something to watch.
 
 **Chat cleanup.** Sweep reports (with their screenshots), verbose logs and burst messages are *disposable*: their Telegram message ids go in `parking/state/sent_messages.json`, and the first message of the next run deletes them first, so the chat only shows the latest run. Booking confirmations, not-confirmed and booking-failed alerts, and login/token/error alerts are never recorded, so they stay. Telegram only lets a bot delete its own messages up to 48h old; older ids are dropped from the ledger without retrying.
 

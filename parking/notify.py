@@ -197,6 +197,26 @@ class FleetNotifier:
             logger.warning("⚠️ pings still sending after %.0fs; exiting anyway", PING_FLUSH_TIMEOUT_SECONDS)
 
 
+class LogNotifier:
+    """Sends nothing: every message only goes to the log (the burst rehearsal, which must stay out of the chat)."""
+
+    def send(self, text: str, disposable: bool = False) -> bool:
+        logger.info("ℹ️ [not sent] %s", text)
+        return True
+
+    def send_file(self, text: str, path: str, disposable: bool = False) -> bool:
+        return self.send(text)
+
+    def send_files(self, text: str, paths: List[str], disposable: bool = False) -> bool:
+        return self.send(text)
+
+    def ping(self, text: str) -> None:
+        self.send(text)
+
+    def close(self) -> None:
+        pass
+
+
 def parse_ids(stdout: str) -> List[int]:
     """The JSON id list `notify_send.py --print-ids` prints as its last stdout line."""
     for line in reversed((stdout or "").strip().splitlines()):

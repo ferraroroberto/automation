@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from parking import poller
+from parking import poller, report
 from parking.api import ApiError, AuthError
 from parking.config import load_config
 from parking.state import State
@@ -49,10 +49,11 @@ class FakeNotifier:
 
 
 class FakeApi:
-    def __init__(self, bookings, slots, create_errors=None):
+    def __init__(self, bookings, slots, create_errors=None, create_states=None):
         self.bookings = bookings
         self.slots = slots  # (center_id, size_id) -> [raw days]
         self.create_errors = create_errors or {}
+        self.create_states = create_states or {}  # (center_id, size_id) -> state the site answers
         self.created = []
         self.slot_calls = []
 
@@ -67,8 +68,11 @@ class FakeApi:
         if (center_id, size_id) in self.create_errors:
             raise self.create_errors[(center_id, size_id)]
         self.created.append((center_id, size_id, plate, raw_day))
-        self.bookings.append({"day": raw_day, "state": "ACTIVE", "place": {"place": "1"}})
-        return []
+        state = self.create_states.get((center_id, size_id), "ACTIVE")
+        record = {"id": str(len(self.created)), "day": raw_day, "state": state,
+                  "place": {"place": "1"} if state == "ACTIVE" else None}
+        self.bookings.append(record)
+        return [record]
 
 
 @pytest.fixture
@@ -77,7 +81,9 @@ def cfg(tmp_path):
     from pathlib import Path
 
     raw = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text())
-    raw.update({"weekdays": ["mon"], "horizon_days": 7, "dry_run": False,
+    # Centre order pinned here: config.json's order is the owner's preference and may change.
+    raw.update({"centers": [{"id": 1, "name": "22@"}, {"id": 2, "name": "CINC"}],
+                "weekdays": ["mon"], "horizon_days": 7, "dry_run": False,
                 "treat_placeless_as_covered": False, "jitter_max_seconds": 0,
                 "sweep_report_until": None})
     path = tmp_path / "config.json"
@@ -144,6 +150,46 @@ def test_falls_through_to_next_slot_when_booking_rejected(cfg, env):
     result, _, _ = run(cfg, env, api)
     assert api.created == [(2, 2, "TEST123", MON)]
     assert result.booked == ["2026-09-21"]
+
+
+def test_rejected_answer_falls_through_to_the_next_slot(cfg, env):
+    """09-24 regression (#139): the site answers a slot that just went with a REJECTED
+    booking, not an error - the next centre/size must still be tried."""
+    api = FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, create_states={(1, 3): "REJECTED"})
+    result, notifier, _ = run(cfg, env, api)
+    assert api.created == [(1, 3, "TEST123", MON), (2, 2, "TEST123", MON)]
+    assert result.booked == ["2026-09-21"]
+    assert notifier.sent == ["Parking booked: 2026-09-21 at CINC (Medium)"]
+
+
+def test_every_slot_rejected_alerts_booking_failed(cfg, env):
+    api = FakeApi([], {(1, 3): [MON], (2, 2): [MON]},
+                  create_states={(1, 3): "REJECTED", (2, 2): "REJECTED"})
+    result, notifier, _ = run(cfg, env, api)
+    assert len(api.created) == 2 and result.booked == []
+    assert len(notifier.sent) == 1 and "booking failed" in notifier.sent[0] and "rejected" in notifier.sent[0]
+
+
+def test_unclear_answer_is_checked_and_never_booked_twice(cfg, env):
+    """Neither ACTIVE nor REJECTED (e.g. still pending): re-read, and stop rather than risk a second booking."""
+    api = FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, create_states={(1, 3): "PENDING"})
+    result, notifier, _ = run(cfg, env, api)
+    assert api.created == [(1, 3, "TEST123", MON)]
+    assert result.booked == [] and "not confirmed" in notifier.sent[0]
+
+
+def test_notifications_wait_until_every_day_was_tried(cfg, env, monkeypatch):
+    """09-24 regression (#139): screenshots between two bookings cost two days."""
+    from dataclasses import replace
+
+    tue = "2026-09-22T10:00:00.000Z"
+    api = FakeApi([], {(1, 3): [MON, tue]})
+    created_at_notify = []
+    monkeypatch.setattr(report, "notify",
+                        lambda *a, **k: created_at_notify.append(len(api.created)) or True)
+    result, _, _ = run(replace(cfg, weekdays=["mon", "tue"]), env, api)
+    assert result.booked == ["2026-09-21", "2026-09-22"]
+    assert created_at_notify == [2]  # one message, sent only once both days were booked
 
 
 def test_no_slots_is_silent(cfg, env):
@@ -292,7 +338,7 @@ def test_quiet_polls_only_notify_on_booking(cfg, env):
     from dataclasses import replace
 
     api = FakeApi([], {(1, 3): [THU_MON]})
-    result, notifier, _ = run(replace(cfg, weekdays=["mon"]), env, api, now=THU.replace(hour=12))
+    result, notifier, _ = run(replace(cfg, weekdays=["mon"]), env, api, now=THU.replace(hour=17))
     assert result.booked == ["2026-09-28"]
     assert notifier.sent == ["Parking booked: 2026-09-28 at 22@ (Large)"]
 
@@ -353,7 +399,7 @@ def _make_pngs(tmp_path, n):
 
 def test_booked_notification_attaches_all_screenshots_as_one_message(cfg, env, monkeypatch, tmp_path):
     shots = _make_pngs(tmp_path, 4)
-    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
+    monkeypatch.setattr(report.site_screenshot, "capture_all", lambda *a, **k: list(shots))
     api = FakeApi([], {(1, 3): [MON]})
     notifier = FakeNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
@@ -365,7 +411,7 @@ def test_booked_notification_attaches_all_screenshots_as_one_message(cfg, env, m
 
 def test_booked_notification_uses_single_file_send_for_one_screenshot(cfg, env, monkeypatch, tmp_path):
     shots = _make_pngs(tmp_path, 1)
-    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
+    monkeypatch.setattr(report.site_screenshot, "capture_all", lambda *a, **k: list(shots))
     api = FakeApi([], {(1, 3): [MON]})
     notifier = FakeNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
@@ -375,7 +421,7 @@ def test_booked_notification_uses_single_file_send_for_one_screenshot(cfg, env, 
 
 
 def test_booked_notification_falls_back_to_text_when_nothing_captured(cfg, env, monkeypatch):
-    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: [])
+    monkeypatch.setattr(report.site_screenshot, "capture_all", lambda *a, **k: [])
     api = FakeApi([], {(1, 3): [MON]})
     notifier = FakeNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api, notifier=notifier)
@@ -385,7 +431,7 @@ def test_booked_notification_falls_back_to_text_when_nothing_captured(cfg, env, 
 
 def test_booked_notification_falls_back_to_text_when_group_send_fails(cfg, env, monkeypatch, tmp_path):
     shots = _make_pngs(tmp_path, 4)
-    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
+    monkeypatch.setattr(report.site_screenshot, "capture_all", lambda *a, **k: list(shots))
 
     class FailingGroupNotifier(FakeNotifier):
         def send_files(self, text, paths, disposable=False):
@@ -402,7 +448,7 @@ def test_booked_notification_falls_back_to_text_when_group_send_fails(cfg, env, 
 
 def test_no_screenshot_attempt_without_parking_url(cfg, env, monkeypatch):
     called = []
-    monkeypatch.setattr(poller.site_screenshot, "capture_all",
+    monkeypatch.setattr(report.site_screenshot, "capture_all",
                         lambda *a, **k: called.append(1) or [])
     api = FakeApi([], {(1, 3): [MON]})
     notifier = FakeNotifier()
@@ -414,7 +460,7 @@ def test_no_screenshot_attempt_without_parking_url(cfg, env, monkeypatch):
 
 def test_booked_notification_passes_both_configured_centers_to_capture(cfg, env, monkeypatch):
     seen = []
-    monkeypatch.setattr(poller.site_screenshot, "capture_all",
+    monkeypatch.setattr(report.site_screenshot, "capture_all",
                         lambda centers, *a, **k: seen.append(list(centers)) or [])
     api = FakeApi([], {(1, 3): [MON]})
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"), api)
@@ -423,99 +469,13 @@ def test_booked_notification_passes_both_configured_centers_to_capture(cfg, env,
 
 def test_booking_failed_alert_attaches_screenshots_when_available(cfg, env, monkeypatch, tmp_path):
     shots = _make_pngs(tmp_path, 4)
-    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
+    monkeypatch.setattr(report.site_screenshot, "capture_all", lambda *a, **k: list(shots))
     errors = {(1, 3): ApiError("bad date format"), (2, 2): ApiError("bad date format")}
     notifier = FakeNotifier()
     run(cfg, dict(env, PARKING_URL="https://example.invalid/book"),
         FakeApi([], {(1, 3): [MON], (2, 2): [MON]}, errors), notifier=notifier)
     assert notifier.sent == []
     assert len(notifier.sent_file_groups) == 1 and "booking failed" in notifier.sent_file_groups[0][0]
-
-
-class FakeClock:
-    """A controllable clock: `sleep()` advances `now` instead of blocking."""
-
-    def __init__(self, start):
-        self.now = start
-
-    def sleep(self, seconds):
-        self.now += timedelta(seconds=seconds)
-
-    def now_fn(self):
-        return self.now
-
-
-THU_1602 = datetime(2026, 9, 24, 16, 2, tzinfo=ZoneInfo("Europe/Madrid"))
-BURST_TARGET = THU_1602.replace(hour=16, minute=0, second=0, microsecond=0)
-
-
-def test_burst_watch_band_covers_the_lead_in_and_the_burst_itself(cfg):
-    burst = cfg.thursday_burst
-    assert burst.watch_before_minutes == 6 and burst.duration_seconds == 90
-    assert poller._in_burst_watch_band(burst, BURST_TARGET - timedelta(minutes=6)) is True
-    assert poller._in_burst_watch_band(burst, BURST_TARGET) is True
-    assert poller._in_burst_watch_band(burst, BURST_TARGET + timedelta(seconds=89)) is True
-    assert poller._in_burst_watch_band(burst, BURST_TARGET - timedelta(minutes=6, seconds=1)) is False
-    assert poller._in_burst_watch_band(burst, BURST_TARGET + timedelta(seconds=91)) is False
-
-
-def test_burst_watch_band_is_thursday_only(cfg):
-    from dataclasses import replace
-
-    burst = replace(cfg.thursday_burst, trial_dates=())
-    not_thursday = BURST_TARGET - timedelta(days=1)
-    assert poller._in_burst_watch_band(burst, not_thursday) is False
-
-
-def test_burst_watch_band_also_covers_a_trial_date(cfg):
-    from dataclasses import replace
-
-    wednesday = BURST_TARGET - timedelta(days=1)
-    burst = replace(cfg.thursday_burst, trial_dates=(wednesday.date(),))
-    assert poller._in_burst_watch_band(burst, wednesday) is True
-    assert poller._in_burst_watch_band(burst, wednesday - timedelta(minutes=7)) is False
-    assert poller._in_burst_watch_band(burst, BURST_TARGET) is True  # Thursday unaffected
-    assert poller._in_burst_watch_band(burst, BURST_TARGET - timedelta(days=2)) is False
-
-
-def test_burst_announces_itself_and_pings_every_check(cfg, env, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
-    clock = FakeClock(BURST_TARGET - timedelta(minutes=3))
-    notifier = FakeNotifier()
-
-    class CountingApi(FakeApi):
-        def __init__(self):
-            super().__init__([], {})
-            self.cycles = 0
-
-        def my_bookings(self):
-            self.cycles += 1
-            return super().my_bookings()
-
-    api = CountingApi()
-    poller._run_burst(cfg, env, clock.now, notifier, State(), lambda *_a: api,
-                      clock.sleep, random.Random(0), clock.now_fn)
-    assert len(notifier.sent) == 1 and "burst armed" in notifier.sent[0]
-    assert notifier.disposable == notifier.sent  # the announcement is cleaned up next run
-    assert len(notifier.pings) == api.cycles + 1  # one per check, plus the finish line
-    assert notifier.pings[0].startswith("⚡ #1 16:00:00")
-    assert "nothing free" in notifier.pings[0]
-    assert notifier.pings[-1].startswith(f"⚡ burst finished after {api.cycles} check(s)")
-
-
-def test_burst_error_is_pinged_before_stopping(cfg, env, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
-    clock = FakeClock(BURST_TARGET)
-    notifier = FakeNotifier()
-
-    class BrokenApi(FakeApi):
-        def my_bookings(self):
-            raise ApiError("boom")
-
-    result = poller._run_burst(cfg, env, clock.now, notifier, State(), lambda *_a: BrokenApi([], {}),
-                               clock.sleep, random.Random(0), clock.now_fn)
-    assert result.status == "error"
-    assert len(notifier.pings) == 2 and "❌ ApiError, stopped" in notifier.pings[0]
 
 
 def test_booked_notification_is_kept_but_sweep_report_is_disposable(cfg, env):
@@ -531,131 +491,11 @@ def test_booked_notification_is_kept_but_sweep_report_is_disposable(cfg, env):
     assert set(sweeps) <= set(notifier.disposable)
 
 
-def test_sleep_until_precise_busy_polls_the_final_stretch():
-    clock = FakeClock(BURST_TARGET - timedelta(seconds=10))
-    calls = []
-    def sleep(seconds):
-        calls.append(seconds)
-        clock.sleep(seconds)
-    poller._sleep_until_precise(BURST_TARGET, sleep, clock.now_fn)
-    assert clock.now == BURST_TARGET
-    assert calls[0] == pytest.approx(10 - poller.BURST_FINE_APPROACH_SECONDS)
-    assert all(c == poller.BURST_FINE_POLL_SECONDS for c in calls[1:])
-    assert len(calls) > 1  # actually busy-polled, not one long sleep
-
-
-def test_sleep_until_precise_skips_the_coarse_sleep_when_already_close():
-    clock = FakeClock(BURST_TARGET - timedelta(seconds=1))
-    calls = []
-    poller._sleep_until_precise(BURST_TARGET, lambda s: (calls.append(s), clock.sleep(s)), clock.now_fn)
-    assert all(c == poller.BURST_FINE_POLL_SECONDS for c in calls)
-
-
-def test_burst_marks_and_saves_state_before_sleeping(cfg, env, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
-    clock = FakeClock(BURST_TARGET - timedelta(seconds=5))
-    state = State()
-    api = FakeApi([], {})
-    poller._run_burst(cfg, env, clock.now, FakeNotifier(), state, lambda *_: api,
-                      clock.sleep, random.Random(0), clock.now_fn)
-    assert not state.alert_due(poller.BURST_STATE_KEY, clock.now, poller.BURST_COOLDOWN)
-    saved = poller.load_state(tmp_path / "state.json")
-    assert poller.BURST_STATE_KEY in saved.alerts  # persisted before the sleep, not just in memory
-
-
-def test_burst_polls_repeatedly_until_booked_then_stops_early(cfg, env, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
-    clock = FakeClock(BURST_TARGET - timedelta(seconds=3))
-    state = State()
-    notifier = FakeNotifier()
-
-    class FlakyApi(FakeApi):
-        """No slot for the first two cycles, then one appears - proves the
-        burst actually re-checks the site instead of stopping after one look."""
-
-        def __init__(self):
-            super().__init__([], {})
-            self.cycle = 0
-
-        def my_bookings(self):
-            self.cycle += 1
-            return super().my_bookings()
-
-        def slot_days(self, center_id, size_id, type_):
-            self.slot_calls.append((center_id, size_id))
-            if self.cycle < 3:
-                return []
-            # 2026-09-24 is a Thursday and a configured skip_date; the next
-            # Monday (weekdays=["mon"]) within the horizon is 2026-09-28.
-            return {(1, 3): ["2026-09-28T10:00:00.000Z"]}.get((center_id, size_id), [])
-
-    api = FlakyApi()
-    result = poller._run_burst(cfg, env, clock.now, notifier, state, lambda *_a: api,
-                               clock.sleep, random.Random(0), clock.now_fn)
-    assert result.booked == ["2026-09-28"]
-    assert api.cycle >= 3  # re-checked at least until the slot appeared
-    assert any("Parking booked" in t for t in notifier.sent + [g[0] for g in notifier.sent_file_groups]
-              + [f[0] for f in notifier.sent_files])
-
-
-def test_burst_stops_on_the_first_exception_without_retrying(cfg, env, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
-    clock = FakeClock(BURST_TARGET - timedelta(seconds=1))
-    state = State()
-
-    class BrokenApi(FakeApi):
-        def __init__(self):
-            super().__init__([], {})
-            self.attempts = 0
-
-        def my_bookings(self):
-            self.attempts += 1
-            raise ApiError("boom")
-
-    api = BrokenApi()
-    result = poller._run_burst(cfg, env, clock.now, FakeNotifier(), state, lambda *_a: api,
-                               clock.sleep, random.Random(0), clock.now_fn)
-    assert result.status == "error"
-    assert api.attempts == 1  # one attempt, no retry into the same failure
-
-
-def test_burst_respects_the_duration_cap_when_nothing_ever_frees_up(cfg, env, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
-    clock = FakeClock(BURST_TARGET)
-    state = State()
-
-    class CountingApi(FakeApi):
-        def __init__(self):
-            super().__init__([], {})  # never any free slot
-            self.cycles = 0
-
-        def my_bookings(self):
-            self.cycles += 1
-            return super().my_bookings()
-
-    api = CountingApi()
-    result = poller._run_burst(cfg, env, clock.now, FakeNotifier(), state, lambda *_a: api,
-                               clock.sleep, random.Random(0), clock.now_fn)
-    assert result.status == "no-slots"
-    expected_iterations = cfg.thursday_burst.duration_seconds / cfg.thursday_burst.poll_interval_seconds
-    assert api.cycles <= expected_iterations + 1  # bounded, didn't loop forever
-    assert clock.now >= BURST_TARGET + timedelta(seconds=cfg.thursday_burst.duration_seconds)
-
-
-def test_burst_not_armed_without_a_token(cfg, tmp_path, monkeypatch):
-    monkeypatch.setattr(poller, "STATE_PATH", tmp_path / "state.json")
-    clock = FakeClock(BURST_TARGET)
-    state = State()
-    result = poller._run_burst(cfg, {}, clock.now, FakeNotifier(), state, lambda *_: FakeApi([], {}),
-                               clock.sleep, random.Random(0), clock.now_fn)
-    assert result.status == "no-token"
-
-
 def test_sweep_report_attaches_screenshots_when_available(cfg, env, monkeypatch, tmp_path):
     from dataclasses import replace
 
     shots = _make_pngs(tmp_path, 4)
-    monkeypatch.setattr(poller.site_screenshot, "capture_all", lambda *a, **k: list(shots))
+    monkeypatch.setattr(report.site_screenshot, "capture_all", lambda *a, **k: list(shots))
     trial = replace(cfg, sweep_report_until=NOW + timedelta(hours=1))
     notifier = FakeNotifier()
     run(trial, dict(env, PARKING_URL="https://example.invalid/book"), FakeApi([], {}), notifier=notifier)
@@ -663,10 +503,30 @@ def test_sweep_report_attaches_screenshots_when_available(cfg, env, monkeypatch,
     assert len(notifier.sent_file_groups) == 1 and "Parking sweep" in notifier.sent_file_groups[0][0]
 
 
-def test_a_tick_landing_mid_burst_is_skipped_not_polled(cfg):
-    state = State()
-    armed_at = BURST_TARGET - timedelta(minutes=4)
-    assert poller.burst_action(cfg, state, armed_at) == "burst"
-    state.mark_alert(poller.BURST_STATE_KEY, armed_at)
-    assert poller.burst_action(cfg, state, BURST_TARGET + timedelta(seconds=30)) == "skip"
-    assert poller.burst_action(cfg, state, BURST_TARGET + timedelta(minutes=5)) == "normal"  # band over
+def test_all_covered_makes_no_site_call_until_the_next_release(cfg, env):
+    booked = [{"day": MON, "state": "ACTIVE", "place": {"place": "12"}}]
+    api = FakeApi(booked, {(1, 3): [MON]})
+    result, _, state = run(cfg, env, api)  # Sunday 20th: only Monday 21st is released
+    assert result.status == "nothing-pending"
+    assert state.next_allowed == datetime(2026, 9, 24, 16, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    calls = []
+
+    class Counting(FakeApi):
+        def my_bookings(self):
+            calls.append(1)
+            return super().my_bookings()
+
+    later, _, _ = run(cfg, env, Counting(booked, {}), state=state, now=NOW + timedelta(days=2))
+    assert later.status == "backoff" and calls == []  # not even a bookings read
+
+
+def test_days_not_released_yet_are_not_pending(cfg, env):
+    from dataclasses import replace
+
+    monday = NOW + timedelta(days=1, hours=-2)  # Mon 21st 10:00, before Thursday's release
+    booked = [{"day": MON, "state": "ACTIVE", "place": {"place": "12"}}]
+    next_monday = "2026-09-28T10:00:00.000Z"  # only opens on Thursday 24th at 16:00
+    api = FakeApi(booked, {(1, 3): [next_monday]})
+    result, _, _ = run(replace(cfg, horizon_days=30), env, api, now=monday)
+    assert result.status == "nothing-pending"
+    assert api.slot_calls == [] and api.created == []

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Dict, Iterable, List, Mapping, Sequence, Set, Tuple
 
 import holidays
@@ -39,6 +39,25 @@ def holiday_dates(country: str, subdiv: str, extra: Iterable[str], today: date,
     years = range(today.year, (today + timedelta(days=horizon_days)).year + 1)
     calendar = holidays.country_holidays(country, subdiv=subdiv or None, years=years)
     return {d.isoformat() for d in calendar} | set(extra)
+
+
+def release_moment(now: datetime, release: time) -> datetime:
+    """This week's slot release (Thursday at `release`), in `now`'s timezone."""
+    thursday = now.date() + timedelta(days=WEEKDAYS.index("thu") - now.weekday())
+    return datetime.combine(thursday, release, tzinfo=now.tzinfo)
+
+
+def next_release(now: datetime, release: time) -> datetime:
+    """The first Thursday release at or after `now`."""
+    this_week = release_moment(now, release)
+    return this_week if now < this_week else this_week + timedelta(days=7)
+
+
+def bookable_until(now: datetime, release: time) -> date:
+    """Last day already released for booking: this week's Sunday until Thursday's
+    release, then next week's Sunday (the release opens the following week)."""
+    sunday = now.date() + timedelta(days=6 - now.weekday())
+    return sunday if now < release_moment(now, release) else sunday + timedelta(days=7)
 
 
 def target_dates(today: date, weekdays: Iterable[str], horizon_days: int) -> List[str]:

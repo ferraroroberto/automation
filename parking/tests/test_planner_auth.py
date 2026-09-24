@@ -1,4 +1,5 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from parking import auth, planner
 from parking.planner import Combo
@@ -81,3 +82,24 @@ def test_holiday_dates_merges_library_calendar_and_extra_dates():
 def test_holiday_dates_covers_year_rollover():
     skip = planner.holiday_dates("ES", "CT", [], date(2026, 12, 20), 30)
     assert {"2026-12-25", "2027-01-01"} <= skip
+
+
+def test_bookable_until_moves_a_week_at_the_thursday_release():
+    tz = ZoneInfo("Europe/Madrid")
+    release = time(16, 0)
+    thursday = datetime(2026, 9, 24, 15, 59, 59, tzinfo=tz)
+    assert planner.bookable_until(thursday, release) == date(2026, 9, 27)
+    assert planner.bookable_until(thursday.replace(hour=16, second=0), release) == date(2026, 10, 4)
+    assert planner.bookable_until(datetime(2026, 9, 21, 9, tzinfo=tz), release) == date(2026, 9, 27)
+    assert planner.bookable_until(datetime(2026, 9, 27, 23, tzinfo=tz), release) == date(2026, 10, 4)
+
+
+def test_next_release_is_this_thursday_until_it_passes():
+    tz = ZoneInfo("Europe/Madrid")
+    release = time(16, 0)
+    assert planner.next_release(datetime(2026, 9, 21, 9, tzinfo=tz), release) == \
+        datetime(2026, 9, 24, 16, tzinfo=tz)
+    assert planner.next_release(datetime(2026, 9, 24, 16, 5, tzinfo=tz), release) == \
+        datetime(2026, 10, 1, 16, tzinfo=tz)
+    assert planner.next_release(datetime(2026, 9, 26, 12, tzinfo=tz), release) == \
+        datetime(2026, 10, 1, 16, tzinfo=tz)
