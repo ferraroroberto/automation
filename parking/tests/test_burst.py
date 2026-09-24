@@ -110,7 +110,7 @@ def test_worker_never_retries_a_refused_slot(cfg):
     api = FakeApi([], {(1, 3): [MON]}, create_states={(1, 3): "REJECTED"})
     outcome, lines, _ = work(cfg, api)
     assert api.created == [(1, 3, "TEST123", MON)]
-    assert outcome.status == "no-slot" and len(lines) > 2  # kept checking the other slots
+    assert outcome.status == "failed" and len(lines) > 2  # kept checking the other slots
 
 
 def test_worker_keeps_checking_until_the_deadline(cfg):
@@ -281,3 +281,32 @@ def test_rehearse_forces_dry_run_and_stays_out_of_the_chat(cfg, env, monkeypatch
     assert burst.rehearse(live, env, lambda: TARGET) == "ran"
     assert seen["dry_run"] is True and seen["rehearsal"] is True
     assert isinstance(seen["notifier"], LogNotifier)
+
+
+def test_worker_that_was_only_rejected_reports_failed_not_nothing_free(cfg):
+    api = FakeApi([], {(1, 3): [MON], (2, 2): [MON]},
+                  create_states={(1, 3): "REJECTED", (2, 2): "REJECTED"})
+    outcome, _, _ = work(cfg, api)
+    assert outcome.status == "failed" and "rejected" in outcome.error
+    assert len(api.created) == 2  # each refused slot tried once
+
+
+def test_ticks_stay_out_until_the_report_is_sent(cfg, env, tmp_path, monkeypatch):
+    """The report's screenshots need the browser profile: the running marker must outlive it."""
+    marker = tmp_path / "burst" / "running.json"
+    during_report = []
+
+    class Watching(FakeNotifier):
+        def send(self, text, disposable=False):
+            if text.startswith("Parking booked"):
+                during_report.append(marker.exists())
+            return super().send(text, disposable)
+
+    monkeypatch.setattr(burst, "STATE_PATH", tmp_path / "state.json")
+    burst_cfg[0] = cfg
+    clock = FakeClock(TARGET - timedelta(minutes=3))
+    api = FakeApi([], {(1, 3): [MON]})
+    burst.run_burst(cfg, env, clock.now, Watching(), State(), clock.now_fn, api_factory=lambda *_: api,
+                    spawn=inline_spawn(api, []), open_observers=lambda *_a: None, sleep=clock.sleep,
+                    run_dir=tmp_path / "burst")
+    assert during_report == [True] and not marker.exists()

@@ -84,6 +84,7 @@ def work_day(api: ParkingApi, cfg: Config, day: str, plate: str, target: datetim
     sleep_until_precise(target, sleep, now_fn)
     checks = 0
     refused: Set[planner.Combo] = set()
+    failed: Optional[DayOutcome] = None
     while True:
         checks += 1
         at = now_fn()
@@ -94,8 +95,10 @@ def work_day(api: ParkingApi, cfg: Config, day: str, plate: str, target: datetim
         emit(f"#{checks} {at:%H:%M:%S}.{at.microsecond // 10000:02d} {line[outcome.status]}")
         if outcome.status in ("booked", "would-book", "unconfirmed"):
             return outcome
+        if outcome.status == "failed":
+            failed = outcome  # later scans skip the refused slots; the rejection is still the result
         if now_fn() + timedelta(seconds=interval) >= deadline:
-            return outcome
+            return failed or outcome
         sleep(interval)
 
 

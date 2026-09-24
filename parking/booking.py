@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, time
-from typing import Callable, Iterable, List, Mapping, Optional, Sequence
+from typing import Callable, Iterable, List, Mapping, Optional, Sequence, Set
 
 from parking import planner
 from parking.api import ApiError, AuthError, ParkingApi, RateLimited, ServerError
@@ -85,12 +85,15 @@ def _describe(records: Sequence[Mapping]) -> str:
                      for r in records)
 
 
-def _state_for_day(records: Iterable[Mapping], day: str) -> Optional[str]:
-    """ACTIVE if any booking for `day` is active, else the state of the last one, else None."""
-    states = [r.get("state") for r in records if planner.day_key(str(r.get("day") or "")) == day]
-    if ACTIVE in states:
+def _state_for_day(records: Iterable[Mapping], day: str, ids: Optional[Set[str]] = None) -> Optional[str]:
+    """ACTIVE if any booking for `day` is active; else the state of the last one
+    among `ids` (this attempt's own bookings, when given); else None."""
+    mine = [r for r in records if planner.day_key(str(r.get("day") or "")) == day]
+    if any(r.get("state") == ACTIVE for r in mine):
         return ACTIVE
-    return states[-1] if states else None
+    if ids is not None:
+        mine = [r for r in mine if str(r.get("id")) in ids]
+    return mine[-1].get("state") if mine else None
 
 
 def book_day(api: ParkingApi, day: str, candidates: List[planner.Candidate], plate: str, type_: str,
@@ -121,7 +124,9 @@ def book_day(api: ParkingApi, day: str, candidates: List[planner.Candidate], pla
         logger.info("ℹ️ createBooking %s -> %s", label, _describe(created))
         state = _state_for_day(created, day)
         if state not in (ACTIVE, REJECTED):
-            state = _state_for_day(api.my_bookings(), day)
+            # An earlier REJECTED record for the same day must not decide this attempt.
+            ids = {str(r["id"]) for r in created if r.get("id") is not None}
+            state = _state_for_day(api.my_bookings(), day, ids)
         if state == ACTIVE:
             logger.info("✅ booked %s", label)
             return DayOutcome(day, "booked", label)

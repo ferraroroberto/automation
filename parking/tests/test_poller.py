@@ -530,3 +530,16 @@ def test_days_not_released_yet_are_not_pending(cfg, env):
     result, _, _ = run(replace(cfg, horizon_days=30), env, api, now=monday)
     assert result.status == "nothing-pending"
     assert api.slot_calls == [] and api.created == []
+
+
+def test_unclear_answer_is_not_decided_by_an_older_rejected_booking(cfg, env):
+    """Re-checking reads this attempt's own booking, not an earlier REJECTED one for the same day."""
+    class NewestFirst(FakeApi):
+        def my_bookings(self):
+            return list(reversed(self.bookings))
+
+    old = {"id": "old", "day": MON, "state": "REJECTED", "place": None}
+    api = NewestFirst([old], {(1, 3): [MON], (2, 2): [MON]}, create_states={(1, 3): "PENDING"})
+    result, notifier, _ = run(cfg, env, api)
+    assert api.created == [(1, 3, "TEST123", MON)]  # still pending: never a second attempt
+    assert result.booked == [] and "not confirmed" in notifier.sent[0]

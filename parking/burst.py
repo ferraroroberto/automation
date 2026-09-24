@@ -267,13 +267,15 @@ def run_burst(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifie
         if observers is not None:
             sleep(OBSERVER_HOLD_SECONDS)
             observers.close()  # before the report: its screenshots need the same browser profile
+        outcomes = [found[day] for day in days]
+        logger.info("⚡ burst finished: %s", _summary(outcomes))
+        notifier.ping(f"⚡ burst finished: {_summary(outcomes)}")
+        report.report_outcomes(outcomes, cfg, state, notifier, now_fn(),
+                               "" if rehearsal else env.get("PARKING_URL", ""))
     finally:
+        # Only now: a tick during the report would fight it for the browser profile, state.json and the chat.
         marker.unlink(missing_ok=True)
 
-    outcomes = [found[day] for day in days]
-    logger.info("⚡ burst finished: %s", _summary(outcomes))
-    notifier.ping(f"⚡ burst finished: {_summary(outcomes)}")
-    report.report_outcomes(outcomes, cfg, state, notifier, now_fn(), "" if rehearsal else env.get("PARKING_URL", ""))
     result = RunResult("checked", pending=days,
                        booked=[o.day for o in outcomes if o.status == "booked"],
                        would_book=[o.day for o in outcomes if o.status == "would-book"])
