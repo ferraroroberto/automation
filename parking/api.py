@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -52,11 +53,16 @@ class ParkingApi:
         )
         self._timeout = timeout
 
-    def _post(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        response = self._session.post(
-            self._endpoint, json={"query": query, "variables": variables or {}},
-            timeout=self._timeout,
-        )
+    def _post(self, label: str, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        started = time.monotonic()
+        try:
+            response = self._session.post(
+                self._endpoint, json={"query": query, "variables": variables or {}},
+                timeout=self._timeout,
+            )
+        finally:
+            # Breadcrumb for slow responses (e.g. the 37 s first answer at a Thursday release, #139).
+            logger.info("ℹ️ api %s took %.2fs", label, time.monotonic() - started)
         status = response.status_code
         if status in (401, 403):
             raise AuthError(f"HTTP {status}")
@@ -75,17 +81,18 @@ class ParkingApi:
         return payload["data"]
 
     def slot_days(self, center_id: int, size_id: int, type_: str) -> List[str]:
-        data = self._post(SLOTS_QUERY, {"center": center_id, "type": type_, "size": size_id})
+        data = self._post(f"slots {center_id}/{size_id}", SLOTS_QUERY,
+                          {"center": center_id, "type": type_, "size": size_id})
         return list((data.get("getBookingSlots") or {}).get("days") or [])
 
     def my_bookings(self) -> List[Dict[str, Any]]:
-        return list(self._post(BOOKINGS_QUERY).get("allBookings") or [])
+        return list(self._post("bookings", BOOKINGS_QUERY).get("allBookings") or [])
 
     def create_booking(self, center_id: int, size_id: int, type_: str, plate: str,
                        raw_day: str) -> List[Dict[str, Any]]:
         """Book exactly one day. `raw_day` is passed back exactly as the availability query returned it."""
         data = self._post(
-            CREATE_MUTATION,
+            "createBooking", CREATE_MUTATION,
             {"center": str(center_id), "type": type_, "size": size_id,
              "plate": plate, "days": [raw_day]},
         )

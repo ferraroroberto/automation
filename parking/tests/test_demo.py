@@ -24,4 +24,5 @@ def test_demo_walks_through_a_full_poll_and_labels_every_message():
     log = " | ".join(rec.sent)
     for step in ("Rehearsal", "poll started", "Free slot found", "Booking", "Parking booked", "Poll finished"):
         assert step in log
-    assert log.count("Parking booked") == demo.DEMO_DAYS
+    assert log.count("Parking booked") == 1  # every day booked, reported in one message
+    assert all(day in log for day in result.booked)

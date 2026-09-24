@@ -4,8 +4,8 @@
   "horizon_days": 30,
   "type": "standard",
   "centers": [
-    {"id": 1, "name": "22@"},
-    {"id": 2, "name": "CINC"}
+    {"id": 2, "name": "CINC"},
+    {"id": 1, "name": "22@"}
   ],
   "sizes": [
     {"id": 3, "name": "Large"},
