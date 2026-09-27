@@ -4,7 +4,7 @@ A unified GUI application for downloading videos from YouTube, HLS/M3U8 streams,
 
 ## Features
 
-- **YouTube** – Downloads via yt-dlp; supports playlists and `?t=` start time in URLs
+- **YouTube** – Downloads via yt-dlp; single videos only (`noplaylist` is hard-set, so a playlist URL downloads just the one video), plus `?t=` start time in URLs
 - **HLS/M3U8** – Downloads live/streaming video via ffmpeg; optional Referer/User-Agent for protected sources (e.g. LinkedIn)
 - **Direct URL** – Downloads direct .mp4 (or other) links via HTTP with resume support
 - **Auto-detect** – Automatically selects the appropriate method based on URL format

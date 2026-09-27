@@ -178,7 +178,6 @@ Full per-script reference: [`text/README.md`](text/README.md).
 ### **Prerequisites**
 - Python 3.9+ installed — the floor is set by `requirements.txt`, whose pinned `en-core-web-sm` 3.8.0 wheel requires spaCy ≥ 3.8 (`Requires-Python >=3.9`). Developed and verified on 3.14.
 - FFmpeg for audio/video processing
-- Windows (for Outlook automation tools)
 - Git for repository management
 
 ### **Environment Setup**
@@ -252,25 +251,7 @@ Details: [`notion/build_newsletter.md`](notion/build_newsletter.md).
 ## ⚙️ Configuration
 
 ### **Environment Variables**
-Create a `.env` file in the root directory with:
-```env
-# Notion API
-NOTION_API_TOKEN=your_notion_api_token
-NOTION_DATABASE_ID=your_database_id
-
-# Audio settings
-AUDIO_OUTPUT_PATH=path/to/audio/output
-DEFAULT_LANGUAGE=Spanish
-
-# Machine-local folder paths (no hardcoded defaults — must be set per machine)
-NOTION_PARAMS_FILE=         # path to the legacy notion-params.txt file (notion/utils.py)
-ILLUSTRATIONS_DEST_INSTAGRAM=  # destination folder for Instagram-formatted illustrations (image/illustrations_formatter*.py)
-ILLUSTRATIONS_DEST_1920X1080=  # destination folder for 1920×1080 illustrations (image/illustrations_formatter*.py)
-CARROUSEL_SOURCE_FOLDER=    # source folder of carrousel PDF files (image/carrousel_pdf_to_jpg.py)
-POPPLER_PATH=               # path to Poppler bin dir if not on system PATH (image/carrousel_pdf_to_jpg.py)
-COLLAGE_SOURCE_FOLDER=      # source folder for collage images (image/collage_image.py)
-TODOIST_SOURCE_FOLDER=      # source folder for Todoist CSV backup files (notion/todoist_migration.py)
-```
+[`.env.sample`](.env.sample) is the single authoritative list of keys — copy it to `.env` and fill in the values. Covers the Notion, Imgur, SerpAPI and Tuya API credentials, `VENV_FOLDER` (read by the `.bat` launchers), and the machine-local folder paths (no hardcoded defaults, must be set per machine).
 
 ### **JSON Configuration Files**
 Most modules use JSON configuration files for flexible settings:
@@ -291,30 +272,7 @@ Most modules use JSON configuration files for flexible settings:
 
 ### **System Requirements**
 - **FFmpeg**: Required for audio/video processing
-- **Windows COM**: Required for Outlook automation
 - **Virtual Environment**: Recommended for dependency isolation
-
-## 📊 Output Formats
-
-### **Audio Processing**
-- **Transcription**: Text files with timestamps
-- **Audio Files**: WAV, MP3, OGG formats
-- **Metadata**: JSON files with processing information
-
-### **Image Processing**
-- **Formatted Images**: Instagram-compatible aspect ratios
-- **Collages**: Combined image layouts
-- **Metadata**: Excel files with image information
-
-### **Video Processing**
-- **Screen Recordings**: MP4 format with configurable FPS
-- **Processed Videos**: Various formats and resolutions
-- **Metadata**: JSON files with recording details
-
-### **Data Export**
-- **Excel Files**: Structured data with formatting
-- **CSV Files**: Comma-separated data exports
-- **JSON Files**: Configuration and metadata storage
 
 ## 🐛 Troubleshooting
 
@@ -348,10 +306,7 @@ python -m venv .venv
 - Check file permissions (Unix/Linux)
 
 ### **Debug Mode**
-Most scripts support debug mode:
-```bash
-python script.py --debug
-```
+12 of the ~156 Python scripts accept a `--debug` flag (`grep -rl -- --debug --include=*.py .` to list them); most don't — check a script's own `--help` before assuming it.
 
 ## 🔒 Secrets
 
