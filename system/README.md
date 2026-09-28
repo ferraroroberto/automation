@@ -14,8 +14,7 @@ Sets the Windows desktop background color and matching taskbar/accent theme via 
 
 A small PySimpleGUI app that "types" pasted text into the last active Google Chrome window, character by character, using the `keyboard` library — useful for pasting into inputs that block real clipboard paste. Newlines in the text are sent as `shift+enter` (soft newline) rather than `enter`.
 
-- **How to run:** `python system/keycaster.py` — no command-line arguments; everything is driven from the GUI (a multiline text box, a typing-delay-in-ms field defaulting to `1`, and Start/Stop buttons). Start activates the most recently active non-minimized Chrome window, waits 0.2s, then types.
-- **Launcher:** `keycaster.bat` activates a dedicated virtualenv hardcoded at `E:\onedrive\Documentos\Roberto\projects\automation\notion-automation\local\.venv_keycaster`, runs `python keycaster.py`, then pauses so errors stay visible — that venv path is a leftover from an older repo location and may need updating before the launcher works.
+- **How to run:** `python system/keycaster.py` — no command-line arguments; everything is driven from the GUI (a multiline text box, a typing-delay-in-ms field defaulting to `1`, and Start/Stop buttons). Start activates the most recently active non-minimized Chrome window, waits 0.2s, then types. No launcher `.bat` — `PySimpleGUI` isn't on PyPI for free installation (see `requirements.txt`), so this script needs its own separately-provisioned virtualenv with `PySimpleGUI` installed; run it from that venv's `python.exe` directly.
 - **Requirements:** `PySimpleGUI`, `pygetwindow`, `pyautogui`, `keyboard`. Windows only (targets a Chrome window by title).
 
 ## 🔐 unzip_with_password.py
