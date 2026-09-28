@@ -310,9 +310,9 @@ def _run_fresh_scan(source_folder: str, dest_folder: str, current_time_str: str)
     # Detect if the destination folder is inside the source folder
     skip_dest_folder = False
     if os.path.commonpath([source_folder, dest_folder]) == source_folder:
-        user_choice = input(f"The destination folder '{dest_folder}' is inside the source folder '{source_folder}'. Do you want to skip scanning the destination folder? (Y/N): ").strip().lower()
-        if user_choice == 'y':
-            skip_dest_folder = True
+        skip_dest_folder = _prompt_yes_no(
+            get_config()['behavior_flags']['skip_destination_folder_scan'],
+            f"The destination folder '{dest_folder}' is inside the source folder '{source_folder}'. Do you want to skip scanning the destination folder? (Y/N): ")
 
     logging.info("Starting the process")
 
