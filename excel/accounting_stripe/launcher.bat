@@ -13,15 +13,13 @@ REM ============================================================================
 
 echo [INFO] Starting CSV Structure Comparison process...
 
-REM Read the virtual environment path from .env file
-for /f "tokens=2 delims==" %%a in ('findstr "VENV_FOLDER" "E:\automation\automation\.env"') do set "VENV_DIR=%%a"
-if not defined VENV_DIR (
-    echo [WARNING] Could not read VENV_FOLDER from .env file. Using default path...
-    set "VENV_DIR=E:\automation\automation\.venv"
-)
+for %%I in ("%~dp0..\..") do set "REPO_ROOT=%%~fI"
+
+REM Use the repo's own virtual environment (resolved relative to this file)
+set "VENV_DIR=%REPO_ROOT%\.venv"
 
 REM Set the path to the CSV comparison scripts
-set "SCRIPT_DIR=E:\automation\automation\excel\accounting_stripe"
+for %%I in ("%~dp0.") do set "SCRIPT_DIR=%%~fI"
 
 echo [INFO] Using virtual environment: "%VENV_DIR%"
 echo [INFO] Changing to script directory: "%SCRIPT_DIR%"

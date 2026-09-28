@@ -25,7 +25,7 @@ python video/screen_recorder.py
 
 **Double-click:** `screen_recorder.bat`
 
-The window opens at 520x140 (resizable) titled "Screen Recorder". Note: as shipped, `screen_recorder.bat` launches `pythonw.exe` from a legacy environment path (`c:\Mis Datos en Local\temporal\python\projects\work\automation\...`) that does not exist on this machine, unlike the sibling `.bat` launchers in this folder which resolve their venv from `E:\automation\automation\.env`'s `VENV_FOLDER`. Until the `.bat` is updated to match that pattern, run the script directly with `python video/screen_recorder.py` from the automation venv.
+The window opens at 520x140 (resizable) titled "Screen Recorder". Note: as shipped, `screen_recorder.bat` launches `pythonw.exe` from a legacy environment path (`c:\Mis Datos en Local\temporal\python\projects\work\automation\...`) that does not exist on this machine, unlike the sibling `.bat` launchers in this folder which resolve the repo `.venv` relative to their own location. Until the `.bat` is updated to match that pattern, run the script directly with `python video/screen_recorder.py` from the automation venv.
 
 ## GUI Usage
 
@@ -56,4 +56,4 @@ If segment splitting were enabled (it isn't by default — see Features), later 
 | "Please enter a positive integer for FPS" | The FPS field must be a whole number greater than 0 |
 | "Failed to initialize video writer" | OpenCV's `VideoWriter` couldn't open the output file/codec; check that `opencv-python` is installed correctly and the output folder is writable |
 | "Recording Error" dialog mid-recording | An exception occurred in the capture loop (e.g. a monitor was disconnected); recording stops automatically and the partial file remains at the last saved path |
-| Double-clicking `screen_recorder.bat` does nothing | The `.bat` points at a legacy Python path that no longer exists on this machine; run `python video/screen_recorder.py` directly, or update the `.bat` to read `VENV_FOLDER` from `.env` like `video_trim.bat` does |
+| Double-clicking `screen_recorder.bat` does nothing | The `.bat` points at a legacy Python path that no longer exists on this machine; run `python video/screen_recorder.py` directly, or update the `.bat` to resolve the repo `.venv` relative to itself like `video_trim.bat` does |

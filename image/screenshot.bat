@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
 
-set "PROJECT_DIR=E:\automation\automation"
-set "SCRIPT_PATH=E:\automation\automation\image\screenshot.py"
+for %%I in ("%~dp0..") do set "PROJECT_DIR=%%~fI"
+set "SCRIPT_PATH=%PROJECT_DIR%\image\screenshot.py"
 set "VENV_PY=%PROJECT_DIR%\.venv\Scripts\python.exe"
 
 echo [INFO] Changing to project directory: "%PROJECT_DIR%"

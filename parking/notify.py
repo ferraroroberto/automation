@@ -17,15 +17,14 @@ import json
 import logging
 import queue
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol
 
-logger = logging.getLogger("parking.notify")
+from no_window import NO_WINDOW
 
-CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+logger = logging.getLogger("parking.notify")
 
 # Telegram allows a bot ~20 messages a minute in a group; pings stay under it
 # by batching whatever queued up while waiting into one message.
@@ -80,7 +79,7 @@ class FleetNotifier:
         try:
             return subprocess.run(
                 argv, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                timeout=timeout, creationflags=CREATE_NO_WINDOW,
+                timeout=timeout, creationflags=NO_WINDOW,
             )
         except (OSError, subprocess.SubprocessError) as exc:
             logger.error("❌ notifier failed to start: %s", exc)

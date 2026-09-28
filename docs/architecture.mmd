@@ -13,6 +13,7 @@ flowchart TB
   REQ["requirements.txt\nshared Python deps, source-commented per script"]
   VENVMGR["system/venv_manager.py\ncreates/monitors the shared .venv"]
   REQ --> VENVMGR
+  NOWIN["no_window.py\nrepo-root shared NO_WINDOW creationflags constant —\nevery subprocess spawn in the domain folders imports it"]
 
   subgraph domains["Domain folders — mostly independent scripts, each usually paired\nwith a .bat launcher, a per-script .md doc, and/or a JSON config"]
     AUDIO["audio/\naudio_extractor_core/gui · audio_normalize · audio_trim ·\nconvert_ogg_mp3 · transcript_collate"]
@@ -27,6 +28,7 @@ flowchart TB
   end
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains
+  NOWIN -.->|imported by| domains
 
   subgraph googlebox["google/"]
     GAUTH["_auth.py\nshared OAuth token/config loader"]

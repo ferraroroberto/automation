@@ -5,6 +5,11 @@ import subprocess
 import re
 import logging
 import sys
+from pathlib import Path
+
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from no_window import NO_WINDOW  # noqa: E402
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
@@ -117,7 +122,7 @@ def trim_audio(input_path: str, start_time: str, end_time: str) -> None:
         subprocess.run(
             ffmpeg_cmd,
             check=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            creationflags=NO_WINDOW,
         )
 
         logger.info("✅ Audio trimming completed successfully")

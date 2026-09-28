@@ -2,7 +2,12 @@ import streamlit as st
 import subprocess
 import os
 from pathlib import Path
+import sys
 import time
+
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[3]))
+from no_window import NO_WINDOW  # noqa: E402
 
 def main():
     """Main function for the LinkedIn Data Extraction tab."""
@@ -43,7 +48,7 @@ def main():
                         chrome_cmd,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
-                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                        creationflags=NO_WINDOW
                     )
 
                     # Give Chrome a moment to start
@@ -143,7 +148,7 @@ def main():
                             ["start", "", excel_path],
                             shell=True,
                             check=True,
-                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+                            creationflags=NO_WINDOW,
                         )
                         st.success("✅ Excel file opened!")
                     else:

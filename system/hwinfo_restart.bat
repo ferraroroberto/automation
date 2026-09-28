@@ -1,2 +1,2 @@
 @echo off
-python "%~dp0hwinfo_restart.py"
+"%~dp0..\.venv\Scripts\python.exe" "%~dp0hwinfo_restart.py"

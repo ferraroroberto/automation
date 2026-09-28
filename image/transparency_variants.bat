@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-set "PROJECT_DIR=E:\automation\automation"
+for %%I in ("%~dp0..") do set "PROJECT_DIR=%%~fI"
 set "SCRIPT_PATH=%PROJECT_DIR%\image\transparency_variants.py"
 set "VENV_PY=%PROJECT_DIR%\.venv\Scripts\python.exe"
 

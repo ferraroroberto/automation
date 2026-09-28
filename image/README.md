@@ -20,7 +20,7 @@ python image/illustrations_check.py "C:/path/to/folder"
 
 If no folder is given on the command line and the config has no `source_folder`, the script prompts interactively (`Enter source folder path:`).
 
-There is also a `illustrations_check.bat` launcher that reads `VENV_FOLDER` from `E:\automation\automation\.env` (falling back to `E:\automation\automation\.venv`), `cd`s into the `image` folder, and runs `python.exe illustrations_check.py %*` — any arguments passed to the `.bat` are forwarded to the script.
+There is also a `illustrations_check.bat` launcher that resolves the repo `.venv` relative to its own location (so it works from any checkout), `cd`s into the `image` folder, and runs `python.exe illustrations_check.py %*` — any arguments passed to the `.bat` are forwarded to the script.
 
 ### Configuration — `Illustrations_check.json`
 

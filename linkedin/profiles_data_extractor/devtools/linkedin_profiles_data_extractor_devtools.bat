@@ -23,8 +23,16 @@ echo.
 REM Get the directory where this batch file is located
 set SCRIPT_DIR=%~dp0
 
+REM Use the repo's own virtual environment (resolved relative to this file)
+set "VENV_PY=%SCRIPT_DIR%..\..\..\.venv\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
+)
+
 REM Run the Python script
-python "%SCRIPT_DIR%linkedin_profiles_data_extractor_devtools.py"
+"%VENV_PY%" "%SCRIPT_DIR%linkedin_profiles_data_extractor_devtools.py"
 
 echo.
 echo DevTools profile extraction completed!

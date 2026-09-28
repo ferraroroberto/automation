@@ -14,6 +14,10 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import subprocess
 
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from no_window import NO_WINDOW  # noqa: E402
+
 def setup_logging():
     """Setup logging configuration."""
     logging.basicConfig(
@@ -124,7 +128,7 @@ def extract_with_7zip(archive_path, output_dir, password=None, seven_zip_path=No
             cmd,
             capture_output=True,
             text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            creationflags=NO_WINDOW,
         )
         if result.stdout.strip():
             logger.info("%s", result.stdout.strip())

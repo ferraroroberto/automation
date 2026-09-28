@@ -11,14 +11,12 @@ REM ============================================================================
 
 echo [INFO] Starting Illustrations Check...
 
-REM Read the virtual environment path from .env file
-for /f "tokens=2 delims==" %%a in ('findstr "VENV_FOLDER" "E:\automation\automation\.env"') do set "VENV_DIR=%%a"
-if not defined VENV_DIR (
-    echo [WARNING] Could not read VENV_FOLDER from .env file. Using default path...
-    set "VENV_DIR=E:\automation\automation\.venv"
-)
+for %%I in ("%~dp0..") do set "REPO_ROOT=%%~fI"
 
-set "SCRIPT_DIR=E:\automation\automation\image"
+REM Use the repo's own virtual environment (resolved relative to this file)
+set "VENV_DIR=%REPO_ROOT%\.venv"
+
+for %%I in ("%~dp0.") do set "SCRIPT_DIR=%%~fI"
 
 echo [INFO] Using virtual environment: "%VENV_DIR%"
 cd /d "%SCRIPT_DIR%"

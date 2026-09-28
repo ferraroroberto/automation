@@ -19,7 +19,9 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # Suppress the console window each gcloud spawn would otherwise flash.
-_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
 def check_gcloud_config():
     """Check current gcloud configuration"""

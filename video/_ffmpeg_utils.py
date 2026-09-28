@@ -12,21 +12,24 @@ silently swallowed as "no duration".
 
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 
 # Suppress the console window each ffmpeg/ffprobe/nvidia-smi spawn would
 # otherwise flash when these helpers run under a console-less GUI parent.
-_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from no_window import NO_WINDOW  # noqa: E402
 
 
 def check_gpu_available() -> bool:
     """Return True if an NVIDIA GPU with NVENC support is available for ffmpeg."""
     try:
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, creationflags=_NO_WINDOW)
+        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, creationflags=NO_WINDOW)
         if result.returncode != 0:
             return False
         encoders_check = subprocess.run(
-            ["ffmpeg", "-encoders"], capture_output=True, text=True, creationflags=_NO_WINDOW
+            ["ffmpeg", "-encoders"], capture_output=True, text=True, creationflags=NO_WINDOW
         )
         return "h264_nvenc" in encoders_check.stdout
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -43,7 +46,7 @@ def get_video_duration(input_path: str) -> Optional[float]:
                 "default=noprint_wrappers=1:nokey=1", input_path
             ],
             capture_output=True, text=True, check=True, timeout=30,
-            creationflags=_NO_WINDOW,
+            creationflags=NO_WINDOW,
         )
         return float(result.stdout.strip())
     except (subprocess.CalledProcessError, FileNotFoundError, ValueError):

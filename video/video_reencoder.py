@@ -6,12 +6,11 @@ Supports both GUI and command-line interfaces. Uses GPU (NVENC) when available.
 import os
 import re
 import subprocess
-import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from _ffmpeg_utils import check_gpu_available, get_video_duration
+from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration
 
 
 def get_file_info(file_path):
@@ -76,7 +75,7 @@ def reencode_video(
             stderr=subprocess.PIPE,
             universal_newlines=True,
             bufsize=1,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            creationflags=NO_WINDOW,
         )
         for line in process.stderr:
             if progress_callback and "time=" in line:

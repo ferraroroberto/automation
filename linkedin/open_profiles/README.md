@@ -24,7 +24,7 @@ Launching the script opens the "LinkedIn Profile Opener - Filter Options" window
 
 ### Launcher
 
-`launcher.bat` reads `VENV_FOLDER` out of `E:\automation\automation\.env` (falling back to `E:\automation\automation\.venv` if that line is missing), `cd`s into `E:\automation\automation\linkedin\open_profiles`, and runs:
+`launcher.bat` resolves the repo `.venv` relative to its own location (so it works from any checkout), `cd`s into its own folder, and runs:
 
 ```
 "%VENV_DIR%\Scripts\python.exe" linkedin_open.py
