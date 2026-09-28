@@ -25,6 +25,33 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+def longest_common_substring(a: str, b: str) -> str:
+    """Longest common substring of a and b, compared case-insensitively.
+
+    The result is sliced from ``a`` (so it keeps a's casing); on ties the
+    earliest-ending match in ``a`` wins. Returns "" when nothing is shared.
+    """
+    a_lower = a.lower()
+    b_lower = b.lower()
+    len1, len2 = len(a), len(b)
+    dp = [[0] * (len2 + 1) for _ in range(len1 + 1)]
+
+    longest_len = 0
+    end_pos = 0
+
+    for i in range(1, len1 + 1):
+        for j in range(1, len2 + 1):
+            if a_lower[i-1] == b_lower[j-1]:
+                dp[i][j] = dp[i-1][j-1] + 1
+                if dp[i][j] > longest_len:
+                    longest_len = dp[i][j]
+                    end_pos = i
+            else:
+                dp[i][j] = 0
+
+    return a[end_pos - longest_len:end_pos]
+
+
 @dataclass
 class ContactPhone:
     """Represents a phone number with its type and formatted value."""
@@ -588,20 +615,7 @@ class ContactMerger:
         # Find the longest common substring among all names
         common_substring = names[0]
         for name in names[1:]:
-            temp_common = ""
-            len1, len2 = len(common_substring), len(name)
-            dp = [[0] * (len2 + 1) for _ in range(len1 + 1)]
-
-            for i in range(1, len1 + 1):
-                for j in range(1, len2 + 1):
-                    if common_substring[i-1].lower() == name[j-1].lower():
-                        dp[i][j] = dp[i-1][j-1] + 1
-                        if dp[i][j] > len(temp_common):
-                            temp_common = common_substring[i-dp[i][j]:i]
-                    else:
-                        dp[i][j] = 0
-
-            common_substring = temp_common
+            common_substring = longest_common_substring(common_substring, name)
             if not common_substring:
                 break
 
@@ -1158,27 +1172,7 @@ class InteractiveUnifier:
         elif str2_lower in str1_lower:
             return str2
 
-        # Find longest common substring using dynamic programming approach
-        len1, len2 = len(str1), len(str2)
-        dp = [[0] * (len2 + 1) for _ in range(len1 + 1)]
-
-        longest_len = 0
-        end_pos = 0
-
-        for i in range(1, len1 + 1):
-            for j in range(1, len2 + 1):
-                if str1_lower[i-1] == str2_lower[j-1]:
-                    dp[i][j] = dp[i-1][j-1] + 1
-                    if dp[i][j] > longest_len:
-                        longest_len = dp[i][j]
-                        end_pos = i
-                else:
-                    dp[i][j] = 0
-
-        if longest_len > 0:
-            return str1[end_pos - longest_len:end_pos]
-
-        return ""
+        return longest_common_substring(str1, str2)
 
     def _find_common_prefix(self, str1: str, str2: str) -> str:
         """Find the common prefix between two strings.

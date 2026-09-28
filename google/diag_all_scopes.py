@@ -16,6 +16,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+import _auth
+
 def delete_old_token():
     """Delete existing token file"""
     script_dir = Path(__file__).parent
@@ -30,32 +32,8 @@ def authenticate_with_all_scopes():
     """Authenticate with ALL possible scopes"""
     print("\n🔐 Requesting ALL scopes from your OAuth consent screen...")
     
-    # ALL scopes from your OAuth consent screen
-    SCOPES = [
-        # Photos Library API - Core scopes
-        'https://www.googleapis.com/auth/photoslibrary',
-        'https://www.googleapis.com/auth/photoslibrary.readonly',
-        'https://www.googleapis.com/auth/photoslibrary.appendonly',
-        'https://www.googleapis.com/auth/photoslibrary.sharing',
-        'https://www.googleapis.com/auth/photoslibrary.edit.appcreateddata',
-        'https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata',
-        
-        # Gmail API - All scopes you've added
-        'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/gmail.compose',
-        'https://www.googleapis.com/auth/gmail.modify',
-        'https://www.googleapis.com/auth/gmail.readonly',
-        'https://www.googleapis.com/auth/gmail.metadata',
-        'https://www.googleapis.com/auth/gmail.insert',
-        'https://www.googleapis.com/auth/gmail.labels',
-        'https://www.googleapis.com/auth/gmail.settings.basic',
-        'https://www.googleapis.com/auth/gmail.settings.sharing',
-        'https://www.googleapis.com/auth/gmail.addons.current.action.compose',
-        'https://www.googleapis.com/auth/gmail.addons.current.message.action',
-        'https://www.googleapis.com/auth/gmail.addons.current.message.metadata',
-        'https://www.googleapis.com/auth/gmail.addons.current.message.readonly',
-        'https://mail.google.com/'  # Full Gmail access
-    ]
+    # ALL scopes from your OAuth consent screen (shared with the real script)
+    SCOPES = list(_auth.PHOTOS_GMAIL_SCOPES)
     
     script_dir = Path(__file__).parent
     creds_path = script_dir / "client_secret.json"
