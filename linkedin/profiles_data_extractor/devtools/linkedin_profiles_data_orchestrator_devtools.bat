@@ -22,8 +22,10 @@ echo.
 echo Starting DevTools-based profile orchestrator...
 echo.
 
-REM Set the path to the virtual environment
-set "VENV_DIR=E:\automation\automation\.venv"
+for %%I in ("%~dp0..\..\..") do set "REPO_ROOT=%%~fI"
+
+REM Use the repo's own virtual environment (resolved relative to this file)
+set "VENV_DIR=%REPO_ROOT%\.venv"
 
 REM Get the directory where this batch file is located
 set "SCRIPT_DIR=%~dp0"

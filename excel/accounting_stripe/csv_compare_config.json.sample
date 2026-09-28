@@ -1,5 +1,5 @@
 {
-  "default_directory": "E:\\onedrive\\Documentos\\Roberto\\areas\\finance\\stripe",
+  "default_directory": "C:\\path\\to\\stripe-exports",
   "file_new": "unified_payments_all.csv",
   "file_old": "unified_payments_all_old.csv",
   "columns_to_keep": [

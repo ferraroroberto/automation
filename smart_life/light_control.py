@@ -12,6 +12,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import tinytuya
 
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from no_window import NO_WINDOW  # noqa: E402
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVICES_FILE = SCRIPT_DIR / "devices.json"
 SNAPSHOT_FILE = SCRIPT_DIR / "snapshot.json"
@@ -276,7 +280,7 @@ def scan_network() -> None:
     subprocess.run(
         [sys.executable, "-m", "tinytuya", "scan"],
         check=False,
-        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        creationflags=NO_WINDOW,
     )
 
 
@@ -319,7 +323,7 @@ def update_devices(devices_path: Path, snapshot_path: Path) -> None:
             ],
             cwd=str(devices_path.parent),
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            creationflags=NO_WINDOW,
         )
     finally:
         Path(tmp_path).unlink(missing_ok=True)

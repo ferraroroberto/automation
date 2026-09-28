@@ -11,11 +11,13 @@ REM ============================================================================
 
 echo [INFO] Starting Notion editorial date sync...
 
-REM Set the path to the virtual environment
-set "VENV_DIR=E:\automation\automation\.venv"
+for %%I in ("%~dp0..") do set "REPO_ROOT=%%~fI"
+
+REM Use the repo's own virtual environment (resolved relative to this file)
+set "VENV_DIR=%REPO_ROOT%\.venv"
 
-REM Set the path to the notion scripts
-set "SCRIPT_DIR=E:\automation\automation\notion"
+REM Resolve the script directory from this file (works from any checkout)
+for %%I in ("%~dp0.") do set "SCRIPT_DIR=%%~fI"
 
 set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
 if not exist "%VENV_PY%" (

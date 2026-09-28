@@ -5,8 +5,8 @@
     "serpapi_key": "${SERPAPI_KEY}"
   },
   "folders": {
-    "images_folder": "C:\\Users\\rober\\iCloudDrive\\6LVTQB9699~com~seriflabs~affinitydesigner\\Roberto\\check IP\\roberto_images",
-    "metadata_folder": "C:\\Users\\rober\\iCloudDrive\\6LVTQB9699~com~seriflabs~affinitydesigner\\Roberto\\check IP\\roberto_metadata"
+    "images_folder": "C:\\path\\to\\check IP\\images",
+    "metadata_folder": "C:\\path\\to\\check IP\\metadata"
   },
   "file_names": {
     "metadata_file": "metadata.xlsx",

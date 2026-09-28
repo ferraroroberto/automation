@@ -11,6 +11,7 @@ from a test or a REPL) without PySimpleGUI (audit issue #92).
 import os
 import subprocess
 import sys
+from pathlib import Path
 import webbrowser
 from dataclasses import dataclass
 from io import StringIO
@@ -18,7 +19,9 @@ from typing import Any, Callable, Dict
 
 import pyperclip
 
-NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from no_window import NO_WINDOW  # noqa: E402
 
 
 @dataclass

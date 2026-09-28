@@ -8,14 +8,13 @@ import logging
 import os
 import re
 import subprocess
-import sys
 import tempfile
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import List, Optional
 
-from _ffmpeg_utils import get_video_duration
+from _ffmpeg_utils import NO_WINDOW, get_video_duration
 
 log = logging.getLogger(__name__)
 
@@ -93,7 +92,7 @@ class VideoConcatenator:
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
                 bufsize=1,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                creationflags=NO_WINDOW,
             )
             time_pat = re.compile(r"time=(\d+):(\d+):(\d+)\.(\d+)")
             for line in process.stderr:
@@ -175,7 +174,7 @@ class VideoConcatenator:
                 cmd,
                 capture_output=True,
                 text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                creationflags=NO_WINDOW,
             )
             if result.returncode == 0:
                 if progress_callback:

@@ -10,11 +10,13 @@ REM ============================================================================
 
 echo [INFO] Starting Notion Articles Sync process...
 
-REM Set the path to the virtual environment
-set "VENV_DIR=E:\automation\automation\.venv"
+for %%I in ("%~dp0..\..") do set "REPO_ROOT=%%~fI"
+
+REM Use the repo's own virtual environment (resolved relative to this file)
+set "VENV_DIR=%REPO_ROOT%\.venv"
 
 REM Set the path to the notion articles sync scripts
-set "SCRIPT_DIR=E:\automation\automation\notion\articles_sync"
+for %%I in ("%~dp0.") do set "SCRIPT_DIR=%%~fI"
 
 set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
 if not exist "%VENV_PY%" (

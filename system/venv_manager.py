@@ -3,13 +3,16 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 import ctypes
 import platform
 
 log = logging.getLogger(__name__)
 
 # Suppress the console window each pip spawn would otherwise flash.
-_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
 def is_in_virtualenv():
     """Check if currently running in a virtual environment."""

@@ -32,6 +32,10 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from _lib.single_instance import acquire_named_mutex
 
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from no_window import NO_WINDOW  # noqa: E402
+
 from foldersearcher_core import (
     FolderIndex,
     FolderSearcherConfig,
@@ -498,7 +502,7 @@ class FolderSearcher:
                 subprocess.run(
                     ['explorer', full_path],
                     check=True,
-                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                    creationflags=NO_WINDOW,
                 )
                 logger.info("Opened folder using subprocess: %s", full_path)
             except (OSError, subprocess.SubprocessError) as exc2:

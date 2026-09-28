@@ -1,0 +1,9 @@
+{
+    "source_folder": "C:/path/to/illustrations/archived/",
+    "destination_folder": "C:/path/to/illustrations/archived_IGformat",
+    "destination_folder_instagram": "C:/path/to/illustrations/archived_IGformat",
+    "destination_folder_1920x1080": "C:/path/to/illustrations/archived_1920x1080",
+    "aspect_ratio": "4:5",
+    "background_color": "#F2F2F2",
+    "format_type": "instagram"
+}

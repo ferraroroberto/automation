@@ -61,8 +61,8 @@ helpers here are reached - put `system/` on `sys.path` and import::
 
 from __future__ import annotations
 
-import subprocess
 import sys
+from pathlib import Path
 from typing import Tuple
 
 # Ordered decode candidates - see the module docstring for why each is here.
@@ -73,7 +73,9 @@ CONSOLE_ENCODINGS: Tuple[str, ...] = (
 
 # Suppress the console window each spawn would otherwise flash on a parent
 # that has no console of its own (pythonw, a tray app, a scheduled task).
-NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+# Re-exported from the repo-root helper so the two never drift.
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from no_window import NO_WINDOW  # noqa: E402
 
 
 def decode_console_bytes(raw: bytes) -> Tuple[str, str]:

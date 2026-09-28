@@ -1,7 +1,7 @@
 {
     "_comment": "Photo Archive Configuration - Follows AGENTS.md guidelines for JSON config",
-    "source_folder": "E:/fotos/temporal",
-    "destination_folder": "E:/fotos/archivo",
+    "source_folder": "C:/path/to/photos/inbox",
+    "destination_folder": "C:/path/to/photos/archive",
     "log_folder": null,
     "file_extensions": {
         "image": [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif"],

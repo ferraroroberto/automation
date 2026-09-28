@@ -5,6 +5,7 @@ Combines: YouTube (yt-dlp), HLS/M3U8 (ffmpeg), and Direct URL (HTTP with resume)
 
 import os
 import re
+import sys
 import threading
 import time
 import tkinter as tk
@@ -13,6 +14,10 @@ from urllib.parse import urlparse, parse_qs
 
 import requests
 import yt_dlp
+
+# Repo-root shared helper (scripts run from their own folder, so add the root).
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from no_window import NO_WINDOW  # noqa: E402
 
 
 # -----------------------------------------------------------------------------
@@ -89,7 +94,6 @@ def download_youtube(url, output_path, start_time=0, status_callback=None, progr
 
 def download_hls(m3u8_url, output_path, filename, headers=None, status_callback=None, progress_callback=None):
     import subprocess
-    import sys
     output_file = os.path.join(output_path, filename)
     command = ["ffmpeg", "-y"]
     if headers:
@@ -103,7 +107,7 @@ def download_hls(m3u8_url, output_path, filename, headers=None, status_callback=
         subprocess.run(
             command,
             check=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            creationflags=NO_WINDOW,
         )
         if progress_callback:
             progress_callback(100)

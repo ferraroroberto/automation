@@ -8,13 +8,12 @@ import logging
 import os
 import re
 import subprocess
-import sys
 import tempfile
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from _ffmpeg_utils import check_gpu_available, get_video_duration
+from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration
 
 log = logging.getLogger(__name__)
 
@@ -132,7 +131,7 @@ def trim_video(input_path, start_sec, end_sec, progress_callback=None, status_ca
             stderr=subprocess.PIPE,
             universal_newlines=True,
             bufsize=1,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            creationflags=NO_WINDOW,
         )
         for line in process.stderr:
             if "time=" in line:
@@ -234,7 +233,7 @@ def cut_middle_video(
             check=True,
             capture_output=True,
             timeout=300,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            creationflags=NO_WINDOW,
         )
         return output_file
     finally:
