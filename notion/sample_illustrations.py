@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import requests
 from dotenv import load_dotenv
 
 import utils as notion_utils
@@ -60,23 +59,6 @@ def resolve_token(config: Dict[str, Any]) -> str:
     if not token:
         raise ValueError("NOTION_API_TOKEN not available (env var or config)")
     return token
-
-
-def query_database(db_id: str, headers: Dict[str, str]) -> List[Dict[str, Any]]:
-    """Fetch all pages from a Notion database, handling pagination."""
-    url = f"https://api.notion.com/v1/databases/{db_id}/query"
-    pages: List[Dict[str, Any]] = []
-    body: Dict[str, Any] = {"page_size": 100}
-    while True:
-        r = requests.post(url, headers=headers, json=body)
-        r.raise_for_status()
-        data = r.json()
-        pages.extend(data.get("results", []))
-        if not data.get("has_more"):
-            break
-        body["start_cursor"] = data["next_cursor"]
-    logging.info(f"Fetched {len(pages)} pages from db {db_id[:8]}…")
-    return pages
 
 
 # Thin aliases onto the shared notion/utils.py extractors (dedup: issue #64).
@@ -177,9 +159,9 @@ def main() -> int:
         return 1
 
     logging.info("Querying Notion…")
-    concepts = build_concepts_map(query_database(config["concepts_db_id"], headers))
-    visual_types = build_visual_types_map(query_database(config["visual_types_db_id"], headers))
-    illustrations = build_illustrations_map(query_database(config["illustrations_db_id"], headers))
+    concepts = build_concepts_map(notion_utils.paginated_database_query(headers, config["concepts_db_id"], {"page_size": 100}))
+    visual_types = build_visual_types_map(notion_utils.paginated_database_query(headers, config["visual_types_db_id"], {"page_size": 100}))
+    illustrations = build_illustrations_map(notion_utils.paginated_database_query(headers, config["illustrations_db_id"], {"page_size": 100}))
 
     rows: List[Dict[str, Any]] = []
     skipped_no_illustrations = 0

@@ -19,6 +19,34 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 logger = logging.getLogger(__name__)
 
+# Photos + Gmail OAuth scopes requested by weekly_photo_automation.py and
+# checked by diag_all_scopes.py (audit issue #142: single source of truth).
+PHOTOS_GMAIL_SCOPES: List[str] = [
+    # Photos Library API - Core scopes
+    'https://www.googleapis.com/auth/photoslibrary',
+    'https://www.googleapis.com/auth/photoslibrary.readonly',
+    'https://www.googleapis.com/auth/photoslibrary.appendonly',
+    'https://www.googleapis.com/auth/photoslibrary.sharing',
+    'https://www.googleapis.com/auth/photoslibrary.edit.appcreateddata',
+    'https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata',
+
+    # Gmail API - All scopes you've added
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/gmail.compose',
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.metadata',
+    'https://www.googleapis.com/auth/gmail.insert',
+    'https://www.googleapis.com/auth/gmail.labels',
+    'https://www.googleapis.com/auth/gmail.settings.basic',
+    'https://www.googleapis.com/auth/gmail.settings.sharing',
+    'https://www.googleapis.com/auth/gmail.addons.current.action.compose',
+    'https://www.googleapis.com/auth/gmail.addons.current.message.action',
+    'https://www.googleapis.com/auth/gmail.addons.current.message.metadata',
+    'https://www.googleapis.com/auth/gmail.addons.current.message.readonly',
+    'https://mail.google.com/'  # Full Gmail access
+]
+
 
 def load_config(config_path: str, script_dir: Path) -> Dict[str, Any]:
     """Load configuration from a JSON file, resolving a relative path against script_dir."""

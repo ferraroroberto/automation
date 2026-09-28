@@ -9,6 +9,14 @@ from _logging_setup import setup_logging
 
 logger = setup_logging(__name__)
 
+# Column schema of the history workbook, shared by every reader/writer below.
+HISTORY_COLUMNS = [
+    'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
+    'url_profile', 'job_title', 'follows_from', 'company', 'location',
+    'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
+    'date_discarded'
+]
+
 def load_config():
     """Load configuration from the JSON file in the same directory."""
     config_path = Path(__file__).parent / "linkedin_profiles_data.json"
@@ -32,20 +40,14 @@ def get_history_file_path():
 
 def migrate_history_columns(history_df):
     """Migrate existing history file to new column structure."""
-    expected_columns = [
-        'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
-        'url_profile', 'job_title', 'follows_from', 'company', 'location',
-        'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
-        'date_discarded'
-    ]
 
     # Add missing columns with None values
-    for col in expected_columns:
+    for col in HISTORY_COLUMNS:
         if col not in history_df.columns:
             history_df[col] = None
 
     # Reorder columns to match expected order
-    history_df = history_df[expected_columns]
+    history_df = history_df[HISTORY_COLUMNS]
 
     return history_df
 
@@ -60,12 +62,7 @@ def ensure_history_file_exists():
         try:
             # Create a new DataFrame with all base columns plus history columns
             # History columns come first: timestamp, action, then all base columns
-            df = pd.DataFrame(columns=[
-                'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
-                'url_profile', 'job_title', 'follows_from', 'company', 'location',
-                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
-                'date_discarded'
-            ])
+            df = pd.DataFrame(columns=HISTORY_COLUMNS)
 
             # Save empty dataframe
             with pd.ExcelWriter(history_path, engine='openpyxl') as writer:
@@ -81,22 +78,16 @@ def ensure_history_file_exists():
             history_df = pd.read_excel(history_path, engine='openpyxl')
             original_columns = list(history_df.columns)
 
-            expected_columns = [
-                'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
-                'url_profile', 'job_title', 'follows_from', 'company', 'location',
-                'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
-                'date_discarded'
-            ]
 
             # Check if migration is needed
-            if set(history_df.columns) != set(expected_columns):
+            if set(history_df.columns) != set(HISTORY_COLUMNS):
                 logger.info("Migrating history file to new column structure")
                 history_df = migrate_history_columns(history_df)
 
                 # Save migrated dataframe
                 with pd.ExcelWriter(history_path, engine='openpyxl') as writer:
                     history_df.to_excel(writer, sheet_name='History', index=False)
-                logger.info(f"Migrated history file columns from {original_columns} to {expected_columns}")
+                logger.info(f"Migrated history file columns from {original_columns} to {HISTORY_COLUMNS}")
 
         except Exception as e:
             logger.error(f"Failed to migrate existing history file: {e}")
@@ -126,21 +117,14 @@ def log_history(record_data, action="update", original_data=None):
         # Load existing history
         history_df = pd.read_excel(history_path, engine='openpyxl')
 
-        # Define all expected columns
-        expected_columns = [
-            'timestamp', 'action', 'date_contacted', 'search_type', 'url_search', 'name',
-            'url_profile', 'job_title', 'follows_from', 'company', 'location',
-            'reach_out_type', 'url_chat', 'date_connected', 'ind_answered', 'date_revocation',
-            'date_discarded'
-        ]
 
         # Ensure history_df has all expected columns
-        for col in expected_columns:
+        for col in HISTORY_COLUMNS:
             if col not in history_df.columns:
                 history_df[col] = None
 
         # Reorder columns to match expected order
-        history_df = history_df[expected_columns]
+        history_df = history_df[HISTORY_COLUMNS]
 
         # Check if this is the first time logging this record
         record_name = record_data.get('name')
@@ -166,7 +150,7 @@ def log_history(record_data, action="update", original_data=None):
             initial_row['action'] = 'initial'
 
             # Ensure all expected columns are present in initial_row (fill missing with None)
-            for col in expected_columns:
+            for col in HISTORY_COLUMNS:
                 if col not in initial_row:
                     initial_row[col] = None
 
@@ -179,7 +163,7 @@ def log_history(record_data, action="update", original_data=None):
         change_row['action'] = action
 
         # Ensure all expected columns are present in change_row (fill missing with None)
-        for col in expected_columns:
+        for col in HISTORY_COLUMNS:
             if col not in change_row:
                 change_row[col] = None
 
@@ -188,12 +172,12 @@ def log_history(record_data, action="update", original_data=None):
         # Create DataFrames for all rows to add
         if rows_to_add:
             # Create new_rows_df ensuring it has the same structure as history_df
-            new_rows_df = pd.DataFrame(rows_to_add, columns=expected_columns)
+            new_rows_df = pd.DataFrame(rows_to_add, columns=HISTORY_COLUMNS)
 
             # To avoid FutureWarning about empty/all-NA columns and ensure consistent dtypes,
             # we always convert all columns to object dtype before concatenation.
             # This ensures consistent behavior whether history_df is empty or not.
-            for col in expected_columns:
+            for col in HISTORY_COLUMNS:
                 if col in history_df.columns:
                     history_df[col] = history_df[col].astype('object')
                 if col in new_rows_df.columns:
