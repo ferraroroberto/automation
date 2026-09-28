@@ -1,0 +1,7 @@
+{
+    "metadata_subscribers": "C:\\path\\to\\subscribers.xlsx",
+    "metadata_archive_folder": "C:\\path\\to\\the archive",
+    "metadata_illustrations": "C:\\path\\to\\database-dump-illustrations_clean.xlsx",
+    "metadata_source_folder": "C:\\path\\to\\illustrations\\archived",
+    "log_level": "INFO"
+}

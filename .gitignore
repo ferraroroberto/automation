@@ -54,3 +54,14 @@ certificates/
 
 # PyInstaller build output (reproducible from source + build_minimal.bat)
 image/pdf_to_jpg/dist/
+
+# machine-local configs holding absolute personal paths (tracked as .json.sample templates)
+image/illustrations_formatter_config.json
+image/Illustrations_check.json
+image/illustrations_subscribers.json
+image/photos_archive.json
+excel/accounting_stripe/csv_compare_config.json
+linkedin/check_ip/linkedin_search_image.json
+linkedin/profiles_data_extractor/common/linkedin_profiles_data.json
+notion/journal_automation.json
+system/foldersearcher/foldersearcher.json

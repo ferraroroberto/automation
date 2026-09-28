@@ -10,7 +10,7 @@
     "date_property": "Date"
   },
   "output": {
-    "directory": "E://automation//notion-automation-files//journal-output//",
+    "directory": "C://path//to//journal-output//",
     "format": "single_file",
     "filename_pattern": "{start_date} to {end_date}-journal-consolidated.txt"
   },

@@ -251,11 +251,11 @@ Details: [`notion/build_newsletter.md`](notion/build_newsletter.md).
 ## ⚙️ Configuration
 
 ### **Environment Variables**
-[`.env.sample`](.env.sample) is the single authoritative list of keys — copy it to `.env` and fill in the values. Covers the Notion, Imgur, SerpAPI and Tuya API credentials, `VENV_FOLDER` (read by the `.bat` launchers), and the machine-local folder paths (no hardcoded defaults, must be set per machine).
+[`.env.sample`](.env.sample) is the single authoritative list of keys — copy it to `.env` and fill in the values. Covers the Notion, Imgur, SerpAPI and Tuya API credentials and the machine-local folder paths (no hardcoded defaults, must be set per machine).
 
 ### **JSON Configuration Files**
-Most modules use JSON configuration files for flexible settings:
-- `illustrations_formatter_config.json` - Illustration formatting options
+Most modules use JSON configuration files for flexible settings. A config that holds machine-local paths is gitignored and tracked only as a `<name>.json.sample` template — copy the `.sample` next to it (dropping the `.sample` suffix) and edit the paths for your machine:
+- `illustrations_formatter_config.json` - Illustration formatting options (local; template `illustrations_formatter_config.json.sample`)
 - `build_newsletter.json` - Newsletter configuration
 - `cleaning_patterns.json` - Text cleaning patterns
 

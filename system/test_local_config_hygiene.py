@@ -28,7 +28,9 @@ from typing import List, Set
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+# Repo-root shared helper.
+sys.path.append(str(REPO_ROOT))
+from no_window import NO_WINDOW  # noqa: E402
 
 # Paths that must never appear in `git ls-files`. Each is a machine-local file
 # whose tracked counterpart is a .sample/.example template.
@@ -39,6 +41,15 @@ MUST_NOT_BE_TRACKED: List[str] = [
     "system/textexpander/text_expander_config.json",
     "system/wifi/wifi_connect.xml",
     "system/wifi/wifi_export.json",
+    "image/illustrations_formatter_config.json",
+    "image/Illustrations_check.json",
+    "image/illustrations_subscribers.json",
+    "image/photos_archive.json",
+    "excel/accounting_stripe/csv_compare_config.json",
+    "linkedin/check_ip/linkedin_search_image.json",
+    "linkedin/profiles_data_extractor/common/linkedin_profiles_data.json",
+    "notion/journal_automation.json",
+    "system/foldersearcher/foldersearcher.json",
 ]
 
 
