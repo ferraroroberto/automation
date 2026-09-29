@@ -559,13 +559,17 @@ def get_device_type(mac_address: str, ip_address: str) -> str:
         return "Unknown"
 
     mac_lower = mac_address.lower()
+    manufacturer = get_manufacturer(mac_address).lower()
 
-    # Router/AP indicators
-    if any(pattern in mac_lower for pattern in ["netgear", "tp-link", "cisco", "asus"]):
+    # Router/AP indicators — matched against the resolved vendor name (from
+    # MAC_OUI_DATABASE via get_manufacturer), not the raw MAC hex, which can
+    # never contain these vendor substrings.
+    if any(vendor in manufacturer for vendor in ["netgear", "tp-link", "cisco", "asus"]):
         return "Router/AP"
 
-    # Apple devices
-    if mac_lower.startswith(("28:cd:c1", "8c:85:90", "ac:bc:32", "f0:18:98")):
+    # Apple devices — same vendor-name lookup, so this tracks MAC_OUI_DATABASE
+    # instead of a second, separately-maintained prefix list.
+    if "apple" in manufacturer:
         return "Apple Device"
 
     # Gaming consoles
