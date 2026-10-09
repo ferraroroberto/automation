@@ -89,6 +89,59 @@ class ArgsTests(unittest.TestCase):
         self.assertEqual((args.start, args.end, args.dry_run), (date(2026, 10, 3), date(2026, 10, 9), True))
 
 
+class _FakeCheckbox:
+    """A checkbox that, like a day header's, has no size until the pointer is over its row."""
+
+    def __init__(self, shown):
+        self.shown, self.checked, self.events = shown, False, []
+
+    def is_visible(self):
+        return self.shown
+
+    def hover(self):
+        self.events.append("hover")
+        self.shown = True
+
+    def click(self):
+        if not self.shown:
+            raise TimeoutError("element is not visible")
+        self.events.append("click")
+        self.checked = not self.checked
+
+    def wait_for(self, timeout):
+        if not self.checked:
+            raise TimeoutError("still unchecked")
+
+
+class _FakePage:
+    def __init__(self, box):
+        self.box = box
+
+    def locator(self, selector):
+        return self
+
+    @property
+    def first(self):
+        return self.box
+
+
+class ClickCheckedTests(unittest.TestCase):
+    def _click(self, box):
+        web = pwa.PhotosWeb(Path("unused"))
+        web.page = _FakePage(box)
+        web._click_checked("[data-pwa-head=k]", "[data-pwa-head=k] >> xpath=..", True, "day")
+
+    def test_hidden_checkbox_is_revealed_by_hovering_before_the_click(self):
+        box = _FakeCheckbox(shown=False)
+        self._click(box)
+        self.assertEqual(box.events, ["hover", "click"])
+
+    def test_shown_checkbox_is_clicked_without_hovering_what_it_covers(self):
+        box = _FakeCheckbox(shown=True)
+        self._click(box)
+        self.assertEqual(box.events, ["click"])
+
+
 class _FakeContext:
     def __init__(self):
         self.scripts = []
