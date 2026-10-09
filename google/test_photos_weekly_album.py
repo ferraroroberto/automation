@@ -5,9 +5,11 @@ import tempfile
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from unittest import mock
 
 import browser_stealth as bs
 from google import photos_weekly_album as pwa
+from google import photos_weekly_album_job as job
 
 SAMPLE = Path(pwa.__file__).with_name("photos_weekly_album.json.sample")
 
@@ -330,6 +332,215 @@ class LaunchPersistentTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Executable"):
             bs.launch_persistent(pw, "prof", headless=True, delays=(1,), sleep=waits.append)
         self.assertEqual(waits, [])
+
+
+class _PlaywrightTimeout(Exception):
+    """Stands in for playwright's TimeoutError, which is recognised by its name and module."""
+
+_PlaywrightTimeout.__name__ = "TimeoutError"
+_PlaywrightTimeout.__module__ = "playwright._impl._errors"
+
+
+class FailureKindTests(unittest.TestCase):
+    def test_hidden_window_and_playwright_timeouts_are_told_apart(self):
+        self.assertEqual(pwa.failure_kind(pwa.WindowHidden("minimised")), "window-hidden")
+        self.assertEqual(pwa.failure_kind(_PlaywrightTimeout("waiting for locator")), "page-timeout")
+
+    def test_everything_else_is_a_plain_error(self):
+        for exc in (pwa.FlowError("x"), RuntimeError("y"), TimeoutError("builtin, not playwright")):
+            with self.subTest(exc=exc):
+                self.assertEqual(pwa.failure_kind(exc), "error")
+
+
+class _FakeWeb:
+    """A PhotosWeb whose steps are scripted: ``steps`` maps a method name to a value or an exception."""
+
+    steps: dict = {}
+
+    def __init__(self, profile_dir):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        pass
+
+    def _step(self, name):
+        value = self.steps.get(name)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    def require_signed_in(self):
+        self._step("require_signed_in")
+
+    def find_album(self, title):
+        return self._step("find_album")
+
+
+def _config(tmp: Path, **email) -> Path:
+    raw = json.loads(SAMPLE.read_text(encoding="utf-8"))
+    raw.update(profile_dir=str(tmp / "profile"), log_file=str(tmp / "run.log"))
+    if email:
+        raw["email"].update(email)
+    else:
+        del raw["email"]
+    path = tmp / "config.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    return path
+
+
+class RunRecordTests(unittest.TestCase):
+    WEEK = (date(2026, 10, 3), date(2026, 10, 9))
+
+    def _run(self, steps, **email):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = pwa.Config.load(_config(Path(tmp), **email))
+            record: dict = {}
+            _FakeWeb.steps = steps
+            with mock.patch.object(pwa, "PhotosWeb", _FakeWeb), self.assertLogs("photos_weekly_album"):
+                code = pwa.run(cfg, *self.WEEK, "T", False, record=record)
+            logged = json.loads(cfg.log_file.read_text(encoding="utf-8").splitlines()[-1])
+        return code, record, logged
+
+    def test_album_already_there_is_exit_0_and_records_the_url(self):
+        code, record, logged = self._run({"find_album": ("https://photos.google.com/album/X", 12)})
+        self.assertEqual((code, record["outcome"], record["url"]), (0, "exists", "https://photos.google.com/album/X"))
+        self.assertNotIn("failure", record)
+        self.assertEqual(logged["outcome"], "exists")
+
+    def test_each_failure_has_its_own_exit_code_and_kind(self):
+        cases = {
+            "not-signed-in": (pwa.NotSignedIn("signed out"), 3),
+            "window-hidden": (pwa.WindowHidden("minimised"), 4),
+            "page-timeout": (_PlaywrightTimeout("locator timed out"), 5),
+            "error": (RuntimeError("boom"), 1),
+        }
+        for kind, (exc, expected) in cases.items():
+            with self.subTest(kind):
+                code, record, logged = self._run({"find_album": exc})
+                self.assertEqual((code, record["failure"], logged["failure"]), (expected, kind, kind))
+
+
+class _Notifier:
+    sent: list = []
+
+    def __init__(self, env):
+        self.env = env
+
+    def send(self, text):
+        self.sent.append((self.env["NOTIFY_CATEGORY"], text))
+        return True
+
+
+ENV = {"NOTIFY_PYTHON": "py", "NOTIFY_SCRIPT": "notify.py"}
+RECORD = {"title": "Week 101", "week_start": date(2026, 10, 3), "week_end": date(2026, 10, 9),
+          "url": "https://photos.google.com/album/X", "share_url": "https://photos.app.goo.gl/abc"}
+
+
+class DescribeTests(unittest.TestCase):
+    def test_created_album_reports_link_and_draft_status(self):
+        for mail, draft in ((None, "not shared"), ("drafted", "saved, not sent"), ("sent", "Draft: sent")):
+            with self.subTest(mail=mail):
+                out = job.describe(0, {**RECORD, "outcome": "created", "mail": mail})
+                self.assertEqual((out.kind, out.exit_code), ("done", 0))
+                self.assertIn("https://photos.app.goo.gl/abc", out.text)
+                self.assertIn(draft, out.text)
+
+    def test_album_already_there_is_a_no_op_unless_it_made_progress(self):
+        for mail in (None, "draft-exists", "already-sent"):
+            self.assertEqual(job.describe(0, {**RECORD, "outcome": "exists", "mail": mail}).kind, "no-op")
+        self.assertEqual(job.describe(0, {**RECORD, "outcome": "exists", "mail": "drafted"}).kind, "done")
+
+    def test_empty_week_is_its_own_outcome(self):
+        out = job.describe(0, {**RECORD, "outcome": "empty"})
+        self.assertEqual((out.kind, out.exit_code), ("empty", 0))
+        self.assertIn("nothing to add", out.text)
+
+    def test_every_failure_reads_differently_and_says_what_to_do(self):
+        texts = {}
+        for kind in ("not-signed-in", "desktop-locked", "window-hidden", "page-timeout"):
+            out = job.describe(job.EXIT[kind], {"title": "T", "failure": kind})
+            self.assertTrue(out.failed)
+            self.assertEqual(out.kind, kind)
+            texts[kind] = out.text
+        self.assertEqual(len(set(texts.values())), 4)
+        self.assertIn("--login", texts["not-signed-in"])
+        self.assertIn("Unlock", texts["desktop-locked"])
+
+    def test_count_mismatch_and_plain_errors(self):
+        self.assertEqual(job.describe(1, {"title": "T", "outcome": "count-mismatch", "url": "U"}).kind, "count-mismatch")
+        out = job.describe(1, {"title": "T", "outcome": "error", "failure": "error", "error": "x" * 500})
+        self.assertEqual((out.kind, out.exit_code), ("error", 1))
+        self.assertLess(len(out.text), 300)
+
+    def test_a_broken_share_step_still_points_at_the_album(self):
+        out = job.describe(1, {**RECORD, "outcome": "created", "mail": "error", "failure": "error", "error": "boom"})
+        self.assertIn("album is made", out.text)
+        self.assertIn(RECORD["url"], out.text)
+
+
+class ExecuteTests(unittest.TestCase):
+    TODAY = date(2026, 10, 10)
+
+    def _execute(self, locked=False, run_code=0, run_record=None, **email):
+        calls = []
+
+        def fake_run(cfg, start, end, title, dry_run, send=False, record=None):
+            calls.append({"dates": (start, end), "dry_run": dry_run, "send": send})
+            record.update(run_record or {"outcome": "created", "url": "U", "mail": None})
+            return run_code
+
+        _Notifier.sent = []
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(job, "FleetNotifier", _Notifier), \
+                self.assertLogs("photos_weekly_album_job"):
+            path = _config(Path(tmp), **email)
+            code = job.execute(path, self.TODAY, ENV, locked=lambda: locked, run=fake_run)
+            log = Path(tmp, "run.log")
+            lines = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+        return code, calls, list(_Notifier.sent), lines
+
+    def test_saturday_run_takes_the_week_that_just_ended_and_never_asks_to_send(self):
+        code, calls, sent, _ = self._execute()
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [{"dates": (date(2026, 10, 3), date(2026, 10, 9)), "dry_run": False, "send": False}])
+        self.assertEqual([category for category, _ in sent], ["log"])
+
+    def test_sending_follows_the_config_alone(self):
+        _, calls, _, _ = self._execute(send=False, to=["a@example.com"])
+        self.assertFalse(calls[0]["send"])
+        _, calls, _, _ = self._execute(send=True, to=["a@example.com"])
+        self.assertTrue(calls[0]["send"])
+
+    def test_locked_desktop_starts_nothing_and_alerts(self):
+        code, calls, sent, lines = self._execute(locked=True)
+        self.assertEqual((code, calls), (4, []))
+        self.assertEqual(sent[0][0], "attention")
+        self.assertIn("locked", sent[0][1])
+        self.assertEqual(json.loads(lines[-1])["failure"], "desktop-locked")
+
+    def test_a_failed_run_goes_to_the_attention_chat_with_its_exit_code(self):
+        code, _, sent, _ = self._execute(run_code=4, run_record={"outcome": "error", "failure": "window-hidden"})
+        self.assertEqual((code, sent[0][0]), (4, "attention"))
+        self.assertIn("minimised", sent[0][1])
+
+    def test_a_bad_config_is_notified_not_silent(self):
+        _Notifier.sent = []
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(job, "FleetNotifier", _Notifier), \
+                self.assertLogs("photos_weekly_album_job", "ERROR"):
+            code = job.execute(Path(tmp) / "missing.json", self.TODAY, ENV)
+        self.assertEqual((code, _Notifier.sent[0][0]), (2, "attention"))
+
+    def test_the_desktop_check_runs_without_error(self):
+        self.assertIn(job.desktop_locked(), (True, False, None))
+
+    def test_the_notifier_gets_the_category_for_the_outcome(self):
+        with mock.patch.object(job, "FleetNotifier", _Notifier):
+            _Notifier.sent = []
+            job.notify(ENV, job.Outcome("done", "ok", 0))
+            job.notify(ENV, job.Outcome("error", "bad", 1))
+        self.assertEqual([c for c, _ in _Notifier.sent], ["log", "attention"])
 
 
 if __name__ == "__main__":
