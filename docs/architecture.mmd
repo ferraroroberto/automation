@@ -14,6 +14,7 @@ flowchart TB
   VENVMGR["system/venv_manager.py\ncreates/monitors the shared .venv"]
   REQ --> VENVMGR
   NOWIN["no_window.py\nrepo-root shared NO_WINDOW creationflags constant —\nevery subprocess spawn in the domain folders imports it"]
+  STEALTH["browser_stealth.py\nrepo-root shared human-looking Chrome launch for Playwright\n(stealth kwargs + init script + busy-profile backoff)"]
 
   subgraph domains["Domain folders — mostly independent scripts, each usually paired\nwith a .bat launcher, a per-script .md doc, and/or a JSON config"]
     AUDIO["audio/\naudio_extractor_core/gui · audio_normalize · audio_trim ·\nconvert_ogg_mp3 · transcript_collate"]
@@ -34,6 +35,7 @@ flowchart TB
     GAUTH["_auth.py\nshared OAuth token/config loader"]
     GMAIL["gmail_drive_automation.py"]
     GPHOTOS["weekly_photo_automation.py"]
+    GALBUM["photos_weekly_album.py\nweekly album via the Photos web UI (Playwright)"]
     GDIAG["setup_helper_script.py · diag_all_scopes.py · diag_gmail_drive.py"]
   end
   GAUTH --> GMAIL
@@ -41,6 +43,8 @@ flowchart TB
   ENV --> GAUTH
   GMAIL --> GAPIS["Gmail / Drive APIs"]
   GPHOTOS --> GAPIS
+  STEALTH --> GALBUM
+  GALBUM --> GPWEB["Google Photos web UI"]
 
   subgraph notionbox["notion/"]
     NUTILS["utils.py\nshared Notion client + legacy notion-params helper"]

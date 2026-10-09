@@ -159,6 +159,7 @@ Full per-script reference: [`text/README.md`](text/README.md).
 
 **Gmail, Drive & Photos**
 - **`gmail_drive_automation.py`** - Gmail and Google Drive automation — see [`google/gmail_drive_automation.md`](google/gmail_drive_automation.md)
+- **`photos_weekly_album.py`** - Builds the weekly Google Photos album through the web UI (Playwright, real Chrome) — see [`google/photos_weekly_album.md`](google/photos_weekly_album.md)
 - **`weekly_photo_automation.py`** - Weekly photo automation (e.g. Google Photos) — see [`google/weekly_photo_automation.md`](google/weekly_photo_automation.md)
 - **`setup_helper_script.py`** / **`diag_all_scopes.py`** / **`diag_gmail_drive.py`** - First-time config wizard and OAuth-scope / offline diagnostic helpers — see [`google/README.md`](google/README.md)
 

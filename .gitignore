@@ -12,6 +12,7 @@ parking/logs/
 google/config.json
 google/config_gmail_drive.json
 google/config_weekly_photo.json
+google/photos_weekly_album.json
 google/client_secret.json
 google/token*.json
 system/wifi/wifi_connect.xml
