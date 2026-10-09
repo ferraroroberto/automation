@@ -307,11 +307,18 @@ class PhotosWeb:
 
     # -- selection ----------------------------------------------------------------------------
 
-    def _click_checked(self, selector: str, want: bool, what: str) -> None:
-        """Real click on a checkbox, asserting the new state; one retry (clicks can be dropped)."""
+    def _click_checked(self, selector: str, reveal: str, want: bool, what: str) -> None:
+        """Real click on a checkbox, asserting the new state; one retry (clicks can be dropped).
+
+        A day checkbox has no size until the pointer is over its header row, and Playwright won't
+        move the mouse to an invisible element, so ``reveal`` is hovered first when needed. (Once
+        something is selected, tile checkboxes are shown and cover the tile, so no hover there.)
+        """
         state = "true" if want else "false"
         for _ in range(2):
             box = self.page.locator(selector).first
+            if not box.is_visible():
+                self.page.locator(reveal).first.hover()
             box.click()
             try:  # aria-checked follows the click by a moment
                 self.page.locator(f'{selector}[aria-checked="{state}"]').first.wait_for(timeout=3_000)
@@ -336,7 +343,8 @@ class PhotosWeb:
                 self.page.evaluate(HEAD_NEAR_TOP_JS, target["key"])
                 self.page.wait_for_timeout(500)
                 self.page.evaluate(SCAN_JS)  # re-mark: the scroll may have re-rendered the header
-                self._click_checked(f'[data-pwa-head="{target["key"]}"]', True, f"day {day}")
+                head = f'[data-pwa-head="{target["key"]}"]'
+                self._click_checked(head, f"{head} >> xpath=..", True, f"day {day}")
                 self.page.wait_for_timeout(500)  # let the "N selected" counter catch up
                 per_day[day] = self._counter() - before
                 logger.info("ℹ️ %s %s: %d items", day.strftime("%a"), day, per_day[day])
@@ -374,7 +382,8 @@ class PhotosWeb:
                 if not tile["box"]:
                     raise FlowError("a screenshot tile has no checkbox to untick")
                 if tile["checked"]:
-                    self._click_checked(f'[data-pwa-tile="{tile["id"]}"]', False, "screenshot tile")
+                    self._click_checked(f'[data-pwa-tile="{tile["id"]}"]', f'a[href*="/photo/{tile["id"]}"]',
+                                        False, "screenshot tile")
                 dropped[tile["id"]] = tile["label"]
             dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
             if (dates and min(dates) < start) or not self._wheel():
