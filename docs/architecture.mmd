@@ -36,6 +36,7 @@ flowchart TB
     GMAIL["gmail_drive_automation.py"]
     GPHOTOS["weekly_photo_automation.py"]
     GALBUM["photos_weekly_album.py\nweekly album, share link + Gmail draft via the web UIs (Playwright)"]
+    GJOB["photos_weekly_album_job.py\nSaturday app-launcher job: run the album, notify the outcome"]
     GMWEB["gmail_web.py\nGmail web drafts/sends by exact subject"]
     GDIAG["setup_helper_script.py · diag_all_scopes.py · diag_gmail_drive.py"]
   end
@@ -47,6 +48,8 @@ flowchart TB
   STEALTH --> GALBUM
   GALBUM --> GPWEB["Google Photos web UI"]
   GALBUM --> GMWEB
+  GJOB --> GALBUM
+  GJOB -->|FleetNotifier| PARKING
   GMWEB --> GMAILWEB["Gmail web UI"]
 
   subgraph notionbox["notion/"]

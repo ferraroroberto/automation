@@ -126,6 +126,23 @@ class NotSignedIn(FlowError):
     pass
 
 
+class WindowHidden(FlowError):
+    """Chrome is minimised or covered by a locked screen, so Photos won't render the grid."""
+
+
+# How a failed run is told apart: the run record's ``failure`` and the process exit code.
+FAILURE_EXIT = {"not-signed-in": 3, "window-hidden": 4, "page-timeout": 5, "error": 1}
+
+
+def failure_kind(exc: Exception) -> str:
+    """``window-hidden``, ``page-timeout`` (a Playwright wait ran out: a selector or page changed) or ``error``."""
+    if isinstance(exc, WindowHidden):
+        return "window-hidden"
+    if type(exc).__name__ == "TimeoutError" and type(exc).__module__.startswith("playwright"):
+        return "page-timeout"
+    return "error"
+
+
 # -- pure logic (unit-tested) -------------------------------------------------------------------
 
 def week_range(today: date) -> tuple[date, date]:
@@ -295,8 +312,8 @@ class PhotosWeb:
             self.page.wait_for_timeout(2_000)
             scan = self.page.evaluate(SCAN_JS)
             if not scan["visible"]:
-                raise FlowError("the Chrome window is hidden or minimised; Google Photos only renders "
-                                "the grid in a visible window - keep it on screen while this runs")
+                raise WindowHidden("the Chrome window is hidden or minimised; Google Photos only renders "
+                                   "the grid in a visible window - keep it on screen while this runs")
         return scan
 
     def _wheel(self) -> bool:
@@ -609,9 +626,12 @@ def share_and_mail(web: PhotosWeb, email: EmailConfig, record: dict, album_url: 
     record["mail"] = deliver(gmail, email.to, subject, body, link, send)
 
 
-def run(cfg: Config, start: date, end: date, title: str, dry_run: bool, send: bool = False) -> int:
-    record = {"at": datetime.now().isoformat(timespec="seconds"), "week_start": start, "week_end": end,
-              "title": title, "dry_run": dry_run}
+def run(cfg: Config, start: date, end: date, title: str, dry_run: bool, send: bool = False,
+        record: Optional[dict] = None) -> int:
+    """One run; returns the exit code. A caller that wants to read the run log's record passes a dict."""
+    record = {} if record is None else record
+    record.update({"at": datetime.now().isoformat(timespec="seconds"), "week_start": start, "week_end": end,
+                   "title": title, "dry_run": dry_run})
     try:
         with PhotosWeb(cfg.profile_dir) as web:
             web.require_signed_in()
@@ -667,18 +687,19 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool, send: bo
                 logger.info("ℹ️ no email recipients in config: album not shared, no draft")
             return 0
     except (NotSignedIn, GmailNotSignedIn) as exc:
-        record["outcome"] = "not-signed-in"
+        record.update(outcome="not-signed-in", failure="not-signed-in")
         logger.error("❌ %s. Sign in once with: .venv\\Scripts\\python.exe -m google.photos_weekly_album --login",
                      exc)
-        return 3
+        return FAILURE_EXIT["not-signed-in"]
     except Exception as exc:
-        record["error"] = str(exc)
+        failure = failure_kind(exc)
+        record.update(error=str(exc), failure=failure)
         if "outcome" in record:  # the album step finished; sharing or mail failed
             record.setdefault("mail", "error")
         else:
             record["outcome"] = "error"
         logger.error("❌ %s", exc)
-        return 1
+        return FAILURE_EXIT[failure]
     finally:
         append_run_log(cfg.log_file, record)
 
