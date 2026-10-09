@@ -77,5 +77,6 @@ These `system/` tools have their own dedicated doc file — see there instead of
 - [`base64_encode_decode.md`](base64_encode_decode.md)
 - [`markdown_preview.md`](markdown_preview.md)
 - [`mouse_mover.md`](mouse_mover.md)
+- [`outlook_web_mail.md`](outlook_web_mail.md)
 - [`venv_manager.md`](venv_manager.md)
 - [`open_file_latency_diag.md`](open_file_latency_diag.md)

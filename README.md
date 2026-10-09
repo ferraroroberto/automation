@@ -133,6 +133,7 @@ A deterministic poller (no LLM) that checks every 15 minutes for a free parking 
 - **`word_to_markdown.py`** - Word to Markdown conversion
 - **`list_files_to_xls.py`** - List a folder's files to an Excel workbook
 - **`background.py`** - Set desktop/taskbar color theme (black or light grey)
+- **`outlook_web_mail.py`** / **`outlook_web.py`** - Playwright tool and reusable library that draft (and, only when asked, send) Outlook-on-the-web mail with any files attached, incl. numbered parts of a split file — see [`system/outlook_web_mail.md`](system/outlook_web_mail.md)
 - **`markdown_preview.py`** - Tray-resident GitHub-style Markdown previewer (Edge WebView2) with light/dark toggle and live reload — see [`system/markdown_preview.md`](system/markdown_preview.md)
 - **`foldersearcher/`** - Tray-resident multi-root folder-name search with email-branch pruning and path-depth display, plus a headless `scan` CLI run nightly as an app-launcher job — see [`system/foldersearcher/foldersearcher.md`](system/foldersearcher/foldersearcher.md)
 - **`treesize/`** - Folder size utilities
