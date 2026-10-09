@@ -1,9 +1,14 @@
-"""Build the weekly Google Photos album through the web UI (Playwright, real Chrome, no LLM).
+"""Build the weekly Google Photos album, share it by link and draft the email (Playwright, no LLM).
 
     python -m google.photos_weekly_album --login        # once: sign the dedicated profile in by hand
     python -m google.photos_weekly_album --dry-run      # week, title, per-day counts; creates nothing
-    python -m google.photos_weekly_album                # create the album, print its URL
+    python -m google.photos_weekly_album                # album + share link + Gmail draft
+    python -m google.photos_weekly_album --send         # ... and send this week's draft
     python -m google.photos_weekly_album --from 2026-10-03 --to 2026-10-09 [--dry-run]
+
+Sharing and the draft happen only when the config lists email recipients. Drafting never sends;
+``--send`` (or ``"send": true`` in the config) sends only the draft carrying this week's subject
+and share link.
 
 Run from the repo root with the repo's .venv. The week is the most recent complete Saturday
 through Friday; run it on Saturday morning. Screenshots and screen recordings are left out.
@@ -19,6 +24,7 @@ import json
 import logging
 import os
 import re
+import string
 import sys
 import time
 from collections import Counter
@@ -29,6 +35,7 @@ from typing import Optional
 from urllib.parse import urljoin
 
 from browser_stealth import launch_persistent
+from google.gmail_web import EMAIL_RE, GmailNotSignedIn, GmailWeb
 
 logger = logging.getLogger("photos_weekly_album")
 
@@ -44,6 +51,10 @@ SCREENSHOTS_LINK = "Screenshots & recordings"
 SATURDAY = 5  # date.weekday()
 LABEL_RE = re.compile(r"^(Photo|Video)\b.* - ([A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M)$")
 COUNT_RE = re.compile(r"^(\d+) items?\b")
+SHARE_LINK_RE = re.compile(r"https://(?:photos\.app\.goo\.gl/[A-Za-z0-9]+"
+                           r"|photos\.google\.com/share/[A-Za-z0-9_-]+\?key=[A-Za-z0-9_-]+)")
+EMAIL_FIELDS = ("title", "link", "week_start", "week_end")
+WEEK_FIELDS = ("title", "week_start", "week_end")  # at least one keeps each week's subject distinct
 
 # Scan the rendered part of a day-grouped grid (library timeline, collection or album). Day
 # headers are dated by the first tile after them (their own text is relative: "Today",
@@ -155,12 +166,64 @@ def days_of(start: date, end: date) -> list[date]:
     return [start + timedelta(days=n) for n in range((end - start).days + 1)]
 
 
+def find_share_link(texts: list[str]) -> Optional[str]:
+    """The first album share link (short or full form) in ``texts``."""
+    for text in texts:
+        match = SHARE_LINK_RE.search(text or "")
+        if match:
+            return match.group(0)
+    return None
+
+
+def _fields(template: str) -> set[str]:
+    return {name for _, name, _, _ in string.Formatter().parse(template) if name}
+
+
+@dataclass
+class EmailConfig:
+    to: list[str]
+    subject: str
+    body: str
+    send: bool = False
+
+    @classmethod
+    def load(cls, raw: Optional[dict]) -> Optional["EmailConfig"]:
+        """None when no recipients are configured: then nothing is shared or drafted."""
+        if not raw or not raw.get("to"):
+            return None
+        to = [a.strip() for a in raw["to"]]
+        if any(not EMAIL_RE.fullmatch(a) for a in to):
+            raise ValueError("email.to must list plain addresses (name@example.com)")
+        if len({a.lower() for a in to}) != len(to):
+            raise ValueError("email.to lists an address twice")
+        subject, body = raw.get("subject") or "", raw.get("body") or ""
+        try:
+            unknown = (_fields(subject) | _fields(body)) - set(EMAIL_FIELDS)
+        except ValueError as exc:
+            raise ValueError(f"email template is malformed: {exc}") from exc
+        if unknown:
+            raise ValueError(f"email templates use unknown placeholders {sorted(unknown)}; "
+                             f"allowed: {', '.join(EMAIL_FIELDS)}")
+        if not _fields(subject) & set(WEEK_FIELDS):
+            raise ValueError("email.subject needs {title}, {week_start} or {week_end}, so each week's "
+                             "draft is found by its own subject")
+        if "link" not in _fields(body):
+            raise ValueError("email.body needs a {link} placeholder")
+        return cls(to=to, subject=subject, body=body, send=bool(raw.get("send", False)))
+
+    def render(self, title: str, link: str, start: date, end: date) -> tuple[str, str]:
+        """(subject, body) for the week; the subject is folded to one line."""
+        values = {"title": title, "link": link, "week_start": start.isoformat(), "week_end": end.isoformat()}
+        return " ".join(self.subject.format(**values).split()), self.body.format(**values)
+
+
 @dataclass
 class Config:
     title_template: str
     counters: dict
     profile_dir: Path
     log_file: Path
+    email: Optional[EmailConfig] = None
 
     @classmethod
     def load(cls, path: Path) -> "Config":
@@ -171,7 +234,8 @@ class Config:
             raise ValueError("config needs title_template and counters")
         return cls(title_template=raw["title_template"], counters=raw["counters"],
                    profile_dir=Path(raw.get("profile_dir") or DEFAULT_PROFILE).expanduser(),
-                   log_file=Path(raw.get("log_file") or DEFAULT_LOG).expanduser())
+                   log_file=Path(raw.get("log_file") or DEFAULT_LOG).expanduser(),
+                   email=EmailConfig.load(raw.get("email")))
 
 
 @dataclass
@@ -412,6 +476,63 @@ class PhotosWeb:
         self.page.wait_for_timeout(3_000)
         return self.page.url
 
+    def share_link(self, album_url: str) -> str:
+        """The album's share link: the existing one, else one made with "Create link".
+
+        An album has at most one link, and once it exists its Share dialog offers "Copy link"
+        instead of "Create link", so a re-run never makes a second one. The dialog doesn't print
+        the URL, so it is taken from the first place it shows up: the page URL (a link-shared
+        album opens at ``/share/<id>?key=...``), the dialog, a response from Google, or the
+        clipboard after "Copy link" (this overwrites the clipboard).
+        """
+        self._open(album_url)
+        self._context.grant_permissions(["clipboard-read", "clipboard-write"], origin=PHOTOS_URL.rstrip("/"))
+        seen: list[str] = []
+
+        def on_response(response) -> None:
+            if response.request.resource_type in ("xhr", "fetch"):
+                try:
+                    seen.append(response.text())
+                except Exception:  # bodies of redirects and aborted requests can't be read
+                    pass
+
+        def read() -> Optional[str]:
+            dialog = self.page.locator("[role=dialog]").first
+            texts = [dialog.inner_text(), *dialog.evaluate("d => [...d.querySelectorAll('input')].map(i => i.value)")]
+            return find_share_link([self.page.url, *texts, *seen])
+
+        self.page.on("response", on_response)
+        try:
+            self.page.get_by_role("button", name=re.compile(r"^Share$", re.I)).first.click()
+            dialog = self.page.get_by_role("dialog")
+            create = dialog.get_by_role("button", name="Create link")
+            copy = dialog.get_by_role("button", name="Copy link")
+            create.or_(copy).first.wait_for(state="visible", timeout=20_000)
+            created = create.count() > 0 and create.first.is_visible()
+            if created:
+                create.first.click()
+                logger.info("ℹ️ share link created")
+                try:
+                    copy.first.wait_for(state="visible", timeout=30_000)
+                except Exception:  # the dialog may show the link some other way; read() decides
+                    pass
+            link = read()
+            if not link and copy.count() and copy.first.is_visible():
+                copy.first.click()
+                self.page.wait_for_timeout(1_500)
+                clipboard = self.page.evaluate("() => navigator.clipboard.readText().catch(() => '')")
+                link = read() or find_share_link([clipboard])
+        finally:
+            self.page.remove_listener("response", on_response)
+            self.page.keyboard.press("Escape")
+        if not link:  # a freshly shared album may only open at its /share/ URL once reloaded
+            self._open(album_url)
+            link = find_share_link([self.page.url])
+        if not link:
+            raise FlowError(("the album is now shared by link, but " if created else "the album has a share link, but ")
+                            + "the script could not read it; re-run, or copy it from the album's Share dialog")
+        return link
+
     def collect(self, start: date, end: date) -> Selection:
         """Select the week minus screenshots and check the counts add up."""
         excluded = self.screenshot_labels(start, end)
@@ -445,7 +566,50 @@ def report(start: date, end: date, title: str, sel: Selection) -> None:
                 if sel.excluded_missing else "")
 
 
-def run(cfg: Config, start: date, end: date, title: str, dry_run: bool) -> int:
+def deliver(mail, to: list[str], subject: str, body: str, link: str, send: bool) -> str:
+    """Make sure this week's message exists as exactly one draft, or was sent; send it if asked.
+
+    Returns the mail outcome: ``drafted``, ``draft-exists``, ``sent`` or ``already-sent``. The
+    week's subject is the key: a message already in Sent is never drafted or sent again, and an
+    existing draft is reused, never duplicated. ``send`` only ever sends that one draft.
+    """
+    if mail.subjects("sent", subject):
+        logger.info("✅ this week's message is already in Sent; no draft, nothing sent")
+        return "already-sent"
+    drafts = len(mail.subjects("draft", subject))
+    if drafts > 1:
+        raise FlowError(f"{drafts} drafts carry this week's subject; delete the extras by hand and re-run")
+    if drafts:
+        logger.info("ℹ️ this week's draft already exists; not drafting another")
+        outcome = "draft-exists"
+    else:
+        mail.create_draft(to, subject, body)
+        if len(mail.subjects("draft", subject, expect=True)) != 1:
+            raise FlowError("the draft was saved but isn't in Drafts under this week's subject")
+        logger.info("✅ draft saved for %d recipients", len(to))
+        outcome = "drafted"
+    if not send:
+        return outcome
+    mail.send_draft(subject, to, link)
+    if not mail.subjects("sent", subject, expect=True):
+        raise FlowError("Send was clicked but the message isn't in Sent; check Gmail by hand")
+    logger.info("✅ sent to %d recipients", len(to))
+    return "sent"
+
+
+def share_and_mail(web: PhotosWeb, email: EmailConfig, record: dict, album_url: str, title: str,
+                   start: date, end: date, send: bool) -> None:
+    """Step 3: share link for this week's album, then its Gmail draft (and send, if asked)."""
+    link = web.share_link(album_url)
+    record["share_url"] = link
+    logger.info("✅ share link: %s", link)
+    subject, body = email.render(title, link, start, end)
+    gmail = GmailWeb(web.page)
+    gmail.require_signed_in()
+    record["mail"] = deliver(gmail, email.to, subject, body, link, send)
+
+
+def run(cfg: Config, start: date, end: date, title: str, dry_run: bool, send: bool = False) -> int:
     record = {"at": datetime.now().isoformat(timespec="seconds"), "week_start": start, "week_end": end,
               "title": title, "dry_run": dry_run}
     try:
@@ -454,7 +618,10 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool) -> int:
             existing = web.find_album(title)
             if existing and not dry_run:
                 record.update(outcome="exists", url=existing[0], album_count=existing[1])
-                logger.info("✅ album already exists (%s items), nothing to do: %s", existing[1], existing[0])
+                logger.info("✅ album already exists (%s items), not creating another: %s", existing[1], existing[0])
+                if not cfg.email:
+                    return 0
+                share_and_mail(web, cfg.email, record, existing[0], title, start, end, send)
                 return 0
             if existing:
                 logger.info("ℹ️ an album with this title already exists (%s items): %s; a real run "
@@ -466,6 +633,12 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool) -> int:
             if dry_run:
                 web.clear_selection()
                 record["outcome"] = "dry-run"
+                if cfg.email:
+                    subject, _ = cfg.email.render(title, "<share link>", start, end)
+                    logger.info("ℹ️ a real run would share the album by link and draft \"%s\" to %d recipients%s",
+                                subject, len(cfg.email.to), ", then send it" if send else "")
+                else:
+                    logger.info("ℹ️ no email recipients in config: a real run would not share or draft")
                 return 0
             if not sel.selected:
                 web.clear_selection()
@@ -488,14 +661,22 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool) -> int:
             record["outcome"] = "created"
             logger.info("✅ album created with %d items: %s", count, url)
             print(url)
+            if cfg.email:
+                share_and_mail(web, cfg.email, record, url, title, start, end, send)
+            else:
+                logger.info("ℹ️ no email recipients in config: album not shared, no draft")
             return 0
-    except NotSignedIn as exc:
+    except (NotSignedIn, GmailNotSignedIn) as exc:
         record["outcome"] = "not-signed-in"
         logger.error("❌ %s. Sign in once with: .venv\\Scripts\\python.exe -m google.photos_weekly_album --login",
                      exc)
         return 3
     except Exception as exc:
-        record.update(outcome="error", error=str(exc))
+        record["error"] = str(exc)
+        if "outcome" in record:  # the album step finished; sharing or mail failed
+            record.setdefault("mail", "error")
+        else:
+            record["outcome"] = "error"
         logger.error("❌ %s", exc)
         return 1
     finally:
@@ -503,8 +684,9 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool) -> int:
 
 
 def parse_args(argv: Optional[list]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Create the weekly Google Photos album.")
+    parser = argparse.ArgumentParser(description="Create the weekly Google Photos album, share it and draft the email.")
     parser.add_argument("--dry-run", action="store_true", help="count and report, create nothing")
+    parser.add_argument("--send", action="store_true", help="send this week's draft (only that one)")
     parser.add_argument("--login", action="store_true", help="sign the dedicated profile in by hand")
     parser.add_argument("--from", dest="start", type=date.fromisoformat, help="first day (YYYY-MM-DD)")
     parser.add_argument("--to", dest="end", type=date.fromisoformat, help="last day (YYYY-MM-DD)")
@@ -514,6 +696,8 @@ def parse_args(argv: Optional[list]) -> argparse.Namespace:
         parser.error("--from and --to go together")
     if args.start and not args.start <= args.end <= args.start + timedelta(days=30):
         parser.error("--to must be on or after --from, at most 30 days later")
+    if args.send and args.login:
+        parser.error("--send doesn't go with --login")
     return args
 
 
@@ -543,7 +727,10 @@ def main(argv: Optional[list] = None) -> int:
     except ValueError as exc:
         logger.error("❌ %s", exc)
         return 2
-    return run(cfg, start, end, title, args.dry_run)
+    if args.send and not cfg.email:
+        logger.error("❌ --send needs email recipients in the config (email.to)")
+        return 2
+    return run(cfg, start, end, title, args.dry_run, send=args.send or bool(cfg.email and cfg.email.send))
 
 
 if __name__ == "__main__":

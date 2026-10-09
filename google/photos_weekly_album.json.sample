@@ -5,5 +5,11 @@
     "second": {"value": 50, "week_start": "2026-01-03"}
   },
   "profile_dir": "",
-  "log_file": ""
+  "log_file": "",
+  "email": {
+    "to": ["first.person@example.com", "second.person@example.com"],
+    "subject": "Photos of the week {week_start} to {week_end}",
+    "body": "Hi all,\n\nThis week's album, {title}:\n{link}\n\nLove,\nMe",
+    "send": false
+  }
 }
