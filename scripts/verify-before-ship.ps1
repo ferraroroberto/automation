@@ -43,6 +43,10 @@ try {
     & $python -m unittest system.test_outlook_web_mail
     if ($LASTEXITCODE -ne 0) { Fail "outlook web mail unittest suite failed." }
 
+    Write-Host "==> unittest (google.test_photos_weekly_album)..." -ForegroundColor Cyan
+    & $python -m unittest google.test_photos_weekly_album
+    if ($LASTEXITCODE -ne 0) { Fail "photos weekly album unittest suite failed." }
+
     Write-Host "==> unittest (system/wifi)..." -ForegroundColor Cyan
     & $python -m unittest discover -s system/wifi -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "wifi netsh decoding unittest suite failed." }

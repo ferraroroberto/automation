@@ -37,6 +37,7 @@ from no_window import NO_WINDOW  # noqa: E402
 MUST_NOT_BE_TRACKED: List[str] = [
     "google/config_gmail_drive.json",
     "google/config_weekly_photo.json",
+    "google/photos_weekly_album.json",
     "linkedin/open_profiles/linkedin_open.json",
     "system/textexpander/text_expander_config.json",
     "system/wifi/wifi_connect.xml",

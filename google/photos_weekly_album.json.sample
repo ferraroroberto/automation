@@ -1,0 +1,9 @@
+{
+  "title_template": "Week {first} of First Child and {second} of Second Child",
+  "counters": {
+    "first": {"value": 100, "week_start": "2026-01-03"},
+    "second": {"value": 50, "week_start": "2026-01-03"}
+  },
+  "profile_dir": "",
+  "log_file": ""
+}
