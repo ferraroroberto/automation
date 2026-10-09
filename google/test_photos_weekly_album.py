@@ -1,5 +1,7 @@
 """Offline tests for google/photos_weekly_album.py and browser_stealth.py (no browser, no network)."""
 
+import json
+import tempfile
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -86,7 +88,147 @@ class ArgsTests(unittest.TestCase):
 
     def test_explicit_week(self):
         args = pwa.parse_args(["--from", "2026-10-03", "--to", "2026-10-09", "--dry-run"])
-        self.assertEqual((args.start, args.end, args.dry_run), (date(2026, 10, 3), date(2026, 10, 9), True))
+        self.assertEqual((args.start, args.end, args.dry_run, args.send),
+                         (date(2026, 10, 3), date(2026, 10, 9), True, False))
+
+    def test_send_is_opt_in(self):
+        self.assertTrue(pwa.parse_args(["--send"]).send)
+        with self.assertRaises(SystemExit):
+            pwa.parse_args(["--send", "--login"])
+
+    def test_send_without_recipients_is_a_config_error(self):
+        sample = json.loads(SAMPLE.read_text(encoding="utf-8"))
+        del sample["email"]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "c.json"
+            path.write_text(json.dumps(sample), encoding="utf-8")
+            with self.assertLogs("photos_weekly_album", "ERROR") as logs:
+                self.assertEqual(pwa.main(["--send", "--config", str(path)]), 2)
+        self.assertIn("email.to", logs.output[0])
+
+
+EMAIL = {"to": ["a@example.com", "b@example.org"], "subject": "Week {week_start} to {week_end}",
+         "body": "Hi,\n{title}\n{link}\n"}
+
+
+class EmailConfigTests(unittest.TestCase):
+    def test_no_recipients_means_no_sharing_or_draft(self):
+        for raw in (None, {}, {"to": []}, {"subject": "x {title}", "body": "{link}"}):
+            with self.subTest(raw=raw):
+                self.assertIsNone(pwa.EmailConfig.load(raw))
+
+    def test_renders_week_title_and_link(self):
+        email = pwa.EmailConfig.load(EMAIL)
+        subject, body = email.render("T", "https://photos.app.goo.gl/abc", date(2026, 10, 3), date(2026, 10, 9))
+        self.assertEqual(subject, "Week 2026-10-03 to 2026-10-09")
+        self.assertEqual(body, "Hi,\nT\nhttps://photos.app.goo.gl/abc\n")
+        self.assertFalse(email.send)
+
+    def test_rejects_configs_that_could_misfire(self):
+        cases = {
+            "plain addresses": {**EMAIL, "to": ["Someone <a@example.com>"]},
+            "twice": {**EMAIL, "to": ["a@example.com", "A@example.com"]},
+            "unknown placeholders": {**EMAIL, "body": "{link} {name}"},
+            "own subject": {**EMAIL, "subject": "Weekly photos"},
+            "link": {**EMAIL, "body": "Hi"},
+            "malformed": {**EMAIL, "body": "{link"},
+        }
+        for message, raw in cases.items():
+            with self.subTest(message), self.assertRaisesRegex(ValueError, message):
+                pwa.EmailConfig.load(raw)
+
+    def test_committed_sample_has_a_valid_email_block(self):
+        email = pwa.Config.load(SAMPLE).email
+        self.assertEqual(len(email.to), 2)
+        self.assertTrue(all(a.endswith((".com", ".org")) and "example" in a for a in email.to))
+        self.assertFalse(email.send)
+        subject, body = email.render("T", "L", date(2026, 10, 3), date(2026, 10, 9))
+        self.assertIn("2026-10-03", subject)
+        self.assertIn("L", body)
+
+
+class ShareLinkTests(unittest.TestCase):
+    def test_short_and_full_links_are_found(self):
+        self.assertEqual(pwa.find_share_link(["x", 'b ["https://photos.app.goo.gl/Ab12Cd",null]']),
+                         "https://photos.app.goo.gl/Ab12Cd")
+        self.assertEqual(pwa.find_share_link(["https://photos.google.com/share/AF1Q-x_y?key=k3Y-z_ and more"]),
+                         "https://photos.google.com/share/AF1Q-x_y?key=k3Y-z_")
+
+    def test_album_and_keyless_urls_are_not_share_links(self):
+        self.assertIsNone(pwa.find_share_link(["https://photos.google.com/album/AF1Q",
+                                               "https://photos.google.com/share/AF1Q", "", None]))
+
+
+class _FakeMail:
+    """Gmail by subject: ``drafts``/``sent`` hold subjects; sending moves the draft to Sent."""
+
+    def __init__(self, drafts=(), sent=(), save_fails=False, body_link="L"):
+        self.drafts, self.sent = list(drafts), list(sent)
+        self.save_fails, self.body_link = save_fails, body_link
+        self.created, self.sends = [], []
+
+    def subjects(self, folder, subject, expect=False):
+        return [s for s in (self.drafts if folder == "draft" else self.sent) if s == subject]
+
+    def create_draft(self, to, subject, body):
+        self.created.append((tuple(to), subject, body))
+        if not self.save_fails:
+            self.drafts.append(subject)
+
+    def send_draft(self, subject, to, must_contain):
+        if must_contain != self.body_link:
+            raise RuntimeError("the draft's body doesn't carry this run's share link; not sent")
+        self.sends.append(subject)
+        self.drafts.remove(subject)
+        self.sent.append(subject)
+
+
+class DeliverTests(unittest.TestCase):
+    TO = ["a@example.com"]
+
+    def _deliver(self, mail, send=False, link="L"):
+        return pwa.deliver(mail, self.TO, "S", "body L", link, send)
+
+    def test_first_run_drafts_and_never_sends(self):
+        mail = _FakeMail(drafts=["other"])
+        self.assertEqual(self._deliver(mail), "drafted")
+        self.assertEqual((mail.created, mail.sends), ([(("a@example.com",), "S", "body L")], []))
+
+    def test_rerun_reuses_the_draft(self):
+        mail = _FakeMail(drafts=["S"])
+        self.assertEqual(self._deliver(mail), "draft-exists")
+        self.assertEqual((mail.created, mail.drafts), ([], ["S"]))
+
+    def test_already_sent_is_neither_drafted_nor_sent_again(self):
+        mail = _FakeMail(sent=["S"])
+        self.assertEqual(self._deliver(mail, send=True), "already-sent")
+        self.assertEqual((mail.created, mail.sends), ([], []))
+
+    def test_send_sends_only_this_weeks_draft(self):
+        mail = _FakeMail(drafts=["older", "S", "other"])
+        self.assertEqual(self._deliver(mail, send=True), "sent")
+        self.assertEqual((mail.sends, mail.drafts), (["S"], ["older", "other"]))
+
+    def test_send_after_a_fresh_draft(self):
+        mail = _FakeMail()
+        self.assertEqual(self._deliver(mail, send=True), "sent")
+        self.assertEqual((len(mail.created), mail.sends), (1, ["S"]))
+
+    def test_duplicate_drafts_abort_without_sending(self):
+        mail = _FakeMail(drafts=["S", "S"])
+        with self.assertRaisesRegex(pwa.FlowError, "2 drafts"):
+            self._deliver(mail, send=True)
+        self.assertEqual((mail.created, mail.sends), ([], []))
+
+    def test_a_draft_that_did_not_save_is_reported(self):
+        with self.assertRaisesRegex(pwa.FlowError, "isn't in Drafts"):
+            self._deliver(_FakeMail(save_fails=True), send=True)
+
+    def test_a_draft_without_this_runs_link_is_not_sent(self):
+        mail = _FakeMail(drafts=["S"], body_link="old link")
+        with self.assertRaisesRegex(RuntimeError, "not sent"):
+            self._deliver(mail, send=True)
+        self.assertEqual(mail.sent, [])
 
 
 class _FakeCheckbox:
