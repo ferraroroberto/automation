@@ -39,6 +39,10 @@ try {
     & $python -m unittest system.test_local_config_hygiene
     if ($LASTEXITCODE -ne 0) { Fail "local config hygiene unittest suite failed." }
 
+    Write-Host "==> unittest (system.test_outlook_web_mail)..." -ForegroundColor Cyan
+    & $python -m unittest system.test_outlook_web_mail
+    if ($LASTEXITCODE -ne 0) { Fail "outlook web mail unittest suite failed." }
+
     Write-Host "==> unittest (system/wifi)..." -ForegroundColor Cyan
     & $python -m unittest discover -s system/wifi -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "wifi netsh decoding unittest suite failed." }
