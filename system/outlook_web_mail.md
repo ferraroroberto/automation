@@ -89,6 +89,7 @@ Exit codes: `0` ok, `1` a draft or send failed or could not be verified, `2` usa
 - Outlook on the web is not under our control. If its page changes, a selector can stop matching; the run then fails with an error and a screenshot rather than skipping silently.
 - Outlook often saves a new draft without its subject on the first pass; the repair step exists for that.
 - Each 9 MB attachment uploads before the next draft starts, so a long run takes a while.
+- Outlook renders only about eight rows of the Drafts list at a time, so every read of it (verification, the already-drafted skip, the subject repair, finding the draft to send) scrolls the list from top to bottom. A long list therefore makes those steps slower, not blind.
 
 ## Tests
 

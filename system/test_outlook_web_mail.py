@@ -229,6 +229,96 @@ class ExecuteTests(unittest.TestCase):
         self.assertEqual(self._run(True, True, signed_in=False), (2, []))
 
 
+class MergeSnapshotsTests(unittest.TestCase):
+    def test_overlap_is_dropped(self):
+        self.assertEqual(ow.merge_snapshots(["a", "b", "c"], ["b", "c", "d"]), ["a", "b", "c", "d"])
+
+    def test_no_overlap_appends_everything(self):
+        self.assertEqual(ow.merge_snapshots(["a", "b"], ["c", "d"]), ["a", "b", "c", "d"])
+
+    def test_same_snapshot_adds_nothing(self):
+        self.assertEqual(ow.merge_snapshots(["a", "b"], ["a", "b"]), ["a", "b"])
+
+    def test_empty_sides(self):
+        self.assertEqual(ow.merge_snapshots([], ["a"]), ["a"])
+        self.assertEqual(ow.merge_snapshots(["a"], []), ["a"])
+
+    def test_identical_rows_elsewhere_in_the_list_are_kept(self):
+        # "x" appears twice, far apart: only the overlapping tail is dropped.
+        self.assertEqual(ow.merge_snapshots(["x", "a", "b"], ["a", "b", "x"]), ["x", "a", "b", "x"])
+
+
+class CleanRowTests(unittest.TestCase):
+    def test_hover_icons_and_blank_lines_do_not_change_a_row(self):
+        plain = "[Draft] ROBERTO FERRARO\nobs_05\n16:07\nGracias! Roberto"
+        hovered = "\n[Draft] ROBERTO FERRARO\n\n\nobs_05\n\n16:07\nGracias! Roberto"
+        self.assertEqual(ow.clean_row(hovered), plain)
+        self.assertEqual(ow.clean_row(plain), plain)
+
+
+class _Rows:
+    def __init__(self, texts):
+        self._texts = texts
+
+    def all_inner_texts(self):
+        return list(self._texts)
+
+
+class VirtualListWeb(ow.OutlookWeb):
+    """An OutlookWeb whose message list is virtualized like the real one: only ``window`` rows are
+    visible at a time and wheeling moves the window. No browser."""
+    ROW_PX = 80
+
+    def __init__(self, rows, window=8):
+        super().__init__()
+        self.rows, self.window, self.top = rows, window, 0
+
+    def _open_drafts(self):
+        pass
+
+    def _pause(self, ms):
+        pass
+
+    def _rows(self):
+        return _Rows(self.rows[self.top:self.top + self.window])
+
+    def _scroll_list(self, delta):
+        limit = max(0, len(self.rows) - self.window)
+        self.top = max(0, min(limit, self.top + delta // self.ROW_PX))
+
+
+class ScanLongListTests(unittest.TestCase):
+    @staticmethod
+    def _rows(count):
+        return [f"[Draft] ROBERTO FERRARO\nobs_{n:02d}\n15:{n:02d}" for n in range(count)]
+
+    def test_every_row_of_a_long_list_is_read(self):
+        rows = self._rows(29)
+        self.assertEqual(VirtualListWeb(rows)._all_row_texts(), rows)
+
+    def test_a_short_list_and_an_empty_list(self):
+        rows = self._rows(3)
+        self.assertEqual(VirtualListWeb(rows)._all_row_texts(), rows)
+        self.assertEqual(VirtualListWeb([])._all_row_texts(), [])
+
+    def test_scan_starts_from_the_top_even_when_scrolled_down(self):
+        web = VirtualListWeb(self._rows(29))
+        web.top = 21
+        self.assertEqual(web._all_row_texts(), self._rows(29))
+
+    def test_drafted_subjects_sees_rows_beyond_the_rendered_window(self):
+        web = VirtualListWeb(self._rows(29))
+        wanted = [f"obs_{n:02d}" for n in range(29)]
+        self.assertEqual(web.drafted_subjects(wanted + ["obs_99"]), set(wanted))
+
+    def test_count_drafts_finds_a_duplicate_outside_the_window(self):
+        rows = self._rows(29) + ["[Draft] ROBERTO FERRARO\nobs_03\n16:40"]
+        web = VirtualListWeb(rows)
+        self.assertEqual(web._count_drafts("obs_03"), 2)
+        self.assertEqual(web._count_drafts("obs_04"), 1)
+        self.assertEqual(web._count_drafts("obs_50"), 0)
+
+
 class StructureTests(unittest.TestCase):
     def test_draftspec_requires_recipient_and_subject(self):
         for to, subject in (("", "s"), ("a@b.c", "")):

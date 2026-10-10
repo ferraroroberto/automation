@@ -23,13 +23,17 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Iterator, Optional
 
 logger = logging.getLogger("outlook_web")
 
 OUTLOOK_URL = "https://outlook.cloud.microsoft/mail/"
 NO_SUBJECT = "(No subject)"
 STEALTH_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+# The message list is virtualized (about 8 rows render at once, ~80 px each): a step of ~6 rows keeps
+# neighbouring snapshots overlapping, and the cap bounds a list that never reports its end.
+SCROLL_STEP = 500
+MAX_SCROLLS = 200
 
 
 class NotSignedIn(RuntimeError):
@@ -46,6 +50,25 @@ class DraftSpec:
     def __post_init__(self) -> None:
         if not self.to or not self.subject:
             raise ValueError("a draft needs a recipient and a subject")
+
+
+def clean_row(text: str) -> str:
+    """A row's text without icon glyphs (private-use characters) or blank lines: hovering a row adds
+    its action icons, which would make two reads of the same row compare different."""
+    lines = (re.sub("[\ue000-\uf8ff]", "", line).strip() for line in text.splitlines())
+    return "\n".join(line for line in lines if line)
+
+
+def merge_snapshots(seen: list[str], new: list[str]) -> list[str]:
+    """Append the rows of ``new`` that ``seen`` does not already end with.
+
+    Successive snapshots of a scrolled list overlap; the longest overlap between the tail of ``seen``
+    and the head of ``new`` is dropped, so identical rows elsewhere in the list are still kept.
+    """
+    for size in range(min(len(seen), len(new)), 0, -1):
+        if seen[-size:] == new[:size]:
+            return seen + new[size:]
+    return seen + new
 
 
 def stealth_launch_kwargs(user_data_dir: str, headless: bool) -> dict:
@@ -109,9 +132,68 @@ class OutlookWeb:
     def _open_folder(self, name: str) -> None:
         self.page.get_by_role("treeitem", name=re.compile(rf"^{name}", re.I)).first.click()
         self.page.wait_for_timeout(3_000)
+        try:  # the list can still be empty here; an empty first read would end a scan before it began
+            self._rows().first.wait_for(state="visible", timeout=10_000)
+        except Exception:
+            logger.info("ℹ️ no rows appeared in %s (empty folder?)", name)
 
     def _open_drafts(self) -> None:
         self._open_folder("Drafts")
+
+    def _pause(self, ms: int) -> None:
+        self.page.wait_for_timeout(ms)
+
+    def _scroll_list(self, delta: int) -> None:
+        """Wheel the open message list by ``delta`` px (negative = up). The pointer goes on the middle
+        rendered row: the first one can sit above the visible list, where a wheel does nothing."""
+        rows = self._rows()
+        count = rows.count()
+        if count == 0:
+            return
+        box = rows.nth(count // 2).bounding_box()
+        if box:
+            self.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        self.page.mouse.wheel(0, delta)
+        self._pause(600)
+
+    def _settled_rows(self) -> list[str]:
+        """The rendered rows once two reads in a row agree: a wheel scrolls smoothly, and a read taken
+        mid-animation would overlap its neighbours wrongly."""
+        texts = [clean_row(t) for t in self._rows().all_inner_texts()]
+        for _ in range(8):
+            self._pause(300)
+            again = [clean_row(t) for t in self._rows().all_inner_texts()]
+            if again == texts:
+                break
+            texts = again
+        return texts
+
+    def _scroll_positions(self) -> Iterator[list[str]]:
+        """Yield the rendered row texts at each scroll position of the open list, top to bottom.
+
+        Only a handful of rows are in the DOM at once, so a one-shot read misses the rest of a long
+        list. The list has ended when a scroll leaves the rendered rows unchanged, even after a
+        pause for Outlook to load more.
+        """
+        self._scroll_list(-1_000_000)
+        previous: Optional[list[str]] = None
+        for _ in range(MAX_SCROLLS):
+            texts = self._settled_rows()
+            if texts == previous:
+                self._pause(1_500)
+                texts = self._settled_rows()
+                if texts == previous:
+                    return
+            yield texts
+            previous = texts
+            self._scroll_list(SCROLL_STEP)
+
+    def _all_row_texts(self) -> list[str]:
+        """Every row of the open list, in order."""
+        rows: list[str] = []
+        for texts in self._scroll_positions():
+            rows = merge_snapshots(rows, texts)
+        return rows
 
     # -- session ----------------------------------------------------------------------------
 
@@ -191,17 +273,23 @@ class OutlookWeb:
         page.keyboard.press("Control+s")
         page.wait_for_timeout(3_000)
 
+    def refresh(self) -> None:
+        """Load the mailbox afresh (list rows keep their old text, e.g. "(No subject)", after a save until
+        then). Goes to the mail URL rather than reloading: a reload lands on whichever message was open,
+        where the Home ribbon with "New mail" is not guaranteed."""
+        self.page.goto(self.url)
+        self._new_mail_button().wait_for(state="visible", timeout=60_000)
+
     def drafted_subjects(self, subjects: Iterable[str]) -> set[str]:
-        """Which of ``subjects`` are in the Drafts list as currently shown."""
+        """Which of ``subjects`` are in the Drafts list, scanned through its whole length."""
         self._open_drafts()
-        rows = self._rows().all_inner_texts()
+        rows = self._all_row_texts()
         return {s for s in subjects if any(s in row for row in rows)}
 
     def verify(self, subjects: Iterable[str]) -> list[str]:
         """Subjects missing from Drafts as the server returns them after a fresh load."""
         wanted = list(subjects)
-        self.page.reload()
-        self._new_mail_button().wait_for(state="visible", timeout=60_000)
+        self.refresh()
         present = self.drafted_subjects(wanted)
         return [s for s in wanted if s not in present]
 
@@ -210,13 +298,23 @@ class OutlookWeb:
         (``{file name: subject}``); drafts that carry none of those files are left alone."""
         if not expected:
             return 0
-        page = self.page
         names = re.compile("|".join(re.escape(n) for n in expected))
         restored = 0
         for _ in range(len(expected) + 5):
-            self._open_drafts()
+            if not self._restore_next(names, expected):
+                break
+            restored += 1
+        return restored
+
+    def _restore_next(self, names: re.Pattern, expected: dict[str, str]) -> bool:
+        """Repair the first subject-less draft carrying one of ``expected``'s files, scrolling the
+        Drafts list until one is found; False when none is left. A repaired draft moves in the list,
+        so the caller starts the next search from the top again."""
+        page = self.page
+        self.refresh()
+        self._open_drafts()
+        for _ in self._scroll_positions():
             rows = self._rows().filter(has_text=NO_SUBJECT)
-            fixed = False
             for index in range(rows.count()):
                 rows.nth(index).click()
                 page.wait_for_timeout(2_000)
@@ -226,16 +324,18 @@ class OutlookWeb:
                 text = attachment.first.inner_text()
                 subject_text = next(s for n, s in expected.items() if n in text)
                 box = self._subject_box()
+                try:
+                    box.wait_for(state="visible", timeout=10_000)
+                except Exception:
+                    logger.warning("⚠️ no Subject box for the draft carrying %s; screenshot %s",
+                                   subject_text, self.screenshot("restore-" + subject_text))
+                    continue
                 box.click()
                 box.fill(subject_text)
                 page.keyboard.press("Control+s")
                 page.wait_for_timeout(3_000)
-                restored += 1
-                fixed = True
-                break
-            if not fixed:
-                break
-        return restored
+                return True
+        return False
 
     # -- sending ----------------------------------------------------------------------------
 
@@ -250,15 +350,28 @@ class OutlookWeb:
             return True
         return chip.locator('[class*="validPill"]').count() > 0
 
+    def _count_drafts(self, subject: str) -> int:
+        """Rows with ``subject`` in the open Drafts list, scanned through its whole length."""
+        return sum(subject in row for row in self._all_row_texts())
+
+    def _open_draft(self, subject: str) -> None:
+        """Click the row with ``subject``, scrolling the list until it is rendered."""
+        for _ in self._scroll_positions():
+            rows = self._rows().filter(has_text=subject)
+            if rows.count():
+                rows.first.click()
+                return
+        raise RuntimeError(f"no draft row with subject {subject!r} to open")
+
     def send(self, spec: DraftSpec, timeout_s: int = 240) -> None:
         """Send the one draft matching ``spec``. Refuses unless exactly one draft has the subject,
         its recipient and attachments match, and afterwards it has left Drafts and is in Sent Items."""
         page = self.page
         self._open_drafts()
-        rows = self._rows().filter(has_text=spec.subject)
-        if rows.count() != 1:
-            raise RuntimeError(f"expected exactly one draft with subject {spec.subject!r}, found {rows.count()}")
-        rows.first.click()
+        found = self._count_drafts(spec.subject)
+        if found != 1:
+            raise RuntimeError(f"expected exactly one draft with subject {spec.subject!r}, found {found}")
+        self._open_draft(spec.subject)
         page.wait_for_timeout(2_000)
         if not self._single_recipient_is(spec.to):
             raise RuntimeError(f"draft {spec.subject!r} is not addressed to exactly {spec.to}")
@@ -273,7 +386,7 @@ class OutlookWeb:
             page.wait_for_timeout(3_000)
             waited += 3
             self._open_drafts()
-            if self._rows().filter(has_text=spec.subject).count() == 0:
+            if self._count_drafts(spec.subject) == 0:
                 break
         else:
             raise RuntimeError(f"{spec.subject!r} is still in Drafts after {timeout_s} s; not confirmed sent")
