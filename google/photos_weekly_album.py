@@ -114,7 +114,9 @@ HEAD_NEAR_TOP_JS = r"""(key) => {
   return true;
 }"""
 
-ALBUM_CARDS_JS = r"""() => [...document.querySelectorAll('a[href*="/album/"]')].map(a => ({
+# A link-shared album's card links to /share/<id>?key=... instead of /album/<id>. Albums others
+# shared with the account are /share/ cards too; a title match there refuses creation (fails safe).
+ALBUM_CARDS_JS = r"""() => [...document.querySelectorAll('a[href*="/album/"], a[href*="/share/"]')].map(a => ({
   href: a.href, lines: (a.innerText || '').split('\n').map(s => s.trim()).filter(Boolean)}))"""
 
 # The visible dialogs, in DOM order (the Share dialog, then the "Create link to share" confirmation

@@ -1,6 +1,7 @@
 """Offline tests for google/photos_weekly_album.py and browser_stealth.py (no browser, no network)."""
 
 import json
+import re
 import tempfile
 import unittest
 from datetime import date, datetime, timedelta
@@ -260,6 +261,46 @@ class ShareFlowTests(unittest.TestCase):
             self._share(page)
         self.assertIn("tried: dialogs, responses, page URL, reloaded page URL", logs.output[0])
         self.assertIn("'Create link to share': ['Close', 'Copy']", logs.output[0])
+
+
+class _FakeAlbumList:
+    """The /albums page: ``cards`` are (href, card text); evaluate applies the script's own
+    ``a[href*="..."]`` selectors, so the test exercises the real selector."""
+
+    def __init__(self, cards):
+        self.cards, self.url = cards, ""
+
+    def evaluate(self, script, *args):
+        parts = re.findall(r'a\[href\*="([^"]+)"\]', script)
+        return [{"href": href, "lines": text.split("\n")} for href, text in self.cards
+                if any(part in href for part in parts)]
+
+    def goto(self, url, wait_until):
+        self.url = url
+
+    def bring_to_front(self):
+        pass
+
+    def wait_for_timeout(self, ms):
+        pass
+
+
+class FindAlbumTests(unittest.TestCase):
+    def _find(self, cards, title="Week 1"):
+        web = pwa.PhotosWeb(Path("unused"))
+        web.page = _FakeAlbumList(cards)
+        web._wheel = lambda: False
+        return web.find_album(title)
+
+    def test_a_link_shared_album_is_found_by_its_share_card(self):
+        share = "https://photos.google.com/share/AF1Q?key=k"
+        self.assertEqual(self._find([("https://photos.google.com/album/X", "Other\n3 items"),
+                                     (share, "Week 1\n183 items \u00a0\u00b7\u00a0 Shared")]), (share, 183))
+
+    def test_a_private_album_is_still_found_and_a_missing_one_is_none(self):
+        cards = [("https://photos.google.com/album/X", "Week 1\n12 items")]
+        self.assertEqual(self._find(cards), ("https://photos.google.com/album/X", 12))
+        self.assertIsNone(self._find(cards, title="Week 2"))
 
 
 class _FakeMail:

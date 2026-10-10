@@ -103,7 +103,7 @@ Leave `alert_on_failure` off: the job already sends its own, more specific messa
 | Item checkbox | the `[role=checkbox]` under the tile with the same `aria-label` |
 | Selection count | text `N selected` |
 | Scroll container | the `c-wiz` with the largest `scrollHeight` (the window doesn't scroll) |
-| Album list | `/albums`, card link `a[href*="/album/"]`, first line the title, then `N items` |
+| Album list | `/albums`, card link `a[href*="/album/"]`, or `a[href*="/share/"]` once the album is shared by link, first line the title, then `N items` |
 | Album share | button `Share` → dialog heading `Invite to album` → button `Create link` (no link yet) or `Copy link` (link exists); `Create link` → dialog heading `Create link to share` → button `Create link` → the link in an input next to button `Copy` |
 | Gmail compose | button `Compose` → dialog with combobox `To recipients`, `input[name=subjectbox]`, textbox `Message Body`, buttons `Save & close`, `Send ...`, `Discard draft ...` |
 | Gmail search rows | `#search/<query>`; rows `[role=main] tr.zA`, subject `span.bog`; empty state `No messages matched your search` |
