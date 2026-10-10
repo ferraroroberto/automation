@@ -1,4 +1,5 @@
-"""Offline tests for google/photos_weekly_album.py and browser_stealth.py (no browser, no network)."""
+"""Offline tests for google/photos_weekly_album.py, its Gmail compose step and browser_stealth.py
+(no browser, no network)."""
 
 import json
 import re
@@ -11,6 +12,7 @@ from unittest import mock
 import browser_stealth as bs
 from google import photos_weekly_album as pwa
 from google import photos_weekly_album_job as job
+from google.gmail_web import GmailError, GmailWeb
 
 SAMPLE = Path(pwa.__file__).with_name("photos_weekly_album.json.sample")
 
@@ -373,6 +375,132 @@ class DeliverTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "not sent"):
             self._deliver(mail, send=True)
         self.assertEqual(mail.sent, [])
+
+
+class _FakeCompose:
+    """Gmail compose as seen live (#168). Typed text opens the suggestion list over Subject only
+    once time passes (a wait, or a click's retries); a comma stays in the field as text. With the
+    list open, Tab makes a chip, empties the field and closes the list; before it opens, Tab moves
+    focus to Subject and the To field collapses. Escape with no list open closes the window."""
+
+    SUGGESTING = 'input[aria-label="To recipients"][aria-expanded="true"]'
+
+    def __init__(self):
+        self.text, self.chips, self.suggesting = "", [], False
+        self.to_open, self.open, self.subject, self.saved = True, True, "", False
+
+    # page
+    keyboard = last = property(lambda self: self)
+
+    def goto(self, url, wait_until=None):
+        pass
+
+    def bring_to_front(self):
+        pass
+
+    def wait_for_timeout(self, ms):
+        self.settle()
+
+    def insert_text(self, text):
+        pass
+
+    def press(self, key):  # page.keyboard
+        pass
+
+    def get_by_role(self, role, name=None):
+        return _FakeComposeElement(self, (role, name if isinstance(name, str) else "regex"))
+
+    def locator(self, selector, has=None):
+        return _FakeComposeElement(self, selector)
+
+    # dialog
+    def wait_for(self, state=None, timeout=None):
+        if state == "detached" and not self.saved:
+            raise TimeoutError("compose window still open")
+
+    def evaluate(self, js):
+        return list(self.chips)
+
+    def settle(self):
+        self.suggesting = bool(self.text)
+
+    def blur_to(self):  # leaving the field turns its text into one chip
+        if self.text:
+            self.chips.append(self.text)
+        self.text, self.suggesting, self.to_open = "", False, False
+
+    def type_to(self, text):
+        if not self.to_open:
+            raise TimeoutError("the To field is collapsed")
+        self.text += text
+
+    def key_to(self, key):
+        if key == "Tab" and self.suggesting:
+            self.chips.append(self.text)
+            self.text, self.suggesting = "", False
+        elif key == "Tab":
+            self.blur_to()
+        elif key == "Escape" and self.suggesting:
+            self.suggesting = False
+        elif key == "Escape":
+            self.open = False
+
+    def click_subject(self):
+        self.settle()
+        if not self.open:
+            raise TimeoutError("element was detached from the DOM")
+        if self.suggesting:
+            raise TimeoutError('<div role="option" peoplekit-id=...> intercepts pointer events')
+        self.blur_to()
+
+
+class _FakeComposeElement:
+    def __init__(self, compose, key):
+        self.compose, self.key = compose, key
+
+    first = last = property(lambda self: self)
+
+    def filter(self, has=None):
+        return self.compose  # the compose dialog
+
+    def click(self):
+        if self.key == 'input[name="subjectbox"]':
+            self.compose.click_subject()
+        elif self.key in (("button", "Save & close"), '[aria-label^="Discard draft"]'):
+            self.compose.saved = True
+
+    def press_sequentially(self, text, delay=None):
+        if self.key == ("combobox", "To recipients"):
+            self.compose.type_to(text)
+        else:
+            self.compose.subject += text
+
+    def press(self, key):
+        self.compose.key_to(key)
+
+    def wait_for(self, state=None, timeout=None):
+        if self.key != _FakeCompose.SUGGESTING:
+            return
+        self.compose.settle()
+        if self.compose.suggesting != (state == "visible"):
+            raise TimeoutError(f"suggestion list not {state}")
+
+
+class CreateDraftTests(unittest.TestCase):
+    TO = ["c@example.com", "a@example.com", "b@example.com"]
+
+    def test_each_address_becomes_a_chip_and_subject_is_reachable(self):
+        compose = _FakeCompose()
+        GmailWeb(compose).create_draft(self.TO, "S", "body")
+        self.assertEqual((compose.chips, compose.subject, compose.saved),
+                         (sorted(self.TO), "S", True))
+
+    def test_recipients_that_differ_discard_the_draft(self):
+        compose = _FakeCompose()
+        compose.chips = ["stray@example.com"]
+        with self.assertRaisesRegex(GmailError, "4 recipients, not the 3"):
+            GmailWeb(compose).create_draft(self.TO, "S", "body")
+        self.assertEqual(compose.subject, "")
 
 
 class _FakeCheckbox:

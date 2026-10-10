@@ -100,12 +100,26 @@ class GmailWeb:
         self.page.get_by_role("button", name=re.compile(r"^Compose$", re.I)).first.click()
         dialog = self._compose_dialog()
         field = dialog.get_by_role("combobox", name="To recipients")
+        suggesting = dialog.locator('input[aria-label="To recipients"][aria-expanded="true"]')
         field.click()
         for address in sorted(wanted):
-            # A trailing comma turns the typed text into a chip; Enter could pick an autocomplete row.
-            field.press_sequentially(address + ",", delay=25)
+            # Once the suggestion list is open, Tab turns the typed address into a chip, empties the
+            # field and closes the list, keeping focus in To. Before it opens, Tab moves on to
+            # Subject. A trailing comma leaves the text in the field and the list open over Subject
+            # (#168); Escape with no list open closes the compose window.
+            field.press_sequentially(address, delay=25)
+            try:
+                suggesting.wait_for(state="visible", timeout=10_000)
+            except Exception as exc:
+                raise GmailError("Gmail's suggestion list didn't open for a typed address") from exc
+            field.press("Tab")
+            try:
+                suggesting.wait_for(state="hidden", timeout=10_000)
+            except Exception as exc:
+                raise GmailError("Gmail's suggestion list stayed open after Tab") from exc
         dialog.locator('input[name="subjectbox"]').click()
         got = self._recipients(dialog)
+        logger.info("ℹ️ compose: %d addresses typed, %d recipient chips", len(wanted), len(got))
         if got != wanted:
             dialog.locator('[aria-label^="Discard draft"]').first.click()
             raise GmailError(f"compose shows {len(got)} recipients, not the {len(wanted)} configured; "
