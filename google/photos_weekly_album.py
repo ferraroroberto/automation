@@ -117,6 +117,26 @@ HEAD_NEAR_TOP_JS = r"""(key) => {
 ALBUM_CARDS_JS = r"""() => [...document.querySelectorAll('a[href*="/album/"]')].map(a => ({
   href: a.href, lines: (a.innerText || '').split('\n').map(s => s.trim()).filter(Boolean)}))"""
 
+# The visible dialogs, in DOM order (the Share dialog, then the "Create link to share" confirmation
+# stacked over it). Buttons are marked data-pwa-share="<dialog>:<label>" for a real click. ``texts``
+# is everywhere a link can show: the text, the inputs and the markup (an existing link is only in
+# the markup).
+SHARE_DIALOGS_JS = r"""() => {
+  const shown = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
+  document.querySelectorAll('[data-pwa-share]').forEach(e => e.removeAttribute('data-pwa-share'));
+  return [...document.querySelectorAll('[role=dialog]')].filter(shown).map((d, i) => ({
+    heading: (d.innerText || '').trim().split('\n')[0],
+    buttons: [...d.querySelectorAll('button, [role=button]')].filter(shown).map(b => {
+      const label = (b.innerText || '').trim() || b.getAttribute('aria-label') || '';
+      b.setAttribute('data-pwa-share', i + ':' + label);
+      return label;
+    }),
+    texts: [d.innerText || '', ...[...d.querySelectorAll('input')].map(x => x.value), d.innerHTML]}));
+}"""
+CREATE_LINK, COPY_LINK = "Create link", "Copy link"
+CONFIRM_HEADING = "Create link to share"
+SHARED_URL_RE = re.compile(r"/share/[^?]+\?key=")
+
 
 class FlowError(RuntimeError):
     """The page did not behave as the flow expects; nothing was created past this point."""
@@ -493,18 +513,47 @@ class PhotosWeb:
         self.page.wait_for_timeout(3_000)
         return self.page.url
 
+    def _open_album(self, album_url: str) -> None:
+        """Open an album and let a link-shared one finish redirecting to its ``/share/`` URL (a
+        click on Share during the redirect is lost)."""
+        self._open(album_url)
+        try:
+            self.page.wait_for_url(SHARED_URL_RE, timeout=5_000)
+        except Exception:  # not link-shared: it stays at /album/
+            pass
+
+    def _share_dialogs(self, done, timeout_ms: int) -> list[dict]:
+        """Snapshots of the visible dialogs, polled until ``done(dialogs)`` or the timeout."""
+        for _ in range(max(1, timeout_ms // 500)):
+            dialogs = self.page.evaluate(SHARE_DIALOGS_JS)
+            if done(dialogs):
+                break
+            self.page.wait_for_timeout(500)
+        return dialogs
+
+    def _click_share_button(self, dialogs: list[dict], label: str, heading: Optional[str] = None) -> bool:
+        """Click the button ``label`` in the topmost dialog that has one (and ``heading``, if given)."""
+        for index in reversed(range(len(dialogs))):
+            if label in dialogs[index]["buttons"] and heading in (None, dialogs[index]["heading"]):
+                self.page.locator(f'[data-pwa-share="{index}:{label}"]').first.click()
+                return True
+        return False
+
     def share_link(self, album_url: str) -> str:
         """The album's share link: the existing one, else one made with "Create link".
 
         An album has at most one link, and once it exists its Share dialog offers "Copy link"
-        instead of "Create link", so a re-run never makes a second one. The dialog doesn't print
-        the URL, so it is taken from the first place it shows up: the page URL (a link-shared
-        album opens at ``/share/<id>?key=...``), the dialog, a response from Google, or the
+        instead of "Create link", so a re-run never makes a second one. "Create link" opens a
+        second dialog, "Create link to share", whose own "Create link" button makes the link and
+        then shows it. The link is taken from the first place it shows up: the dialogs (the
+        confirmation's input, or the Share dialog's markup once a link exists), a response from
+        Google, the page URL (a link-shared album opens at ``/share/<id>?key=...``), or the
         clipboard after "Copy link" (this overwrites the clipboard).
         """
-        self._open(album_url)
+        self._open_album(album_url)
         self._context.grant_permissions(["clipboard-read", "clipboard-write"], origin=PHOTOS_URL.rstrip("/"))
         seen: list[str] = []
+        tried = ["dialogs", "responses", "page URL"]
 
         def on_response(response) -> None:
             if response.request.resource_type in ("xhr", "fetch"):
@@ -513,41 +562,45 @@ class PhotosWeb:
                 except Exception:  # bodies of redirects and aborted requests can't be read
                     pass
 
-        def read() -> Optional[str]:
-            dialog = self.page.locator("[role=dialog]").first
-            texts = [dialog.inner_text(), *dialog.evaluate("d => [...d.querySelectorAll('input')].map(i => i.value)")]
-            return find_share_link([self.page.url, *texts, *seen])
+        def read(dialogs: list[dict]) -> Optional[str]:
+            return find_share_link([*(t for d in dialogs for t in d["texts"]), *seen, self.page.url])
 
+        def offers(*labels: str):
+            return lambda dialogs: any(label in d["buttons"] for d in dialogs for label in labels)
+
+        created = False
         self.page.on("response", on_response)
         try:
             self.page.get_by_role("button", name=re.compile(r"^Share$", re.I)).first.click()
-            dialog = self.page.get_by_role("dialog")
-            create = dialog.get_by_role("button", name="Create link")
-            copy = dialog.get_by_role("button", name="Copy link")
-            create.or_(copy).first.wait_for(state="visible", timeout=20_000)
-            created = create.count() > 0 and create.first.is_visible()
-            if created:
-                create.first.click()
-                logger.info("ℹ️ share link created")
-                try:
-                    copy.first.wait_for(state="visible", timeout=30_000)
-                except Exception:  # the dialog may show the link some other way; read() decides
-                    pass
-            link = read()
-            if not link and copy.count() and copy.first.is_visible():
-                copy.first.click()
+            dialogs = self._share_dialogs(offers(CREATE_LINK, COPY_LINK), 20_000)
+            has_link = offers(COPY_LINK)(dialogs)
+            if not has_link and self._click_share_button(dialogs, CREATE_LINK):
+                dialogs = self._share_dialogs(lambda ds: any(d["heading"] == CONFIRM_HEADING and CREATE_LINK
+                                                             in d["buttons"] for d in ds), 10_000)
+                created = self._click_share_button(dialogs, CREATE_LINK, CONFIRM_HEADING)
+                if created:
+                    logger.info("ℹ️ share link created")
+                    dialogs = self._share_dialogs(read, 30_000)
+            link = read(dialogs)
+            if not link and self._click_share_button(dialogs, COPY_LINK):
+                tried.append("clipboard")
                 self.page.wait_for_timeout(1_500)
                 clipboard = self.page.evaluate("() => navigator.clipboard.readText().catch(() => '')")
-                link = read() or find_share_link([clipboard])
+                link = find_share_link([clipboard])
         finally:
             self.page.remove_listener("response", on_response)
             self.page.keyboard.press("Escape")
         if not link:  # a freshly shared album may only open at its /share/ URL once reloaded
-            self._open(album_url)
+            tried.append("reloaded page URL")
+            self._open_album(album_url)
             link = find_share_link([self.page.url])
         if not link:
-            raise FlowError(("the album is now shared by link, but " if created else "the album has a share link, but ")
-                            + "the script could not read it; re-run, or copy it from the album's Share dialog")
+            logger.warning("⚠️ share link not found; tried: %s; dialog buttons: %s", ", ".join(tried),
+                           " / ".join(f'{d["heading"]!r}: {d["buttons"]}' for d in dialogs) or "no dialog open")
+            state = ("the album is now shared by link, but the script could not read it" if created else
+                     "the album has a share link, but the script could not read it" if has_link else
+                     "the album's Share dialog gave no link to create or copy")
+            raise FlowError(f"{state}; re-run, or copy it from the album's Share dialog (its buttons are in the log)")
         return link
 
     def collect(self, start: date, end: date) -> Selection:
