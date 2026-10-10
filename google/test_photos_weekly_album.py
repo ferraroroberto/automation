@@ -161,6 +161,107 @@ class ShareLinkTests(unittest.TestCase):
                                                "https://photos.google.com/share/AF1Q", "", None]))
 
 
+LINK = "https://photos.app.goo.gl/Ab12Cd"
+
+
+class _FakeSharePage:
+    """An album's Share dialogs as Photos draws them (Oct 2026). "Create link" in the Share dialog
+    opens a "Create link to share" confirmation; only its own "Create link" makes the link, which it
+    then shows in an input. Once a link exists the Share dialog offers "Copy link" and carries the
+    link in its markup only. ``broken`` stands for a dialog that never shows the link."""
+
+    def __init__(self, linked=False, broken=False):
+        self.linked, self.broken = linked, broken
+        self.url = "https://photos.google.com/album/A"
+        self.dialogs, self.clicks = [], []
+        self.keyboard = self
+
+    def _share_dialog(self):
+        if self.linked:
+            return {"heading": "Invite to album", "buttons": ["Close", "Copy link"],
+                    "texts": ["Invite to album\nCopy link", "" if self.broken else f'<div data-u="{LINK}">']}
+        return {"heading": "Invite to album", "buttons": ["Close", "Create link"], "texts": ["Invite to album", ""]}
+
+    def evaluate(self, script, *args):
+        return [dict(d) for d in self.dialogs] if script is pwa.SHARE_DIALOGS_JS else ""
+
+    def get_by_role(self, role, name):
+        return self._target("Share")
+
+    def locator(self, selector):
+        return self._target(selector.split('"')[1])
+
+    def _target(self, mark):
+        page = self
+
+        class Target:
+            first = property(lambda self: self)
+
+            def click(self):
+                page.clicks.append(mark)
+                page._clicked(mark)
+        return Target()
+
+    def _clicked(self, mark):
+        if mark == "Share":
+            self.dialogs = [self._share_dialog()]
+        elif mark == "0:Create link":
+            self.dialogs.append({"heading": "Create link to share", "buttons": ["Close", "Create link"],
+                                 "texts": ["Create link to share", ""]})
+        elif mark == "1:Create link":
+            self.linked = True
+            shown = "" if self.broken else LINK
+            self.dialogs[1] = {"heading": "Create link to share", "buttons": ["Close", "Copy"],
+                               "texts": [f"Create link to share\n{shown}", shown, ""]}
+
+    def goto(self, url, wait_until):
+        self.url, self.dialogs = url, []
+
+    def wait_for_url(self, pattern, timeout):
+        raise TimeoutError("stays at /album/")
+
+    def bring_to_front(self):
+        pass
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def press(self, key):
+        self.dialogs = []
+
+    def on(self, event, handler):
+        pass
+
+    remove_listener = on
+
+
+class ShareFlowTests(unittest.TestCase):
+    def _share(self, page):
+        web = pwa.PhotosWeb(Path("unused"))
+        web.page, web._context = page, mock.Mock()
+        return web.share_link(page.url)
+
+    def test_create_link_is_confirmed_in_the_second_dialog_and_read_from_it(self):
+        page = _FakeSharePage()
+        with self.assertLogs("photos_weekly_album", "INFO") as logs:
+            self.assertEqual(self._share(page), LINK)
+        self.assertEqual(page.clicks, ["Share", "0:Create link", "1:Create link"])
+        self.assertIn("share link created", logs.output[0])
+
+    def test_an_existing_link_is_read_without_creating_another(self):
+        page = _FakeSharePage(linked=True)
+        self.assertEqual(self._share(page), LINK)
+        self.assertEqual(page.clicks, ["Share"])
+
+    def test_an_unreadable_link_says_what_was_tried_and_which_buttons_showed(self):
+        page = _FakeSharePage(broken=True)
+        with self.assertLogs("photos_weekly_album", "WARNING") as logs, \
+                self.assertRaisesRegex(pwa.FlowError, "now shared by link, but the script could not read it"):
+            self._share(page)
+        self.assertIn("tried: dialogs, responses, page URL, reloaded page URL", logs.output[0])
+        self.assertIn("'Create link to share': ['Close', 'Copy']", logs.output[0])
+
+
 class _FakeMail:
     """Gmail by subject: ``drafts``/``sent`` hold subjects; sending moves the draft to Sent."""
 
