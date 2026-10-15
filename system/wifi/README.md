@@ -9,7 +9,7 @@ configuration beyond what's noted below.
 | Tool | Files | Purpose |
 |------|-------|---------|
 | Quick connect (single SSID) | `wifi_connect.py` `wifi_connect.bat` `wifi_connect.ps1` `wifi_connect.xml` | Connect to the network whose credentials are baked into `wifi_connect.xml`. Idempotent: skips reconnect if already on that SSID. |
-| Saved-password export | `wifi_passwords.py` `wifi_passwords.json` | Dump every saved Wi-Fi profile + cleartext password to JSON. |
+| Saved-password export | `wifi_passwords.py` `wifi_passwords.json` | Dump every saved Wi-Fi profile + cleartext password to JSON (default `wifi_export.json`, next to the script — `wifi_passwords.json` is this tool's own config, not the export). |
 | BAT generator (GUI) | `wifi_bat_generator.py` `wifi_bat_generator.md` | Pick a saved network from a Tkinter list, save a portable self-contained `.bat` anywhere. Generated BATs work on any Windows PC. See [`wifi_bat_generator.md`](wifi_bat_generator.md). |
 | Network device scanner | `network_scanner.py` `network_scanner.json` `network_scanner.md` | ARP-scan the local subnet to discover devices. Not strictly Wi-Fi-related — useful for finding routers/APs that don't reply to ping. See [`network_scanner.md`](network_scanner.md). |
 
@@ -21,7 +21,7 @@ From the repo root, in PowerShell:
 # Connect to the SSID configured in wifi_connect.xml (or just double-click wifi_connect.bat).
 & .\.venv\Scripts\python.exe system\wifi\wifi_connect.py
 
-# Export every saved Wi-Fi profile + password to wifi_passwords.json.
+# Export every saved Wi-Fi profile + password to wifi_export.json, next to wifi_passwords.py.
 & .\.venv\Scripts\python.exe system\wifi\wifi_passwords.py
 
 # Open the BAT generator GUI (recommended day-to-day tool).

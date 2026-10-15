@@ -123,9 +123,9 @@ pip install pandas numpy requests openpyxl
 ### Initial Setup
 
 1. Clone or download the application files
-2. Create your configuration file by copying and editing `linkedin_search_image.json`
-3. Add your API keys to the configuration file
-4. Set your images folder and metadata storage paths
+2. Copy `linkedin_search_image.json.sample` to `linkedin_search_image.json` and set your images folder and metadata storage paths
+3. API keys are not stored in the config file directly — it references them as `${VAR}` placeholders (`${IMGUR_CLIENT_ID}`, `${IMGUR_ACCESS_TOKEN}`, `${SERPAPI_KEY}`), which `config.py` resolves from the repo root `.env` at load time. Add the actual keys there.
+4. Also set `CHECK_IP_OWNER_EMAIL` in `.env` — `search_client.py` reads it directly (not via the config file) to supply the user's email, which isn't present in the API response.
 5. Run the application!
 
 ## 📖 Usage Examples

@@ -25,19 +25,7 @@ The common components provide the core infrastructure and user interface for the
 ```bash
 main.bat
 ```
-Launches the complete LinkedIn Reachout Hub with both dashboard and data entry tabs.
-
-### Dashboard Only
-```bash
-dashboard.bat
-```
-Launches Streamlit dashboard for data visualization and analytics.
-
-### Test Excel Formatting
-```bash
-test_excel_format.bat
-```
-Tests Excel formatting and hyperlink functionality.
+Launches the complete LinkedIn Reachout Hub with both dashboard and data entry tabs. This is the only launcher — there is no separate dashboard-only or Excel-formatting-test script.
 
 ## 🔍 Data Entry Features
 

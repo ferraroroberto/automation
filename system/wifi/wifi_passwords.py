@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
 List all saved Wi-Fi networks and passwords on Windows.
-Outputs to console and saves wifi_passwords.json in the current folder.
+Outputs to console and saves wifi_export.json next to this script
+(wifi_passwords.json is this tool's own config file, not the export).
 
 Usage:
     python wifi_passwords.py
-    # or choose a different output file:
+    # or choose a different output file (resolved against the current directory):
     python wifi_passwords.py --output my_wifi_list.json
     # enable debug mode:
     python wifi_passwords.py --debug
@@ -23,7 +24,8 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 
 # _netsh.py is a sibling; make it importable when this file is run as a script.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
 from _netsh import run_netsh  # noqa: E402
 
 # Configure logging
@@ -184,7 +186,7 @@ def load_config() -> Dict[str, Any]:
     Returns:
         Configuration dictionary
     """
-    config_path = Path(__file__).parent / "wifi_passwords.json"
+    config_path = SCRIPT_DIR / "wifi_passwords.json"
     
     try:
         if config_path.exists():
@@ -243,10 +245,15 @@ Examples:
             """
         )
         
+        # The config default is a bare filename; resolve it next to this script so
+        # the export always lands in a predictable place regardless of the caller's
+        # current directory. A user-supplied --output stays relative to the CWD, as
+        # is normal for an explicit CLI argument.
+        default_output_path = str(SCRIPT_DIR / config["default_output"]) if not os.path.isabs(config["default_output"]) else config["default_output"]
         parser.add_argument(
             "--output", "-o",
-            default=config["default_output"],
-            help=f"Output JSON file path (default: {config['default_output']})"
+            default=default_output_path,
+            help=f"Output JSON file path (default: {config['default_output']}, next to this script)"
         )
         
         parser.add_argument(
