@@ -4,7 +4,7 @@ Automated LinkedIn profile data extraction with multiple implementation approach
 
 ## 📋 Project Summary
 
-This project provides automated tools to extract LinkedIn profile data from search results, offering both reliability and flexibility through multiple extraction methods. Whether you need robust DevTools-based extraction or simple clipboard-based workflows, this suite provides everything needed for efficient LinkedIn data collection and management.
+This project provides automated tools to extract LinkedIn profile data from search results via Chrome DevTools Protocol-based extraction, with shared utilities for data entry, Excel formatting, and management.
 
 **Key Features:**
 - DevTools-based extraction for reliability
@@ -54,7 +54,7 @@ linkedin_profiles_data_orchestrator_devtools.bat
 ### Dashboard & Data Management
 ```bash
 cd common
-dashboard.bat
+main.bat
 ```
 
 ## ⚙️ Configuration
@@ -122,7 +122,6 @@ pip install pandas pynput requests websocket-client streamlit openpyxl
 - **Chrome DevTools Connection**: Ensure Chrome is running with `--remote-debugging-port=9222`
 - **Excel File Locked**: Close Excel application before running extraction
 - **Configuration Errors**: Verify JSON files are valid and paths exist
-- **Browser Focus**: For brute force method, keep browser window active
 - **Limits**: see this conversation for a review on total limits of reachout connections > https://gemini.google.com/app/11b97204c7f26bd7
 
 ### Debug Mode
