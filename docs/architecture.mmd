@@ -30,6 +30,8 @@ flowchart TB
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains
   NOWIN -.->|imported by| domains
+  STEALTH -.->|imported by| PARKING
+  STEALTH -.->|imported by| SYSTEM
 
   subgraph googlebox["google/"]
     GAUTH["_auth.py\nshared OAuth token/config loader"]

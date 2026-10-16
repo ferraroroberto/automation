@@ -16,11 +16,16 @@ import logging
 import os
 import sys
 import webbrowser
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 import requests
 from dotenv import load_dotenv
 
 import utils as notion_utils
+
+# Repo-root shared helper.
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from no_window import NO_WINDOW  # noqa: E402
 
 # Load environment variables
 load_dotenv()
@@ -343,7 +348,7 @@ def copy_to_clipboard(text: str) -> None:
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            creationflags=NO_WINDOW,
         )
         return
 
