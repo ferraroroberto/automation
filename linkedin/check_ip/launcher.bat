@@ -18,10 +18,9 @@ set VENV_DIR=..\..\.venv
 
 REM Check if virtual environment exists
 if not exist "%VENV_DIR%\Scripts\python.exe" (
-    echo [WARNING] Virtual environment not found at %VENV_DIR%
-    echo [INFO] Using system Python installation...
-    echo.
-    python main.py
+    echo [ERROR] Virtual environment not found at %VENV_DIR%
+    echo [ERROR] Create it first - see the repo README.
+    exit /b 1
 ) else (
     echo [INFO] Using virtual environment at %VENV_DIR%
     echo [INFO] Running script with venv Python...

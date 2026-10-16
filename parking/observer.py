@@ -19,7 +19,7 @@ from typing import Dict, List, Optional
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
-from parking.login import STEALTH_INIT_SCRIPT, stealth_launch_kwargs
+from browser_stealth import ProfileBusy, launch_persistent
 
 logger = logging.getLogger("parking.observer")
 
@@ -45,9 +45,7 @@ class Observers:
         url = bookings_url(site_url)
         playwright = sync_playwright().start()
         try:
-            context = playwright.chromium.launch_persistent_context(
-                **stealth_launch_kwargs(str(profile_dir), headless=False))
-            context.add_init_script(STEALTH_INIT_SCRIPT)
+            context = launch_persistent(playwright, str(profile_dir), headless=False)
             first = context.pages[0] if context.pages else context.new_page()
             cdp = context.new_cdp_session(first)
             pages: Dict[str, object] = {days[0]: first}
@@ -62,7 +60,7 @@ class Observers:
                 _title(page, day)
             logger.info("ℹ️ observer windows open for %s", ", ".join(days))
             return cls(playwright, context, pages)
-        except (PlaywrightError, OSError) as exc:
+        except (PlaywrightError, OSError, ProfileBusy) as exc:
             logger.warning("⚠️ observer windows unavailable (%s); the burst goes on without them", exc)
             playwright.stop()
             return None

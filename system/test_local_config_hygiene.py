@@ -50,6 +50,7 @@ MUST_NOT_BE_TRACKED: List[str] = [
     "linkedin/check_ip/linkedin_search_image.json",
     "linkedin/profiles_data_extractor/common/linkedin_profiles_data.json",
     "notion/journal_automation.json",
+    "notion/sample_illustrations.json",
     "system/foldersearcher/foldersearcher.json",
 ]
 

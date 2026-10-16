@@ -25,11 +25,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Iterator, Optional
 
+from browser_stealth import launch_persistent
+
 logger = logging.getLogger("outlook_web")
 
 OUTLOOK_URL = "https://outlook.cloud.microsoft/mail/"
 NO_SUBJECT = "(No subject)"
-STEALTH_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
 # The message list is virtualized (about 8 rows render at once, ~80 px each): a step of ~6 rows keeps
 # neighbouring snapshots overlapping, and the cap bounds a list that never reports its end.
 SCROLL_STEP = 500
@@ -71,20 +72,6 @@ def merge_snapshots(seen: list[str], new: list[str]) -> list[str]:
     return seen + new
 
 
-def stealth_launch_kwargs(user_data_dir: str, headless: bool) -> dict:
-    return {
-        "user_data_dir": user_data_dir,
-        "channel": "chrome",
-        "headless": headless,
-        "locale": "en-US",
-        "args": ["--disable-blink-features=AutomationControlled", "--disable-features=Translate",
-                 "--no-default-browser-check", "--no-first-run", "--lang=en-US"],
-        "ignore_default_args": ["--enable-automation", "--enable-blink-features=IdleDetection"],
-        "viewport": {"width": 1280, "height": 900},
-        "chromium_sandbox": True,
-    }
-
-
 def profile_dir() -> Path:
     return Path(os.environ.get("OUTLOOK_WEB_PROFILE_DIR") or Path.home() / ".outlook-web-drafts-profile")
 
@@ -103,9 +90,7 @@ class OutlookWeb:
         from playwright.sync_api import sync_playwright
         profile_dir().mkdir(parents=True, exist_ok=True)
         self._pw = sync_playwright().start()
-        self._context = self._pw.chromium.launch_persistent_context(
-            **stealth_launch_kwargs(str(profile_dir()), self.headless))
-        self._context.add_init_script(STEALTH_INIT_SCRIPT)
+        self._context = launch_persistent(self._pw, str(profile_dir()), self.headless)
         self.page = self._context.pages[0] if self._context.pages else self._context.new_page()
         self.page.goto(self.url)
         return self

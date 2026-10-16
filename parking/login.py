@@ -20,32 +20,11 @@ from typing import Optional
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
+from browser_stealth import launch_persistent
 from parking import auth
 from parking.config import PROFILE_DIR, load_env, set_env_value
 
 logger = logging.getLogger("parking.login")
-
-# Same real-Chrome, human-looking launch conventions as the other fleet browser automations.
-STEALTH_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-
-
-def stealth_launch_kwargs(user_data_dir: str, headless: bool) -> dict:
-    return {
-        "user_data_dir": user_data_dir,
-        "channel": "chrome",
-        "headless": headless,
-        "locale": "en-US",
-        "args": [
-            "--disable-blink-features=AutomationControlled",
-            "--disable-features=Translate",
-            "--no-default-browser-check",
-            "--no-first-run",
-            "--lang=en-US",
-        ],
-        "ignore_default_args": ["--enable-automation", "--enable-blink-features=IdleDetection"],
-        "viewport": {"width": 1280, "height": 900},
-        "chromium_sandbox": True,
-    }
 
 
 def _read_token(context) -> Optional[str]:
@@ -63,10 +42,8 @@ def _read_token(context) -> Optional[str]:
 def grab_token(site_url: str, headless: bool, wait_seconds: int) -> Optional[str]:
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
-        context = pw.chromium.launch_persistent_context(
-            **stealth_launch_kwargs(str(PROFILE_DIR), headless))
+        context = launch_persistent(pw, str(PROFILE_DIR), headless)
         try:
-            context.add_init_script(STEALTH_INIT_SCRIPT)
             page = context.pages[0] if context.pages else context.new_page()
             page.goto(site_url)
             deadline = time.monotonic() + wait_seconds

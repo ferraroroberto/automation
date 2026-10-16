@@ -23,7 +23,7 @@ from typing import List
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
-from parking.login import STEALTH_INIT_SCRIPT, stealth_launch_kwargs
+from browser_stealth import ProfileBusy, launch_persistent
 
 logger = logging.getLogger("parking.screenshot")
 
@@ -49,10 +49,8 @@ def capture_all(centers: List[str], site_url: str, out_dir: Path, profile_dir: P
     captured: List[Path] = []
     try:
         with sync_playwright() as pw:
-            context = pw.chromium.launch_persistent_context(
-                **stealth_launch_kwargs(str(profile_dir), headless=True))
+            context = launch_persistent(pw, str(profile_dir), headless=True)
             try:
-                context.add_init_script(STEALTH_INIT_SCRIPT)
                 page = context.pages[0] if context.pages else context.new_page()
                 page.goto(site_url, wait_until="networkidle")
                 page.wait_for_timeout(WAIT_AFTER_LOAD_MS)
@@ -75,6 +73,6 @@ def capture_all(centers: List[str], site_url: str, out_dir: Path, profile_dir: P
                         continue
             finally:
                 context.close()
-    except (PlaywrightError, OSError) as exc:
+    except (PlaywrightError, OSError, ProfileBusy) as exc:
         logger.warning("⚠️ screenshot capture failed: %s", exc)
     return captured
