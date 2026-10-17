@@ -1,4 +1,3 @@
-from pathlib import Path
 from datetime import datetime
 
 import pandas as pd
@@ -6,22 +5,12 @@ import streamlit as st
 
 from history_manager import log_history
 from loaders import load_config, load_excel_data
-from _lib import fuzzy_search_names, save_to_excel, apply_excel_formatting
-
-def update_existing_record(df, original_name, record_data):
-    """Update an existing record by original name."""
-    # Find the record by original name (case-insensitive)
-    existing_mask = df['name'].str.lower() == original_name.lower() if 'name' in df.columns else pd.Series([False] * len(df))
-
-    if existing_mask.any():
-        # Update existing record
-        idx = df[existing_mask].index[0]
-        for key, value in record_data.items():
-            if key in df.columns:
-                df.at[idx, key] = value
-        return df, "updated"
-    else:
-        return df, "not_found"
+from _lib import (
+    fuzzy_search_names,
+    save_to_excel,
+    update_existing_record,
+    render_excel_formatting_section,
+)
 
 def main():
     """
@@ -394,31 +383,7 @@ def main():
         st.info("👆 Please select a record from Step 2 to edit its data.")
 
     # Step 4: Manual formatting button
-    st.divider()
-    st.subheader("🎨 Excel Formatting")
-    
-    col_format_info, col_format_btn = st.columns([3, 1])
-    
-    with col_format_info:
-        st.markdown("""
-        Apply Excel formatting to convert URLs to hyperlinks and format columns.
-        **Note:** This process takes ~60 seconds. Only click when you're done editing.
-        """)
-    
-    with col_format_btn:
-        if st.button("🎨 Apply Formatting", type="primary", width="stretch", key="dataentry_apply_formatting"):
-            json_path = Path(__file__).parent / "excel_format_spec.json"
-            if not json_path.exists():
-                st.error("❌ Format specification file not found!")
-            else:
-                with st.spinner("Applying Excel formatting... This may take up to 60 seconds."):
-                    try:
-                        if apply_excel_formatting(data_path, str(json_path)):
-                            st.success("✅ Excel formatting applied successfully!")
-                        else:
-                            st.error("❌ Failed to apply Excel formatting. Check the logs for details.")
-                    except Exception as e:
-                        st.error(f"❌ Error applying Excel formatting: {e}")
+    render_excel_formatting_section(data_path, "dataentry_apply_formatting")
 
 
 if __name__ == "__main__":

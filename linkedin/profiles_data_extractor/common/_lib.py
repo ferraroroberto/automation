@@ -10,6 +10,7 @@ place instead of being copy-pasted per page.
 import difflib
 import logging
 import re
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -19,6 +20,7 @@ from excel_format_manager import convert_url_columns_to_hyperlinks, apply_format
 log = logging.getLogger(__name__)
 
 DEFAULT_SEARCH_COLUMNS = ('name', 'job_title', 'location')
+DATE_COLUMNS = ('date_contacted', 'date_connected', 'date_revocation', 'date_discarded')
 
 
 def fuzzy_search_profiles(df, search_query, columns=DEFAULT_SEARCH_COLUMNS, max_results=100):
@@ -185,6 +187,38 @@ def save_to_excel(df, file_path):
         return False
 
 
+def update_existing_record(df, original_name, record_data):
+    """Update an existing record by original name."""
+    # Find the record by original name (case-insensitive)
+    existing_mask = df['name'].str.lower() == original_name.lower() if 'name' in df.columns else pd.Series([False] * len(df))
+
+    if existing_mask.any():
+        # Update existing record
+        idx = df[existing_mask].index[0]
+
+        for key, value in record_data.items():
+            if key in df.columns:
+                # Handle date columns: ensure proper dtype conversion
+                if key in DATE_COLUMNS:
+                    # Convert value to datetime if it's not already NaT/None
+                    if pd.notna(value) and value != '':
+                        # Ensure the column is datetime dtype
+                        if not pd.api.types.is_datetime64_any_dtype(df[key]):
+                            df[key] = pd.to_datetime(df[key], errors='coerce')
+                        # Convert value to Timestamp
+                        if isinstance(value, str):
+                            value = pd.to_datetime(value, errors='coerce')
+                        elif not isinstance(value, pd.Timestamp):
+                            value = pd.Timestamp(value) if value else pd.NaT
+                    else:
+                        value = pd.NaT
+
+                df.at[idx, key] = value
+        return df, "updated"
+    else:
+        return df, "not_found"
+
+
 def apply_excel_formatting(excel_path, json_path):
     """Apply Excel formatting: convert URLs to hyperlinks and apply format from JSON."""
     try:
@@ -210,6 +244,35 @@ def apply_excel_formatting(excel_path, json_path):
     except Exception as e:
         log.error("❌ Error applying Excel formatting: %s", e)
         return False
+
+
+def render_excel_formatting_section(data_path, button_key):
+    """Render the "Excel Formatting" divider, blurb and Apply Formatting button."""
+    st.divider()
+    st.subheader("🎨 Excel Formatting")
+
+    col_format_info, col_format_btn = st.columns([3, 1])
+
+    with col_format_info:
+        st.markdown("""
+        Apply Excel formatting to convert URLs to hyperlinks and format columns.
+        **Note:** This process takes ~60 seconds. Only click when you're done editing.
+        """)
+
+    with col_format_btn:
+        if st.button("🎨 Apply Formatting", type="primary", width="stretch", key=button_key):
+            json_path = Path(__file__).parent / "excel_format_spec.json"
+            if not json_path.exists():
+                st.error("❌ Format specification file not found!")
+            else:
+                with st.spinner("Applying Excel formatting... This may take up to 60 seconds."):
+                    try:
+                        if apply_excel_formatting(data_path, str(json_path)):
+                            st.success("✅ Excel formatting applied successfully!")
+                        else:
+                            st.error("❌ Failed to apply Excel formatting. Check the logs for details.")
+                    except Exception as e:
+                        st.error(f"❌ Error applying Excel formatting: {e}")
 
 
 def generate_color_gradient(start_hex, end_hex, n):
