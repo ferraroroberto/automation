@@ -544,6 +544,17 @@ def get_hostname(ip_address: str) -> str:
     return result["hostname"]
 
 
+# Vendor-name substrings (lowercase) -> device type, checked in order.
+VENDOR_DEVICE_TYPES = (
+    ("Router/AP", ("netgear", "tp-link", "cisco", "asus")),
+    ("Apple Device", ("apple",)),
+    ("Gaming Console", ("sony interactive", "xbox")),
+    ("IoT Device", ("raspberry",)),
+    ("Smart Device", ("google inc", "amazon")),
+    ("Virtual Machine", ("vmware", "virtualbox", "qemu")),
+)
+
+
 def get_device_type(mac_address: str, ip_address: str) -> str:
     """
     Attempt to identify device type based on MAC address patterns and IP.
@@ -558,35 +569,14 @@ def get_device_type(mac_address: str, ip_address: str) -> str:
     if not mac_address:
         return "Unknown"
 
-    mac_lower = mac_address.lower()
     manufacturer = get_manufacturer(mac_address).lower()
 
-    # Router/AP indicators — matched against the resolved vendor name (from
-    # MAC_OUI_DATABASE via get_manufacturer), not the raw MAC hex, which can
-    # never contain these vendor substrings.
-    if any(vendor in manufacturer for vendor in ["netgear", "tp-link", "cisco", "asus"]):
-        return "Router/AP"
-
-    # Apple devices — same vendor-name lookup, so this tracks MAC_OUI_DATABASE
-    # instead of a second, separately-maintained prefix list.
-    if "apple" in manufacturer:
-        return "Apple Device"
-
-    # Gaming consoles
-    if mac_lower.startswith(("00:03:0f", "00:0d:93", "00:03:ff", "00:0d:4c")):
-        return "Gaming Console"
-
-    # IoT/Smart devices
-    if mac_lower.startswith(("b8:27:eb", "dc:a6:32", "e4:5f:01")):  # Raspberry Pi
-        return "IoT Device"
-    if mac_lower.startswith(("00:1a:11", "3c:5a:b4")):  # Google/Nest
-        return "Smart Device"
-    if mac_lower.startswith(("00:fc:8b", "18:74:2e")):  # Amazon
-        return "Smart Device"
-
-    # Virtualization
-    if mac_lower.startswith(("00:50:56", "00:0c:29", "08:00:27", "52:54:00")):
-        return "Virtual Machine"
+    # Every vendor-derived class is matched against the resolved vendor name
+    # (from MAC_OUI_DATABASE via get_manufacturer), not the raw MAC hex, so
+    # the classes track the database instead of a second prefix list.
+    for device_type, vendors in VENDOR_DEVICE_TYPES:
+        if any(vendor in manufacturer for vendor in vendors):
+            return device_type
 
     # Mobile devices (local IP ranges often indicate phones/tablets)
     ip_parts = ip_address.split('.')
