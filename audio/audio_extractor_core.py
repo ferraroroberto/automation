@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
+def _mp3_path(output_file: Path) -> Path:
+    """Append `.mp3` to the output name.
+
+    `Path.with_suffix` would replace the last dotted part of a name like
+    `Movie.2020.1080p_audio_unified`, collapsing every output of a dotted
+    video name onto the same file.
+    """
+    return output_file.with_name(output_file.name + ".mp3")
+
+
 class AudioExtractor:
     """Extracts audio tracks from video files using FFmpeg."""
 
@@ -98,11 +108,11 @@ class AudioExtractor:
                 '-c:a', 'libmp3lame',
                 '-b:a', '192k',
                 '-y',
-                str(output_file.with_suffix('.mp3'))
+                str(_mp3_path(output_file))
             ]
             
             subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW)
-            logger.info(f"Extracted track {track_index} to {output_file.with_suffix('.mp3').name}")
+            logger.info(f"Extracted track {track_index} to {_mp3_path(output_file).name}")
             return True
             
         except subprocess.CalledProcessError as e:
@@ -132,7 +142,7 @@ class AudioExtractor:
                     '-c:a', 'libmp3lame',
                     '-b:a', '192k',
                     '-y',
-                    str(output_file.with_suffix('.mp3'))
+                    str(_mp3_path(output_file))
                 ]
             else:
                 # Mix multiple tracks together
@@ -147,11 +157,11 @@ class AudioExtractor:
                     '-c:a', 'libmp3lame',
                     '-b:a', '192k',
                     '-y',
-                    str(output_file.with_suffix('.mp3'))
+                    str(_mp3_path(output_file))
                 ]
             
             subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW)
-            logger.info(f"Extracted and mixed all audio tracks to {output_file.with_suffix('.mp3').name}")
+            logger.info(f"Extracted and mixed all audio tracks to {_mp3_path(output_file).name}")
             return True
             
         except subprocess.CalledProcessError as e:
