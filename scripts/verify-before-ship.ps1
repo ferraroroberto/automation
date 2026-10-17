@@ -51,6 +51,10 @@ try {
     & $python -m unittest discover -s system/wifi -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "wifi netsh decoding unittest suite failed." }
 
+    Write-Host "==> unittest (audio)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s audio -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "audio unittest suite failed." }
+
     Write-Host "==> unittest (video)..." -ForegroundColor Cyan
     & $python -m unittest discover -s video -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "gpu_recovery console decoding unittest suite failed." }

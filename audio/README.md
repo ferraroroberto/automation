@@ -53,7 +53,7 @@ No CLI arguments — directory-picker in, save-as dialog out. No FFmpeg dependen
 
 ## 🎚️ audio_normalize.py
 
-Applies two-pass EBU R128 loudness normalization (FFmpeg's `loudnorm` filter, `TP=-1.5:LRA=11`) to a chosen audio file, re-encoding to AAC at 192k. Before normalizing it analyzes the source with FFmpeg's `ebur128` filter (integrated loudness, loudness range, true peak, sample peak) and shows a settings dialog with a target-loudness dropdown (`-23.0`, `-20.0`, `-16.0`, `-14.0` LUFS; default `-16.0`). After processing it shows a before/after comparison of all four metrics. Output is written next to the source as `{name}_normalized_{target}LUFS{ext}`.
+Applies two-pass EBU R128 loudness normalization (FFmpeg's `loudnorm` filter, `TP=-1.5:LRA=11`) to a chosen audio file, re-encoding to AAC at 192k. Before normalizing it analyzes the source with FFmpeg's `ebur128` filter (integrated loudness, loudness range, true peak, sample peak) and shows a settings dialog with a target-loudness dropdown (`-23.0`, `-20.0`, `-16.0`, `-14.0` LUFS; default `-16.0`). After processing it shows a before/after comparison of all four metrics. Output is written next to the source as `{name}_normalized_{target}LUFS.m4a` (always `.m4a`, whatever the source format).
 
 ```bash
 # Interactive GUI mode: pick a file, choose a target LUFS, review results
