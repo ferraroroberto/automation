@@ -63,6 +63,10 @@ try {
     & $python -m unittest discover -s linkedin/profiles_data_extractor/devtools -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "linkedin devtools unittest suite failed." }
 
+    Write-Host "==> unittest (linkedin check_ip)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s linkedin/check_ip -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "linkedin check_ip unittest suite failed." }
+
     Write-Host "==> unittest (image)..." -ForegroundColor Cyan
     & $python -m unittest discover -s image -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "image unittest suite failed." }

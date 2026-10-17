@@ -195,8 +195,12 @@ def parse_arguments() -> argparse.Namespace:
     Returns:
         argparse.Namespace: Parsed command line arguments
     """
-    # Load configuration first to use as defaults
-    config = Config()
+    # Pre-parse --config so the argparse defaults come from the file the user
+    # named (not the default one) before the full parser is built
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument("--config", type=str)
+    config_args, _ = config_parser.parse_known_args()
+    config = Config(config_args.config)
     
     parser = argparse.ArgumentParser(
         description="Enhanced Image Search Script with metadata tracking and API history",
@@ -303,10 +307,6 @@ def parse_arguments() -> argparse.Namespace:
     )
     
     args = parser.parse_args()
-    
-    # If a different config file was specified, reload configuration
-    if args.config:
-        config = Config(args.config)
     
     # Convert folder paths to Path objects
     args.images_folder = Path(args.images_folder)
