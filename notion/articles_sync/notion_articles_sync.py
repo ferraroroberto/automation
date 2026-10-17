@@ -558,6 +558,9 @@ class NotionArticlesSync:
             
         Returns:
             List of all items from the database
+
+        Raises:
+            RuntimeError: If a page query fails after retries (never returns a partial list)
         """
         items = []
         has_more = True
@@ -571,7 +574,13 @@ class NotionArticlesSync:
             
             result = self.query_database(database_id, start_cursor, filter_after)
             if not result:
-                break
+                # A truncated list is not a complete one: the diff would archive
+                # every target row whose source page was lost (or re-create rows
+                # whose target page was lost), so abort the sync cycle instead.
+                raise RuntimeError(
+                    f"Notion query failed on page {page_num} of database {database_id} "
+                    f"after {len(items)} items - aborting instead of syncing a partial list"
+                )
             
             page_items = result.get("results", [])
             items.extend(page_items)
