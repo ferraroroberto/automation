@@ -29,8 +29,7 @@ class TestApiCalls(unittest.TestCase):
             "sync": {
                 "polling_interval_seconds": 300,
                 "batch_size": 100,
-                "max_retries": 3,
-                "backoff_seconds": 2.0
+                "max_retries": 3
             },
             "threading": {
                 "max_workers": 5,
