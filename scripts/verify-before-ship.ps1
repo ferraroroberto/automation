@@ -47,6 +47,10 @@ try {
     & $python -m unittest google.test_photos_weekly_album
     if ($LASTEXITCODE -ne 0) { Fail "photos weekly album unittest suite failed." }
 
+    Write-Host "==> unittest (system.test_word_to_markdown)..." -ForegroundColor Cyan
+    & $python -m unittest system.test_word_to_markdown
+    if ($LASTEXITCODE -ne 0) { Fail "word to markdown unittest suite failed." }
+
     Write-Host "==> unittest (system/wifi)..." -ForegroundColor Cyan
     & $python -m unittest discover -s system/wifi -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "wifi netsh decoding unittest suite failed." }

@@ -176,7 +176,12 @@ class WordToMarkdownConverter:
         return "\n".join(markdown)
     
     def convert_document(self, doc_path: Path) -> str:
-        """Convert a Word document to Markdown."""
+        """Convert a Word document to Markdown.
+
+        Raises:
+            Exception: Whatever the document load or conversion raised, so a
+                corrupt document is never mistaken for converted content.
+        """
         try:
             logger.info(f"🔄 Converting {doc_path.name} to Markdown...")
             
@@ -203,7 +208,7 @@ class WordToMarkdownConverter:
             
         except Exception as e:
             logger.error(f"❌ Error converting {doc_path.name}: {str(e)}")
-            return f"# Error converting document\n\nAn error occurred while converting this document: {str(e)}"
+            raise
     
     def save_markdown(self, content: str, output_path: Path):
         """Save Markdown content to file."""
@@ -226,9 +231,12 @@ class WordToMarkdownConverter:
             logger.error(f"❌ File is not a Word document: {doc_path}")
             return False
         
-        # Convert to Markdown
-        markdown_content = self.convert_document(doc_path)
-        
+        # Convert to Markdown (a failure is already logged by convert_document)
+        try:
+            markdown_content = self.convert_document(doc_path)
+        except Exception:
+            return False
+
         # Create output path with .md extension
         output_path = doc_path.with_suffix('.md')
         
