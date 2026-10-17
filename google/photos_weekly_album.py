@@ -51,6 +51,8 @@ SCREENSHOTS_LINK = "Screenshots & recordings"
 SATURDAY = 5  # date.weekday()
 LABEL_RE = re.compile(r"^(Photo|Video)\b.* - ([A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M)$")
 COUNT_RE = re.compile(r"^(\d+) items?\b")
+# The option row's name is its icon ligature plus its text ("add New album"); an album row ends in its item count.
+NEW_ALBUM_RE = re.compile(r"(?:^|\s)New album$")
 SHARE_LINK_RE = re.compile(r"https://(?:photos\.app\.goo\.gl/[A-Za-z0-9]+"
                            r"|photos\.google\.com/share/[A-Za-z0-9_-]+\?key=[A-Za-z0-9_-]+)")
 EMAIL_FIELDS = ("title", "link", "week_start", "week_end")
@@ -503,8 +505,10 @@ class PhotosWeb:
         """Selected items -> new album titled ``title``; returns the album URL."""
         self.page.get_by_role("button", name=re.compile(r"add to album", re.I)).first.click()
         self.page.get_by_role("menuitem", name=re.compile(r"^Album$", re.I)).first.click()
+        # Click the option row: its text spans don't take pointer events, so a click on the "New
+        # album" text always lands on the row and Playwright reports the row as intercepting (#180).
         dialog = self.page.get_by_role("dialog")
-        dialog.get_by_text("New album", exact=True).first.click()
+        dialog.get_by_role("option", name=NEW_ALBUM_RE).first.click()
         name = self.page.get_by_role("textbox", name="Edit album name")
         name.wait_for(state="visible", timeout=30_000)
         name.click()
