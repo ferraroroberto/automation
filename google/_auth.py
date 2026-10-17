@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Shared Google OAuth + config-loading helpers.
 
-Consolidates logic that was independently duplicated in
-gmail_drive_automation.py and weekly_photo_automation.py: the config
-JSON loader and the load-token / refresh / re-authenticate / save-token
-dance (audit issue #64). Each caller still builds its own set of API
-services from the returned credentials, since that varies by script.
+Consolidates the config JSON loader and the load-token / refresh /
+re-authenticate / save-token dance (audit issue #64). Each caller still
+builds its own set of API services from the returned credentials, since
+that varies by script.
 """
 
 import json
@@ -19,8 +18,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 logger = logging.getLogger(__name__)
 
-# Photos + Gmail OAuth scopes requested by weekly_photo_automation.py and
-# checked by diag_all_scopes.py (audit issue #142: single source of truth).
+# Photos + Gmail OAuth scopes the stored token was granted. No script in the
+# repo requests them any more (the Photos Library API flow was removed); the
+# list is left unchanged so a future scope edit doesn't force a re-consent.
 PHOTOS_GMAIL_SCOPES: List[str] = [
     # Photos Library API - Core scopes
     'https://www.googleapis.com/auth/photoslibrary',
