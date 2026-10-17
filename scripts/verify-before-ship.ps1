@@ -71,6 +71,10 @@ try {
     & $python -m unittest discover -s system/apple -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "apple vcard unittest suite failed." }
 
+    Write-Host "==> unittest (system/quickdeck)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s system/quickdeck -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "quickdeck unittest suite failed." }
+
     Write-Host "==> unittest (image)..." -ForegroundColor Cyan
     & $python -m unittest discover -s image -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "image unittest suite failed." }

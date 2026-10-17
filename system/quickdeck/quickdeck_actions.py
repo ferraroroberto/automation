@@ -64,13 +64,14 @@ def execute_shell_action(button_config: Dict[str, Any], ctx: ActionContext) -> N
 
         ctx.set_status(f"🔄 Running: {cmd}")
 
-        # Fire and forget - waiting for completion would block the UI thread
+        # Fire and forget - waiting for completion would block the UI thread.
+        # Nothing reads the child's output, so discard it: an unread pipe fills
+        # up and blocks any command that writes more than the pipe buffer.
         subprocess.Popen(
             full_cmd,
             cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             creationflags=NO_WINDOW,
         )
 
