@@ -301,10 +301,12 @@ def normalize_audio(input_path: str, target_lufs: float) -> Optional[str]:
     """
     input_dir = os.path.dirname(input_path)
     filename = os.path.basename(input_path)
-    name, ext = os.path.splitext(filename)
+    name, _ = os.path.splitext(filename)
 
-    # Create output filename with normalization info
-    output_file = os.path.join(input_dir, f"{name}_normalized_{target_lufs}LUFS{ext}")
+    # Create output filename with normalization info. The encode below is always
+    # AAC with +faststart, which only the MP4 container accepts, so the output is
+    # .m4a whatever the input extension was.
+    output_file = os.path.join(input_dir, f"{name}_normalized_{target_lufs}LUFS.m4a")
 
     try:
         logger.info(f"🔄 Normalizing audio to {target_lufs} LUFS...")
