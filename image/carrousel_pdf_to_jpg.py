@@ -19,7 +19,10 @@ from tkinter import filedialog
 from tkinter import messagebox
 from typing import List, Tuple
 
+from dotenv import load_dotenv
 from pdf2image import convert_from_path
+
+load_dotenv()
 
 log = logging.getLogger(__name__)
 

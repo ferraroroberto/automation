@@ -3,6 +3,9 @@ import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 log = logging.getLogger(__name__)
 
