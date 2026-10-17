@@ -135,11 +135,8 @@ class QuickDeck:
             "grid": {
                 "rows": 2,
                 "cols": 4,
-                "pad": 8,
-                "button_height": 80,
                 "emoji_size": 48,
-                "text_size": 12,
-                "text_position": "below"
+                "text_size": 12
             },
             "buttons": [
                 {
@@ -242,7 +239,7 @@ class QuickDeck:
 
     def create_window(self) -> sg.Window:
         """Create the main window with button grid."""
-        grid_config = self.config.get("grid", {"rows": 2, "cols": 4, "pad": 8, "button_height": 80, "emoji_size": 48, "text_size": 12, "text_position": "below"})
+        grid_config = self.config.get("grid", {"rows": 2, "cols": 4, "emoji_size": 48, "text_size": 12})
         buttons = self.config.get("buttons", [])
         emoji_size = grid_config.get("emoji_size", 48)
         text_size = grid_config.get("text_size", 12)

@@ -53,11 +53,8 @@ Create a `quickdeck.json` file with your button configuration. Use `quickdeck.ex
   "grid": {
     "rows": 3,
     "cols": 3,
-    "pad": 4,
-    "button_height": 40,
     "emoji_size": 30,
-    "text_size": 12,
-    "text_position": "below"
+    "text_size": 12
   },
   "buttons": [
     {
