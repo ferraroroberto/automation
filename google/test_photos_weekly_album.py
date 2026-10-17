@@ -265,6 +265,82 @@ class ShareFlowTests(unittest.TestCase):
         self.assertIn("'Create link to share': ['Close', 'Copy']", logs.output[0])
 
 
+class _FakeAddToAlbumPage:
+    """The add-to-album dialog as Photos draws it (Oct 2026): a listbox of option rows, the first
+    named "add New album" (icon ligature + text) and the rest ending in an item count. The text
+    spans inside a row don't take pointer events, so clicking one fails as the row "intercepts
+    pointer events" (#180); only the row itself can be clicked."""
+
+    ROWS = ["add New album", "botox 69 items", "holiday New album 3 items"]
+
+    def __init__(self):
+        self.url, self.clicks = "https://photos.google.com/", []
+
+    def get_by_role(self, role, name=None):
+        if role == "option":
+            return _FakeRows([row for row in self.ROWS if name.search(row)], self)
+        if role == "textbox":
+            return _FakeNameBox(self)
+        if role == "dialog":
+            return self
+        return _FakeRows([role], self, role)
+
+    def get_by_text(self, text, exact=False):
+        return _FakeRows(["New album span"], self, "text span")
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def wait_for_url(self, pattern, timeout):
+        self.url = "https://photos.google.com/album/NEW"
+
+
+class _FakeRows:
+    def __init__(self, rows, page, kind="option"):
+        self.rows, self.page, self.kind = rows, page, kind
+
+    first = property(lambda self: self)
+
+    def click(self):
+        if self.kind == "text span":
+            raise TimeoutError("<li role=option> intercepts pointer events")
+        if self.kind == "option" and not self.rows:
+            raise TimeoutError("waiting for get_by_role(option)")
+        self.page.clicks.append(self.rows[0] if self.kind == "option" else self.kind)
+
+
+class _FakeNameBox:
+    def __init__(self, page):
+        self.page = page
+
+    def wait_for(self, state=None, timeout=None):
+        pass
+
+    def click(self):
+        pass
+
+    def press_sequentially(self, text, delay=0):
+        self.page.clicks.append(f"typed {text}")
+
+
+class CreateAlbumTests(unittest.TestCase):
+    def _web(self, page):
+        web = pwa.PhotosWeb(Path("unused"))
+        web.page, web._context = page, mock.Mock()
+        return web
+
+    def test_new_album_is_clicked_on_its_option_row_not_its_text_span(self):
+        page = _FakeAddToAlbumPage()
+        self.assertEqual(self._web(page).create_album("week 1"), "https://photos.google.com/album/NEW")
+        self.assertIn("add New album", page.clicks)
+        self.assertEqual(page.clicks.count("add New album"), 1)
+        self.assertIn("typed week 1", page.clicks)
+
+    def test_only_the_new_album_row_matches_not_an_album_whose_title_says_so(self):
+        matches = [row for row in _FakeAddToAlbumPage.ROWS if pwa.NEW_ALBUM_RE.search(row)]
+        self.assertEqual(matches, ["add New album"])
+
+
 class _FakeAlbumList:
     """The /albums page: ``cards`` are (href, card text); evaluate applies the script's own
     ``a[href*="..."]`` selectors, so the test exercises the real selector."""
