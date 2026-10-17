@@ -29,6 +29,43 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def build_sheet_row(email: Dict[str, Any]) -> List[str]:
+    """Turn one email dict into a spreadsheet row: subject, date, sender, 100-char preview."""
+    snippet = email['snippet']
+    return [
+        email['subject'],
+        email['date'],
+        email['from'],
+        snippet[:100] + '...' if len(snippet) > 100 else snippet
+    ]
+
+
+def filter_new_emails(email_data: List[Dict[str, Any]], existing_values: List[List[str]]) -> List[Dict[str, Any]]:
+    """
+    Drop emails whose subject is already in column A of the sheet.
+
+    Args:
+        email_data: Emails found in Gmail
+        existing_values: Raw sheet values (header row first) from the A:D range
+
+    Returns:
+        The emails whose stripped subject is not already listed
+    """
+    # Skip header row and create set of existing subjects for quick lookup
+    existing_subjects = set()
+    for row in existing_values[1:]:  # Skip header
+        if row and len(row) > 0:
+            existing_subjects.add(row[0].strip())  # Subject is in column A
+
+    new_emails = []
+    for email in email_data:
+        if email['subject'].strip() not in existing_subjects:
+            new_emails.append(email)
+        else:
+            logger.debug(f"📧 Email already exists: {email['subject'][:50]}...")
+    return new_emails
+
+
 class GmailDriveAutomation:
     """Manages Gmail monitoring and Google Drive spreadsheet automation."""
     
@@ -345,20 +382,8 @@ class GmailDriveAutomation:
             
             existing_values = result.get('values', [])
             
-            # Skip header row and create set of existing subjects for quick lookup
-            existing_subjects = set()
-            if len(existing_values) > 1:
-                for row in existing_values[1:]:  # Skip header
-                    if row and len(row) > 0:
-                        existing_subjects.add(row[0].strip())  # Subject is in column A
-            
             # Filter out emails that already exist
-            new_emails = []
-            for email in email_data:
-                if email['subject'].strip() not in existing_subjects:
-                    new_emails.append(email)
-                else:
-                    logger.debug(f"📧 Email already exists: {email['subject'][:50]}...")
+            new_emails = filter_new_emails(email_data, existing_values)
             
             logger.info(f"✅ Found {len(new_emails)} new emails to add")
             return new_emails
@@ -383,14 +408,7 @@ class GmailDriveAutomation:
         
         try:
             # Prepare data for spreadsheet
-            rows = []
-            for email in emails:
-                rows.append([
-                    email['subject'],
-                    email['date'],
-                    email['from'],
-                    email['snippet'][:100] + '...' if len(email['snippet']) > 100 else email['snippet']
-                ])
+            rows = [build_sheet_row(email) for email in emails]
             
             # Get current row count to append at the end
             result = self.sheets_service.spreadsheets().values().get(
