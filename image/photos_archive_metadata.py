@@ -194,6 +194,22 @@ def get_file_info(file_path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def is_inside_folder(path: str, folder: str) -> bool:
+    """True when `path` is `folder` itself or a descendant of it.
+
+    Both sides are normalized first: on Windows `os.path.commonpath` returns a
+    backslash path, so comparing it to a forward-slash config value (the form
+    photos_archive.json uses) never matched. Paths on different drives are
+    never inside one another (`commonpath` raises ValueError for them).
+    """
+    path = os.path.normcase(os.path.abspath(path))
+    folder = os.path.normcase(os.path.abspath(folder))
+    try:
+        return os.path.commonpath([path, folder]) == folder
+    except ValueError:
+        return False
+
+
 def process_files(source_folder: str, dest_folder: str, skip_dest_folder: bool) -> pd.DataFrame:
     """
     Processes all files in the source folder and its subfolders to extract metadata.
@@ -212,7 +228,7 @@ def process_files(source_folder: str, dest_folder: str, skip_dest_folder: bool) 
     # Traverse the directory structure
     for root, dirs, files in os.walk(source_folder):
         # Exclude the destination folder from the file collection process if specified
-        if skip_dest_folder and os.path.commonpath([root, dest_folder]) == dest_folder:
+        if skip_dest_folder and is_inside_folder(root, dest_folder):
             continue
 
         for file in files:

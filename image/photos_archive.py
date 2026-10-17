@@ -40,7 +40,7 @@ from photos_archive_duplicates import (
     mark_duplicates,
     recalculate_metadata,
 )
-from photos_archive_metadata import process_files
+from photos_archive_metadata import is_inside_folder, process_files
 
 # How often the copy/delete passes report progress, in files.
 _FILE_OP_PROGRESS_INTERVAL = 1000
@@ -309,7 +309,7 @@ def _run_fresh_scan(source_folder: str, dest_folder: str, current_time_str: str)
 
     # Detect if the destination folder is inside the source folder
     skip_dest_folder = False
-    if os.path.commonpath([source_folder, dest_folder]) == source_folder:
+    if is_inside_folder(dest_folder, source_folder):
         skip_dest_folder = _prompt_yes_no(
             get_config()['behavior_flags']['skip_destination_folder_scan'],
             f"The destination folder '{dest_folder}' is inside the source folder '{source_folder}'. Do you want to skip scanning the destination folder? (Y/N): ")
