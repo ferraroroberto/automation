@@ -31,7 +31,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Tuple, List, Optional, Dict, Any
 
+from dotenv import load_dotenv
 from PIL import Image
+
+load_dotenv()
 
 
 @dataclass

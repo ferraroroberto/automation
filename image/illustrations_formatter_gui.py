@@ -31,6 +31,10 @@ from typing import Optional, Tuple, Dict, Any
 import sys
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 try:
     from illustrations_formatter import (
         IllustrationsFormatter,

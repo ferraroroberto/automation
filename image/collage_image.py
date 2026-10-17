@@ -2,7 +2,10 @@ import logging
 import os
 import random
 from typing import List, Tuple
+from dotenv import load_dotenv
 from PIL import Image
+
+load_dotenv()
 
 log = logging.getLogger(__name__)
 
