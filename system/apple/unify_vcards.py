@@ -105,6 +105,9 @@ class Contact:
     notes: str = ""
     raw_vcard: str = ""
     original_lines: List[str] = field(default_factory=list)
+    # Properties the parser does not model (PHOTO, BDAY, URL, CATEGORIES, X-*, ...),
+    # one entry per property with folded continuation lines joined by a newline.
+    extra_lines: List[str] = field(default_factory=list)
 
     def get_display_name(self) -> str:
         """Get the best display name for this contact."""
@@ -206,6 +209,7 @@ class VCardParser:
         contact = Contact(vcard_id=self.contact_counter)
         contact.raw_vcard = vcard_content
         contact.original_lines = vcard_content.split('\n')
+        contact.extra_lines = self._collect_extra_lines(vcard_content)
 
         lines = vcard_content.split('\n')
 
@@ -237,6 +241,29 @@ class VCardParser:
             contact.full_name = f"{contact.first_name} {contact.last_name}".strip()
 
         return contact
+
+    # Property prefixes _parse_single_vcard models (plus the card framing); every
+    # other property is carried through verbatim in Contact.extra_lines.
+    _HANDLED_PREFIXES = ("BEGIN:", "END:", "VERSION", "FN:", "N:", "TEL", "EMAIL",
+                         "ADR", "ORG:", "TITLE:", "NOTE:")
+
+    def _collect_extra_lines(self, vcard_content: str) -> List[str]:
+        """Collect the properties this parser does not model, folded lines included."""
+        extras: List[str] = []
+        in_extra = False
+        for raw_line in vcard_content.split('\n'):
+            line = raw_line.rstrip('\r')
+            if not line.strip():
+                continue
+            if line[0] in ' \t':
+                # Folded continuation of the previous property
+                if in_extra:
+                    extras[-1] += "\n" + line
+                continue
+            in_extra = not line.startswith(self._HANDLED_PREFIXES)
+            if in_extra:
+                extras.append(line)
+        return extras
 
     def _parse_name_field(self, line: str, contact: Contact):
         """Parse the N (name) field.
@@ -538,6 +565,12 @@ class ContactMerger:
             if contact.notes and not merged.notes:
                 merged.notes = contact.notes
 
+        # Carry unmodelled properties (PHOTO, BDAY, URL, X-*, ...) through the merge
+        for contact in contacts:
+            for extra in contact.extra_lines:
+                if extra not in merged.extra_lines:
+                    merged.extra_lines.append(extra)
+
         return merged
 
     def _find_best_name_contact(self, contacts: List[Contact]) -> Contact:
@@ -692,6 +725,12 @@ class VCardWriter:
         Returns:
             List of vCard format lines
         """
+        # An untouched contact keeps its original card verbatim, so fields this
+        # tool does not model (PHOTO, BDAY, URL, CATEGORIES, X-*) survive the rewrite
+        raw_lines = [line.rstrip('\r') for line in contact.raw_vcard.strip().split('\n')]
+        if raw_lines and raw_lines[0] == "BEGIN:VCARD" and raw_lines[-1] == "END:VCARD":
+            return raw_lines
+
         lines = [
             "BEGIN:VCARD",
             "VERSION:3.0"
@@ -735,6 +774,10 @@ class VCardWriter:
             lines.append(f"TITLE:{contact.title}")
         if contact.notes:
             lines.append(f"NOTE:{contact.notes}")
+
+        # Unmodelled properties carried over from the source contacts
+        for extra in contact.extra_lines:
+            lines.extend(extra.split('\n'))
 
         lines.append("END:VCARD")
         return lines
