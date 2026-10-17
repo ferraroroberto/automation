@@ -42,6 +42,11 @@ bumps `source.last_edited_time`, the next incremental run re-fetches the
 same row, the comparator sees no change, but the *previous* version of the
 code wrote anyway — perpetuating the loop.
 
+### test06_fetch_failure_aborts_sync.py
+A page query that fails after retries makes `fetch_all_items` raise, so a
+full sync never archives target rows against a truncated source list. The
+Notion client is faked at `api_call`; no network.
+
 ## Why the previous test suite was wrong
 
 The earlier suite (and a "solution demonstration" doc) framed the recurring
