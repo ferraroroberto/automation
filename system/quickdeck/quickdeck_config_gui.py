@@ -74,11 +74,6 @@ class QuickDeckConfig:
              sg.Text("Cols:"), sg.Input(str(cols), key="grid_cols", size=(5, 1))],
             [sg.Text("Emoji Size:"), sg.Input(str(grid_config.get("emoji_size", 48)), key="emoji_size", size=(5, 1)),
              sg.Text("Text Size:"), sg.Input(str(grid_config.get("text_size", 12)), key="text_size", size=(5, 1))],
-            [sg.Text("Text Position:"), sg.Combo(["below", "above", "left", "right"],
-                                                 default_value=grid_config.get("text_position", "below"),
-                                                 key="text_position", size=(10, 1))],
-            [sg.Text("Padding:"), sg.Input(str(grid_config.get("pad", 8)), key="grid_pad", size=(5, 1)),
-             sg.Text("Button Height:"), sg.Input(str(grid_config.get("button_height", 80)), key="button_height", size=(5, 1))],
             [sg.HSeparator()],
             [sg.Text("Theme Colors:", font=("Arial", 12, "bold"))],
             [sg.Text("Background:"), sg.Input(theme_config.get("bg", "#111827"), key="theme_bg", size=(10, 1)),
@@ -316,9 +311,6 @@ class QuickDeckConfig:
             grid_config["cols"] = int(values.get("grid_cols", 4))
             grid_config["emoji_size"] = int(values.get("emoji_size", 48))
             grid_config["text_size"] = int(values.get("text_size", 12))
-            grid_config["text_position"] = values.get("text_position", "below")
-            grid_config["pad"] = int(values.get("grid_pad", 8))
-            grid_config["button_height"] = int(values.get("button_height", 80))
 
             # Update theme settings
             theme_config = self.qd.config.get("theme", {})
@@ -341,14 +333,6 @@ class QuickDeckConfig:
 
             if grid_config["text_size"] < 8 or grid_config["text_size"] > 24:
                 sg.popup_error("Text size must be between 8 and 24!", title="Error")
-                return
-
-            if grid_config["pad"] < 0 or grid_config["pad"] > 50:
-                sg.popup_error("Padding must be between 0 and 50!", title="Error")
-                return
-
-            if grid_config["button_height"] < 40 or grid_config["button_height"] > 200:
-                sg.popup_error("Button height must be between 40 and 200!", title="Error")
                 return
 
             # Validate window size settings
