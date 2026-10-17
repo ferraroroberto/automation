@@ -124,7 +124,7 @@ pytz==2023.3.post1  # Timezone calculations
 # =============================================================================
 
 # Windows COM interfaces (Outlook automation)
-# Source: notion/utils.py, system/open_file_latency_diag.py,
+# Source: system/open_file_latency_diag.py,
 #         linkedin/profiles_data_extractor/devtools/ (win32gui)
 pywin32>=306
 
