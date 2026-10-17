@@ -23,12 +23,13 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m unittest discover -s system/wifi -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s audio -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s excel/accounting_stripe -p "test_*.py"
+& .\.venv\Scripts\python.exe -m unittest discover -s linkedin/profiles_data_extractor/devtools -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s image -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s video -p "test_*.py"
 & .\.venv\Scripts\python.exe -m pytest -q parking
 ```
 
-All eleven must exit 0 / report `OK`.
+All twelve must exit 0 / report `OK`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
