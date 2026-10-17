@@ -55,6 +55,10 @@ try {
     & $python -m unittest discover -s audio -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "audio unittest suite failed." }
 
+    Write-Host "==> unittest (excel/accounting_stripe)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s excel/accounting_stripe -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "accounting_stripe unittest suite failed." }
+
     Write-Host "==> unittest (image)..." -ForegroundColor Cyan
     & $python -m unittest discover -s image -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "image unittest suite failed." }
