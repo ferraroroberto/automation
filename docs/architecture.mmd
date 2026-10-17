@@ -42,6 +42,7 @@ flowchart TB
     GDIAG["diag_gmail_drive.py"]
   end
   GAUTH --> GMAIL
+  GDIAG --> GMAIL
   ENV --> GAUTH
   GMAIL --> GAPIS["Gmail / Drive APIs"]
   STEALTH --> GALBUM

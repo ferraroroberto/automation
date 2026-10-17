@@ -36,7 +36,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 
 All seventeen must exit 0 / report `OK`.
 
-Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
+Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
 ## Internal architecture
 

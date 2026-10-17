@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from typing import Dict, Any
 
+import gmail_drive_automation as gda
+
 # Configure logging for testing
 logging.basicConfig(
     level=logging.INFO,
@@ -72,28 +74,27 @@ def test_email_data_processing() -> bool:
             }
         ]
         
-        # Test data transformation
-        rows = []
-        for email in mock_emails:
-            rows.append([
-                email['subject'],
-                email['date'],
-                email['from'],
-                email['snippet'][:100] + '...' if len(email['snippet']) > 100 else email['snippet']
-            ])
+        # Test data transformation with the real row builder
+        rows = [gda.build_sheet_row(email) for email in mock_emails]
         
         # Validate row structure
         if len(rows) != 2:
             logger.error(f"❌ Expected 2 rows, got {len(rows)}")
             return False
         
-        if len(rows[0]) != 4:
-            logger.error(f"❌ Expected 4 columns, got {len(rows[0])}")
+        if rows[0] != ['Test Email 1', '2024-01-15 10:00:00', 'test1@example.com', 'This is a test email content']:
+            logger.error(f"❌ Unexpected row: {rows[0]}")
             return False
         
-        # Test content truncation
-        if len(rows[1][3]) > 103:  # 100 + "..."
-            logger.error(f"❌ Content not properly truncated: {len(rows[1][3])} characters")
+        # Test content truncation: 100 characters kept, "..." appended
+        long_row = gda.build_sheet_row({**mock_emails[0], 'snippet': 'x' * 101})
+        if long_row[3] != 'x' * 100 + '...':
+            logger.error(f"❌ Content not properly truncated: {len(long_row[3])} characters")
+            return False
+        
+        # A snippet of exactly 100 characters is left alone
+        if gda.build_sheet_row({**mock_emails[0], 'snippet': 'x' * 100})[3] != 'x' * 100:
+            logger.error("❌ A 100-character snippet must not be truncated")
             return False
         
         logger.info("✅ Email data processing test passed")
@@ -109,32 +110,32 @@ def test_duplicate_prevention() -> bool:
     logger.info("🧪 Testing duplicate prevention...")
     
     try:
-        # Mock existing subjects
-        existing_subjects = {'Test Email 1', 'Old Email', 'Meeting Reminder'}
+        # Mock sheet values: header row first, subject in column A
+        existing_values = [
+            ['Subject', 'Date', 'From', 'Content Preview'],
+            ['Test Email 1', '2024-01-15', 'a@example.com', '...'],
+            [],
+            ['  Meeting Reminder '],
+        ]
         
         # Mock new emails
         new_emails = [
             {'subject': 'Test Email 1'},  # Duplicate
             {'subject': 'New Email'},     # New
-            {'subject': 'Meeting Reminder'},  # Duplicate
+            {'subject': 'Meeting Reminder'},  # Duplicate (whitespace is stripped)
             {'subject': 'Another New Email'}  # New
         ]
         
-        # Filter out duplicates
-        unique_emails = []
-        for email in new_emails:
-            if email['subject'].strip() not in existing_subjects:
-                unique_emails.append(email)
+        # Filter out duplicates with the real filter
+        unique_emails = gda.filter_new_emails(new_emails, existing_values)
         
-        # Should have 2 unique emails
-        if len(unique_emails) != 2:
-            logger.error(f"❌ Expected 2 unique emails, got {len(unique_emails)}")
+        if [email['subject'] for email in unique_emails] != ['New Email', 'Another New Email']:
+            logger.error(f"❌ Duplicates were not properly filtered: {unique_emails}")
             return False
         
-        # Check that duplicates were removed
-        unique_subjects = {email['subject'] for email in unique_emails}
-        if 'Test Email 1' in unique_subjects or 'Meeting Reminder' in unique_subjects:
-            logger.error("❌ Duplicate emails were not properly filtered")
+        # The header row is not a subject to dedupe against
+        if len(gda.filter_new_emails([{'subject': 'Subject'}], existing_values)) != 1:
+            logger.error("❌ The header row must not count as an existing subject")
             return False
         
         logger.info("✅ Duplicate prevention test passed")
