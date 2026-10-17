@@ -1,4 +1,3 @@
-from pathlib import Path
 from datetime import datetime
 
 import pandas as pd
@@ -10,42 +9,10 @@ from loaders import load_config, load_excel_data
 from _lib import (
     fuzzy_search_profiles,
     save_to_excel,
-    apply_excel_formatting,
+    update_existing_record,
+    render_excel_formatting_section,
     generate_color_gradient,
 )
-
-def update_existing_record(df, original_name, record_data):
-    """Update an existing record by original name."""
-    # Find the record by original name (case-insensitive)
-    existing_mask = df['name'].str.lower() == original_name.lower() if 'name' in df.columns else pd.Series([False] * len(df))
-
-    if existing_mask.any():
-        # Update existing record
-        idx = df[existing_mask].index[0]
-        # Define date columns that need special handling
-        date_columns = ['date_contacted', 'date_connected', 'date_revocation', 'date_discarded']
-        
-        for key, value in record_data.items():
-            if key in df.columns:
-                # Handle date columns: ensure proper dtype conversion
-                if key in date_columns:
-                    # Convert value to datetime if it's not already NaT/None
-                    if pd.notna(value) and value != '':
-                        # Ensure the column is datetime dtype
-                        if not pd.api.types.is_datetime64_any_dtype(df[key]):
-                            df[key] = pd.to_datetime(df[key], errors='coerce')
-                        # Convert value to Timestamp
-                        if isinstance(value, str):
-                            value = pd.to_datetime(value, errors='coerce')
-                        elif not isinstance(value, pd.Timestamp):
-                            value = pd.Timestamp(value) if value else pd.NaT
-                    else:
-                        value = pd.NaT
-                
-                df.at[idx, key] = value
-        return df, "updated"
-    else:
-        return df, "not_found"
 
 def main(df_filtered, df_all):
     """Main reachout function for managing uncontacted profiles."""
@@ -574,31 +541,8 @@ def main(df_filtered, df_all):
             st.warning("Required columns not found in data.")
 
     # Manual formatting button at the bottom
-    st.divider()
-    st.subheader("🎨 Excel Formatting")
-    
-    col_format_info, col_format_btn = st.columns([3, 1])
-    
-    with col_format_info:
-        st.markdown("""
-        Apply Excel formatting to convert URLs to hyperlinks and format columns.
-        **Note:** This process takes ~60 seconds. Only click when you're done editing.
-        """)
-    
-    with col_format_btn:
-        if st.button("🎨 Apply Formatting", type="primary", width="stretch", key="reachout_format_btn"):
-            json_path = Path(__file__).parent / "excel_format_spec.json"
-            if not json_path.exists():
-                st.error("❌ Format specification file not found!")
-            else:
-                with st.spinner("Applying Excel formatting... This may take up to 60 seconds."):
-                    try:
-                        if apply_excel_formatting(data_path, str(json_path)):
-                            st.success("✅ Excel formatting applied successfully!")
-                        else:
-                            st.error("❌ Failed to apply Excel formatting. Check the logs for details.")
-                    except Exception as e:
-                        st.error(f"❌ Error applying Excel formatting: {e}")
+    render_excel_formatting_section(data_path, "reachout_format_btn")
+
 
 if __name__ == "__main__":
     main()

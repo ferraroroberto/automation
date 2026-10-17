@@ -25,6 +25,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m unittest discover -s audio -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s excel/accounting_stripe -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s linkedin/profiles_data_extractor/devtools -p "test_*.py"
+& .\.venv\Scripts\python.exe -m unittest discover -s linkedin/profiles_data_extractor/common -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s linkedin/check_ip -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s system/apple -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s system/quickdeck -p "test_*.py"
@@ -33,7 +34,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m pytest -q parking
 ```
 
-All sixteen must exit 0 / report `OK`.
+All seventeen must exit 0 / report `OK`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
