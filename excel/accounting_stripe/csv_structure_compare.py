@@ -260,7 +260,9 @@ def filter_by_date_range(
 
     # Apply date filter
     original_count = len(df)
-    mask = (df[date_column] >= start_date) & (df[date_column] <= end_date)
+    # end_date names a day (midnight), but the column carries a time of day, so
+    # the whole last day is in range: compare against the start of the next day.
+    mask = (df[date_column] >= start_date) & (df[date_column] < end_date + timedelta(days=1))
     filtered_df = df[mask].copy()
 
     filtered_count = len(filtered_df)

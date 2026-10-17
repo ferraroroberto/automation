@@ -113,7 +113,7 @@ python csv_structure_compare.py "C:\data" --start-date 2024-07-01 --end-date 202
 - **Default**: Automatically selects last closed quarter
 - **Example**: Running on January 11, 2026 → filters Q4 2025 (Oct 1 - Dec 31, 2025)
 - **Custom**: Override with `--start-date` and `--end-date` parameters
-- **Format**: Use `YYYY-MM-DD` format for custom dates
+- **Format**: Use `YYYY-MM-DD` format for custom dates; the end date is inclusive of the whole day (payments made on it after 00:00 are kept)
 
 ## 📊 Output & Reports
 
