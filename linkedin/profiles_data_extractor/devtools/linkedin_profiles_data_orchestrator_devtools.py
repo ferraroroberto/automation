@@ -135,7 +135,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             destination_file: Path to the destination Excel file.
 
         Returns:
-            Tuple of (inserted_count, skipped_count).
+            Tuple of (inserted_count, skipped_count, total_records).
         """
         # Columns to use from the profiles (as specified in requirements)
         columns_to_use = ['name', 'url_profile', 'job_title', 'follows_from', 'company', 'location']
@@ -150,7 +150,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
         if not filtered_profiles:
             logger.warning("⚠️  No valid profiles to merge (missing name field)")
-            return 0, 0
+            return 0, 0, 0
 
         # Check if destination file exists
         if not os.path.exists(destination_file):
