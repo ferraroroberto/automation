@@ -2,7 +2,7 @@
 
 Creates the week's Google Photos album by driving the Google Photos web UI with Playwright in real Chrome, then shares it by link and saves a Gmail draft with the link to a configured list. It is deterministic, with no LLM in the loop. The week runs Saturday to Friday. Screenshots and screen recordings are left out. Nothing is sent unless asked: `--send`, or `"send": true` in the config.
 
-Why a browser: since 31 March 2025 the Photos Library API only sees items the calling app uploaded, and it can't share albums. The Picker API needs a person to pick the items. Neither can build this album unattended. The older `weekly_photo_automation.py` in this folder is built on the Library API and no longer works for this job.
+Why a browser: since 31 March 2025 the Photos Library API only sees items the calling app uploaded, and it can't share albums. The Picker API needs a person to pick the items. Neither can build this album unattended. The older Library-API script that used to live in this folder was removed.
 
 ## Setup
 
