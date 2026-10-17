@@ -3,7 +3,7 @@
 vCard Unification Tool
 
 This module provides an interactive tool to unify duplicate contacts in vCard files.
-It analyzes contacts for potential duplicates based on name similarity and phone numbers,
+It analyzes contacts for potential duplicates based on shared phone numbers and common name words,
 then guides users through an interactive process to merge or keep contacts.
 """
 
@@ -13,7 +13,6 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
-from difflib import SequenceMatcher
 import datetime
 import tkinter as tk
 from tkinter import filedialog
@@ -120,19 +119,6 @@ class Contact:
     def get_all_phone_numbers(self) -> List[str]:
         """Get all phone numbers as strings."""
         return [phone.number for phone in self.phones]
-
-    def has_similar_name(self, other: 'Contact', threshold: float = 0.8) -> bool:
-        """Check if this contact has a similar name to another."""
-        name1 = self.get_display_name().lower()
-        name2 = other.get_display_name().lower()
-
-        # Calculate similarity ratio
-        ratio = SequenceMatcher(None, name1, name2).ratio()
-
-        # Also check if one name is contained in the other
-        contained = name1 in name2 or name2 in name1
-
-        return ratio >= threshold or (contained and len(name1) > 3 and len(name2) > 3)
 
     def has_shared_phone(self, other: 'Contact') -> bool:
         """Check if this contact shares any phone numbers with another."""
@@ -381,7 +367,6 @@ class DuplicateDetector:
 
     def __init__(self):
         """Initialize the duplicate detector."""
-        self.name_similarity_threshold = 0.8
         self.processed_pairs: Set[Tuple[int, int]] = set()
 
     def find_duplicates(self, contacts: List[Contact]) -> List[Tuple[Contact, Contact, str]]:
@@ -940,61 +925,25 @@ class InteractiveUnifier:
         # Interactive unification process
         final_contacts = []
         processed_ids = set()
-        total_processed = 0
 
-        # Continue finding and processing duplicates until no more found
-        iteration = 0
-        max_iterations = 10  # Prevent infinite loops
+        # One pass: merged contacts are never fed back into the scan, so a second
+        # scan could not find a pair the first one did not already report.
+        logger.info("🔄 Finding duplicates...")
+        duplicates = self.detector.find_duplicates(contacts)
 
-        while iteration < max_iterations:
-            iteration += 1
-            logger.info(f"🔄 Iteration {iteration}: Finding duplicates...")
-
-            # Find duplicates among remaining contacts
-            remaining_contacts = [c for c in contacts if c.vcard_id not in processed_ids]
-            duplicates = self.detector.find_duplicates(remaining_contacts)
-
-            if not duplicates:
-                logger.info("✅ No more duplicates found")
-                break
-
+        if not duplicates:
+            logger.info("✅ No duplicates found")
+        else:
             logger.info(f"Found {len(duplicates)} potential duplicate pairs to review")
 
-            processed_in_this_iteration = False
+        for i, (contact1, contact2, reason) in enumerate(duplicates, 1):
+            # Skip if either contact already processed (a contact can sit in several pairs)
+            if contact1.vcard_id in processed_ids or contact2.vcard_id in processed_ids:
+                logger.debug(f"⏭️  Skipping pair ({contact1.vcard_id}, {contact2.vcard_id}) - already processed")
+                continue
 
-            pairs_processed_this_iteration = 0
-
-            for i, (contact1, contact2, reason) in enumerate(duplicates, 1):
-                # Skip if either contact already processed
-                if contact1.vcard_id in processed_ids or contact2.vcard_id in processed_ids:
-                    logger.debug(f"⏭️  Skipping pair ({contact1.vcard_id}, {contact2.vcard_id}) - already processed")
-                    continue
-
-                # Additional safety check: ensure contacts still exist in remaining_contacts
-                contact1_exists = any(c.vcard_id == contact1.vcard_id for c in remaining_contacts)
-                contact2_exists = any(c.vcard_id == contact2.vcard_id for c in remaining_contacts)
-
-                if not (contact1_exists and contact2_exists):
-                    logger.debug(f"⏭️  Skipping pair ({contact1.vcard_id}, {contact2.vcard_id}) - contacts no longer in remaining list")
-                    continue
-
-                result = self._process_duplicate_pair(i, len(duplicates), contact1, contact2, reason,
-                                                   final_contacts, processed_ids)
-                if result:  # Contact was processed (merged or handled)
-                    processed_in_this_iteration = True
-                    pairs_processed_this_iteration += 1
-
-            logger.info(f"📊 Iteration {iteration}: Processed {pairs_processed_this_iteration} pairs")
-
-            # If no contacts were processed in this iteration, break to avoid infinite loop
-            if not processed_in_this_iteration:
-                logger.info("ℹ️  No new contacts processed in this iteration")
-                break
-
-            # Additional safety: if we've processed all original contacts, break
-            if len(processed_ids) >= len(contacts):
-                logger.info("ℹ️  All contacts have been processed")
-                break
+            self._process_duplicate_pair(i, len(duplicates), contact1, contact2, reason,
+                                         final_contacts, processed_ids)
 
         # Add remaining unprocessed contacts
         for contact in contacts:

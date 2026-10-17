@@ -83,9 +83,8 @@ Input and output `.vcf` files are not kept in the repo — you point the app at 
 **What it does**
 
 - Parses every vCard in the file into name, phone, email, address, and organisation fields (`_vcard_fields.py` supplies the shared TYPE-label parsing that `convert_to_apple.py` also uses).
-- Groups likely duplicates by fuzzy name similarity (`difflib.SequenceMatcher`) and by shared normalised phone numbers.
+- Flags likely duplicate pairs by shared phone numbers or common words in their names.
 - Walks you through each duplicate group in the terminal: pick which record to keep, merge them, edit the resulting name, or skip. Enter accepts the suggested default.
-- Re-runs the duplicate scan on the merged result (up to 10 passes) so newly-adjacent duplicates are caught too.
 - Writes the unified vCard plus a Markdown report of every decision.
 
 **Running it**
