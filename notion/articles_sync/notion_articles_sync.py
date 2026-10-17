@@ -42,7 +42,6 @@ DEFAULT_MAX_WORKERS = 5
 DEFAULT_REQUESTS_PER_SECOND = 3.0
 DEFAULT_BURST_SIZE = 10
 DEFAULT_OPERATION_BATCH_SIZE = 10
-DEFAULT_BACKOFF_SECONDS = 2.0
 
 # Configuration schema for validation
 CONFIG_SCHEMA = {
@@ -65,8 +64,7 @@ CONFIG_SCHEMA = {
             "properties": {
                 "polling_interval_seconds": {"type": "integer", "minimum": 1},
                 "batch_size": {"type": "integer", "minimum": 1},
-                "max_retries": {"type": "integer", "minimum": 1},
-                "backoff_seconds": {"type": "number", "minimum": 0}
+                "max_retries": {"type": "integer", "minimum": 1}
             }
         },
         "threading": {
