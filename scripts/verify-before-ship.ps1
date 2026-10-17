@@ -67,6 +67,10 @@ try {
     & $python -m unittest discover -s linkedin/check_ip -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "linkedin check_ip unittest suite failed." }
 
+    Write-Host "==> unittest (system/apple)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s system/apple -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "apple vcard unittest suite failed." }
+
     Write-Host "==> unittest (image)..." -ForegroundColor Cyan
     & $python -m unittest discover -s image -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "image unittest suite failed." }
