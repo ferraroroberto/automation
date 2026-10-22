@@ -93,4 +93,4 @@ Exit codes: `0` ok, `1` a draft or send failed or could not be verified, `2` usa
 
 ## Tests
 
-`python -m unittest system.test_outlook_web_mail` covers part discovery, selection parsing, request building, the send logic against a fake browser (never sends unless asked, needs confirmation, never sends unverified drafts), and a guard that only the library's `send` method can click Send. The real browser steps are checked by live runs.
+`python -m unittest discover -s tests/system -p "test_outlook_web_mail.py"` covers part discovery, selection parsing, request building, the send logic against a fake browser (never sends unless asked, needs confirmation, never sends unverified drafts), and a guard that only the library's `send` method can click Send. The real browser steps are checked by live runs.

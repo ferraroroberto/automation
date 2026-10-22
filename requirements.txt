@@ -205,7 +205,7 @@ rarfile>=4.0
 python-docx>=0.8.11
 
 # Parking poller (parking/): browser login helper, timezone data, holiday calendar, tests
-# Source: parking/login.py, parking/poller.py, parking/tests
+# Source: parking/login.py, parking/poller.py, tests/parking
 playwright>=1.48
 tzdata>=2024.1
 holidays>=0.50

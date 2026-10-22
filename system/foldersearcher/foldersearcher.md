@@ -112,13 +112,12 @@ foldersearcher.py                # Tray + Tkinter UI only
 foldersearcher_core.py           # All logic: scan, persist, search, prune (no GUI imports)
 foldersearcher_cli.py            # Headless `scan` subcommand (atomic write, strict roots)
 run-scan-nightly.bat             # Foreground launcher for the nightly app-launcher job
-test_foldersearcher_core.py      # Focused tests for the core
-test_foldersearcher_cli.py       # CLI: rebuild, missing/no roots, atomic write
-test_foldersearcher_tray_reload.py  # Tray reloads an index rewritten on disk
 foldersearcher.json              # Configuration
 folder_structure.txt             # Index (auto-generated)
 foldersearcher.md                # This documentation
 ```
+
+The tests live in `tests/system/foldersearcher/`: the core, the CLI (rebuild, missing/no roots, atomic write) and the tray reloading an index rewritten on disk.
 
 `foldersearcher_core.py` imports no `tkinter`, `pystray`, or `win32` module, so it runs and tests headlessly.
 
@@ -149,7 +148,7 @@ A legacy headerless `folder_structure.txt` (root-relative paths, pre-multi-root)
 From the repo root:
 
 ```powershell
-& .\.venv\Scripts\python.exe -m unittest discover -s system/foldersearcher -p "test_*.py"
+& .\.venv\Scripts\python.exe -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
 ```
 
 Covers root normalization, legacy config migration, sectioned round-trip, legacy index loading, search matching, `skip_depth` display, and pruning with the flag on and off; the headless CLI's rebuild, missing-root and no-root refusals (old index byte-identical), and atomic write; and the tray's reload of an index rewritten on disk.

@@ -89,7 +89,7 @@ Rehearsal for whoever follows along: `& .\.venv\Scripts\python.exe -m parking.de
 ## Tests
 
 ```powershell
-& .\.venv\Scripts\python.exe -m pytest -q parking
+& .\.venv\Scripts\python.exe -m pytest -q tests/parking
 ```
 
 Part of the repo's `scripts/verify-before-ship.ps1` gate.

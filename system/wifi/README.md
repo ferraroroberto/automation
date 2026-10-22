@@ -69,10 +69,10 @@ the parameters are omitted. Alternatively, copy `wifi_connect.xml.sample` to
   "no profiles" / "export failed" for reasons unrelated to the network.
   `_netsh.py` also keeps "the query failed" distinct from "the answer is
   nothing", so an unreadable state is never shown as a confirmed negative.
-  Guarded by `test_netsh_decoding.py`:
+  Guarded by `tests/system/wifi/test_netsh_decoding.py`:
 
   ```powershell
-  & .\.venv\Scripts\python.exe -m unittest discover -s system/wifi -p "test_*.py"
+  & .\.venv\Scripts\python.exe -m unittest discover -s tests/system/wifi -p "test_*.py"
   ```
 - `network_scanner.py` uses raw sockets via scapy. **Run as
   Administrator** and install Npcap first
