@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, then the existing unittest suites.
+# pass/fail: byte-compile, the structure ratchet, then the unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -31,68 +31,72 @@ try {
     & $python -m compileall -q -x '\.venv' .
     if ($LASTEXITCODE -ne 0) { Fail "byte-compile failed." }
 
-    Write-Host "==> unittest (system/foldersearcher)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s system/foldersearcher -p "test_*.py"
+    # Opt-in via .fleet.toml [structure_ratchet]. Exit 1 is a new or grown offender or a
+    # root folder outside the declared shape; exit 3 is "not confirmed" (git unusable,
+    # unparseable file, unknown shape). Both fail: 3 is never a pass.
+    Write-Host "==> structure ratchet..." -ForegroundColor Cyan
+    & $python "scripts/structure_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "structure ratchet NOT CONFIRMED (exit 3) -- it could not measure the tree." }
+    if ($LASTEXITCODE -ne 0) { Fail "structure ratchet failed (see findings above)." }
+
+    Write-Host "==> unittest (tests/system/foldersearcher)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "foldersearcher unittest suite failed." }
 
-    Write-Host "==> unittest (system.test_local_config_hygiene)..." -ForegroundColor Cyan
-    & $python -m unittest system.test_local_config_hygiene
-    if ($LASTEXITCODE -ne 0) { Fail "local config hygiene unittest suite failed." }
+    Write-Host "==> unittest (tests/system)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/system -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "system unittest suites (config hygiene, outlook web mail, word to markdown) failed." }
 
-    Write-Host "==> unittest (system.test_outlook_web_mail)..." -ForegroundColor Cyan
-    & $python -m unittest system.test_outlook_web_mail
-    if ($LASTEXITCODE -ne 0) { Fail "outlook web mail unittest suite failed." }
-
-    Write-Host "==> unittest (google.test_photos_weekly_album)..." -ForegroundColor Cyan
-    & $python -m unittest google.test_photos_weekly_album
+    Write-Host "==> unittest (tests/google)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/google -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "photos weekly album unittest suite failed." }
 
-    Write-Host "==> unittest (system.test_word_to_markdown)..." -ForegroundColor Cyan
-    & $python -m unittest system.test_word_to_markdown
-    if ($LASTEXITCODE -ne 0) { Fail "word to markdown unittest suite failed." }
+    Write-Host "==> unittest (tests/notion/articles_sync)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/notion/articles_sync -p "test*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "notion articles sync unittest suite failed." }
 
-    Write-Host "==> unittest (system/wifi)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s system/wifi -p "test_*.py"
+    Write-Host "==> unittest (tests/system/wifi)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/system/wifi -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "wifi netsh decoding unittest suite failed." }
 
-    Write-Host "==> unittest (audio)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s audio -p "test_*.py"
+    Write-Host "==> unittest (tests/audio)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/audio -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "audio unittest suite failed." }
 
-    Write-Host "==> unittest (excel/accounting_stripe)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s excel/accounting_stripe -p "test_*.py"
+    Write-Host "==> unittest (tests/excel/accounting_stripe)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/excel/accounting_stripe -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "accounting_stripe unittest suite failed." }
 
-    Write-Host "==> unittest (linkedin devtools)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s linkedin/profiles_data_extractor/devtools -p "test_*.py"
+    Write-Host "==> unittest (tests/linkedin devtools)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/linkedin/profiles_data_extractor/devtools -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "linkedin devtools unittest suite failed." }
 
-    Write-Host "==> unittest (linkedin common)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s linkedin/profiles_data_extractor/common -p "test_*.py"
+    Write-Host "==> unittest (tests/linkedin common)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/linkedin/profiles_data_extractor/common -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "linkedin common unittest suite failed." }
 
-    Write-Host "==> unittest (linkedin check_ip)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s linkedin/check_ip -p "test_*.py"
+    Write-Host "==> unittest (tests/linkedin check_ip)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/linkedin/check_ip -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "linkedin check_ip unittest suite failed." }
 
-    Write-Host "==> unittest (system/apple)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s system/apple -p "test_*.py"
+    Write-Host "==> unittest (tests/system/apple)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/system/apple -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "apple vcard unittest suite failed." }
 
-    Write-Host "==> unittest (system/quickdeck)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s system/quickdeck -p "test_*.py"
+    Write-Host "==> unittest (tests/system/quickdeck)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/system/quickdeck -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "quickdeck unittest suite failed." }
 
-    Write-Host "==> unittest (image)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s image -p "test_*.py"
+    Write-Host "==> unittest (tests/image)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/image -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "image unittest suite failed." }
 
-    Write-Host "==> unittest (video)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s video -p "test_*.py"
+    Write-Host "==> unittest (tests/video)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/video -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "gpu_recovery console decoding unittest suite failed." }
 
-    Write-Host "==> pytest (parking)..." -ForegroundColor Cyan
-    & $python -m pytest -q parking
+    Write-Host "==> pytest (tests/parking)..." -ForegroundColor Cyan
+    & $python -m pytest -q tests/parking
     if ($LASTEXITCODE -ne 0) { Fail "parking pytest suite failed." }
 }
 finally {

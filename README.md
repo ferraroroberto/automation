@@ -23,9 +23,12 @@ automation/
 ├── 📁 scripts/         # Repo-level scripts (verification gate)
 ├── 📁 smart_life/      # Smart Life / IoT device automation
 ├── 📁 system/          # System utilities and virtual environment management
+├── 📁 tests/           # Every test, under tests/<domain>/
 ├── 📁 text/            # Text processing and PDF conversion tools
 └── 📁 video/           # Screen recording and video processing tools
 ```
+
+[`docs/layout.md`](docs/layout.md) says what each folder and subpackage holds and where new code and tests go; the structure ratchet in the gate enforces it.
 
 [`docs/architecture.mmd`](docs/architecture.mmd) is the hand-authored Mermaid diagram of how those folders relate — the domain folders, the shared per-domain helpers (`google/_auth.py`, `notion/utils.py`), and the external services each domain talks to. `CLAUDE.md` requires it be updated in the same PR as any structural change.
 
@@ -319,7 +322,7 @@ python -m venv .venv
 
 This is a grab-bag of independent scripts, not a single application — there is no linter config, no CI workflow, and no repo-wide test suite. What the repo does hold itself to:
 
-- **Verification before shipping:** `powershell -File scripts\verify-before-ship.ps1` — byte-compiles every module and runs the unit-test suites that do exist. See [`CLAUDE.md`](CLAUDE.md) § Verification for the current list; the script is the source of truth. It must exit 0.
+- **Verification before shipping:** `powershell -File scripts\verify-before-ship.ps1` — byte-compiles every module, runs the structure ratchet, then the unit-test suites under `tests/`. See [`CLAUDE.md`](CLAUDE.md) § Verification for the current list; the script is the source of truth. It must exit 0.
 - **The repo `.venv`, by path:** `& .\.venv\Scripts\python.exe ...` — a bare `python`/`py` is not reliably on PATH on this machine.
 - **Branch-based pipeline** (no forks): one issue → one `<type>/<issue-N>-<slug>` branch → one PR → squash-merge. Never commit to `main` directly. Full rules in [`CLAUDE.md`](CLAUDE.md).
 - **New or moved domain folders and shared helpers** update [`docs/architecture.mmd`](docs/architecture.mmd) in the same PR.
