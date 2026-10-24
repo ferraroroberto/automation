@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "entries": [
+    {"key": "image/image_resizer.py", "names": ["resize_image_quality_only"]},
+    {"key": "linkedin/profiles_data_extractor/devtools/_chrome_client.py", "names": ["ChromeDevToolsClient.get_current_url"]},
+    {"key": "notion/articles_sync/notion_articles_sync.py", "names": ["NotionArticlesSync.set_last_sync_time"]},
+    {"key": "system/textexpander/text_expander_monitor.py", "names": ["KeyboardMonitor.get_buffer_content", "KeyboardMonitor.is_monitoring"]},
+    {"key": "system/treesize/treesize.py", "names": ["TreeSizeAnalyzer.get_folder_size_shallow"]}
+  ]
+}
