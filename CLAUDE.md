@@ -18,6 +18,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m compileall -q -x '\.venv' .
 & .\.venv\Scripts\python.exe scripts\structure_ratchet.py
 & .\.venv\Scripts\python.exe scripts\instruction_ratchet.py
+& .\.venv\Scripts\python.exe scripts\doc_refs_ratchet.py
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/google -p "test_*.py"
@@ -35,7 +36,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m pytest -q tests/parking
 ```
 
-All eighteen must exit 0 / report `OK`.
+All nineteen must exit 0 / report `OK`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
@@ -46,6 +47,8 @@ Conditional: after changing `google/gmail_drive_automation.py`, also run its off
 A structure ratchet gates the verification run. `scripts/structure_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored structure_ratchet`, never edit) and fails when a file passes 1,000 lines, a function 100 lines or a flat directory 40 modules and is new or above its entry in `.structure-ratchet-baseline.json`, or when the root folders do not match `shape = "pipeline-cli"` plus `extra_roots` in `.fleet.toml`. The baselined giants (three files, 27 functions) are recorded at their real size, never excluded: they cannot grow, so new code goes in a new module beside them. Burn the baseline down with `--update-baseline`; only `--allow-additions` adds, and it shows in review. A new tool folder is declared in `extra_roots` and gets a line in `docs/layout.md`. Exit 3 (could not measure) is NOT CONFIRMED and fails the gate. Config is the `[structure_ratchet]` table in `.fleet.toml`.
 
 An instruction ratchet gates the same run. `scripts/instruction_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored instruction_ratchet`, never edit). It lints this file and `AGENTS.md` with the weekly prompt audit's deterministic rules and fails when a rule's hit count rises above `.instruction-ratchet-baseline.json` or this file passes its 200-line cap. The baseline is empty, so any new hit fails by name: reword the line rather than raising it. Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[instruction_ratchet]` table in `.fleet.toml`.
+
+A doc refs ratchet follows it. `scripts/doc_refs_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored doc_refs_ratchet`, never edit). It reads `README.md`, this file and `docs/**/*.md` and fails when one names a repo path, `python -m` module or relative link that does not exist and is not recorded in `.doc-refs-ratchet-baseline.json`. The baseline is empty: point a stale reference at what exists, or list an intentional pointer in `allow_refs`. No port is declared in `.fleet.toml`, so ports are not checked. Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[doc_refs_ratchet]` table in `.fleet.toml`.
 
 ## Internal architecture
 

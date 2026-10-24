@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure and instruction ratchets, then the unittest suites.
+# pass/fail: byte-compile, the structure, instruction and doc refs ratchets, then the unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -46,6 +46,14 @@ try {
     & $python "scripts/instruction_ratchet.py"
     if ($LASTEXITCODE -eq 3) { Fail "instruction ratchet NOT CONFIRMED (exit 3) -- it could not measure the instruction files." }
     if ($LASTEXITCODE -ne 0) { Fail "instruction ratchet failed (see findings above)." }
+
+    # Opt-in via .fleet.toml [doc_refs_ratchet]. Exit 1 is a doc reference to a repo path, module
+    # or relative link that does not exist and is not baselined; exit 3 is "not confirmed" (git
+    # unusable, a non-UTF-8 doc, an unclosed fence). Both fail: 3 is never a pass.
+    Write-Host "==> doc refs ratchet..." -ForegroundColor Cyan
+    & $python "scripts/doc_refs_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "doc refs ratchet NOT CONFIRMED (exit 3) -- it could not read the docs or the tree." }
+    if ($LASTEXITCODE -ne 0) { Fail "doc refs ratchet failed (see findings above)." }
 
     Write-Host "==> unittest (tests/system/foldersearcher)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
