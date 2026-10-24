@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure ratchet, then the unittest suites.
+# pass/fail: byte-compile, the structure and instruction ratchets, then the unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -38,6 +38,14 @@ try {
     & $python "scripts/structure_ratchet.py"
     if ($LASTEXITCODE -eq 3) { Fail "structure ratchet NOT CONFIRMED (exit 3) -- it could not measure the tree." }
     if ($LASTEXITCODE -ne 0) { Fail "structure ratchet failed (see findings above)." }
+
+    # Opt-in via .fleet.toml [instruction_ratchet]. Exit 1 is a violation-cap hit count above
+    # its baseline or an instruction file past its size cap; exit 3 is "not confirmed" (git
+    # unusable, unreadable file). Both fail: 3 is never a pass.
+    Write-Host "==> instruction ratchet..." -ForegroundColor Cyan
+    & $python "scripts/instruction_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "instruction ratchet NOT CONFIRMED (exit 3) -- it could not measure the instruction files." }
+    if ($LASTEXITCODE -ne 0) { Fail "instruction ratchet failed (see findings above)." }
 
     Write-Host "==> unittest (tests/system/foldersearcher)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
