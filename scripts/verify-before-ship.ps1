@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure, instruction and doc refs ratchets, then the unittest suites.
+# pass/fail: byte-compile, the structure, instruction, doc refs and dead code ratchets, then the unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -54,6 +54,14 @@ try {
     & $python "scripts/doc_refs_ratchet.py"
     if ($LASTEXITCODE -eq 3) { Fail "doc refs ratchet NOT CONFIRMED (exit 3) -- it could not read the docs or the tree." }
     if ($LASTEXITCODE -ne 0) { Fail "doc refs ratchet failed (see findings above)." }
+
+    # Opt-in via .fleet.toml [dead_code_ratchet]. Exit 1 is a function, class or method that
+    # nothing references and the baseline does not record; exit 3 is "not confirmed" (git
+    # unusable, a tracked .py file that does not parse). Both fail: 3 is never a pass.
+    Write-Host "==> dead code ratchet..." -ForegroundColor Cyan
+    & $python "scripts/dead_code_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "dead code ratchet NOT CONFIRMED (exit 3) -- it could not read or parse the tracked Python." }
+    if ($LASTEXITCODE -ne 0) { Fail "dead code ratchet failed (see findings above)." }
 
     Write-Host "==> unittest (tests/system/foldersearcher)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
