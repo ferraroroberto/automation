@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure, instruction, doc refs, dead code and static ratchets, then the unittest suites.
+# pass/fail: byte-compile, the structure, instruction, doc refs, dead code, static and docs ratchets, then the unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -70,6 +70,14 @@ try {
     & $python "scripts/static_ratchet.py"
     if ($LASTEXITCODE -eq 3) { Fail "static ratchet NOT CONFIRMED (exit 3) -- a detector (npx/jscpd or ruff) could not run." }
     if ($LASTEXITCODE -ne 0) { Fail "static ratchet failed (see findings above)." }
+
+    # Opt-in via .fleet.toml [docs_ratchet]. Exit 1 is a README over its size budget or past its
+    # baseline, or a file whose history-marker count rose; exit 3 is "not confirmed" (git unusable,
+    # a non-UTF-8 doc, an unclosed fence or comment). Both fail: 3 is never a pass.
+    Write-Host "==> docs ratchet..." -ForegroundColor Cyan
+    & $python "scripts/docs_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "docs ratchet NOT CONFIRMED (exit 3) -- it could not read the docs or the tree." }
+    if ($LASTEXITCODE -ne 0) { Fail "docs ratchet failed (see findings above)." }
 
     Write-Host "==> unittest (tests/scripts)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/scripts -p "test_*.py"
