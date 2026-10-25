@@ -156,6 +156,61 @@ class LinkedInImageSearchApp:
             import traceback
             logger.error(traceback.format_exc())
     
+    def _upload_new_image(self, img_path, metadata_df: pd.DataFrame,
+                          current_time_str: str) -> tuple:
+        """
+        Upload an image missing from the metadata to Imgur and record it.
+
+        Returns:
+            tuple: (imgur URL or None when the upload failed, updated metadata dataframe)
+        """
+        img_filename = img_path.name
+        logger.info(f"🚀 Processing: {img_filename} (new upload to Imgur)")
+        img_url = self.imgur_client.upload_image(img_path)
+
+        if not img_url:
+            logger.error(f"❌ Skipping {img_filename}, failed to upload.")
+            return None, metadata_df
+
+        logger.info(f"✅ Image uploaded: {img_url}")
+
+        # Add to metadata
+        new_metadata = pd.DataFrame({
+            'filename': [img_filename],
+            'last_processed_date': [current_time_str],
+            'imgur_url': [img_url]
+        })
+        return img_url, pd.concat([metadata_df, new_metadata], ignore_index=True)
+
+    def _finalize_results(self, metadata_df: pd.DataFrame, results_df: pd.DataFrame,
+                          new_results: list) -> tuple:
+        """
+        Merge the run's new results into the database and refresh counts and duplicates.
+
+        Returns:
+            tuple: (updated metadata dataframe, updated results dataframe)
+        """
+        # Add new results to the database
+        if new_results:
+            logger.info(f"📊 Adding {len(new_results)} new results to database")
+            new_results_df = pd.DataFrame(new_results)
+    
+            if results_df.empty:
+                results_df = new_results_df
+            else:
+                results_df = pd.concat([results_df, new_results_df], ignore_index=True)
+        else:
+            logger.info("📄 No new results to add to database")
+
+        # Update metadata counts and mark duplicates
+        logger.info("🔢 Updating metadata link counts")
+        metadata_df = self.data_processor.update_metadata_counts(metadata_df, results_df)
+
+        logger.info("🔍 Checking for duplicate URLs in results database")
+        results_df = self.data_processor.mark_duplicate_urls(results_df)
+        
+        return metadata_df, results_df
+
     def _process_images(self, image_paths: list, metadata_df: pd.DataFrame, 
                        results_df: pd.DataFrame, api_history_df: pd.DataFrame, 
                        current_time_str: str) -> tuple:
@@ -213,22 +268,11 @@ class LinkedInImageSearchApp:
                 metadata_df.loc[metadata_df['filename'] == img_filename, 'last_processed_date'] = current_time_str
             else:
                 # New image, upload to Imgur
-                logger.info(f"🚀 Processing: {img_filename} (new upload to Imgur)")
-                img_url = self.imgur_client.upload_image(img_path)
-                
+                img_url, metadata_df = self._upload_new_image(
+                    img_path, metadata_df, current_time_str
+                )
                 if not img_url:
-                    logger.error(f"❌ Skipping {img_filename}, failed to upload.")
                     continue
-                
-                logger.info(f"✅ Image uploaded: {img_url}")
-                
-                # Add to metadata
-                new_metadata = pd.DataFrame({
-                    'filename': [img_filename],
-                    'last_processed_date': [current_time_str],
-                    'imgur_url': [img_url]
-                })
-                metadata_df = pd.concat([metadata_df, new_metadata], ignore_index=True)
 
             processed_images += 1
             
@@ -252,24 +296,7 @@ class LinkedInImageSearchApp:
             else:
                 logger.info(f"✅ {img_filename}: Added {image_unique_urls} new URLs")
         
-        # Add new results to the database
-        if new_results:
-            logger.info(f"📊 Adding {len(new_results)} new results to database")
-            new_results_df = pd.DataFrame(new_results)
-            
-            if results_df.empty:
-                results_df = new_results_df
-            else:
-                results_df = pd.concat([results_df, new_results_df], ignore_index=True)
-        else:
-            logger.info("📄 No new results to add to database")
-        
-        # Update metadata counts and mark duplicates
-        logger.info("🔢 Updating metadata link counts")
-        metadata_df = self.data_processor.update_metadata_counts(metadata_df, results_df)
-
-        logger.info("🔍 Checking for duplicate URLs in results database")
-        results_df = self.data_processor.mark_duplicate_urls(results_df)
+        metadata_df, results_df = self._finalize_results(metadata_df, results_df, new_results)
         
         return (metadata_df, results_df, api_history_df, new_results,
                 skipped_images, processed_images, unique_urls_found, duplicate_urls_skipped)

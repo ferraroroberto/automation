@@ -330,6 +330,45 @@ def process_pdf_files(folder_path: Path, dpi: int = DEFAULT_DPI, delete_after: b
     
     return pdf_count, image_count
 
+def _prompt_positive_int(prompt: str, default: int, positive_msg: str, log: logging.Logger) -> int:
+    """Ask until the answer is empty (the default) or a positive integer."""
+    while True:
+        raw = input(prompt).strip()
+        if not raw:
+            return default
+        try:
+            value = int(raw)
+            if value <= 0:
+                log.error(positive_msg)
+                continue
+            return value
+        except ValueError:
+            log.error("❌ Please enter a valid number.")
+
+
+def _prompt_delete_after(log: logging.Logger) -> bool:
+    """Ask whether to delete the source PDFs; an empty answer means no."""
+    while True:
+        answer = input("Delete source PDF files after conversion? (y/n, default: n): ").strip().lower()
+        if not answer or answer in ['n', 'no']:
+            return False
+        if answer in ['y', 'yes']:
+            return True
+        log.error("❌ Please enter 'y' or 'n'.")
+
+
+def _confirm_conversion(log: logging.Logger) -> bool:
+    """Ask for a final y/n; a refusal is logged as a cancelled conversion."""
+    while True:
+        answer = input("\nProceed with conversion? (y/n): ").strip().lower()
+        if answer in ['y', 'yes']:
+            return True
+        if answer in ['n', 'no']:
+            log.info("❌ Conversion cancelled.")
+            return False
+        log.error("❌ Please enter 'y' or 'n'.")
+
+
 def main():
     """Main application function."""
     # Setup logging first so all subsequent calls can use it
@@ -359,49 +398,23 @@ def main():
     # Ask about DPI
     log.info("⚙️  Configuration")
     log.info("=" * 50)
-    while True:
-        dpi_input = input(f"Enter DPI for image conversion (default: {DEFAULT_DPI}): ").strip()
-        if not dpi_input:
-            dpi = DEFAULT_DPI
-            break
-        try:
-            dpi = int(dpi_input)
-            if dpi <= 0:
-                log.error("❌ DPI must be a positive number.")
-                continue
-            break
-        except ValueError:
-            log.error("❌ Please enter a valid number.")
+    dpi = _prompt_positive_int(
+        f"Enter DPI for image conversion (default: {DEFAULT_DPI}): ",
+        DEFAULT_DPI,
+        "❌ DPI must be a positive number.",
+        log,
+    )
 
     # Ask about deleting PDFs
-    while True:
-        delete_input = input("Delete source PDF files after conversion? (y/n, default: n): ").strip().lower()
-        if not delete_input:
-            delete_after = False
-            break
-        if delete_input in ['y', 'yes']:
-            delete_after = True
-            break
-        elif delete_input in ['n', 'no']:
-            delete_after = False
-            break
-        else:
-            log.error("❌ Please enter 'y' or 'n'.")
+    delete_after = _prompt_delete_after(log)
 
     # Ask about parallel processing
-    while True:
-        workers_input = input(f"Number of parallel workers (default: {DEFAULT_WORKERS}): ").strip()
-        if not workers_input:
-            num_workers = DEFAULT_WORKERS
-            break
-        try:
-            num_workers = int(workers_input)
-            if num_workers <= 0:
-                log.error("❌ Number of workers must be a positive number.")
-                continue
-            break
-        except ValueError:
-            log.error("❌ Please enter a valid number.")
+    num_workers = _prompt_positive_int(
+        f"Number of parallel workers (default: {DEFAULT_WORKERS}): ",
+        DEFAULT_WORKERS,
+        "❌ Number of workers must be a positive number.",
+        log,
+    )
 
     # Confirm settings
     log.info("📋 Settings Summary")
@@ -412,16 +425,9 @@ def main():
     log.info("⚡ Parallel workers: %d", num_workers)
 
     # Ask for confirmation
-    while True:
-        confirm = input("\nProceed with conversion? (y/n): ").strip().lower()
-        if confirm in ['y', 'yes']:
-            break
-        elif confirm in ['n', 'no']:
-            log.info("❌ Conversion cancelled.")
-            input("Press Enter to exit...")
-            return
-        else:
-            log.error("❌ Please enter 'y' or 'n'.")
+    if not _confirm_conversion(log):
+        input("Press Enter to exit...")
+        return
 
     # Start conversion
     log.info("🚀 Starting PDF conversion...")

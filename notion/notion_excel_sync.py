@@ -6,6 +6,65 @@ from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
 log = logging.getLogger(__name__)
 
 
+def _count_rows(client: Client, data_source_id: str) -> int:
+    """Count the pages of a data source, paginating fully."""
+    total_rows = 0
+    start_cursor = None
+    while True:
+        page = client.data_sources.query(data_source_id, start_cursor=start_cursor)
+        total_rows += len(page['results'])
+        if not page.get('has_more'):
+            break
+        start_cursor = page.get('next_cursor')
+    return total_rows
+
+
+def _list_page_ids(client: Client, data_source_id: str) -> list:
+    """Collect every page id of a data source, paginating via next_cursor."""
+    # Collect every page id first (paginating via next_cursor); archiving
+    # mutates the query result set, so gather ids before archiving to avoid
+    # skipping pages that shift out of later pages.
+    page_ids = []
+    start_cursor = None
+    while True:
+        response = client.data_sources.query(data_source_id, start_cursor=start_cursor)
+        page_ids.extend(page['id'] for page in response['results'])
+        if not response.get('has_more'):
+            break
+        start_cursor = response.get('next_cursor')
+    return page_ids
+
+
+def _build_page_data(row: pd.Series, columns, metadata_dict: dict, notion_db_id: str) -> dict:
+    """Map one Excel row to the Notion page payload using the metadata sheet."""
+    page_data = {"parent": {"database_id": notion_db_id}, "properties": {}}
+
+    for col in columns:
+        # Skip column if it doesn't exist in metadata_dict or if 'keep' value is False
+        if col not in metadata_dict or not metadata_dict[col]['keep'] or pd.isnull(row[col]):
+            continue
+
+        notion_col = metadata_dict[col]['notionColumn']
+        datatype = metadata_dict[col]['type']
+
+        if datatype == 'title':
+            page_data["properties"][notion_col] = {"title": [{"text": {"content": str(row[col])}}]}
+        elif datatype == 'date':
+            page_data["properties"][notion_col] = {"date": {"start": row[col].strftime('%Y-%m-%d')}}
+        elif datatype == 'number':
+            page_data["properties"][notion_col] = {"number": row[col]}
+        elif datatype == 'url':
+            page_data["properties"][notion_col] = {"url": str(row[col])}
+        elif datatype == 'relation':
+            related_page_ids = str(row[col]).split(',')
+            page_data["properties"][notion_col] = {"relation": [{"id": page_id.strip()} for page_id in related_page_ids]}
+        elif datatype == 'rich_text':
+            page_data["properties"][notion_col] = {"rich_text": [{"text": {"content": str(row[col])}}]}
+        elif datatype == 'checkbox':
+            page_data["properties"][notion_col] = {"checkbox": bool(row[col])}
+    return page_data
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
@@ -49,15 +108,7 @@ def main():
             return
         data_source_id = data_sources[0]["id"]
 
-        # Now, query the data source to get the number of rows (pages), paginating fully
-        total_rows = 0
-        start_cursor = None
-        while True:
-            page = client.data_sources.query(data_source_id, start_cursor=start_cursor)
-            total_rows += len(page['results'])
-            if not page.get('has_more'):
-                break
-            start_cursor = page.get('next_cursor')
+        total_rows = _count_rows(client, data_source_id)
 
         log.info("Database Name: %s", database_name)
         log.info("Total Rows in Notion: %d", total_rows)
@@ -77,17 +128,7 @@ def main():
     if clean_db:
         log.info("Archiving all pages in the Notion database...")
         try:
-            # Collect every page id first (paginating via next_cursor); archiving
-            # mutates the query result set, so gather ids before archiving to avoid
-            # skipping pages that shift out of later pages.
-            page_ids = []
-            start_cursor = None
-            while True:
-                response = client.data_sources.query(data_source_id, start_cursor=start_cursor)
-                page_ids.extend(page['id'] for page in response['results'])
-                if not response.get('has_more'):
-                    break
-                start_cursor = response.get('next_cursor')
+            page_ids = _list_page_ids(client, data_source_id)
 
             for page_id in page_ids:
                 # archived is a top-level page field in the Notion API, not a property
@@ -99,31 +140,7 @@ def main():
 
     log.info("Creating all pages in the Excel database...")
     for index, row in df.iterrows():
-        page_data = {"parent": {"database_id": notion_db_id}, "properties": {}}
-
-        for col in df.columns:
-            # Skip column if it doesn't exist in metadata_dict or if 'keep' value is False
-            if col not in metadata_dict or not metadata_dict[col]['keep'] or pd.isnull(row[col]):
-                continue
-
-            notion_col = metadata_dict[col]['notionColumn']
-            datatype = metadata_dict[col]['type']
-
-            if datatype == 'title':
-                page_data["properties"][notion_col] = {"title": [{"text": {"content": str(row[col])}}]}
-            elif datatype == 'date':
-                page_data["properties"][notion_col] = {"date": {"start": row[col].strftime('%Y-%m-%d')}}
-            elif datatype == 'number':
-                page_data["properties"][notion_col] = {"number": row[col]}
-            elif datatype == 'url':
-                page_data["properties"][notion_col] = {"url": str(row[col])}
-            elif datatype == 'relation':
-                related_page_ids = str(row[col]).split(',')
-                page_data["properties"][notion_col] = {"relation": [{"id": page_id.strip()} for page_id in related_page_ids]}
-            elif datatype == 'rich_text':
-                page_data["properties"][notion_col] = {"rich_text": [{"text": {"content": str(row[col])}}]}
-            elif datatype == 'checkbox':
-                page_data["properties"][notion_col] = {"checkbox": bool(row[col])}
+        page_data = _build_page_data(row, df.columns, metadata_dict, notion_db_id)
 
         try:
             if verbose == True: log.debug("Creating new page with data: %s", page_data)

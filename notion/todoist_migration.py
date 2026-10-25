@@ -49,6 +49,60 @@ def extract_title_url(content):
     return content, ""
 
 
+def _build_task_row(row, project_name, project_id, task_id):
+    """Build the output record for a Todoist task row."""
+    # Extract TITLE and URL from CONTENT
+    title, url = extract_title_url(str(row['CONTENT']))
+
+    # Determine if DATE is exact or not, and calculate IND_PAST
+    ind_date, exact_date_str, exact_date = is_exact_date(row['DATE'])
+    ind_past = determine_past_future(exact_date)
+
+    return {
+        'PROJECT': project_name,
+        'PROJECT_ID': project_id,
+        'ID': task_id,
+        'TYPE': 'task',
+        'TITLE': title,
+        'URL': url,
+        'DESCRIPTION': row['DESCRIPTION'],
+        'PRIORITY': row['PRIORITY'],
+        'INDENT': row['INDENT'],
+        'AUTHOR': row['AUTHOR'],
+        'RESPONSIBLE': row['RESPONSIBLE'],
+        'DATE': row['DATE'],
+        'IND_DATE': ind_date,
+        'EXACT_DATE': exact_date_str,
+        'IND_PAST': ind_past,
+        'DATE_LANG': row['DATE_LANG'],
+        'TIMEZONE': row['TIMEZONE'],
+        'DURATION': row['DURATION'],
+        'DURATION_UNIT': row['DURATION_UNIT'],
+        'COMMENT': ''
+    }
+
+
+def _build_note_row(row, project_name, project_id, note_id, last_task_id):
+    """Build the output record for a Todoist note row."""
+    # Determine if DATE is exact or not, and calculate IND_PAST
+    ind_date, exact_date_str, exact_date = is_exact_date(row['DATE'])
+    ind_past = determine_past_future(exact_date)
+
+    return {
+        'PROJECT': project_name,
+        'PROJECT_ID': project_id,
+        'ID': note_id,
+        'TASK_ID': last_task_id,
+        'TYPE': 'note',
+        'COMMENT': str(row['CONTENT']),
+        'AUTHOR': row['AUTHOR'],
+        'DATE': row['DATE'],
+        'IND_DATE': ind_date,
+        'EXACT_DATE': exact_date_str,
+        'IND_PAST': ind_past
+    }
+
+
 def process_file(filepath, df_list, task_id_counter, note_id_counter, verbose):
     # Extract the project name and ID from the filename
     filename = os.path.basename(filepath)
@@ -83,38 +137,10 @@ def process_file(filepath, df_list, task_id_counter, note_id_counter, verbose):
             task_id_counter += 1
             last_task_id = task_id
 
-            # Extract TITLE and URL from CONTENT
-            title, url = extract_title_url(str(row['CONTENT']))
+            task_row = _build_task_row(row, project_name, project_id, task_id)
+            df_list.append(task_row)
 
-            # Determine if DATE is exact or not, and calculate IND_PAST
-            ind_date, exact_date_str, exact_date = is_exact_date(row['DATE'])
-            ind_past = determine_past_future(exact_date)
-
-            # Append task to the list
-            df_list.append({
-                'PROJECT': project_name,
-                'PROJECT_ID': project_id,
-                'ID': task_id,
-                'TYPE': 'task',
-                'TITLE': title,
-                'URL': url,
-                'DESCRIPTION': row['DESCRIPTION'],
-                'PRIORITY': row['PRIORITY'],
-                'INDENT': row['INDENT'],
-                'AUTHOR': row['AUTHOR'],
-                'RESPONSIBLE': row['RESPONSIBLE'],
-                'DATE': row['DATE'],
-                'IND_DATE': ind_date,
-                'EXACT_DATE': exact_date_str,
-                'IND_PAST': ind_past,
-                'DATE_LANG': row['DATE_LANG'],
-                'TIMEZONE': row['TIMEZONE'],
-                'DURATION': row['DURATION'],
-                'DURATION_UNIT': row['DURATION_UNIT'],
-                'COMMENT': ''
-            })
-
-            log.debug("Processed TASK: %s, TITLE: %s", task_id, title)
+            log.debug("Processed TASK: %s, TITLE: %s", task_id, task_row['TITLE'])
 
         # Processing note rows
         elif row_type == 'note':
@@ -122,24 +148,7 @@ def process_file(filepath, df_list, task_id_counter, note_id_counter, verbose):
             note_id = f"NOTE_{note_id_counter:04d}"
             note_id_counter += 1
 
-            # Determine if DATE is exact or not, and calculate IND_PAST
-            ind_date, exact_date_str, exact_date = is_exact_date(row['DATE'])
-            ind_past = determine_past_future(exact_date)
-
-            # Append note to the list
-            df_list.append({
-                'PROJECT': project_name,
-                'PROJECT_ID': project_id,
-                'ID': note_id,
-                'TASK_ID': last_task_id,
-                'TYPE': 'note',
-                'COMMENT': str(row['CONTENT']),
-                'AUTHOR': row['AUTHOR'],
-                'DATE': row['DATE'],
-                'IND_DATE': ind_date,
-                'EXACT_DATE': exact_date_str,
-                'IND_PAST': ind_past
-            })
+            df_list.append(_build_note_row(row, project_name, project_id, note_id, last_task_id))
 
             log.debug("Processed NOTE: %s, COMMENT: %s", note_id, row['CONTENT'])
 

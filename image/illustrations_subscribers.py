@@ -33,8 +33,8 @@ import logging
 import os
 import shutil
 import time
-from datetime import datetime
-from typing import Any, Dict
+from datetime import date, datetime
+from typing import Any, Dict, Iterable
 
 import numpy as np
 import pandas as pd
@@ -177,17 +177,10 @@ def load_config(config_path: str, args: argparse.Namespace, logger: logging.Logg
 
     return config
 
-def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
-    """Main processing function."""
-    # Get today's date in the appropriate format
-    today_date = datetime.now().date()
-    
-    # Load subscriber metadata
-    subscribers_df = load_dataframe(config["metadata_subscribers"], logger, "subscriber metadata")
-    
-    # Load illustration metadata
-    illustrations_df = load_dataframe(config["metadata_illustrations"], logger, "illustration metadata")
-    
+def _select_todays_subscribers(
+    subscribers_df: pd.DataFrame, today_date: date, logger: logging.Logger
+) -> pd.DataFrame:
+    """Return the wanted-illustrations subscribers whose update date is today."""
     # Filter subscribers based on the 'sub type' and 'update' columns
     filtered_subscribers_list = []
 
@@ -207,13 +200,14 @@ def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
 
     # Convert the list of rows to a DataFrame
     filtered_subscribers_df = pd.DataFrame(filtered_subscribers_list)
+    return filtered_subscribers_df
 
-    if filtered_subscribers_df.empty:
-        logger.warning("No subscribers found with today's update date and 'Wanted illustrations - active' type. Please check the subscriber metadata.")
-        return
-    
-    # Continue processing if there are valid subscribers
-    for name in filtered_subscribers_df['name']:
+
+def _prepare_subscriber_folders(
+    names: Iterable[str], config: Dict[str, Any], logger: logging.Logger
+) -> None:
+    """Create each subscriber's archive folder, offering to clean existing subfolders."""
+    for name in names:
         # Create or clean subscriber folders
         subscriber_folder = os.path.join(config["metadata_archive_folder"], name)
         os.makedirs(subscriber_folder, exist_ok=True)  # Create the folder if it does not exist
@@ -230,6 +224,63 @@ def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
                 logger.info(f"Skipping deletion of subfolders in {subscriber_folder}.")
         else:
             logger.debug(f"No subfolders found in {subscriber_folder}.")
+
+
+def _encode_subscriber_files(
+    names: Iterable[str], config: Dict[str, Any], logger: logging.Logger
+) -> None:
+    """Optionally encode the copyright message into every subscriber PNG."""
+    # Determine whether to encode messages
+    encode_option = config.get("encode", None)
+    if encode_option is None:
+        user_input = input("Do you want to encode the message into the files? (Y/N): ")
+        encode_option = user_input.lower()
+    
+    if encode_option.lower() == 'y':
+        log_each_file = input("Do you want to log each encoded file? (Y/N): ")
+        start_time = time.time()
+        encoding_counter = 0
+
+        # Encode message into each file in subscriber folders
+        for name in names:
+            subscriber_folder = os.path.join(config["metadata_archive_folder"], name)
+            for file_name in os.listdir(subscriber_folder):
+                if file_name.endswith('.png'):
+                    file_path = os.path.join(subscriber_folder, file_name)
+                    message = f"copy for {name}. For personal use only, according to guidelines at https://robertoferraro.art/. No copy or further distribution is allowed"
+                    encode_message(file_path, message, file_path)
+                    encoding_counter += 1
+                    if log_each_file.lower() == 'y':
+                        logger.info(f"Encoded file: {file_path}")
+                    if encoding_counter % 50 == 0:
+                        logger.info(f"Encoded {encoding_counter} files...")
+
+        end_time = time.time()
+        encoding_time = end_time - start_time
+        logger.info(f"Total files encoded: {encoding_counter}")
+        logger.info(f"Total time for encoding: {encoding_time:.2f} seconds")
+    else:
+        logger.info("Encoding process skipped.")
+
+
+def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
+    """Main processing function."""
+    # Get today's date in the appropriate format
+    today_date = datetime.now().date()
+    
+    # Load subscriber metadata
+    subscribers_df = load_dataframe(config["metadata_subscribers"], logger, "subscriber metadata")
+    
+    # Load illustration metadata
+    illustrations_df = load_dataframe(config["metadata_illustrations"], logger, "illustration metadata")
+    
+    filtered_subscribers_df = _select_todays_subscribers(subscribers_df, today_date, logger)
+
+    if filtered_subscribers_df.empty:
+        logger.warning("No subscribers found with today's update date and 'Wanted illustrations - active' type. Please check the subscriber metadata.")
+        return
+    
+    _prepare_subscriber_folders(filtered_subscribers_df['name'], config, logger)
 
     # Filter illustrations based on tags and social media metrics
     filtered_illustrations_df = illustrations_df[
@@ -288,37 +339,7 @@ def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
     logger.info(f"Total unique illustrations records: {total_copied + total_unique_illustrations}")
     logger.info(f"Total skipped files with no matching patterns: {total_skipped - total_unique_illustrations}")
 
-    # Determine whether to encode messages
-    encode_option = config.get("encode", None)
-    if encode_option is None:
-        user_input = input("Do you want to encode the message into the files? (Y/N): ")
-        encode_option = user_input.lower()
-    
-    if encode_option.lower() == 'y':
-        log_each_file = input("Do you want to log each encoded file? (Y/N): ")
-        start_time = time.time()
-        encoding_counter = 0
-
-        # Encode message into each file in subscriber folders
-        for name in filtered_subscribers_df['name']:
-            subscriber_folder = os.path.join(config["metadata_archive_folder"], name)
-            for file_name in os.listdir(subscriber_folder):
-                if file_name.endswith('.png'):
-                    file_path = os.path.join(subscriber_folder, file_name)
-                    message = f"copy for {name}. For personal use only, according to guidelines at https://robertoferraro.art/. No copy or further distribution is allowed"
-                    encode_message(file_path, message, file_path)
-                    encoding_counter += 1
-                    if log_each_file.lower() == 'y':
-                        logger.info(f"Encoded file: {file_path}")
-                    if encoding_counter % 50 == 0:
-                        logger.info(f"Encoded {encoding_counter} files...")
-
-        end_time = time.time()
-        encoding_time = end_time - start_time
-        logger.info(f"Total files encoded: {encoding_counter}")
-        logger.info(f"Total time for encoding: {encoding_time:.2f} seconds")
-    else:
-        logger.info("Encoding process skipped.")
+    _encode_subscriber_files(filtered_subscribers_df['name'], config, logger)
 
 def main() -> None:
     """Main entry point for the script."""

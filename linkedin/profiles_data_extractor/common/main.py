@@ -69,35 +69,8 @@ font = "sans serif"
     st.rerun()
 
 
-def main():
-    """Main navigation hub for LinkedIn Reachout Dashboard."""
-
-    # Set page config
-    st.set_page_config(
-        page_title="LinkedIn Reachout Hub",
-        page_icon="🔗",
-        layout="wide"
-    )
-
-    # Reduce spacing before title
-    st.markdown("<style>.block-container { padding-top: 1.5rem; }</style>", unsafe_allow_html=True)
-
-    st.title("🔗 LinkedIn Reachout Hub")
-
-    # Load config and data once for shared use
-    config = load_config()
-    if not config:
-        return
-
-    data_path = config.get("destination_file")
-    if not data_path:
-        st.error("No 'destination_file' specified in config.")
-        return
-
-    df = load_excel_data(data_path)
-    if df is None:
-        return
-
+def render_sidebar_filters(df):
+    """Render the shared sidebar (theme toggle and filters); returns the filtered frame and the filter selections."""
     # Shared Sidebar Filters
     st.sidebar.header("App Settings")
     
@@ -186,19 +159,53 @@ def main():
     elif connected_filter == "Unconnected Only":
         df_filtered = df_filtered[df_filtered['date_connected'].isna()]
 
+    # Filter parameters handed to the dashboard
+    filter_params = {
+        'selected_company': selected_company,
+        'selected_type': selected_type,
+        'start_date': start_date if 'date_contacted' in df.columns and pd.notna(df['date_contacted'].min()) else None,
+        'end_date': end_date if 'date_contacted' in df.columns and pd.notna(df['date_contacted'].max()) else None,
+        'contacted_filter': contacted_filter,
+        'connected_filter': connected_filter
+    }
+    return df_filtered, filter_params
+
+
+def main():
+    """Main navigation hub for LinkedIn Reachout Dashboard."""
+
+    # Set page config
+    st.set_page_config(
+        page_title="LinkedIn Reachout Hub",
+        page_icon="🔗",
+        layout="wide"
+    )
+
+    # Reduce spacing before title
+    st.markdown("<style>.block-container { padding-top: 1.5rem; }</style>", unsafe_allow_html=True)
+
+    st.title("🔗 LinkedIn Reachout Hub")
+
+    # Load config and data once for shared use
+    config = load_config()
+    if not config:
+        return
+
+    data_path = config.get("destination_file")
+    if not data_path:
+        st.error("No 'destination_file' specified in config.")
+        return
+
+    df = load_excel_data(data_path)
+    if df is None:
+        return
+
+    df_filtered, filter_params = render_sidebar_filters(df)
+
     # Create tabs for navigation
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Dashboard", "✏️ Data Entry", "🎯 Reachout Manager", "📥 Extract Data", "📜 History"])
 
     with tab1:
-        # Prepare filter parameters for dashboard
-        filter_params = {
-            'selected_company': selected_company,
-            'selected_type': selected_type,
-            'start_date': start_date if 'date_contacted' in df.columns and pd.notna(df['date_contacted'].min()) else None,
-            'end_date': end_date if 'date_contacted' in df.columns and pd.notna(df['date_contacted'].max()) else None,
-            'contacted_filter': contacted_filter,
-            'connected_filter': connected_filter
-        }
         dashboard_main(df_filtered, df, filter_params)  # Pass filtered data, full data, and all filter selections
 
     with tab2:

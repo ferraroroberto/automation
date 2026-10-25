@@ -148,7 +148,8 @@ class TreeSizeApp:
         
         self.setup_ui()
         
-    def setup_ui(self) -> None:
+    def _configure_style(self) -> None:
+        """Apply the ttk theme and the Treeview fonts."""
         # --- style / theme -------------------------------------------------
         style = ttk.Style()
         try:
@@ -161,6 +162,29 @@ class TreeSizeApp:
         style.configure("Treeview.Heading",
                         font=("Segoe UI", 9, "bold"))
         # ------------------------------------------------------------------
+
+    def _build_log_area(self, main_paned: ttk.PanedWindow) -> None:
+        """Add the log pane to the paned window and route the logger into it."""
+        # Log area frame
+        log_frame = ttk.LabelFrame(main_paned, text="Log")
+        main_paned.add(log_frame, weight=1)
+        
+        # Log text area with scrollbar
+        log_scroll = ttk.Scrollbar(log_frame)
+        log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.log_text = tk.Text(log_frame, height=8, width=50, state='disabled', 
+                               wrap=tk.WORD, yscrollcommand=log_scroll.set)
+        self.log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        log_scroll.config(command=self.log_text.yview)
+        
+        # Set up the text handler for logging
+        text_handler = TextHandler(self.log_text)
+        text_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(text_handler)
+
+    def setup_ui(self) -> None:
+        self._configure_style()
 
         # Top frame for controls
         control_frame = ttk.Frame(self.root, padding="5")
@@ -245,24 +269,8 @@ class TreeSizeApp:
         self.file_tree.column("size", width=90, anchor=tk.E, stretch=False)
         self.file_tree.column("path", width=0, stretch=False)  # Hidden column holding the full path
         
-        # Log area frame
-        log_frame = ttk.LabelFrame(main_paned, text="Log")
-        main_paned.add(log_frame, weight=1)
-        
-        # Log text area with scrollbar
-        log_scroll = ttk.Scrollbar(log_frame)
-        log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        self.log_text = tk.Text(log_frame, height=8, width=50, state='disabled', 
-                               wrap=tk.WORD, yscrollcommand=log_scroll.set)
-        self.log_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        log_scroll.config(command=self.log_text.yview)
-        
-        # Set up the text handler for logging
-        text_handler = TextHandler(self.log_text)
-        text_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logger.addHandler(text_handler)
-        
+        self._build_log_area(main_paned)
+
         # Status bar
         self.status_bar = ttk.Label(self.root, text="Ready", relief=tk.SUNKEN)
         self.status_bar.pack(fill=tk.X, side=tk.BOTTOM)

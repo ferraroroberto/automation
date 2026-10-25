@@ -14,36 +14,7 @@ from _chrome_client import ChromeDevToolsClient, setup_logging
 
 logger = setup_logging(__name__)
 
-
-class LinkedInProfileExtractorDevTools:
-    """Extract LinkedIn profile data using Chrome DevTools Protocol."""
-
-    def __init__(self, debug_port: int = 9222):
-        """Initialize DevTools extractor.
-
-        Args:
-            debug_port: Chrome remote debugging port
-        """
-        self.keyboard_controller = keyboard.Controller()
-        self.chrome = ChromeDevToolsClient(debug_port)
-
-    def connect_to_chrome(self) -> bool:
-        """Connect to Chrome DevTools.
-
-        Returns:
-            True if connection successful, False otherwise
-        """
-        return self.chrome.connect_to_chrome()
-
-    def extract_profile_data(self) -> Dict[str, str]:
-        """Extract profile data from the current LinkedIn page using DevTools.
-
-        Works for both search results (first profile) and profile pages.
-
-        Returns:
-            Dictionary containing profile data.
-        """
-        profile_js = """
+_PROFILE_JS = """
         (function() {
             const profile = {};
 
@@ -127,25 +98,7 @@ class LinkedInProfileExtractorDevTools:
         })();
         """
 
-        result = self.chrome.evaluate_javascript(profile_js) or {}
-
-        return {
-            'name': result.get('name') or "",
-            'url_profile': result.get('url_profile') or "",
-            'job_title': result.get('job_title') or "",
-            'follows_from': result.get('follows_from'),
-            'company': result.get('company') or "",
-            'location': result.get('location') or ""
-        }
-
-    def extract_search_results_profiles(self) -> List[Dict[str, str]]:
-        """Extract multiple profiles from a LinkedIn search results page using DevTools.
-
-        Returns:
-            List of dictionaries containing profile data from all search results.
-        """
-
-        profiles_js = """
+_SEARCH_RESULTS_JS = """
         (function() {
             const profiles = [];
 
@@ -245,8 +198,54 @@ class LinkedInProfileExtractorDevTools:
         })();
         """
 
+
+class LinkedInProfileExtractorDevTools:
+    """Extract LinkedIn profile data using Chrome DevTools Protocol."""
+
+    def __init__(self, debug_port: int = 9222):
+        """Initialize DevTools extractor.
+
+        Args:
+            debug_port: Chrome remote debugging port
+        """
+        self.keyboard_controller = keyboard.Controller()
+        self.chrome = ChromeDevToolsClient(debug_port)
+
+    def connect_to_chrome(self) -> bool:
+        """Connect to Chrome DevTools.
+
+        Returns:
+            True if connection successful, False otherwise
+        """
+        return self.chrome.connect_to_chrome()
+
+    def extract_profile_data(self) -> Dict[str, str]:
+        """Extract profile data from the current LinkedIn page using DevTools.
+
+        Works for both search results (first profile) and profile pages.
+
+        Returns:
+            Dictionary containing profile data.
+        """
+        result = self.chrome.evaluate_javascript(_PROFILE_JS) or {}
+
+        return {
+            'name': result.get('name') or "",
+            'url_profile': result.get('url_profile') or "",
+            'job_title': result.get('job_title') or "",
+            'follows_from': result.get('follows_from'),
+            'company': result.get('company') or "",
+            'location': result.get('location') or ""
+        }
+
+    def extract_search_results_profiles(self) -> List[Dict[str, str]]:
+        """Extract multiple profiles from a LinkedIn search results page using DevTools.
+
+        Returns:
+            List of dictionaries containing profile data from all search results.
+        """
         try:
-            profiles_data = self.chrome.evaluate_javascript(profiles_js)
+            profiles_data = self.chrome.evaluate_javascript(_SEARCH_RESULTS_JS)
             if profiles_data and isinstance(profiles_data, list):
                 # Convert any None values to empty strings for consistency
                 for profile in profiles_data:

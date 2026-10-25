@@ -71,6 +71,7 @@ automation/system/apple/
 ├── convert_to_apple.py      # Main GUI application
 ├── unify_vcards.py          # Interactive duplicate-merging tool (see below)
 ├── _vcard_fields.py         # Shared vCard TYPE-label parsing helper
+├── _vcard_model.py          # Contact dataclasses and the .vcf parser used by unify_vcards.py
 └── convert_to_apple.md      # This documentation
 ```
 

@@ -75,6 +75,69 @@ def choose_file() -> str:
     return file_path
 
 
+def _parse_ebur128_output(stderr: str) -> Dict:
+    """Extract loudness figures from ffmpeg's ebur128 summary on stderr."""
+    # Parse ebur128 output from stderr
+    # The output format is:
+    # Integrated loudness:
+    #   I:         -21.1 LUFS
+    #   Threshold: -31.1 LUFS
+    #
+    # Loudness range:
+    #   LRA:         0.0 LU
+    #   ...
+    #
+    # True peak:
+    #   Peak:      -17.5 dBFS
+    #
+    # Sample peak:
+    #   Peak:      -17.5 dBFS
+
+    analysis = {}
+    lines = stderr.split('\n')
+
+    for i, line in enumerate(lines):
+        line = line.strip()
+
+        # Find integrated loudness (I: value)
+        if line.startswith('I:'):
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    analysis['integrated_loudness'] = float(parts[1])
+                except (ValueError, IndexError):
+                    logger.warning(f"Could not parse integrated loudness from: {line}")
+
+        # Find loudness range (LRA: value)
+        elif line.startswith('LRA:'):
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    analysis['loudness_range'] = float(parts[1])
+                except (ValueError, IndexError):
+                    logger.warning(f"Could not parse LRA from: {line}")
+
+        # Find true peak (Peak: value under "True peak:" section)
+        elif line.startswith('Peak:'):
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    peak_value = float(parts[1])
+                    # Check context by looking at previous lines
+                    if i > 0 and 'True peak:' in lines[i-1]:
+                        analysis['true_peak'] = peak_value
+                    elif i > 0 and 'Sample peak:' in lines[i-1]:
+                        analysis['sample_peak'] = peak_value
+                    # If we can't determine context, assume it's true peak if not set
+                    elif 'true_peak' not in analysis:
+                        analysis['true_peak'] = peak_value
+                    else:
+                        analysis['sample_peak'] = peak_value
+                except (ValueError, IndexError):
+                    logger.warning(f"Could not parse peak from: {line}")
+    return analysis
+
+
 # -------------------------------------------------------
 # Function: analyze_audio_levels
 # Purpose:  Analyze current audio levels using ffmpeg
@@ -117,64 +180,7 @@ def analyze_audio_levels(input_path: str) -> Optional[Dict]:
             logger.error(f"❌ Analysis failed: {result.stderr}")
             return None
 
-        # Parse ebur128 output from stderr
-        # The output format is:
-        # Integrated loudness:
-        #   I:         -21.1 LUFS
-        #   Threshold: -31.1 LUFS
-        #
-        # Loudness range:
-        #   LRA:         0.0 LU
-        #   ...
-        #
-        # True peak:
-        #   Peak:      -17.5 dBFS
-        #
-        # Sample peak:
-        #   Peak:      -17.5 dBFS
-
-        analysis = {}
-        lines = result.stderr.split('\n')
-
-        for i, line in enumerate(lines):
-            line = line.strip()
-
-            # Find integrated loudness (I: value)
-            if line.startswith('I:'):
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        analysis['integrated_loudness'] = float(parts[1])
-                    except (ValueError, IndexError):
-                        logger.warning(f"Could not parse integrated loudness from: {line}")
-
-            # Find loudness range (LRA: value)
-            elif line.startswith('LRA:'):
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        analysis['loudness_range'] = float(parts[1])
-                    except (ValueError, IndexError):
-                        logger.warning(f"Could not parse LRA from: {line}")
-
-            # Find true peak (Peak: value under "True peak:" section)
-            elif line.startswith('Peak:'):
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        peak_value = float(parts[1])
-                        # Check context by looking at previous lines
-                        if i > 0 and 'True peak:' in lines[i-1]:
-                            analysis['true_peak'] = peak_value
-                        elif i > 0 and 'Sample peak:' in lines[i-1]:
-                            analysis['sample_peak'] = peak_value
-                        # If we can't determine context, assume it's true peak if not set
-                        elif 'true_peak' not in analysis:
-                            analysis['true_peak'] = peak_value
-                        else:
-                            analysis['sample_peak'] = peak_value
-                    except (ValueError, IndexError):
-                        logger.warning(f"Could not parse peak from: {line}")
+        analysis = _parse_ebur128_output(result.stderr)
 
         if analysis:
             logger.info("✅ Audio analysis completed")
@@ -281,6 +287,36 @@ def create_normalization_dialog(analysis: Dict) -> Tuple[Optional[float], bool]:
     return result["target"], result["proceed"]
 
 
+def _extract_loudnorm_params(measure_result) -> Optional[Dict]:
+    """Return the loudnorm JSON block printed by the measuring pass, or None."""
+    # Extract loudnorm parameters from JSON output
+    loudnorm_params = None
+    json_lines = []
+
+    # Check both stdout and stderr for JSON
+    output_to_check = measure_result.stderr + "\n" + measure_result.stdout
+
+    for line in output_to_check.split('\n'):
+        line = line.strip()
+        if line == '{':
+            # JSON starts on this line, collect until closing brace
+            json_lines = [line]
+            continue
+        elif json_lines and line == '}':
+            json_lines.append(line)
+            json_text = '\n'.join(json_lines)
+            try:
+                loudnorm_params = json.loads(json_text)
+                logger.debug(f"Successfully parsed loudnorm parameters: {loudnorm_params}")
+                break
+            except json.JSONDecodeError:
+                json_lines = []
+                continue
+        elif json_lines:
+            json_lines.append(line)
+    return loudnorm_params
+
+
 # -------------------------------------------------------
 # Function: normalize_audio
 # Purpose:  Apply EBU R128 loudness normalization to audio file
@@ -335,31 +371,7 @@ def normalize_audio(input_path: str, target_lufs: float) -> Optional[str]:
             logger.error(f"❌ Measurement failed: {measure_result.stderr}")
             return None
 
-        # Extract loudnorm parameters from JSON output
-        loudnorm_params = None
-        json_lines = []
-
-        # Check both stdout and stderr for JSON
-        output_to_check = measure_result.stderr + "\n" + measure_result.stdout
-
-        for line in output_to_check.split('\n'):
-            line = line.strip()
-            if line == '{':
-                # JSON starts on this line, collect until closing brace
-                json_lines = [line]
-                continue
-            elif json_lines and line == '}':
-                json_lines.append(line)
-                json_text = '\n'.join(json_lines)
-                try:
-                    loudnorm_params = json.loads(json_text)
-                    logger.debug(f"Successfully parsed loudnorm parameters: {loudnorm_params}")
-                    break
-                except json.JSONDecodeError:
-                    json_lines = []
-                    continue
-            elif json_lines:
-                json_lines.append(line)
+        loudnorm_params = _extract_loudnorm_params(measure_result)
 
         if not loudnorm_params:
             logger.error("❌ Could not extract loudnorm parameters from ffmpeg output")

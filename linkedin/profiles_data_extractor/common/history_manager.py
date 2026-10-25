@@ -94,6 +94,42 @@ def ensure_history_file_exists():
 
     return True
 
+def _build_history_rows(record_data, action, original_data, change_timestamp, is_first_record):
+    """Build the history rows for one change: an "initial" row first for a new record, then the change row."""
+    # Prepare list of rows to add
+    rows_to_add = []
+
+    # If this is the first record for this name, add an "initial" entry first
+    if is_first_record:
+        # Use original_data if provided, otherwise use record_data (for backward compatibility)
+        initial_data = original_data if original_data is not None else record_data
+        initial_row = initial_data.copy()
+        # Use a timestamp 1 second before the actual change for proper ordering
+        initial_row['timestamp'] = change_timestamp - timedelta(seconds=1)
+        initial_row['action'] = 'initial'
+
+        # Ensure all expected columns are present in initial_row (fill missing with None)
+        for col in HISTORY_COLUMNS:
+            if col not in initial_row:
+                initial_row[col] = None
+
+        rows_to_add.append(initial_row)
+
+    # Prepare the actual change row
+    change_row = record_data.copy()
+    # Use the change timestamp
+    change_row['timestamp'] = change_timestamp
+    change_row['action'] = action
+
+    # Ensure all expected columns are present in change_row (fill missing with None)
+    for col in HISTORY_COLUMNS:
+        if col not in change_row:
+            change_row[col] = None
+
+    rows_to_add.append(change_row)
+    return rows_to_add
+
+
 def log_history(record_data, action="update", original_data=None):
     """
     Log a record change to the history file.
@@ -136,37 +172,9 @@ def log_history(record_data, action="update", original_data=None):
         # Get current timestamp for the change
         change_timestamp = datetime.now()
 
-        # Prepare list of rows to add
-        rows_to_add = []
-
-        # If this is the first record for this name, add an "initial" entry first
-        if is_first_record:
-            # Use original_data if provided, otherwise use record_data (for backward compatibility)
-            initial_data = original_data if original_data is not None else record_data
-            initial_row = initial_data.copy()
-            # Use a timestamp 1 second before the actual change for proper ordering
-            initial_row['timestamp'] = change_timestamp - timedelta(seconds=1)
-            initial_row['action'] = 'initial'
-
-            # Ensure all expected columns are present in initial_row (fill missing with None)
-            for col in HISTORY_COLUMNS:
-                if col not in initial_row:
-                    initial_row[col] = None
-
-            rows_to_add.append(initial_row)
-
-        # Prepare the actual change row
-        change_row = record_data.copy()
-        # Use the change timestamp
-        change_row['timestamp'] = change_timestamp
-        change_row['action'] = action
-
-        # Ensure all expected columns are present in change_row (fill missing with None)
-        for col in HISTORY_COLUMNS:
-            if col not in change_row:
-                change_row[col] = None
-
-        rows_to_add.append(change_row)
+        rows_to_add = _build_history_rows(
+            record_data, action, original_data, change_timestamp, is_first_record
+        )
 
         # Create DataFrames for all rows to add
         if rows_to_add:
