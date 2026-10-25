@@ -27,7 +27,7 @@ from pynput import keyboard
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the DevTools extractor module
-from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools, ChromeDevToolsClient
+from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools
 from _chrome_client import setup_logging
 
 # Import from common directory using importlib for reliable path handling
@@ -100,7 +100,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             True if file is accessible, False otherwise.
         """
         try:
-            with open(file_path, 'r+b') as f:
+            with open(file_path, 'r+b'):
                 pass
             return True
         except (PermissionError, OSError):
@@ -274,7 +274,6 @@ class LinkedInProfilesDataOrchestratorDevTools:
         # Create paths to common directory files (same as in main())
         script_dir = os.path.dirname(os.path.abspath(__file__))
         common_dir = os.path.join(os.path.dirname(script_dir), "common")
-        config_path = os.path.join(common_dir, "linkedin_profiles_data.json")
         format_json_path = os.path.join(common_dir, "excel_format_spec.json")
 
         try:

@@ -2,7 +2,6 @@ import logging
 import os
 import re
 from tkinter import filedialog, Tk
-from pathlib import Path
 
 log = logging.getLogger(__name__)
 

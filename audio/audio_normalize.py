@@ -387,7 +387,7 @@ def normalize_audio(input_path: str, target_lufs: float) -> Optional[str]:
             output_file
         ]
 
-        result = subprocess.run(
+        subprocess.run(
             normalize_cmd, check=True, capture_output=True, text=True, creationflags=_NO_WINDOW
         )
 

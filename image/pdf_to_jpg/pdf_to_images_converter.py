@@ -24,7 +24,6 @@ import os
 import sys
 import time
 import logging
-import threading
 from pathlib import Path
 from typing import List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -41,7 +40,7 @@ except ImportError:
 # Try to import tkinter for folder selection
 try:
     import tkinter as tk
-    from tkinter import filedialog, messagebox
+    from tkinter import filedialog
     TKINTER_AVAILABLE = True
 except ImportError:
     TKINTER_AVAILABLE = False

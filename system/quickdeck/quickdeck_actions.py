@@ -168,7 +168,7 @@ def execute_python_action(button_config: Dict[str, Any], ctx: ActionContext) -> 
         try:
             sys.stdout = stdout_capture
             sys.stderr = stderr_capture
-            exec(code, {'__builtins__': dict(_SNIPPET_BUILTINS)})
+            exec(code, {'__builtins__': dict(_SNIPPET_BUILTINS)})  # noqa: S102 -- the action's job is to run the user's own snippet
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr

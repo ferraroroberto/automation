@@ -6,7 +6,6 @@ sorted by date descending, and saves results to JSON.
 
 import json
 import logging
-import os
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path

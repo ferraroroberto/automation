@@ -3,12 +3,9 @@ from tkinter import ttk, filedialog, messagebox
 import errno
 import os
 import logging
-from pathlib import Path
 import threading
 from datetime import datetime
-import io
 import ctypes
-import sys
 import platform
 import subprocess
 from typing import Any, List
@@ -425,7 +422,6 @@ class TreeSizeApp:
     def _calculate_and_update_size(self, node: str, folder_path: str, parent: str) -> None:
         """Calculate folder size and update the tree"""
         try:
-            start = datetime.now()
             size = self.get_folder_size(folder_path)
             size_str = self.analyzer.format_size(size)
             
@@ -633,7 +629,7 @@ class TreeSizeApp:
 
 def main() -> None:
     root = tk.Tk()
-    app = TreeSizeApp(root)
+    TreeSizeApp(root)
     root.mainloop()
 
 if __name__ == "__main__":

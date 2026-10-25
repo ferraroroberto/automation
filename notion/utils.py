@@ -7,6 +7,7 @@ from zipfile import BadZipFile
 import json
 import requests
 from dotenv import load_dotenv
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Any, Tuple
 
 log = logging.getLogger(__name__)
@@ -217,6 +218,25 @@ def paginated_database_query(
 
     log.info("📊 Total pages retrieved: %s", len(all_results))
     return all_results
+
+
+def query_recently_created_pages(
+    headers: Dict[str, str],
+    database_id: str,
+    days: int,
+) -> List[Dict[str, Any]]:
+    """Return the pages created in the last `days` days, newest first."""
+    filter_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    filter_date_str = filter_date.isoformat() + 'Z'
+
+    logging.info(f"🔍 Querying database for articles from last {days} days (since {filter_date_str})")
+
+    query_body = {
+        "filter": {"and": [{"property": "created", "created_time": {"after": filter_date_str}}]},
+        "sorts": [{"property": "created", "direction": "descending"}]
+    }
+
+    return paginated_database_query(headers, database_id, query_body)
 
 
 # ---------------------------------------------------------------------------

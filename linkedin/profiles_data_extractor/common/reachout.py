@@ -1,11 +1,10 @@
-from datetime import datetime
 
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 
 from history_manager import log_history
-from loaders import load_config, load_excel_data
+from loaders import load_config
 from _lib import (
     fuzzy_search_profiles,
     save_to_excel,
@@ -224,10 +223,6 @@ def main(df_filtered, df_all):
                 display_text += f" at {company}"
             if location:
                 display_text += f" ({location})"
-
-            # Check if this record is currently selected
-            is_selected = (st.session_state.reachout_selected_record and
-                          st.session_state.reachout_selected_record.get('name') == name)
 
             # Create clickable button for each record
             if st.button(display_text, key=f"select_{idx}", width='stretch',
@@ -531,7 +526,6 @@ def main(df_filtered, df_all):
 
     if not filtered_uncontacted_df.empty:
         # Display summary table with the requested columns
-        display_cols = ['name', 'job_title', 'follows_from', 'company', 'location']
         available_cols = [col for col in filtered_uncontacted_df.columns]
 
         if available_cols:

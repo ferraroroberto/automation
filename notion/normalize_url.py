@@ -13,11 +13,9 @@ Usage:
 
 import argparse
 import logging
-import os
 import sys
-from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from dotenv import load_dotenv
@@ -121,17 +119,7 @@ class NotionURLNormalizer:
 
     def _query_notion_database(self, days: int) -> List[Dict]:
         """Query Notion database for articles created in the last N days."""
-        filter_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
-        filter_date_str = filter_date.isoformat() + 'Z'
-
-        logging.info(f"🔍 Querying database for articles from last {days} days (since {filter_date_str})")
-
-        query_body = {
-            "filter": {"and": [{"property": "created", "created_time": {"after": filter_date_str}}]},
-            "sorts": [{"property": "created", "direction": "descending"}]
-        }
-
-        return notion_utils.paginated_database_query(self.headers, self.database_id, query_body)
+        return notion_utils.query_recently_created_pages(self.headers, self.database_id, days)
 
     def _extract_page_info(self, page: Dict) -> Optional[Tuple[str, str, str]]:
         """Extract essential information (ID, time, URL) from a Notion page object."""

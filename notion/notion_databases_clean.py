@@ -30,8 +30,6 @@ def load_metadata(metadata_path):
     return pd.read_excel(metadata_path)
 
 def clean_data(row, col_value, row_num=None, verbose: bool = False):
-    database = row['database']
-    col = row['column']
     clean = row['clean']
     extract = row['extract']
     between = row['between']

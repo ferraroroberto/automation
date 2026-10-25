@@ -7,16 +7,14 @@ Automatically creates and maintains a Google Sheets file with email data.
 # Standard library imports
 import argparse
 import logging
-import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Any
 
 # Third-party library imports
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-import pytz
 
 import _auth
 

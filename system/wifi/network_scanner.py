@@ -86,10 +86,10 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 
 try:
-    from scapy.all import ARP, Ether, srp, conf
+    from scapy.all import ARP, Ether, srp
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False

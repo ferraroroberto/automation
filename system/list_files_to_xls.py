@@ -28,7 +28,7 @@ from tkinter import filedialog, messagebox
 try:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
-except ImportError as e:
+except ImportError:
     print("Error: openpyxl is required but not installed.")
     print("Install it with: pip install openpyxl")
     sys.exit(1)

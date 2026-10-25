@@ -6,7 +6,6 @@ Unit tests for RateLimiter class to ensure it doesn't hang.
 import time
 import threading
 import unittest
-from unittest.mock import patch
 import sys
 from pathlib import Path
 

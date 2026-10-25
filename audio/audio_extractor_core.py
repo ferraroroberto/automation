@@ -1,10 +1,9 @@
-import os
 import subprocess
 import sys
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 # Configure logging
 logger = logging.getLogger(__name__)

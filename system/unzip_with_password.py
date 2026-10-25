@@ -11,7 +11,7 @@ import argparse
 import logging
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import subprocess
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).
@@ -223,12 +223,12 @@ def check_dependencies():
     missing_deps = []
     
     try:
-        import py7zr  # type: ignore
+        import py7zr  # type: ignore  # noqa: F401 -- availability probe
     except ImportError:
         missing_deps.append("py7zr")
     
     try:
-        import rarfile  # type: ignore
+        import rarfile  # type: ignore  # noqa: F401 -- availability probe
     except ImportError:
         missing_deps.append("rarfile")
     

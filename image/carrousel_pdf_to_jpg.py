@@ -16,7 +16,6 @@ import os
 import sys
 import tkinter as tk
 from tkinter import filedialog
-from tkinter import messagebox
 from typing import List, Tuple
 
 from dotenv import load_dotenv

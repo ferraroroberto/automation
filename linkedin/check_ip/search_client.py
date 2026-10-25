@@ -17,7 +17,7 @@ import os
 import pandas as pd
 import requests
 import urllib.parse
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

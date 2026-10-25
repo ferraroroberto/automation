@@ -464,7 +464,7 @@ def main():
     if has_display():
         # GUI mode
         root = tk.Tk()
-        app = SensitiveDataCleaner(root)
+        SensitiveDataCleaner(root)
         root.mainloop()
     else:
         # CLI interactive mode

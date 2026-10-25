@@ -9,7 +9,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Any
 
 import gmail_drive_automation as gda
 

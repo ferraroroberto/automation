@@ -8,10 +8,8 @@ Automatically tests conversion by processing all Word documents found in the pro
 """
 
 import argparse
-import glob
 import re
 import logging
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -22,7 +20,7 @@ try:
     from docx.document import Document as DocumentType
     from docx.oxml.text.paragraph import CT_P
     from docx.oxml.table import CT_Tbl
-    from docx.table import _Cell, Table
+    from docx.table import Table
     from docx.text.paragraph import Paragraph
 except ImportError:
     print("❌ Error: python-docx package not found.")
