@@ -11,6 +11,353 @@ from _lib import (
     render_excel_formatting_section,
 )
 
+
+def _select_record(filtered_df, search_name):
+    """Offer the search hits in a selectbox and keep the chosen record in session state."""
+    if not filtered_df.empty:
+        # Create selectable options
+        record_options = []
+        for idx, row in filtered_df.iterrows():
+            name = row.get('name', 'Unknown')
+            date_connected = row.get('date_connected')
+            if pd.notna(date_connected):
+                date_str = date_connected.strftime('%Y-%m-%d')
+            else:
+                date_str = 'No date'
+
+            # Show key info for selection
+            display_text = f"{name} - Connected: {date_str}"
+            record_options.append(display_text)
+
+        # Add a "Clear selection" option
+        record_options.insert(0, "--- Select a record ---")
+
+        # Auto-select first record if search results exist
+        default_index = 1 if len(record_options) > 1 else 0  # Index 1 is the first actual record
+
+        selected_option = st.selectbox(
+            "Choose a record to edit:",
+            options=record_options,
+            index=default_index,
+            help="Select the record you want to edit",
+            key="record_selector"
+        )
+
+        if selected_option != "--- Select a record ---":
+            # Find the selected record
+            selected_idx = record_options.index(selected_option) - 1  # -1 because we inserted at position 0
+            selected_row = filtered_df.iloc[selected_idx]
+
+            # Store in session state - handle NaN values
+            answered_value = selected_row.get('ind_answered', 0)
+            if pd.isna(answered_value):
+                answered_value = 0
+
+            # Handle NaN values for job title and reachout type
+            job_title_value = selected_row.get('job_title', '')
+            if pd.isna(job_title_value):
+                job_title_value = ''
+
+            reachout_type_value = selected_row.get('reach_out_type', '')
+            if pd.isna(reachout_type_value):
+                reachout_type_value = ''
+
+            st.session_state.selected_record = {
+                'name': selected_row.get('name', ''),
+                'date_connected': selected_row.get('date_connected', None),
+                'ind_answered': answered_value,
+                'url_chat': selected_row.get('url_chat', ''),
+                'company': selected_row.get('company', ''),
+                'job_title': job_title_value,
+                'location': selected_row.get('location', ''),
+                'date_contacted': selected_row.get('date_contacted', None),
+                'date_revocation': selected_row.get('date_revocation', None),
+                'date_discarded': selected_row.get('date_discarded', None),
+                'reach_out_type': reachout_type_value
+            }
+            st.session_state.original_name = selected_row.get('name', '')
+
+            st.success(f"✅ Selected: {selected_option}")
+        else:
+            st.session_state.selected_record = None
+            st.session_state.original_name = None
+    else:
+        if search_name:
+            st.warning("No records found matching your search.")
+        st.session_state.selected_record = None
+        st.session_state.original_name = None
+
+
+def _render_date_fields(record_key):
+    """Render the four date fields, each with a clear checkbox; returns their values."""
+    # Second row: All four date fields with clear checkboxes (8 columns total)
+    col_contacted, col_clear_contacted, col_connected, col_clear_connected, col_revocation, col_clear_revocation, col_discarded, col_clear_discarded = st.columns(8)
+
+    with col_contacted:
+        day_contacted = st.date_input(
+            "Contacted",
+            value=st.session_state.selected_record.get('date_contacted') if pd.notna(st.session_state.selected_record.get('date_contacted')) else None,
+            help="Date when the contact was made",
+            key=f"dataentry_date_contacted_{record_key}"
+        )
+
+    with col_clear_contacted:
+        clear_contacted = st.checkbox(
+            "Clear",
+            key="clear_contacted",
+            help="Clear the date contacted field"
+        )
+
+    with col_connected:
+        date_connected = st.date_input(
+            "Connected",
+            value=st.session_state.selected_record.get('date_connected') if pd.notna(st.session_state.selected_record.get('date_connected')) else None,
+            help="Date when the connection was made",
+            key=f"dataentry_date_connected_{record_key}"
+        )
+
+    with col_clear_connected:
+        clear_connected = st.checkbox(
+            "Clear",
+            key="clear_connected",
+            help="Clear the date connected field"
+        )
+
+    with col_revocation:
+        revocation_date = st.date_input(
+            "Revocation",
+            value=st.session_state.selected_record.get('date_revocation') if pd.notna(st.session_state.selected_record.get('date_revocation')) else None,
+            help="Date when the contact was revoked",
+            key=f"dataentry_date_revocation_{record_key}"
+        )
+
+    with col_clear_revocation:
+        clear_revocation = st.checkbox(
+            "Clear",
+            key="clear_revocation",
+            help="Clear the revocation date"
+        )
+
+    with col_discarded:
+        date_discarded = st.date_input(
+            "Discarded",
+            value=st.session_state.selected_record.get('date_discarded') if pd.notna(st.session_state.selected_record.get('date_discarded')) else None,
+            help="Date when the profile was discarded",
+            key=f"dataentry_date_discarded_{record_key}"
+        )
+
+    with col_clear_discarded:
+        clear_discarded = st.checkbox(
+            "Clear",
+            key="clear_discarded",
+            help="Clear the discarded date"
+        )
+
+    return {
+        'day_contacted': day_contacted,
+        'clear_contacted': clear_contacted,
+        'date_connected': date_connected,
+        'clear_connected': clear_connected,
+        'revocation_date': revocation_date,
+        'clear_revocation': clear_revocation,
+        'date_discarded': date_discarded,
+        'clear_discarded': clear_discarded,
+    }
+
+
+def _render_identity_and_dates(record_key):
+    """Render the name, answered and date fields of the edit form; returns their values."""
+    # First row: Name and Answered (same line)
+    col_name, col_answered = st.columns(2)
+
+    with col_name:
+        name = st.text_input(
+            "Name *",
+            value=st.session_state.selected_record.get('name', ''),
+            help="Full name of the LinkedIn profile",
+            key=f"dataentry_name_{record_key}"
+        )
+
+    with col_answered:
+        # Handle NaN values and ensure valid index
+        answered_value = st.session_state.selected_record.get('ind_answered', 0)
+        if pd.isna(answered_value):
+            answered_value = 0
+        answered_index = int(answered_value) if answered_value in [0, 1] else 0
+
+        answered = st.selectbox(
+            "Answered",
+            options=[0, 1],
+            index=answered_index,
+            help="0 = Not answered, 1 = Answered",
+            key=f"dataentry_answered_{record_key}"
+        )
+
+    fields = {'name': name, 'answered': answered}
+    fields.update(_render_date_fields(record_key))
+    return fields
+
+
+def _render_contact_details(df, record_key):
+    """Render the chat URL, company, reachout type, job title and location fields; returns their values."""
+    # Third row: LinkedIn Chat URL
+    chat_url = st.text_input(
+        "LinkedIn Chat URL",
+        value=st.session_state.selected_record.get('url_chat', ''),
+        help="URL to the LinkedIn chat/messaging thread",
+        key=f"dataentry_url_chat_{record_key}"
+    )
+
+    # Fourth row: Company and Reachout Type (same line)
+    col_company, col_reachout = st.columns(2)
+
+    with col_company:
+        company = st.text_input(
+            "Company",
+            value=st.session_state.selected_record.get('company', ''),
+            help="Company name",
+            key=f"dataentry_company_{record_key}"
+        )
+
+    with col_reachout:
+        # Reachout Type dropdown
+        # Get distinct reach out types from the full dataframe
+        reachout_types = ['']  # Start with empty option
+        if 'reach_out_type' in df.columns:
+            distinct_types = df['reach_out_type'].dropna().unique().tolist()
+            reachout_types.extend(sorted(distinct_types))
+
+        # Ensure current record's reachout type is in the options list
+        current_reachout_type = st.session_state.selected_record.get('reach_out_type', '')
+        if current_reachout_type and current_reachout_type not in reachout_types:
+            reachout_types.append(current_reachout_type)
+            reachout_types.sort()  # Keep sorted after adding
+
+        # Find the index of the current value
+        try:
+            reachout_index = reachout_types.index(current_reachout_type) if current_reachout_type else 0
+        except ValueError:
+            reachout_index = 0
+
+        reach_out_type = st.selectbox(
+            "Reachout Type",
+            options=reachout_types,
+            index=reachout_index,
+            help="Type of reachout made to this profile",
+            key=f"dataentry_reach_out_type_{record_key}"
+        )
+
+    # Fifth row: Job Title and Location (same line)
+    col_job_title, col_location = st.columns(2)
+
+    with col_job_title:
+        job_title = st.text_input(
+            "Job Title",
+            value=st.session_state.selected_record.get('job_title', ''),
+            help="Job title/position",
+            key=f"dataentry_job_title_{record_key}"
+        )
+
+    with col_location:
+        location = st.text_input(
+            "Location",
+            value=st.session_state.selected_record.get('location', ''),
+            help="Location/city",
+            key=f"dataentry_location_{record_key}"
+        )
+    return {
+        'chat_url': chat_url,
+        'company': company,
+        'reach_out_type': reach_out_type,
+        'job_title': job_title,
+        'location': location,
+    }
+
+
+def _save_edit(df, data_path, fields):
+    """Validate the submitted edit form and save it; False when the page should stop rendering."""
+    (name, answered, day_contacted, clear_contacted, date_connected, clear_connected,
+     revocation_date, clear_revocation, date_discarded, clear_discarded,
+     chat_url, company, reach_out_type, job_title, location) = (
+        fields[k] for k in (
+            'name', 'answered', 'day_contacted', 'clear_contacted', 'date_connected', 'clear_connected',
+            'revocation_date', 'clear_revocation', 'date_discarded', 'clear_discarded',
+            'chat_url', 'company', 'reach_out_type', 'job_title', 'location'))
+
+    if not name.strip():
+        st.error("❌ Name is required!")
+        return False
+
+    # Prepare record data
+    # Handle clear checkboxes - if checked, set date to None
+    final_date_connected = None if clear_connected else (pd.Timestamp(date_connected) if date_connected else None)
+    final_day_contacted = None if clear_contacted else (pd.Timestamp(day_contacted) if day_contacted else None)
+    final_revocation_date = None if clear_revocation else (pd.Timestamp(revocation_date) if revocation_date else None)
+    final_date_discarded = None if clear_discarded else (pd.Timestamp(date_discarded) if date_discarded else None)
+
+    # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
+    original_day = st.session_state.selected_record.get('date_contacted')
+    # Check if day has changed to a new valid date (re-contact logic)
+    if final_day_contacted is not None and (pd.isna(original_day) or final_day_contacted != original_day):
+         final_revocation_date = None
+         if revocation_date is not None or clear_revocation:
+             st.info("ℹ️ Revocation date automatically cleared because a new contact date was set.")
+
+    record_data = {
+        'name': name.strip(),
+        'date_connected': final_date_connected,
+        'ind_answered': answered,
+        'url_chat': chat_url.strip() if chat_url else None,
+        'company': company.strip() if company else None,
+        'job_title': job_title.strip() if job_title else None,
+        'location': location.strip() if location else None,
+        'date_contacted': final_day_contacted,
+        'date_revocation': final_revocation_date,
+        'date_discarded': final_date_discarded,
+        'reach_out_type': reach_out_type.strip() if reach_out_type else None
+    }
+
+    # Update existing record
+    updated_df, action = update_existing_record(df, st.session_state.original_name, record_data)
+
+    if action == "not_found":
+        st.error("❌ Original record not found. It may have been deleted.")
+        return False
+
+    # Save to Excel
+    if save_to_excel(updated_df, data_path):
+        st.success("✅ Record updated successfully!")
+        
+        # Log history with original data for initial record
+        log_history(record_data, action="update", original_data=st.session_state.selected_record)
+
+        # Clear selection and rerun
+        st.session_state.selected_record = None
+        st.session_state.original_name = None
+        st.rerun()
+    else:
+        st.error("❌ Failed to save changes!")
+    return True
+
+
+def _render_edit_form(df, data_path):
+    """Render the edit form for the selected record; False when the page should stop rendering."""
+    # Widget keys are namespaced by the selected record: an explicit key makes
+    # Streamlit reuse the stored widget state and ignore `value=`, so a key that
+    # did not vary per record would show the previously edited record's values.
+    record_key = str(st.session_state.original_name or "")
+
+    with st.form("edit_form"):
+        fields = _render_identity_and_dates(record_key)
+        fields.update(_render_contact_details(df, record_key))
+
+        submitted = st.form_submit_button("💾 Update Record", key="dataentry_submit")
+
+        if submitted:
+            return _save_edit(df, data_path, fields)
+    return True
+
+
 def main():
     """
     Main Streamlit application for LinkedIn profile data entry and editing.
@@ -84,300 +431,14 @@ def main():
     with col_step2:
         st.subheader("📋 Step 2: Select a Record")
 
-        if not filtered_df.empty:
-            # Create selectable options
-            record_options = []
-            for idx, row in filtered_df.iterrows():
-                name = row.get('name', 'Unknown')
-                date_connected = row.get('date_connected')
-                if pd.notna(date_connected):
-                    date_str = date_connected.strftime('%Y-%m-%d')
-                else:
-                    date_str = 'No date'
-
-                # Show key info for selection
-                display_text = f"{name} - Connected: {date_str}"
-                record_options.append(display_text)
-
-            # Add a "Clear selection" option
-            record_options.insert(0, "--- Select a record ---")
-
-            # Auto-select first record if search results exist
-            default_index = 1 if len(record_options) > 1 else 0  # Index 1 is the first actual record
-
-            selected_option = st.selectbox(
-                "Choose a record to edit:",
-                options=record_options,
-                index=default_index,
-                help="Select the record you want to edit",
-                key="record_selector"
-            )
-
-            if selected_option != "--- Select a record ---":
-                # Find the selected record
-                selected_idx = record_options.index(selected_option) - 1  # -1 because we inserted at position 0
-                selected_row = filtered_df.iloc[selected_idx]
-
-                # Store in session state - handle NaN values
-                answered_value = selected_row.get('ind_answered', 0)
-                if pd.isna(answered_value):
-                    answered_value = 0
-
-                # Handle NaN values for job title and reachout type
-                job_title_value = selected_row.get('job_title', '')
-                if pd.isna(job_title_value):
-                    job_title_value = ''
-
-                reachout_type_value = selected_row.get('reach_out_type', '')
-                if pd.isna(reachout_type_value):
-                    reachout_type_value = ''
-
-                st.session_state.selected_record = {
-                    'name': selected_row.get('name', ''),
-                    'date_connected': selected_row.get('date_connected', None),
-                    'ind_answered': answered_value,
-                    'url_chat': selected_row.get('url_chat', ''),
-                    'company': selected_row.get('company', ''),
-                    'job_title': job_title_value,
-                    'location': selected_row.get('location', ''),
-                    'date_contacted': selected_row.get('date_contacted', None),
-                    'date_revocation': selected_row.get('date_revocation', None),
-                    'date_discarded': selected_row.get('date_discarded', None),
-                    'reach_out_type': reachout_type_value
-                }
-                st.session_state.original_name = selected_row.get('name', '')
-
-                st.success(f"✅ Selected: {selected_option}")
-            else:
-                st.session_state.selected_record = None
-                st.session_state.original_name = None
-        else:
-            if search_name:
-                st.warning("No records found matching your search.")
-            st.session_state.selected_record = None
-            st.session_state.original_name = None
+        _select_record(filtered_df, search_name)
 
     # Step 3: Edit Form
     st.subheader("📝 Step 3: Edit Record Data")
 
     if st.session_state.selected_record:
-        # Widget keys are namespaced by the selected record: an explicit key makes
-        # Streamlit reuse the stored widget state and ignore `value=`, so a key that
-        # did not vary per record would show the previously edited record's values.
-        record_key = str(st.session_state.original_name or "")
-
-        with st.form("edit_form"):
-            # First row: Name and Answered (same line)
-            col_name, col_answered = st.columns(2)
-
-            with col_name:
-                name = st.text_input(
-                    "Name *",
-                    value=st.session_state.selected_record.get('name', ''),
-                    help="Full name of the LinkedIn profile",
-                    key=f"dataentry_name_{record_key}"
-                )
-
-            with col_answered:
-                # Handle NaN values and ensure valid index
-                answered_value = st.session_state.selected_record.get('ind_answered', 0)
-                if pd.isna(answered_value):
-                    answered_value = 0
-                answered_index = int(answered_value) if answered_value in [0, 1] else 0
-
-                answered = st.selectbox(
-                    "Answered",
-                    options=[0, 1],
-                    index=answered_index,
-                    help="0 = Not answered, 1 = Answered",
-                    key=f"dataentry_answered_{record_key}"
-                )
-
-            # Second row: All four date fields with clear checkboxes (8 columns total)
-            col_contacted, col_clear_contacted, col_connected, col_clear_connected, col_revocation, col_clear_revocation, col_discarded, col_clear_discarded = st.columns(8)
-
-            with col_contacted:
-                day_contacted = st.date_input(
-                    "Contacted",
-                    value=st.session_state.selected_record.get('date_contacted') if pd.notna(st.session_state.selected_record.get('date_contacted')) else None,
-                    help="Date when the contact was made",
-                    key=f"dataentry_date_contacted_{record_key}"
-                )
-
-            with col_clear_contacted:
-                clear_contacted = st.checkbox(
-                    "Clear",
-                    key="clear_contacted",
-                    help="Clear the date contacted field"
-                )
-
-            with col_connected:
-                date_connected = st.date_input(
-                    "Connected",
-                    value=st.session_state.selected_record.get('date_connected') if pd.notna(st.session_state.selected_record.get('date_connected')) else None,
-                    help="Date when the connection was made",
-                    key=f"dataentry_date_connected_{record_key}"
-                )
-
-            with col_clear_connected:
-                clear_connected = st.checkbox(
-                    "Clear",
-                    key="clear_connected",
-                    help="Clear the date connected field"
-                )
-
-            with col_revocation:
-                revocation_date = st.date_input(
-                    "Revocation",
-                    value=st.session_state.selected_record.get('date_revocation') if pd.notna(st.session_state.selected_record.get('date_revocation')) else None,
-                    help="Date when the contact was revoked",
-                    key=f"dataentry_date_revocation_{record_key}"
-                )
-
-            with col_clear_revocation:
-                clear_revocation = st.checkbox(
-                    "Clear",
-                    key="clear_revocation",
-                    help="Clear the revocation date"
-                )
-
-            with col_discarded:
-                date_discarded = st.date_input(
-                    "Discarded",
-                    value=st.session_state.selected_record.get('date_discarded') if pd.notna(st.session_state.selected_record.get('date_discarded')) else None,
-                    help="Date when the profile was discarded",
-                    key=f"dataentry_date_discarded_{record_key}"
-                )
-
-            with col_clear_discarded:
-                clear_discarded = st.checkbox(
-                    "Clear",
-                    key="clear_discarded",
-                    help="Clear the discarded date"
-                )
-
-            # Third row: LinkedIn Chat URL
-            chat_url = st.text_input(
-                "LinkedIn Chat URL",
-                value=st.session_state.selected_record.get('url_chat', ''),
-                help="URL to the LinkedIn chat/messaging thread",
-                key=f"dataentry_url_chat_{record_key}"
-            )
-
-            # Fourth row: Company and Reachout Type (same line)
-            col_company, col_reachout = st.columns(2)
-
-            with col_company:
-                company = st.text_input(
-                    "Company",
-                    value=st.session_state.selected_record.get('company', ''),
-                    help="Company name",
-                    key=f"dataentry_company_{record_key}"
-                )
-
-            with col_reachout:
-                # Reachout Type dropdown
-                # Get distinct reach out types from the full dataframe
-                reachout_types = ['']  # Start with empty option
-                if 'reach_out_type' in df.columns:
-                    distinct_types = df['reach_out_type'].dropna().unique().tolist()
-                    reachout_types.extend(sorted(distinct_types))
-
-                # Ensure current record's reachout type is in the options list
-                current_reachout_type = st.session_state.selected_record.get('reach_out_type', '')
-                if current_reachout_type and current_reachout_type not in reachout_types:
-                    reachout_types.append(current_reachout_type)
-                    reachout_types.sort()  # Keep sorted after adding
-
-                # Find the index of the current value
-                try:
-                    reachout_index = reachout_types.index(current_reachout_type) if current_reachout_type else 0
-                except ValueError:
-                    reachout_index = 0
-
-                reach_out_type = st.selectbox(
-                    "Reachout Type",
-                    options=reachout_types,
-                    index=reachout_index,
-                    help="Type of reachout made to this profile",
-                    key=f"dataentry_reach_out_type_{record_key}"
-                )
-
-            # Fifth row: Job Title and Location (same line)
-            col_job_title, col_location = st.columns(2)
-
-            with col_job_title:
-                job_title = st.text_input(
-                    "Job Title",
-                    value=st.session_state.selected_record.get('job_title', ''),
-                    help="Job title/position",
-                    key=f"dataentry_job_title_{record_key}"
-                )
-
-            with col_location:
-                location = st.text_input(
-                    "Location",
-                    value=st.session_state.selected_record.get('location', ''),
-                    help="Location/city",
-                    key=f"dataentry_location_{record_key}"
-                )
-
-            submitted = st.form_submit_button("💾 Update Record", key="dataentry_submit")
-
-            if submitted:
-                if not name.strip():
-                    st.error("❌ Name is required!")
-                    return
-
-                # Prepare record data
-                # Handle clear checkboxes - if checked, set date to None
-                final_date_connected = None if clear_connected else (pd.Timestamp(date_connected) if date_connected else None)
-                final_day_contacted = None if clear_contacted else (pd.Timestamp(day_contacted) if day_contacted else None)
-                final_revocation_date = None if clear_revocation else (pd.Timestamp(revocation_date) if revocation_date else None)
-                final_date_discarded = None if clear_discarded else (pd.Timestamp(date_discarded) if date_discarded else None)
-
-                # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
-                original_day = st.session_state.selected_record.get('date_contacted')
-                # Check if day has changed to a new valid date (re-contact logic)
-                if final_day_contacted is not None and (pd.isna(original_day) or final_day_contacted != original_day):
-                     final_revocation_date = None
-                     if revocation_date is not None or clear_revocation:
-                         st.info("ℹ️ Revocation date automatically cleared because a new contact date was set.")
-
-                record_data = {
-                    'name': name.strip(),
-                    'date_connected': final_date_connected,
-                    'ind_answered': answered,
-                    'url_chat': chat_url.strip() if chat_url else None,
-                    'company': company.strip() if company else None,
-                    'job_title': job_title.strip() if job_title else None,
-                    'location': location.strip() if location else None,
-                    'date_contacted': final_day_contacted,
-                    'date_revocation': final_revocation_date,
-                    'date_discarded': final_date_discarded,
-                    'reach_out_type': reach_out_type.strip() if reach_out_type else None
-                }
-
-                # Update existing record
-                updated_df, action = update_existing_record(df, st.session_state.original_name, record_data)
-
-                if action == "not_found":
-                    st.error("❌ Original record not found. It may have been deleted.")
-                    return
-
-                # Save to Excel
-                if save_to_excel(updated_df, data_path):
-                    st.success("✅ Record updated successfully!")
-                    
-                    # Log history with original data for initial record
-                    log_history(record_data, action="update", original_data=st.session_state.selected_record)
-
-                    # Clear selection and rerun
-                    st.session_state.selected_record = None
-                    st.session_state.original_name = None
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to save changes!")
+        if not _render_edit_form(df, data_path):
+            return
     else:
         st.info("👆 Please select a record from Step 2 to edit its data.")
 

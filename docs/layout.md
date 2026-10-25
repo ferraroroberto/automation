@@ -62,5 +62,5 @@ A tests folder holds no `__init__.py`: `unittest discover -s tests/<domain>` and
 
 The ratchet records these at their size on adoption, so they may not grow. New code goes in a new module beside them, never into them.
 
-- Files over 1,000 lines: `notion/articles_sync/notion_articles_sync.py`, `system/apple/unify_vcards.py`, `system/wifi/network_scanner.py`.
-- Functions over 100 lines: 27, listed as `fn:` entries in `.structure-ratchet-baseline.json`. The longest are `main` in `linkedin/profiles_data_extractor/common/reachout.py`, `dataentry.py` and `dashboard.py`.
+- Files over 1,000 lines: `notion/articles_sync/notion_articles_sync.py`. It is one `NotionArticlesSync` class whose methods share the config, the Notion client and the sync state, and the tests build instances directly with `__new__` and set that state by hand, so splitting it is a redesign rather than a move.
+- Functions over 100 lines: none.

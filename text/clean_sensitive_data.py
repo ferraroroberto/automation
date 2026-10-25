@@ -255,6 +255,32 @@ class SensitiveDataCleaner(DataCleanerBase):
         self.main_frame = ttk.Frame(self.master, padding="10")
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
+        self._build_text_panels()
+
+        # Middle frame with clean button
+        self.middle_frame = ttk.Frame(self.main_frame)
+        self.middle_frame.pack(fill=tk.X, pady=10)
+        
+        self.clean_button = ttk.Button(self.middle_frame, text="Clean Text", command=self.clean_text)
+        self.clean_button.pack(pady=5, fill=tk.X)
+        
+        # Status frame
+        self.status_frame = ttk.Frame(self.main_frame)
+        self.status_frame.pack(fill=tk.X)
+        
+        self._build_options_panel()
+
+        # Status bar
+        self.status_var = tk.StringVar()
+        self.status_var.set("Ready")
+        self.status_bar = ttk.Label(self.main_frame, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Check for initial clipboard content
+        self.master.after(500, self.check_clipboard)
+
+    def _build_text_panels(self):
+        """Build the title and the input/output text panels."""
         # Create title
         self.title_label = ttk.Label(self.main_frame, text="Sensitive Data Cleaner", style='Header.TLabel')
         self.title_label.pack(pady=(0, 10))
@@ -304,18 +330,9 @@ class SensitiveDataCleaner(DataCleanerBase):
         
         self.clear_output_button = ttk.Button(self.output_buttons, text="Clear", command=self.clear_output)
         self.clear_output_button.pack(side=tk.LEFT)
-        
-        # Middle frame with clean button
-        self.middle_frame = ttk.Frame(self.main_frame)
-        self.middle_frame.pack(fill=tk.X, pady=10)
-        
-        self.clean_button = ttk.Button(self.middle_frame, text="Clean Text", command=self.clean_text)
-        self.clean_button.pack(pady=5, fill=tk.X)
-        
-        # Status frame
-        self.status_frame = ttk.Frame(self.main_frame)
-        self.status_frame.pack(fill=tk.X)
-        
+
+    def _build_options_panel(self):
+        """Build the cleaning-option checkboxes."""
         # Configuration frame
         self.config_frame = ttk.Frame(self.main_frame)
         self.config_frame.pack(fill=tk.X, pady=10)
@@ -362,15 +379,6 @@ class SensitiveDataCleaner(DataCleanerBase):
         
         self.option8 = ttk.Checkbutton(self.options_frame, text="GUIDs/UUIDs", variable=self.clean_guids_var)
         self.option8.grid(row=1, column=3, sticky=tk.W, padx=5)
-        
-        # Status bar
-        self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
-        self.status_bar = ttk.Label(self.main_frame, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
-        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-        
-        # Check for initial clipboard content
-        self.master.after(500, self.check_clipboard)
 
     def update_cleaning_options(self):
         """Update cleaning options from GUI checkboxes"""

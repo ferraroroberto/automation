@@ -101,387 +101,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# MAC Address OUI (Organizationally Unique Identifier) database
-# Mapping of OUI prefixes to manufacturer names
-MAC_OUI_DATABASE = {
-    # Netgear devices (comprehensive list)
-    "00:14:6c": "Netgear Inc",
-    "20:76:93": "Netgear Inc",
-    "08:36:c9": "Netgear Inc",
-    "9c:3d:cf": "Netgear Inc",
-    "b0:39:56": "Netgear Inc",
-    "00:0f:b5": "Netgear Inc",
-    "00:09:5b": "Netgear Inc",
-    "00:18:4d": "Netgear Inc",
-    "00:24:b2": "Netgear Inc",
-    "04:a1:51": "Netgear Inc",
-    "08:bd:43": "Netgear Inc",
-    "0c:60:76": "Netgear Inc",
-    "10:da:43": "Netgear Inc",
-    "20:e5:2a": "Netgear Inc",
-    "28:c6:8e": "Netgear Inc",
-    "2c:b0:5d": "Netgear Inc",
-    "30:46:9a": "Netgear Inc",
-    "34:98:b5": "Netgear Inc",
-    "40:5d:82": "Netgear Inc",
-    "44:94:fc": "Netgear Inc",
-    "4c:60:de": "Netgear Inc",
-    "50:6a:03": "Netgear Inc",
-    "6c:b0:ce": "Netgear Inc",
-    "74:44:01": "Netgear Inc",
-    "84:1b:5e": "Netgear Inc",
-    "94:10:3e": "Netgear Inc",
-    "9c:c9:eb": "Netgear Inc",
-    "a0:04:60": "Netgear Inc",
-    "a4:2b:b0": "Netgear Inc",
-    "bc:44:86": "Netgear Inc",
-    "c0:25:06": "Netgear Inc",
-    "c4:04:15": "Netgear Inc",
-    "c8:d7:19": "Netgear Inc",
-    "cc:40:d0": "Netgear Inc",
-    "d0:7e:35": "Netgear Inc",
-    "dc:ef:ca": "Netgear Inc",
-    "e0:46:9a": "Netgear Inc",
-    "e8:fc:af": "Netgear Inc",
-    "f0:da:7c": "Netgear Inc",
-
-    # Virtualization and Cloud
-    "00:50:56": "VMware Inc",
-    "00:0c:29": "VMware Inc",
-    "00:05:69": "VMware Inc",
-    "00:1c:14": "VMware Inc",
-    "00:1c:42": "Parallels Inc",
-    "08:00:27": "Oracle VirtualBox",
-    "52:54:00": "QEMU/KVM",
-    "02:42:ac": "Docker Container",
-    "0e:0e:0e": "Google Cloud",
-
-    # Microsoft and Windows
-    "00:50:f2": "Microsoft Corporation",
-    "8c:60:4f": "Microsoft Corporation",
-    "9c:b6:54": "Microsoft Corporation",
-
-    # Apple devices
-    "28:cd:c1": "Apple Inc",
-    "8c:85:90": "Apple Inc",
-    "ac:bc:32": "Apple Inc",
-    "f0:18:98": "Apple Inc",
-    "60:33:4b": "Apple Inc",
-    "24:ab:81": "Apple Inc",
-    "68:5b:35": "Apple Inc",
-    "a4:c3:61": "Apple Inc",
-    "b8:17:c2": "Apple Inc",
-
-    # Cisco and networking
-    "00:50:cc": "Cisco Systems",
-    "00:0a:f7": "Broadcom",
-    "00:10:18": "Broadcom",
-    "00:90:4c": "Epigram Inc",
-    "00:01:42": "Parallels Inc",
-    "00:1b:21": "Intel Corporate",
-    "00:21:5c": "Intel Corporate",
-    "00:26:c6": "Intel Corporate",
-    "dc:53:7c": "Compal Broadband Networks",
-    "e0:b9:ba": "Cisco Systems",
-
-    # IoT and embedded devices
-    "b8:27:eb": "Raspberry Pi Foundation",
-    "dc:a6:32": "Raspberry Pi Foundation",
-    "e4:5f:01": "Raspberry Pi Foundation",
-    "d8:3a:dd": "Samsung Electronics",
-    "00:12:fb": "Samsung Electronics",
-    "bc:76:70": "Samsung Electronics",
-    "8c:79:67": "Samsung Electronics",
-    "b4:07:f9": "Samsung Electronics",
-    "50:c8:e5": "Samsung Electronics",
-    "00:0e:c6": "ASUSTek Computer Inc",
-    "00:13:d4": "ASUSTek Computer Inc",
-    "00:17:31": "ASUSTek Computer Inc",
-    "00:1a:92": "ASUSTek Computer Inc",
-    "00:1b:fc": "ASUSTek Computer Inc",
-    "00:1d:60": "ASUSTek Computer Inc",
-    "00:1e:8c": "ASUSTek Computer Inc",
-    "00:22:15": "ASUSTek Computer Inc",
-    "00:24:8c": "ASUSTek Computer Inc",
-    "00:26:18": "ASUSTek Computer Inc",
-    "04:92:26": "ASUSTek Computer Inc",
-    "08:62:66": "ASUSTek Computer Inc",
-    "10:bf:48": "ASUSTek Computer Inc",
-    "14:da:e9": "ASUSTek Computer Inc",
-    "18:31:bf": "ASUSTek Computer Inc",
-    "20:16:d8": "ASUSTek Computer Inc",
-    "24:5e:be": "ASUSTek Computer Inc",
-    "2c:4d:54": "ASUSTek Computer Inc",
-    "2c:fd:a1": "ASUSTek Computer Inc",
-    "30:85:a9": "ASUSTek Computer Inc",
-    "38:2c:4a": "ASUSTek Computer Inc",
-    "3c:7c:3f": "ASUSTek Computer Inc",
-    "40:b0:76": "ASUSTek Computer Inc",
-    "44:8a:5b": "ASUSTek Computer Inc",
-    "48:5b:39": "ASUSTek Computer Inc",
-    "4c:ed:de": "ASUSTek Computer Inc",
-    "50:46:5d": "ASUSTek Computer Inc",
-    "54:a0:50": "ASUSTek Computer Inc",
-    "60:a4:4c": "ASUSTek Computer Inc",
-    "64:5d:86": "ASUSTek Computer Inc",
-    "68:3e:34": "ASUSTek Computer Inc",
-    "70:4d:7b": "ASUSTek Computer Inc",
-    "70:8b:cd": "ASUSTek Computer Inc",
-    "74:05:a5": "ASUSTek Computer Inc",
-    "74:d0:2b": "ASUSTek Computer Inc",
-    "78:24:af": "ASUSTek Computer Inc",
-    "78:8a:20": "ASUSTek Computer Inc",
-    "7c:87:ce": "ASUSTek Computer Inc",
-    "80:2a:a8": "ASUSTek Computer Inc",
-    "84:00:d2": "ASUSTek Computer Inc",
-    "84:4b:f5": "ASUSTek Computer Inc",
-    "88:51:fb": "ASUSTek Computer Inc",
-    "8c:0d:76": "ASUSTek Computer Inc",
-    "8c:7c:92": "ASUSTek Computer Inc",
-    "8c:a9:82": "ASUSTek Computer Inc",
-    "90:55:de": "ASUSTek Computer Inc",
-    "90:6d:c8": "ASUSTek Computer Inc",
-    "98:3b:16": "ASUSTek Computer Inc",
-    "9c:5c:8e": "ASUSTek Computer Inc",
-    "a0:2b:b8": "ASUSTek Computer Inc",
-    "a8:5e:45": "ASUSTek Computer Inc",
-    "ac:22:0b": "ASUSTek Computer Inc",
-    "ac:9e:17": "ASUSTek Computer Inc",
-    "b0:6e:bf": "ASUSTek Computer Inc",
-    "b8:88:e3": "ASUSTek Computer Inc",
-    "bc:54:36": "ASUSTek Computer Inc",
-    "bc:ae:c5": "ASUSTek Computer Inc",
-    "c4:56:00": "ASUSTek Computer Inc",
-    "c4:57:6e": "ASUSTek Computer Inc",
-    "c8:60:00": "ASUSTek Computer Inc",
-    "cc:b0:da": "ASUSTek Computer Inc",
-    "d0:17:c2": "ASUSTek Computer Inc",
-    "d0:53:49": "ASUSTek Computer Inc",
-    "d4:5d:64": "ASUSTek Computer Inc",
-    "d8:50:e6": "ASUSTek Computer Inc",
-    "dc:39:6f": "ASUSTek Computer Inc",
-    "e0:3f:49": "ASUSTek Computer Inc",
-    "e0:69:95": "ASUSTek Computer Inc",
-    "e8:94:f6": "ASUSTek Computer Inc",
-    "f0:79:59": "ASUSTek Computer Inc",
-    "f4:6d:e2": "ASUSTek Computer Inc",
-    "f8:32:e4": "ASUSTek Computer Inc",
-
-    # TP-Link and networking equipment
-    "00:21:27": "TP-Link Technologies",
-    "00:27:19": "TP-Link Technologies",
-    "00:31:92": "TP-Link Technologies",
-    "00:5f:67": "TP-Link Technologies",
-    "10:fe:ed": "TP-Link Technologies",
-    "14:cc:20": "TP-Link Technologies",
-    "1c:61:b4": "TP-Link Technologies",
-    "20:dc:e6": "TP-Link Technologies",
-    "24:69:a5": "TP-Link Technologies",
-    "28:10:7b": "TP-Link Technologies",
-    "2c:4d:79": "TP-Link Technologies",
-    "30:de:4b": "TP-Link Technologies",
-    "34:96:72": "TP-Link Technologies",
-    "3c:46:d8": "TP-Link Technologies",
-    "40:31:3c": "TP-Link Technologies",
-    "44:b3:2d": "TP-Link Technologies",
-    "48:22:54": "TP-Link Technologies",
-    "4c:32:75": "TP-Link Technologies",
-    "50:bd:5f": "TP-Link Technologies",
-    "54:af:97": "TP-Link Technologies",
-    "58:d9:d5": "TP-Link Technologies",
-    "5c:63:bf": "TP-Link Technologies",
-    "60:e3:27": "TP-Link Technologies",
-    "64:70:02": "TP-Link Technologies",
-    "68:ff:7b": "TP-Link Technologies",
-    "6c:e8:74": "TP-Link Technologies",
-    "70:4f:57": "TP-Link Technologies",
-    "74:83:c2": "TP-Link Technologies",
-    "78:11:dc": "TP-Link Technologies",
-    "78:32:1b": "TP-Link Technologies",
-    "78:55:17": "TP-Link Technologies",
-    "78:8c:b5": "TP-Link Technologies",
-    "78:d3:4f": "TP-Link Technologies",
-    "80:89:17": "TP-Link Technologies",
-    "88:5d:dd": "TP-Link Technologies",
-    "8c:21:0a": "TP-Link Technologies",
-    "90:9a:4a": "TP-Link Technologies",
-    "90:f6:52": "TP-Link Technologies",
-    "94:0c:6d": "TP-Link Technologies",
-    "98:10:e8": "TP-Link Technologies",
-    "98:de:d0": "TP-Link Technologies",
-    "9c:21:6a": "TP-Link Technologies",
-    "9c:a2:f4": "TP-Link Technologies",
-    "a0:f3:c1": "TP-Link Technologies",
-    "a8:15:4d": "TP-Link Technologies",
-    "ac:15:a2": "TP-Link Technologies",
-    "ac:84:c6": "TP-Link Technologies",
-    "ac:84:c9": "TP-Link Technologies",
-    "b0:4e:26": "TP-Link Technologies",
-    "b0:95:75": "TP-Link Technologies",
-    "b4:b0:24": "TP-Link Technologies",
-    "bc:46:99": "TP-Link Technologies",
-    "c0:4a:00": "TP-Link Technologies",
-    "c4:12:f5": "TP-Link Technologies",
-    "c4:e9:84": "TP-Link Technologies",
-    "cc:32:e5": "TP-Link Technologies",
-    "d4:21:22": "TP-Link Technologies",
-    "d4:6a:6a": "TP-Link Technologies",
-    "d8:5d:e2": "TP-Link Technologies",
-    "dc:02:8e": "TP-Link Technologies",
-    "e0:05:c5": "TP-Link Technologies",
-    "e8:65:49": "TP-Link Technologies",
-    "e8:9f:80": "TP-Link Technologies",
-    "ec:0e:c4": "TP-Link Technologies",
-    "ec:17:2f": "TP-Link Technologies",
-    "ec:23:68": "TP-Link Technologies",
-    "ec:26:ca": "TP-Link Technologies",
-    "ec:33:bb": "TP-Link Technologies",
-    "ec:41:18": "TP-Link Technologies",
-    "f0:5c:19": "TP-Link Technologies",
-    "f4:83:cd": "TP-Link Technologies",
-    "f4:ec:38": "TP-Link Technologies",
-    "f8:1a:67": "TP-Link Technologies",
-    "f8:8e:85": "TP-Link Technologies",
-
-    # Google/Nest devices
-    "00:1a:11": "Google Inc",
-    "3c:5a:b4": "Google Inc",
-    "54:60:09": "Google Inc",
-    "94:eb:2c": "Google Inc",
-    "b4:43:0d": "Google Inc",
-    "d8:6c:63": "Google Inc",
-    "f4:f5:24": "Google Inc",
-
-    # Amazon devices
-    "00:fc:8b": "Amazon Technologies Inc",
-    "18:74:2e": "Amazon Technologies Inc",
-    "22:47:da": "Amazon Technologies Inc",
-    "34:d2:70": "Amazon Technologies Inc",
-    "40:b4:cd": "Amazon Technologies Inc",
-    "44:65:0d": "Amazon Technologies Inc",
-    "50:f5:da": "Amazon Technologies Inc",
-    "68:9e:19": "Amazon Technologies Inc",
-    "74:75:48": "Amazon Technologies Inc",
-    "78:e1:03": "Amazon Technologies Inc",
-    "84:d6:d0": "Amazon Technologies Inc",
-    "ac:63:be": "Amazon Technologies Inc",
-    "b4:7c:9c": "Amazon Technologies Inc",
-    "b8:8d:12": "Amazon Technologies Inc",
-    "c0:56:27": "Amazon Technologies Inc",
-    "cc:7b:35": "Amazon Technologies Inc",
-    "d0:07:90": "Amazon Technologies Inc",
-    "f0:27:2d": "Amazon Technologies Inc",
-    "f0:d2:f1": "Amazon Technologies Inc",
-
-    # Gaming consoles
-    "00:03:0f": "Sony Interactive Entertainment",
-    "00:0d:93": "Sony Interactive Entertainment",
-    "00:19:c5": "Sony Interactive Entertainment",
-    "00:1b:0a": "Sony Interactive Entertainment",
-    "00:1d:0d": "Sony Interactive Entertainment",
-    "00:1e:a9": "Sony Interactive Entertainment",
-    "00:21:9e": "Sony Interactive Entertainment",
-    "00:22:aa": "Sony Interactive Entertainment",
-    "00:24:8d": "Sony Interactive Entertainment",
-    "00:26:43": "Sony Interactive Entertainment",
-    "00:73:96": "Sony Interactive Entertainment",
-    "04:25:9c": "Sony Interactive Entertainment",
-    "08:00:46": "Sony Interactive Entertainment",
-    "0c:fe:45": "Sony Interactive Entertainment",
-    "1c:7e:51": "Sony Interactive Entertainment",
-    "1c:96:5a": "Sony Interactive Entertainment",
-    "20:3a:ef": "Sony Interactive Entertainment",
-    "24:21:ab": "Sony Interactive Entertainment",
-    "2c:22:8b": "Sony Interactive Entertainment",
-    "30:52:cb": "Sony Interactive Entertainment",
-    "34:31:11": "Sony Interactive Entertainment",
-    "40:b8:37": "Sony Interactive Entertainment",
-    "44:1c:a8": "Sony Interactive Entertainment",
-    "48:0f:cf": "Sony Interactive Entertainment",
-    "4c:21:d0": "Sony Interactive Entertainment",
-    "50:1a:c5": "Sony Interactive Entertainment",
-    "50:67:f0": "Sony Interactive Entertainment",
-    "54:42:49": "Sony Interactive Entertainment",
-    "58:48:22": "Sony Interactive Entertainment",
-    "5c:96:9d": "Sony Interactive Entertainment",
-    "60:5f:8d": "Sony Interactive Entertainment",
-    "64:4b:f0": "Sony Interactive Entertainment",
-    "64:a6:51": "Sony Interactive Entertainment",
-    "68:96:7b": "Sony Interactive Entertainment",
-    "6c:c2:17": "Sony Interactive Entertainment",
-    "70:9e:29": "Sony Interactive Entertainment",
-    "74:63:df": "Sony Interactive Entertainment",
-    "78:18:81": "Sony Interactive Entertainment",
-    "7c:04:d0": "Sony Interactive Entertainment",
-    "84:25:3f": "Sony Interactive Entertainment",
-    "84:89:ad": "Sony Interactive Entertainment",
-    "84:a4:23": "Sony Interactive Entertainment",
-    "8c:41:f2": "Sony Interactive Entertainment",
-    "90:03:b7": "Sony Interactive Entertainment",
-    "98:0c:a5": "Sony Interactive Entertainment",
-    "9c:84:bf": "Sony Interactive Entertainment",
-    "a4:15:66": "Sony Interactive Entertainment",
-    "a8:75:9b": "Sony Interactive Entertainment",
-    "ac:5f:3e": "Sony Interactive Entertainment",
-    "b0:05:94": "Sony Interactive Entertainment",
-    "b4:29:3d": "Sony Interactive Entertainment",
-    "bc:60:a7": "Sony Interactive Entertainment",
-    "c4:3c:fe": "Sony Interactive Entertainment",
-    "c8:63:f1": "Sony Interactive Entertainment",
-    "cc:9e:a2": "Sony Interactive Entertainment",
-    "d0:0f:6d": "Sony Interactive Entertainment",
-    "d4:22:3f": "Sony Interactive Entertainment",
-    "d4:8a:fc": "Sony Interactive Entertainment",
-    "dc:68:eb": "Sony Interactive Entertainment",
-    "e4:1f:13": "Sony Interactive Entertainment",
-    "e8:4e:ce": "Sony Interactive Entertainment",
-    "f0:46:1c": "Sony Interactive Entertainment",
-    "f4:43:8f": "Sony Interactive Entertainment",
-    "f8:46:1c": "Sony Interactive Entertainment",
-    "fc:0f:e6": "Sony Interactive Entertainment",
-
-    # Microsoft Xbox
-    "00:0d:4c": "Microsoft Xbox",
-    "00:11:dc": "Microsoft Xbox",
-    "00:1d:d1": "Microsoft Xbox",
-    "00:22:48": "Microsoft Xbox",
-    "00:25:ae": "Microsoft Xbox",
-    "02:00:01": "Microsoft Xbox",
-    "8c:6d:50": "Microsoft Xbox",
-    "9c:d2:42": "Microsoft Xbox",
-    "a8:40:7d": "Microsoft Xbox",
-    "b8:76:3f": "Microsoft Xbox",
-    "c4:1e:fa": "Microsoft Xbox",
-    "d0:0e:a4": "Microsoft Xbox",
-    "d8:6c:e9": "Microsoft Xbox",
-    "e6:0a:7d": "Microsoft Xbox",
-    "f8:2f:5b": "Microsoft Xbox",
-
-    # Disambiguated prefixes (formerly duplicate dict keys - later definitions
-    # silently overrode earlier ones). Audited against the IEEE OUI registry via
-    # api.maclookup.app on 2026-07-03; one canonical owner per prefix.
-    "00:03:ff": "Microsoft Corporation",
-    "00:15:5d": "Microsoft Corporation",
-    "06:0e:2b": "AWS EC2",  # locally-administered prefix, no IEEE owner; AWS EC2 heuristic
-    "1c:b7:2c": "ASUSTek Computer Inc",
-    "2c:56:dc": "ASUSTek Computer Inc",
-    "7c:8b:ca": "TP-Link Technologies",
-    "7c:ed:8d": "Microsoft Corporation",
-    "84:16:f9": "TP-Link Technologies",
-    "88:03:55": "Arcadyan Corporation",
-    "8c:3b:ad": "Netgear Inc",
-    "94:44:52": "Belkin International Inc",
-    "a0:36:9f": "Intel Corporate",
-    "a4:77:33": "Google Inc",
-    "ac:60:b6": "Ericsson AB",
-    "b0:70:2d": "Apple Inc",
-    "b8:8a:60": "Intel Corporate",
-    "d8:0d:17": "TP-Link Technologies",
-    "dc:0b:1a": "ADB Broadband Italia",
-    "e4:95:6e": "IEEE Registration Authority",  # MA-M/S subdivided /24, no single vendor at OUI-24
-    "ec:1a:59": "Belkin International Inc",
-    "fc:34:97": "ASUSTek Computer Inc",
-}
+# mac_oui_database.py is a sibling; make it importable when this file is run as a script.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mac_oui_database import MAC_OUI_DATABASE  # noqa: E402
 
 
 def get_manufacturer(mac_address: str) -> str:
@@ -1019,6 +641,69 @@ def load_config() -> Dict[str, Any]:
     }
 
 
+def _build_arg_parser(config: Dict[str, Any]) -> argparse.ArgumentParser:
+    """Build the command-line parser, defaulting from the config."""
+    parser = argparse.ArgumentParser(
+        description="ARP-based network scanner for local device discovery",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python network_scanner.py
+  python network_scanner.py --subnet 192.168.1.0/24
+  python network_scanner.py --output my_scan.json --debug
+
+Privileges Required:
+  Windows: Run as Administrator
+  Linux/macOS: Run with sudo
+
+Dependencies:
+  pip install scapy
+            """
+    )
+
+    parser.add_argument(
+        "--subnet", "-s",
+        default=config["default_subnet"],
+        help=f"Network subnet to scan in CIDR notation (default: {config['default_subnet']})"
+    )
+
+    parser.add_argument(
+        "--output", "-o",
+        default=config["default_output"],
+        help=f"Output JSON file path (default: {config['default_output']})"
+    )
+
+    parser.add_argument(
+        "--timeout", "-t",
+        type=int,
+        default=config.get("arp_scan", {}).get("timeout", 2),
+        help="ARP response timeout in seconds (default: 2)"
+    )
+
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging"
+    )
+    return parser
+
+
+def _log_netgear_guidance(devices: List[Dict[str, Any]]) -> None:
+    """Log the Netgear devices found, or hints on why none were."""
+    netgear_devices = [d for d in devices if "netgear" in d["manufacturer"].lower()]
+    if netgear_devices:
+        logger.info("🎯 Netgear devices found:")
+        for device in netgear_devices:
+            logger.info("   • %s - %s (%s)", device['ip'], device['mac'], device['manufacturer'])
+        logger.info("   💡 The Netgear R9000 AP should be among these devices!")
+    else:
+        logger.warning("⚠️ No Netgear devices found.")
+        logger.info("   This could mean:")
+        logger.info("   • Your Netgear AP is on a different subnet")
+        logger.info("   • The AP has a different MAC OUI than expected")
+        logger.info("   • Try scanning other common subnets (192.168.1.0/24, 192.168.10.0/24, etc.)")
+
+
 def main(config: Optional[Dict[str, Any]] = None) -> None:
     """
     Main function to perform network scanning.
@@ -1032,50 +717,7 @@ def main(config: Optional[Dict[str, Any]] = None) -> None:
     args = None  # Guard against UnboundLocalError in the except block below if
                  # argument parsing itself raises before `args` is assigned.
     try:
-        # Parse command line arguments
-        parser = argparse.ArgumentParser(
-            description="ARP-based network scanner for local device discovery",
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog="""
-Examples:
-  python network_scanner.py
-  python network_scanner.py --subnet 192.168.1.0/24
-  python network_scanner.py --output my_scan.json --debug
-
-Privileges Required:
-  Windows: Run as Administrator
-  Linux/macOS: Run with sudo
-
-Dependencies:
-  pip install scapy
-            """
-        )
-
-        parser.add_argument(
-            "--subnet", "-s",
-            default=config["default_subnet"],
-            help=f"Network subnet to scan in CIDR notation (default: {config['default_subnet']})"
-        )
-
-        parser.add_argument(
-            "--output", "-o",
-            default=config["default_output"],
-            help=f"Output JSON file path (default: {config['default_output']})"
-        )
-
-        parser.add_argument(
-            "--timeout", "-t",
-            type=int,
-            default=config.get("arp_scan", {}).get("timeout", 2),
-            help="ARP response timeout in seconds (default: 2)"
-        )
-
-        parser.add_argument(
-            "--debug",
-            action="store_true",
-            help="Enable debug logging"
-        )
-
+        parser = _build_arg_parser(config)
         args = parser.parse_args()
 
         # Set logging level based on debug flag or config
@@ -1110,19 +752,7 @@ Dependencies:
         else:
             logger.info("💾 Results not saved (user cancelled)")
 
-        # Special guidance for Netgear AP discovery
-        netgear_devices = [d for d in devices if "netgear" in d["manufacturer"].lower()]
-        if netgear_devices:
-            logger.info("🎯 Netgear devices found:")
-            for device in netgear_devices:
-                logger.info("   • %s - %s (%s)", device['ip'], device['mac'], device['manufacturer'])
-            logger.info("   💡 The Netgear R9000 AP should be among these devices!")
-        else:
-            logger.warning("⚠️ No Netgear devices found.")
-            logger.info("   This could mean:")
-            logger.info("   • Your Netgear AP is on a different subnet")
-            logger.info("   • The AP has a different MAC OUI than expected")
-            logger.info("   • Try scanning other common subnets (192.168.1.0/24, 192.168.10.0/24, etc.)")
+        _log_netgear_guidance(devices)
 
     except KeyboardInterrupt:
         logger.info("⏹️  Network scan cancelled by user")

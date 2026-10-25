@@ -23,6 +23,45 @@ DEFAULT_SEARCH_COLUMNS = ('name', 'job_title', 'location')
 DATE_COLUMNS = ('date_contacted', 'date_connected', 'date_revocation', 'date_discarded')
 
 
+def _best_word_score(search_word, profile_words):
+    """Best match score (0-100) of one search word against a profile's words."""
+    best_score = 0
+
+    for profile_word in profile_words:
+        profile_word_lower = profile_word.lower()
+
+        # Strategy 1: Exact match (highest priority)
+        # "ana" exactly matches "ana" → 100 points
+        if search_word == profile_word_lower:
+            best_score = 100
+            break
+
+        # Strategy 2: Partial substring match
+        # "izq" is substring of "izquierdo" → 80 points scaled by length ratio
+        elif search_word in profile_word_lower:
+            score = 80 * (len(search_word) / len(profile_word_lower))
+            if score > best_score:
+                best_score = score
+
+        # Strategy 3: Fuzzy matching for typos/similar words
+        else:
+            # Use difflib for sequence similarity (handles typos like "izq" ≈ "izqu")
+            ratio = difflib.SequenceMatcher(None, search_word, profile_word_lower).ratio()
+            if ratio > 0.8:  # Only high similarity matches
+                score = 60 * ratio
+                if score > best_score:
+                    best_score = score
+
+            # Strategy 4: Prefix matching for abbreviations
+            # "ana" matches start of "ana maría" → 70 points scaled by coverage
+            if len(search_word) >= 2 and len(profile_word_lower) > len(search_word):
+                if profile_word_lower.startswith(search_word):
+                    score = 70 * (len(search_word) / len(profile_word_lower))
+                    if score > best_score:
+                        best_score = score
+    return best_score
+
+
 def fuzzy_search_profiles(df, search_query, columns=DEFAULT_SEARCH_COLUMNS, max_results=100):
     """
     Perform intelligent fuzzy search across one or more profile fields with
@@ -85,40 +124,7 @@ def fuzzy_search_profiles(df, search_query, columns=DEFAULT_SEARCH_COLUMNS, max_
         matched_words = 0
 
         for search_word in search_words:
-            best_score = 0
-
-            for profile_word in profile_words:
-                profile_word_lower = profile_word.lower()
-
-                # Strategy 1: Exact match (highest priority)
-                # "ana" exactly matches "ana" → 100 points
-                if search_word == profile_word_lower:
-                    best_score = 100
-                    break
-
-                # Strategy 2: Partial substring match
-                # "izq" is substring of "izquierdo" → 80 points scaled by length ratio
-                elif search_word in profile_word_lower:
-                    score = 80 * (len(search_word) / len(profile_word_lower))
-                    if score > best_score:
-                        best_score = score
-
-                # Strategy 3: Fuzzy matching for typos/similar words
-                else:
-                    # Use difflib for sequence similarity (handles typos like "izq" ≈ "izqu")
-                    ratio = difflib.SequenceMatcher(None, search_word, profile_word_lower).ratio()
-                    if ratio > 0.8:  # Only high similarity matches
-                        score = 60 * ratio
-                        if score > best_score:
-                            best_score = score
-
-                    # Strategy 4: Prefix matching for abbreviations
-                    # "ana" matches start of "ana maría" → 70 points scaled by coverage
-                    if len(search_word) >= 2 and len(profile_word_lower) > len(search_word):
-                        if profile_word_lower.startswith(search_word):
-                            score = 70 * (len(search_word) / len(profile_word_lower))
-                            if score > best_score:
-                                best_score = score
+            best_score = _best_word_score(search_word, profile_words)
 
             # Accumulate score if we found any match for this search word
             if best_score > 0:

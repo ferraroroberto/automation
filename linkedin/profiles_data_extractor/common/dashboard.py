@@ -112,29 +112,22 @@ def create_contact_chart(df_filtered, df_all, group_col):
     # Return stats sorted by Total_People descending for tables
     return fig, stats.sort_values('Total_People', ascending=False)
 
-def main(df_filtered, df_all, filter_params=None):
-    """Main dashboard function that orchestrates the Streamlit app."""
 
-    # Extract filter parameters
-    if filter_params is None:
-        filter_params = {}
+def _date_filter_applied(df_all, start_date, end_date):
+    """True when the chosen contact-date range is narrower than the full data range."""
+    if start_date and end_date and 'date_contacted' in df_all.columns:
+        min_date_all = df_all['date_contacted'].min()
+        max_date_all = df_all['date_contacted'].max()
+        if pd.notna(min_date_all) and pd.notna(max_date_all):
+            min_date_all = min_date_all.date()
+            max_date_all = max_date_all.date()
+            if start_date > min_date_all or end_date < max_date_all:
+                return True
+    return False
 
-    selected_company = filter_params.get('selected_company', 'All')
-    selected_search_type = filter_params.get('selected_type', 'All')
-    start_date = filter_params.get('start_date')
-    end_date = filter_params.get('end_date')
-    contacted_filter = filter_params.get('contacted_filter', 'All')
-    connected_filter = filter_params.get('connected_filter', 'All')
 
-    # Store filter info for raw data display
-    st.session_state['df_filtered'] = df_filtered
-    st.session_state['df_all'] = df_all
-    st.session_state['selected_company'] = selected_company
-    st.session_state['selected_search_type'] = selected_search_type
-    st.session_state['filter_params'] = filter_params
-
-    # --- Performance Section ---
-    
+def _render_performance_metrics(df_filtered, df_all):
+    """Show the headline contact and connection counts."""
     total_contacts = df_filtered['date_contacted'].notna().sum()
     connected_count = df_filtered['date_connected'].notna().sum()
     conversion_rate = (connected_count / total_contacts * 100) if total_contacts > 0 else 0
@@ -148,10 +141,9 @@ def main(df_filtered, df_all, filter_params=None):
     col4.metric("Connected", f"{connected_count}")
     col5.metric("% Connected", f"{conversion_rate:.1f}%")
 
-    st.markdown("---")
 
-    # --- Visualizations ---
-    
+def _render_activity_charts(df_filtered):
+    """Show the contacts-per-day bars and the response-time pie."""
     # 1. Contacts & Connections per Day (Time Series) & Response Time
     col_activity_left, col_activity_right = st.columns(2)
 
@@ -238,6 +230,14 @@ def main(df_filtered, df_all, filter_params=None):
             fig_pie.update_layout(margin=dict(t=10, b=10))
             st.plotly_chart(fig_pie, width='stretch')
 
+
+def _render_group_charts(df_filtered, df_all):
+    """Show the performance and contact-overview charts by search type and company.
+
+    Returns the per-group stats the data tables below reuse (None when the column is absent).
+    """
+    type_stats = company_stats = None
+
     col_left, col_right = st.columns(2)
 
     with col_left:
@@ -271,7 +271,11 @@ def main(df_filtered, df_all, filter_params=None):
         if 'company' in df_filtered.columns:
             fig_contact_company, contact_company_stats = create_contact_chart(df_filtered, df_all, 'company')
             st.plotly_chart(fig_contact_company, width="stretch")
+    return type_stats, company_stats
 
+
+def _render_data_tables(df_filtered, type_stats, company_stats):
+    """Show the per-group stats tables."""
     # --- Data Tables ---
     st.header("📊 Data Tables")
 
@@ -288,6 +292,52 @@ def main(df_filtered, df_all, filter_params=None):
         if 'company' in df_filtered.columns:
             st.dataframe(company_stats[['company', 'Total_People', 'Contacted', 'Contacted_Percent', 'Connected', 'Rate']].rename(columns={'Total_People': 'Total People', 'Rate': '% Connected', 'Contacted_Percent': '% Contacted'}), hide_index=True)
 
+
+def _render_applied_filters(df_all, selected_company, selected_search_type,
+                            start_date, end_date, contacted_filter, connected_filter):
+    """List the sidebar filters currently narrowing the data."""
+    st.subheader("Current Filters Applied:")
+
+    filters_applied = []
+
+    # Show company filter if applied
+    if selected_company != 'All':
+        st.write(f"**🏢 Company:** {selected_company}")
+        filters_applied.append("Company")
+
+    # Show search type filter if applied
+    if selected_search_type != 'All':
+        st.write(f"**🔍 Search Type:** {selected_search_type}")
+        filters_applied.append("Search Type")
+
+    # Show date contacted filter if applied
+    # Only show as applied if the range is more restrictive than the full data range
+    if _date_filter_applied(df_all, start_date, end_date):
+        st.write(f"**📅 Date Contacted:** {start_date} to {end_date}")
+        filters_applied.append("Date Contacted")
+
+    # Show contacted status filter if applied
+    if contacted_filter != 'All':
+        status_text = "Contacted Only" if contacted_filter == "Contacted Only" else "Uncontacted Only"
+        st.write(f"**✅ Contacted Status:** {status_text}")
+        filters_applied.append("Contacted Status")
+
+    # Show connected status filter if applied
+    if connected_filter != 'All':
+        status_text = "Connected Only" if connected_filter == "Connected Only" else "Unconnected Only"
+        st.write(f"**🔗 Connected Status:** {status_text}")
+        filters_applied.append("Connected Status")
+
+    # If no filters are applied
+    if not filters_applied:
+        st.write("*No filters currently applied - showing all records*")
+    else:
+        st.write(f"*Showing records that match: {', '.join(filters_applied)} filters*")
+
+
+def _render_raw_data(df_filtered, df_all, selected_company, selected_search_type,
+                     start_date, end_date, contacted_filter, connected_filter):
+    """Show the filter coverage and the raw records behind the current filters."""
     # --- Raw Data ---
     st.header("📄 Raw Data")
 
@@ -296,15 +346,7 @@ def main(df_filtered, df_all, filter_params=None):
 
     # Determine which data to show in raw data table
     # If date contacted filter is applied, show only contacted records
-    date_filter_applied = False
-    if start_date and end_date and 'date_contacted' in df_all.columns:
-        min_date_all = df_all['date_contacted'].min()
-        max_date_all = df_all['date_contacted'].max()
-        if pd.notna(min_date_all) and pd.notna(max_date_all):
-            min_date_all = min_date_all.date()
-            max_date_all = max_date_all.date()
-            if start_date > min_date_all or end_date < max_date_all:
-                date_filter_applied = True
+    date_filter_applied = _date_filter_applied(df_all, start_date, end_date)
 
     if date_filter_applied:
         # Show metrics for contacted records when date filter is applied
@@ -325,62 +367,8 @@ def main(df_filtered, df_all, filter_params=None):
             st.metric("Filter Coverage", f"{filter_percentage:.1f}%")
 
     with col_filters:
-        st.subheader("Current Filters Applied:")
-
-        filters_applied = []
-
-        # Show company filter if applied
-        if selected_company != 'All':
-            st.write(f"**🏢 Company:** {selected_company}")
-            filters_applied.append("Company")
-
-        # Show search type filter if applied
-        if selected_search_type != 'All':
-            st.write(f"**🔍 Search Type:** {selected_search_type}")
-            filters_applied.append("Search Type")
-
-        # Show date contacted filter if applied
-        if start_date and end_date and 'date_contacted' in df_all.columns:
-            # Check if date range is different from min/max to determine if filter is applied
-            min_date_all = df_all['date_contacted'].min()
-            max_date_all = df_all['date_contacted'].max()
-            if pd.notna(min_date_all) and pd.notna(max_date_all):
-                min_date_all = min_date_all.date()
-                max_date_all = max_date_all.date()
-                # Only show as applied if the range is more restrictive than the full data range
-                if start_date > min_date_all or end_date < max_date_all:
-                    st.write(f"**📅 Date Contacted:** {start_date} to {end_date}")
-                    filters_applied.append("Date Contacted")
-
-        # Show contacted status filter if applied
-        if contacted_filter != 'All':
-            status_text = "Contacted Only" if contacted_filter == "Contacted Only" else "Uncontacted Only"
-            st.write(f"**✅ Contacted Status:** {status_text}")
-            filters_applied.append("Contacted Status")
-
-        # Show connected status filter if applied
-        if connected_filter != 'All':
-            status_text = "Connected Only" if connected_filter == "Connected Only" else "Unconnected Only"
-            st.write(f"**🔗 Connected Status:** {status_text}")
-            filters_applied.append("Connected Status")
-
-        # If no filters are applied
-        if not filters_applied:
-            st.write("*No filters currently applied - showing all records*")
-        else:
-            st.write(f"*Showing records that match: {', '.join(filters_applied)} filters*")
-
-    # Determine which data to show in raw data table
-    # If date contacted filter is applied, show only contacted records
-    date_filter_applied = False
-    if start_date and end_date and 'date_contacted' in df_all.columns:
-        min_date_all = df_all['date_contacted'].min()
-        max_date_all = df_all['date_contacted'].max()
-        if pd.notna(min_date_all) and pd.notna(max_date_all):
-            min_date_all = min_date_all.date()
-            max_date_all = max_date_all.date()
-            if start_date > min_date_all or end_date < max_date_all:
-                date_filter_applied = True
+        _render_applied_filters(df_all, selected_company, selected_search_type,
+                                start_date, end_date, contacted_filter, connected_filter)
 
     if date_filter_applied:
         # Show only contacted records when date filter is applied
@@ -396,5 +384,44 @@ def main(df_filtered, df_all, filter_params=None):
 
     with st.expander(raw_data_title):
         st.dataframe(display_df)
+
+
+def main(df_filtered, df_all, filter_params=None):
+    """Main dashboard function that orchestrates the Streamlit app."""
+
+    # Extract filter parameters
+    if filter_params is None:
+        filter_params = {}
+
+    selected_company = filter_params.get('selected_company', 'All')
+    selected_search_type = filter_params.get('selected_type', 'All')
+    start_date = filter_params.get('start_date')
+    end_date = filter_params.get('end_date')
+    contacted_filter = filter_params.get('contacted_filter', 'All')
+    connected_filter = filter_params.get('connected_filter', 'All')
+
+    # Store filter info for raw data display
+    st.session_state['df_filtered'] = df_filtered
+    st.session_state['df_all'] = df_all
+    st.session_state['selected_company'] = selected_company
+    st.session_state['selected_search_type'] = selected_search_type
+    st.session_state['filter_params'] = filter_params
+
+    # --- Performance Section ---
+    
+    _render_performance_metrics(df_filtered, df_all)
+
+    st.markdown("---")
+
+    # --- Visualizations ---
+    
+    _render_activity_charts(df_filtered)
+
+    type_stats, company_stats = _render_group_charts(df_filtered, df_all)
+
+    _render_data_tables(df_filtered, type_stats, company_stats)
+
+    _render_raw_data(df_filtered, df_all, selected_company, selected_search_type,
+                     start_date, end_date, contacted_filter, connected_filter)
 
 # Dashboard is now called from main.py

@@ -1,35 +1,6 @@
 {
   "version": 1,
   "entries": [
-    {"key": "fn:audio/audio_normalize.py:analyze_audio_levels", "lines": 104},
-    {"key": "fn:audio/audio_normalize.py:normalize_audio", "lines": 113},
-    {"key": "fn:excel/accounting_stripe/csv_structure_compare.py:main", "lines": 104},
-    {"key": "fn:image/illustrations_subscribers.py:process_subscribers", "lines": 142},
-    {"key": "fn:image/pdf_to_jpg/pdf_to_images_converter.py:main", "lines": 114},
-    {"key": "fn:linkedin/check_ip/config.py:parse_arguments", "lines": 128},
-    {"key": "fn:linkedin/check_ip/main.py:LinkedInImageSearchApp._process_images", "lines": 117},
-    {"key": "fn:linkedin/profiles_data_extractor/common/_lib.py:fuzzy_search_profiles", "lines": 127},
-    {"key": "fn:linkedin/profiles_data_extractor/common/dashboard.py:main", "lines": 284},
-    {"key": "fn:linkedin/profiles_data_extractor/common/dataentry.py:main", "lines": 372},
-    {"key": "fn:linkedin/profiles_data_extractor/common/extract_data.py:main", "lines": 188},
-    {"key": "fn:linkedin/profiles_data_extractor/common/history.py:main", "lines": 261},
-    {"key": "fn:linkedin/profiles_data_extractor/common/history_manager.py:log_history", "lines": 105},
-    {"key": "fn:linkedin/profiles_data_extractor/common/main.py:main", "lines": 143},
-    {"key": "fn:linkedin/profiles_data_extractor/common/reachout.py:main", "lines": 528},
-    {"key": "fn:linkedin/profiles_data_extractor/devtools/linkedin_profiles_data_extractor_devtools.py:LinkedInProfileExtractorDevTools.extract_profile_data", "lines": 102},
-    {"key": "fn:linkedin/profiles_data_extractor/devtools/linkedin_profiles_data_extractor_devtools.py:LinkedInProfileExtractorDevTools.extract_search_results_profiles", "lines": 123},
-    {"key": "fn:linkedin/profiles_data_extractor/devtools/linkedin_profiles_data_orchestrator_devtools.py:LinkedInProfilesDataOrchestratorDevTools.merge_to_excel", "lines": 108},
-    {"key": "fn:linkedin/profiles_data_extractor/devtools/linkedin_profiles_data_orchestrator_devtools.py:LinkedInProfilesDataOrchestratorDevTools.run_extraction_and_merge", "lines": 120},
-    {"key": "fn:notion/notion_excel_sync.py:main", "lines": 126},
-    {"key": "fn:notion/sample_illustrations.py:main", "lines": 121},
-    {"key": "fn:notion/todoist_migration.py:process_file", "lines": 102},
-    {"key": "fn:system/quickdeck/quickdeck_config_gui.py:QuickDeckConfig.show_config_window", "lines": 102},
-    {"key": "fn:system/treesize/treesize.py:TreeSizeApp.setup_ui", "lines": 122},
-    {"key": "fn:system/wifi/network_scanner.py:main", "lines": 114},
-    {"key": "fn:text/clean_sensitive_data.py:SensitiveDataCleaner.__init__", "lines": 138},
-    {"key": "fn:video/video_concatenator.py:VideoConcatenator.concatenate_videos", "lines": 116},
-    {"key": "size:notion/articles_sync/notion_articles_sync.py", "lines": 1297},
-    {"key": "size:system/apple/unify_vcards.py", "lines": 1244},
-    {"key": "size:system/wifi/network_scanner.py", "lines": 1144}
+    {"key": "size:notion/articles_sync/notion_articles_sync.py", "lines": 1284}
   ]
 }

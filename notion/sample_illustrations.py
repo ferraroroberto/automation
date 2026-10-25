@@ -136,6 +136,84 @@ def wipe_contents(folder: Path) -> None:
             entry.unlink()
 
 
+def _build_sample_row(
+    vt_id: str,
+    vt: Dict[str, Any],
+    concepts: Dict[str, Any],
+    illustrations: Dict[str, Any],
+    source_folder: Path,
+    dest_folder: Path,
+) -> Optional[Dict[str, Any]]:
+    """Plan the sample row for one visual type, or None when it has no known illustrations."""
+    valid_ids = [i for i in vt["illustration_ids"] if i in illustrations]
+    if not valid_ids:
+        return None
+
+    # Most recently created first
+    valid_ids.sort(key=lambda i: illustrations[i].get("created") or "", reverse=True)
+    sample_id = valid_ids[0]
+    sample = illustrations[sample_id]
+
+    concept_id = vt["concept_id"]
+    concept_info = concepts.get(concept_id, {}) if concept_id else {}
+    concept_name = concept_info.get("concept", "")
+    concept_type = concept_info.get("concept_type", "untyped")
+
+    visualtype_name = vt["visualtype"]
+    title = sample["title"]
+    topic = extract_topic(title, visualtype_name)
+
+    ct_s = sanitize(concept_type)
+    c_s = sanitize(concept_name or "_no_concept_")
+    vt_s = sanitize(visualtype_name)
+    topic_s = sanitize(topic)
+
+    flat_name = f"{ct_s} - {c_s} - {vt_s} - {topic_s}.png"
+    nested_name = f"{vt_s} - {topic_s}.png"
+
+    source_path = source_folder / f"{title}.png"
+    dest_flat = dest_folder / "all" / flat_name
+    dest_nested = dest_folder / ct_s / c_s / nested_name
+
+    missing = not source_path.exists()
+
+    return {
+        "concept_type": concept_type,
+        "concept": concept_name,
+        "concept_id": concept_id,
+        "visual_type": visualtype_name,
+        "visual_type_id": vt_id,
+        "illustration_title": title,
+        "illustration_id": sample_id,
+        "topic": topic,
+        "theme": ";".join(sample.get("theme") or []),
+        "tags": sample.get("tags") or "",
+        "created": sample.get("created") or "",
+        "source_path": str(source_path),
+        "dest_path_flat": str(dest_flat),
+        "dest_path_nested": str(dest_nested),
+        "n_total_in_visual_type": len(vt["illustration_ids"]),
+        "missing_source_file": missing,
+    }
+
+
+def _copy_samples(rows: List[Dict[str, Any]]) -> int:
+    """Copy each present source file to its flat and nested destinations; returns the count."""
+    copied = 0
+    for r in rows:
+        if r["missing_source_file"]:
+            continue
+        src = Path(r["source_path"])
+        flat = Path(r["dest_path_flat"])
+        nested = Path(r["dest_path_nested"])
+        flat.parent.mkdir(parents=True, exist_ok=True)
+        nested.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, flat)
+        shutil.copy2(src, nested)
+        copied += 1
+    return copied
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Sample illustrations from Notion into folders + XLS.")
     parser.add_argument("--config", default="sample_illustrations.json")
@@ -167,57 +245,11 @@ def main() -> int:
     skipped_no_illustrations = 0
 
     for vt_id, vt in visual_types.items():
-        valid_ids = [i for i in vt["illustration_ids"] if i in illustrations]
-        if not valid_ids:
+        row = _build_sample_row(vt_id, vt, concepts, illustrations, source_folder, dest_folder)
+        if row is None:
             skipped_no_illustrations += 1
             continue
-
-        # Most recently created first
-        valid_ids.sort(key=lambda i: illustrations[i].get("created") or "", reverse=True)
-        sample_id = valid_ids[0]
-        sample = illustrations[sample_id]
-
-        concept_id = vt["concept_id"]
-        concept_info = concepts.get(concept_id, {}) if concept_id else {}
-        concept_name = concept_info.get("concept", "")
-        concept_type = concept_info.get("concept_type", "untyped")
-
-        visualtype_name = vt["visualtype"]
-        title = sample["title"]
-        topic = extract_topic(title, visualtype_name)
-
-        ct_s = sanitize(concept_type)
-        c_s = sanitize(concept_name or "_no_concept_")
-        vt_s = sanitize(visualtype_name)
-        topic_s = sanitize(topic)
-
-        flat_name = f"{ct_s} - {c_s} - {vt_s} - {topic_s}.png"
-        nested_name = f"{vt_s} - {topic_s}.png"
-
-        source_path = source_folder / f"{title}.png"
-        dest_flat = dest_folder / "all" / flat_name
-        dest_nested = dest_folder / ct_s / c_s / nested_name
-
-        missing = not source_path.exists()
-
-        rows.append({
-            "concept_type": concept_type,
-            "concept": concept_name,
-            "concept_id": concept_id,
-            "visual_type": visualtype_name,
-            "visual_type_id": vt_id,
-            "illustration_title": title,
-            "illustration_id": sample_id,
-            "topic": topic,
-            "theme": ";".join(sample.get("theme") or []),
-            "tags": sample.get("tags") or "",
-            "created": sample.get("created") or "",
-            "source_path": str(source_path),
-            "dest_path_flat": str(dest_flat),
-            "dest_path_nested": str(dest_nested),
-            "n_total_in_visual_type": len(vt["illustration_ids"]),
-            "missing_source_file": missing,
-        })
+        rows.append(row)
 
     logging.info(f"Planned samples: {len(rows)} | Visual types with no illustrations: {skipped_no_illustrations}")
     missing_count = sum(1 for r in rows if r["missing_source_file"])
@@ -236,18 +268,7 @@ def main() -> int:
     wipe_contents(dest_folder)
     (dest_folder / "all").mkdir(parents=True, exist_ok=True)
 
-    copied = 0
-    for r in rows:
-        if r["missing_source_file"]:
-            continue
-        src = Path(r["source_path"])
-        flat = Path(r["dest_path_flat"])
-        nested = Path(r["dest_path_nested"])
-        flat.parent.mkdir(parents=True, exist_ok=True)
-        nested.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, flat)
-        shutil.copy2(src, nested)
-        copied += 1
+    copied = _copy_samples(rows)
 
     logging.info(f"Copied {copied} illustration(s) to flat + nested layouts")
 

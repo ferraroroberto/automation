@@ -37,11 +37,8 @@ class QuickDeckConfig:
         with open(self.qd.config_path, 'w', encoding='utf-8') as f:
             json.dump(self.qd.config, f, indent=2, ensure_ascii=False)
 
-    def show_config_window(self) -> None:
-        """Show the main configuration window."""
-        grid_config = self.qd.config.get("grid", {})
-        rows = grid_config.get("rows", 2)
-        cols = grid_config.get("cols", 4)
+    def _build_config_layout(self, rows: int, cols: int, grid_config: dict) -> list:
+        """Build the PySimpleGUI layout of the configuration window."""
         total_buttons = rows * cols
 
         # Parse geometry for window size settings
@@ -107,6 +104,15 @@ class QuickDeckConfig:
             [sg.Button("Save Configuration", key="save_config", button_color=("white", "green")),
              sg.Button("Cancel", key="cancel", button_color=("white", "red"))]
         ])
+        return layout
+
+    def show_config_window(self) -> None:
+        """Show the main configuration window."""
+        grid_config = self.qd.config.get("grid", {})
+        rows = grid_config.get("rows", 2)
+        cols = grid_config.get("cols", 4)
+
+        layout = self._build_config_layout(rows, cols, grid_config)
 
         # Calculate window size to accommodate the grid properly
         # Width: enough for cols buttons + padding

@@ -188,32 +188,8 @@ class Config:
         return self.config_data["api_endpoints"]
 
 
-def parse_arguments() -> argparse.Namespace:
-    """
-    Parse command line arguments with sensible defaults from configuration.
-    
-    Returns:
-        argparse.Namespace: Parsed command line arguments
-    """
-    # Pre-parse --config so the argparse defaults come from the file the user
-    # named (not the default one) before the full parser is built
-    config_parser = argparse.ArgumentParser(add_help=False)
-    config_parser.add_argument("--config", type=str)
-    config_args, _ = config_parser.parse_known_args()
-    config = Config(config_args.config)
-    
-    parser = argparse.ArgumentParser(
-        description="Enhanced Image Search Script with metadata tracking and API history",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    
-    # Configuration file
-    parser.add_argument(
-        "--config",
-        type=str,
-        help="Path to configuration JSON file (default: linkedin_search_image.json in script directory)"
-    )
-    
+def _add_path_arguments(parser: argparse.ArgumentParser, config: Config) -> None:
+    """Add the folder, API key and file name options, defaulted from the config file."""
     # Folder paths
     parser.add_argument(
         "--images-folder",
@@ -269,7 +245,10 @@ def parse_arguments() -> argparse.Namespace:
         default=file_names["api_history_file"],
         help="Name of the API history Excel file"
     )
-    
+
+
+def _add_processing_arguments(parser: argparse.ArgumentParser, config: Config) -> None:
+    """Add the threshold and search-control options, defaulted from the config file."""
     # Processing thresholds
     thresholds = config.get_processing_thresholds()
     parser.add_argument(
@@ -305,7 +284,37 @@ def parse_arguments() -> argparse.Namespace:
         default=search_settings["do_similar_search"],
         help="Enable similar matches search"
     )
+
+
+def parse_arguments() -> argparse.Namespace:
+    """
+    Parse command line arguments with sensible defaults from configuration.
     
+    Returns:
+        argparse.Namespace: Parsed command line arguments
+    """
+    # Pre-parse --config so the argparse defaults come from the file the user
+    # named (not the default one) before the full parser is built
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument("--config", type=str)
+    config_args, _ = config_parser.parse_known_args()
+    config = Config(config_args.config)
+    
+    parser = argparse.ArgumentParser(
+        description="Enhanced Image Search Script with metadata tracking and API history",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    
+    # Configuration file
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to configuration JSON file (default: linkedin_search_image.json in script directory)"
+    )
+    
+    _add_path_arguments(parser, config)
+    _add_processing_arguments(parser, config)
+
     args = parser.parse_args()
     
     # Convert folder paths to Path objects

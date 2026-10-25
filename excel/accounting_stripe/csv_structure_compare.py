@@ -340,6 +340,45 @@ def process_csv_file(
         logger.error(f"❌ Error processing {file_path}: {e}")
         return None
 
+def _parse_date_arg(value: Optional[str], label: str) -> Optional[datetime]:
+    """Parse an ISO date argument, exiting with status 1 when it is malformed."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        logger.error(f"❌ Invalid {label} date format: {value}. Use YYYY-MM-DD")
+        sys.exit(1)
+
+
+def _process_and_save(
+    new_file: Path,
+    target_dir: Path,
+    config: Dict,
+    start_dt: Optional[datetime],
+    end_dt: Optional[datetime],
+) -> None:
+    """Filter the new CSV and write the result to Excel, exiting 1 on failure."""
+    logger.info("🔄 Processing and filtering new CSV file...")
+    processed_df = process_csv_file(new_file, config, start_dt, end_dt)
+
+    if processed_df is not None and not processed_df.empty:
+        # Save to Excel
+        output_file = target_dir / config.get("output_file", "filtered_payments.xlsx")
+        logger.info(f"💾 Saving filtered data to {output_file}...")
+
+        if save_to_excel(processed_df, output_file):
+            logger.info("✅ Processing completed successfully")
+            logger.info("[OK] Filtered data saved to: %s", output_file)
+            logger.info("   Rows: %d, Columns: %d", len(processed_df), len(processed_df.columns))
+        else:
+            logger.error("❌ Failed to save filtered data")
+            sys.exit(1)
+    else:
+        logger.error("❌ No data to save after processing")
+        sys.exit(1)
+
+
 def main(
     directory_path: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -363,20 +402,8 @@ def main(
         sys.exit(1)
 
     # Parse date parameters
-    start_dt = None
-    end_dt = None
-    if start_date:
-        try:
-            start_dt = datetime.fromisoformat(start_date)
-        except ValueError:
-            logger.error(f"❌ Invalid start date format: {start_date}. Use YYYY-MM-DD")
-            sys.exit(1)
-    if end_date:
-        try:
-            end_dt = datetime.fromisoformat(end_date)
-        except ValueError:
-            logger.error(f"❌ Invalid end date format: {end_date}. Use YYYY-MM-DD")
-            sys.exit(1)
+    start_dt = _parse_date_arg(start_date, "start")
+    end_dt = _parse_date_arg(end_date, "end")
 
     # Define file paths
     old_file = target_dir / config["file_old"]
@@ -426,24 +453,7 @@ def main(
         logger.info("⏹️  Processing cancelled by user")
         return
 
-    logger.info("🔄 Processing and filtering new CSV file...")
-    processed_df = process_csv_file(new_file, config, start_dt, end_dt)
-
-    if processed_df is not None and not processed_df.empty:
-        # Save to Excel
-        output_file = target_dir / config.get("output_file", "filtered_payments.xlsx")
-        logger.info(f"💾 Saving filtered data to {output_file}...")
-
-        if save_to_excel(processed_df, output_file):
-            logger.info("✅ Processing completed successfully")
-            logger.info("[OK] Filtered data saved to: %s", output_file)
-            logger.info("   Rows: %d, Columns: %d", len(processed_df), len(processed_df.columns))
-        else:
-            logger.error("❌ Failed to save filtered data")
-            sys.exit(1)
-    else:
-        logger.error("❌ No data to save after processing")
-        sys.exit(1)
+    _process_and_save(new_file, target_dir, config, start_dt, end_dt)
 
 if __name__ == "__main__":
     # Parse command line arguments

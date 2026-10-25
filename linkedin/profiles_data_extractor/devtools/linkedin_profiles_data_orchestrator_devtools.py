@@ -127,6 +127,45 @@ class LinkedInProfilesDataOrchestratorDevTools:
             time.sleep(retry_delay)
         return True
 
+    @staticmethod
+    def _filter_named_profiles(new_profiles: List[Dict[str, str]], columns_to_use: List[str]) -> List[Dict[str, str]]:
+        """Keep only the wanted columns of each profile, dropping profiles without a name."""
+        filtered_profiles = []
+        for profile in new_profiles:
+            filtered_profile = {col: profile.get(col, '') for col in columns_to_use}
+            # Only include profiles that have a name (required for deduplication)
+            if filtered_profile.get('name', '').strip():
+                filtered_profiles.append(filtered_profile)
+        return filtered_profiles
+
+    @staticmethod
+    def _drop_existing_profiles(filtered_profiles: List[Dict[str, str]], df_existing: pd.DataFrame) -> Tuple[List[Dict[str, str]], int]:
+        """Split off the profiles whose name is not yet in the sheet; returns (new profiles, skipped count)."""
+        # Get existing names (case-insensitive comparison)
+        existing_names = set()
+        if 'name' in df_existing.columns:
+            existing_names = set(
+                name.lower().strip()
+                for name in df_existing['name'].dropna()
+                if isinstance(name, str) and name.strip()
+            )
+
+        # Filter out profiles that already exist
+        new_profiles_filtered = []
+        skipped_count = 0
+
+        for profile in filtered_profiles:
+            profile_name = profile.get('name', '').lower().strip()
+            if profile_name and profile_name not in existing_names:
+                new_profiles_filtered.append(profile)
+            else:
+                skipped_count += 1
+                if profile_name:
+                    logger.info(f"⏭️  Skipped existing profile: {profile['name']}")
+                else:
+                    logger.info("⏭️  Skipped profile with missing name")
+        return new_profiles_filtered, skipped_count
+
     def merge_to_excel(self, new_profiles: List[Dict[str, str]], destination_file: str) -> Tuple[int, int, int]:
         """Merge new profiles into existing Excel file based on name column.
 
@@ -141,12 +180,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
         columns_to_use = ['name', 'url_profile', 'job_title', 'follows_from', 'company', 'location']
 
         # Filter new profiles to only include specified columns
-        filtered_profiles = []
-        for profile in new_profiles:
-            filtered_profile = {col: profile.get(col, '') for col in columns_to_use}
-            # Only include profiles that have a name (required for deduplication)
-            if filtered_profile.get('name', '').strip():
-                filtered_profiles.append(filtered_profile)
+        filtered_profiles = self._filter_named_profiles(new_profiles, columns_to_use)
 
         if not filtered_profiles:
             logger.warning("⚠️  No valid profiles to merge (missing name field)")
@@ -171,29 +205,9 @@ class LinkedInProfilesDataOrchestratorDevTools:
             df_existing = pd.read_excel(destination_file, engine='openpyxl')
             logger.info(f"📖 Read existing Excel file with {len(df_existing)} rows")
 
-            # Get existing names (case-insensitive comparison)
-            existing_names = set()
-            if 'name' in df_existing.columns:
-                existing_names = set(
-                    name.lower().strip()
-                    for name in df_existing['name'].dropna()
-                    if isinstance(name, str) and name.strip()
-                )
-
-            # Filter out profiles that already exist
-            new_profiles_filtered = []
-            skipped_count = 0
-
-            for profile in filtered_profiles:
-                profile_name = profile.get('name', '').lower().strip()
-                if profile_name and profile_name not in existing_names:
-                    new_profiles_filtered.append(profile)
-                else:
-                    skipped_count += 1
-                    if profile_name:
-                        logger.info(f"⏭️  Skipped existing profile: {profile['name']}")
-                    else:
-                        logger.info("⏭️  Skipped profile with missing name")
+            new_profiles_filtered, skipped_count = self._drop_existing_profiles(
+                filtered_profiles, df_existing
+            )
 
             # If no new profiles to add, return early
             if not new_profiles_filtered:
@@ -255,6 +269,36 @@ class LinkedInProfilesDataOrchestratorDevTools:
             self.keyboard_listener.stop()
             self.keyboard_listener = None
 
+    @staticmethod
+    def _log_step_banner(title: str) -> None:
+        """Log a blank line and the step title between two rules."""
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info(title)
+        logger.info("=" * 80)
+
+    def _apply_format_and_links(self, destination_file: str, format_json_path: str) -> None:
+        """Apply the saved Excel format (when present) and turn URL columns into hyperlinks."""
+        self._log_step_banner("STEP 3: Applying format and converting URLs...")
+
+        if os.path.exists(format_json_path):
+            logger.info("📋 Applying format from JSON...")
+            success = apply_format_from_json(destination_file, format_json_path)
+            if success:
+                logger.info("✅ Format applied successfully")
+            else:
+                logger.warning("⚠️  Failed to apply format")
+        else:
+            logger.warning(f"⚠️  Format JSON not found: {format_json_path} - skipping format application")
+
+        logger.info("")
+        logger.info("📎 Converting URL columns to hyperlinks...")
+        success = convert_url_columns_to_hyperlinks(destination_file)
+        if success:
+            logger.info("✅ URLs converted successfully")
+        else:
+            logger.warning("⚠️  Failed to convert URLs")
+
     def run_extraction_and_merge(self) -> None:
         """Run the complete extraction and merge process using DevTools."""
         logger.info("🎯 Starting LinkedIn Profiles Data Orchestrator (DevTools Version)")
@@ -279,10 +323,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
         try:
             # STEP 0: Optionally save format to JSON (controlled by --save-format flag)
             if self.save_format and os.path.exists(destination_file):
-                logger.info("")
-                logger.info("=" * 80)
-                logger.info("STEP 0: Saving Excel format to JSON")
-                logger.info("=" * 80)
+                self._log_step_banner("STEP 0: Saving Excel format to JSON")
                 logger.info("💾 Saving Excel format to JSON...")
                 success = save_excel_format_to_json(destination_file, format_json_path)
                 if success:
@@ -303,10 +344,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
                     return
 
             # STEP 1: Extract profiles from Chrome tabs using DevTools
-            logger.info("")
-            logger.info("=" * 80)
-            logger.info("STEP 1: Extracting data from Chrome tabs...")
-            logger.info("=" * 80)
+            self._log_step_banner("STEP 1: Extracting data from Chrome tabs...")
             profiles, tabs_processed = self.extractor.extract_all_tabs_devtools(
                 max_tabs=max_tabs,
                 exit_check=lambda: self.exit_requested
@@ -317,10 +355,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
                 return
 
             # STEP 2: Merge to destination Excel file
-            logger.info("")
-            logger.info("=" * 80)
-            logger.info("STEP 2: Merging data to destination Excel file...")
-            logger.info("=" * 80)
+            self._log_step_banner("STEP 2: Merging data to destination Excel file...")
 
             # Ensure destination directory exists
             destination_dir = os.path.dirname(destination_file)
@@ -329,28 +364,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             inserted_count, skipped_count, total_records = self.merge_to_excel(profiles, destination_file)
 
             # STEP 3: Apply format and convert URLs
-            logger.info("")
-            logger.info("=" * 80)
-            logger.info("STEP 3: Applying format and converting URLs...")
-            logger.info("=" * 80)
-
-            if os.path.exists(format_json_path):
-                logger.info("📋 Applying format from JSON...")
-                success = apply_format_from_json(destination_file, format_json_path)
-                if success:
-                    logger.info("✅ Format applied successfully")
-                else:
-                    logger.warning("⚠️  Failed to apply format")
-            else:
-                logger.warning(f"⚠️  Format JSON not found: {format_json_path} - skipping format application")
-
-            logger.info("")
-            logger.info("📎 Converting URL columns to hyperlinks...")
-            success = convert_url_columns_to_hyperlinks(destination_file)
-            if success:
-                logger.info("✅ URLs converted successfully")
-            else:
-                logger.warning("⚠️  Failed to convert URLs")
+            self._apply_format_and_links(destination_file, format_json_path)
 
             # Display final summary
             logger.info("")

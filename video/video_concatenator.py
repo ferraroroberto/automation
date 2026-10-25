@@ -19,6 +19,46 @@ from _ffmpeg_utils import NO_WINDOW, get_video_duration
 log = logging.getLogger(__name__)
 
 
+def _total_duration(paths: List[str]) -> Optional[float]:
+    """Sum of the input durations, or None when any one cannot be probed."""
+    total_duration = 0.0
+    for p in paths:
+        duration = get_video_duration(p)
+        if duration is None:
+            total_duration = None
+            break
+        total_duration += duration
+    return total_duration
+
+
+def _run_ffmpeg_with_progress(cmd: List[str], total_duration: Optional[float], progress_callback) -> int:
+    """Run ffmpeg, reporting progress from its time= lines; returns the exit code."""
+    # Run with progress parsing for concat (ffmpeg may output time=)
+    process = subprocess.Popen(
+        cmd,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        bufsize=1,
+        creationflags=NO_WINDOW,
+    )
+    time_pat = re.compile(r"time=(\d+):(\d+):(\d+)\.(\d+)")
+    for line in process.stderr:
+        if progress_callback and "time=" in line:
+            m = time_pat.search(line)
+            if m:
+                h, mn, s, ms = map(int, m.groups())
+                elapsed = h * 3600 + mn * 60 + s + ms / 100.0
+                if total_duration:
+                    percent = (elapsed / total_duration) * 100.0
+                else:
+                    # Could not probe durations upfront; fall back to
+                    # the previous rough estimate.
+                    percent = elapsed * 2
+                progress_callback(min(99.0, percent))
+    process.wait()
+    return process.returncode
+
+
 class VideoConcatenator:
     """Class to handle video concatenation operations using ffmpeg."""
 
@@ -67,13 +107,7 @@ class VideoConcatenator:
             # old `elapsed * 2` guess, which hit 99% almost immediately on
             # long concatenations. Stream-copy concat's
             # output duration is the sum of the input durations.
-            total_duration: Optional[float] = 0.0
-            for p in abs_paths:
-                duration = get_video_duration(p)
-                if duration is None:
-                    total_duration = None
-                    break
-                total_duration += duration
+            total_duration = _total_duration(abs_paths)
 
             cmd = [
                 "ffmpeg",
@@ -86,34 +120,12 @@ class VideoConcatenator:
                 output_path,
             ]
 
-            # Run with progress parsing for concat (ffmpeg may output time=)
-            process = subprocess.Popen(
-                cmd,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                bufsize=1,
-                creationflags=NO_WINDOW,
-            )
-            time_pat = re.compile(r"time=(\d+):(\d+):(\d+)\.(\d+)")
-            for line in process.stderr:
-                if progress_callback and "time=" in line:
-                    m = time_pat.search(line)
-                    if m:
-                        h, mn, s, ms = map(int, m.groups())
-                        elapsed = h * 3600 + mn * 60 + s + ms / 100.0
-                        if total_duration:
-                            percent = (elapsed / total_duration) * 100.0
-                        else:
-                            # Could not probe durations upfront; fall back to
-                            # the previous rough estimate.
-                            percent = elapsed * 2
-                        progress_callback(min(99.0, percent))
-            process.wait()
+            returncode = _run_ffmpeg_with_progress(cmd, total_duration, progress_callback)
 
             if os.path.exists(list_file):
                 os.remove(list_file)
 
-            if process.returncode == 0:
+            if returncode == 0:
                 if progress_callback:
                     progress_callback(100.0)
                 if status_callback:

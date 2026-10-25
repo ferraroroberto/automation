@@ -11,7 +11,7 @@ configuration beyond what's noted below.
 | Quick connect (single SSID) | `wifi_connect.py` `wifi_connect.bat` `wifi_connect.ps1` `wifi_connect.xml` | Connect to the network whose credentials are baked into `wifi_connect.xml`. Idempotent: skips reconnect if already on that SSID. |
 | Saved-password export | `wifi_passwords.py` `wifi_passwords.json` | Dump every saved Wi-Fi profile + cleartext password to JSON (default `wifi_export.json`, next to the script — `wifi_passwords.json` is this tool's own config, not the export). |
 | BAT generator (GUI) | `wifi_bat_generator.py` `wifi_bat_generator.md` | Pick a saved network from a Tkinter list, save a portable self-contained `.bat` anywhere. Generated BATs work on any Windows PC. See [`wifi_bat_generator.md`](wifi_bat_generator.md). |
-| Network device scanner | `network_scanner.py` `network_scanner.json` `network_scanner.md` | ARP-scan the local subnet to discover devices. Not strictly Wi-Fi-related — useful for finding routers/APs that don't reply to ping. See [`network_scanner.md`](network_scanner.md). |
+| Network device scanner | `network_scanner.py` `mac_oui_database.py` `network_scanner.json` `network_scanner.md` | ARP-scan the local subnet to discover devices. Not strictly Wi-Fi-related — useful for finding routers/APs that don't reply to ping. See [`network_scanner.md`](network_scanner.md). |
 
 ## Quick start
 
