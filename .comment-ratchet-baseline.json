@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "entries": [
+    {"key": "audio/audio_extractor_core.py", "count": 1},
+    {"key": "google/gmail_web.py", "count": 1},
+    {"key": "google/photos_weekly_album.py", "count": 1},
+    {"key": "image/illustrations_formatter_gui.py", "count": 1},
+    {"key": "notion/build_newsletter.py", "count": 1},
+    {"key": "notion/notion_databases_dump.py", "count": 1},
+    {"key": "notion/sample_illustrations.py", "count": 1},
+    {"key": "notion/utils.py", "count": 2},
+    {"key": "parking/api.py", "count": 1},
+    {"key": "parking/poller.py", "count": 1},
+    {"key": "system/apple/convert_to_apple.py", "count": 1},
+    {"key": "system/venv_manager.py", "count": 1},
+    {"key": "system/wifi/network_scanner.py", "count": 1},
+    {"key": "system/wifi/wifi_passwords.py", "count": 1},
+    {"key": "system/word_to_markdown.py", "count": 1},
+    {"key": "video/gpu_recovery.py", "count": 3},
+    {"key": "video/video_concatenator.py", "count": 1}
+  ]
+}
