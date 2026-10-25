@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import streamlit as st
-import openpyxl
 
 # Import history manager functions
 from history_manager import get_history_file_path

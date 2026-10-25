@@ -75,7 +75,7 @@ CONSOLE_ENCODINGS: Tuple[str, ...] = (
 # that has no console of its own (pythonw, a tray app, a scheduled task).
 # Re-exported from the repo-root helper so the two never drift.
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from no_window import NO_WINDOW  # noqa: E402
+from no_window import NO_WINDOW as NO_WINDOW  # noqa: E402
 
 
 def decode_console_bytes(raw: bytes) -> Tuple[str, str]:

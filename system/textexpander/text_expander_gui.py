@@ -7,12 +7,11 @@ Provides a tkinter-based graphical interface for managing text expander abbrevia
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import logging
-from typing import Optional, Dict, List, Tuple
-from pathlib import Path
+from typing import Optional
 import threading
 import win32gui
 
-from .text_expander_core import TextExpanderCore, ConfigError
+from .text_expander_core import TextExpanderCore
 
 # Configure module logger
 logger = logging.getLogger(__name__)

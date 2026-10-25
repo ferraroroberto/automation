@@ -51,7 +51,6 @@ def download_database_data(database, output_folder, api_token, excel_path):
     # Get the database properties
     log.info("📥 Retrieving database details for '%s'...", database['name'])
     database_details = notion.databases.retrieve(database["id"])
-    properties = database_details.get("properties")
     data_sources = database_details.get("data_sources") or []
     if not data_sources:
         raise ValueError(f"❌ No data sources associated with database {database['name']}")
@@ -164,7 +163,7 @@ def main():
     # Download the data for each selected database
     log.info("🚀 Starting database downloads...")
     for _, database in databases_to_download.iterrows():
-        output_path = download_database_data(database, dump_path, api_token, excel_path)
+        download_database_data(database, dump_path, api_token, excel_path)
     log.info("✅ All database downloads completed")
 
 

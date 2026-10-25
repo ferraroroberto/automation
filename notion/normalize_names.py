@@ -13,11 +13,9 @@ Usage:
 
 import argparse
 import logging
-import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 
 import requests
 from dotenv import load_dotenv
@@ -87,17 +85,7 @@ class NotionNameNormalizer:
 
     def _query_notion_database(self, days: int) -> List[Dict]:
         """Query Notion database for articles created in the last N days."""
-        filter_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
-        filter_date_str = filter_date.isoformat() + 'Z'
-
-        logging.info(f"🔍 Querying database for articles from last {days} days (since {filter_date_str})")
-
-        query_body = {
-            "filter": {"and": [{"property": "created", "created_time": {"after": filter_date_str}}]},
-            "sorts": [{"property": "created", "direction": "descending"}]
-        }
-
-        return notion_utils.paginated_database_query(self.headers, self.database_id, query_body)
+        return notion_utils.query_recently_created_pages(self.headers, self.database_id, days)
     
     def _extract_page_info(self, page: Dict) -> Optional[Tuple[str, str, str]]:
         """Extract essential information from a Notion page object."""
@@ -338,7 +326,6 @@ class NotionNameNormalizer:
             # Split on apostrophe
             parts = original_token.split("'", 1)
             if len(parts) == 2:
-                first_part = parts[0]
                 rest = "'" + parts[1]
                 # Replace first part with normalized version
                 return new_alpha_part + rest
@@ -599,7 +586,7 @@ def main():
         normalizer = NotionNameNormalizer(args.config)
         
         # Process database and update article properties (or dry run)
-        results = normalizer.process_database(args.days, dry_run=args.dry_run)
+        normalizer.process_database(args.days, dry_run=args.dry_run)
         
         # Log successful completion
         logging.info("✅ Script completed successfully")

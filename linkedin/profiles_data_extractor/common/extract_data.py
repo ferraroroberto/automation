@@ -44,7 +44,7 @@ def main():
                     ]
 
                     # Use subprocess.Popen to start Chrome asynchronously
-                    process = subprocess.Popen(
+                    subprocess.Popen(
                         chrome_cmd,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
@@ -144,7 +144,7 @@ def main():
 
                     if excel_path and Path(excel_path).exists():
                         # Open the Excel file with default application
-                        subprocess.run(
+                        subprocess.run(  # noqa: S602 -- `start` is a cmd builtin; the path is from the app's own config
                             ["start", "", excel_path],
                             shell=True,
                             check=True,

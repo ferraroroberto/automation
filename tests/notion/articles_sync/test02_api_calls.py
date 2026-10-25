@@ -3,12 +3,10 @@
 Unit tests for API call functionality to identify hanging issues.
 """
 
-import json
 import time
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import sys
 from pathlib import Path

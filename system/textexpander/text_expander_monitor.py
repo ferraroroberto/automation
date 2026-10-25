@@ -7,7 +7,7 @@ Handles global keyboard monitoring and abbreviation detection using pynput.
 import logging
 import threading
 import time
-from typing import Optional, Callable, Dict, List
+from typing import Optional, Callable, Dict
 from collections import deque
 import pyperclip
 

@@ -14,9 +14,7 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 # Suppress the console window each gcloud spawn would otherwise flash.
 # Repo-root shared helper (scripts run from their own folder, so add the root).
@@ -169,7 +167,7 @@ def test_authentication():
         # Test Photos API
         try:
             photos_service = build('photoslibrary', 'v1', credentials=creds, static_discovery=False)
-            response = photos_service.mediaItems().list(pageSize=1).execute()
+            photos_service.mediaItems().list(pageSize=1).execute()
             print("   ✅ Photos API: Authentication successful")
         except Exception as e:
             print(f"   ❌ Photos API: {e}")

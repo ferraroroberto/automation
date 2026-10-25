@@ -227,7 +227,7 @@ class AudioExtractorGUI:
 def main():
     """Main function to run the GUI application."""
     root = tk.Tk()
-    app = AudioExtractorGUI(root)
+    AudioExtractorGUI(root)
     root.mainloop()
 
 

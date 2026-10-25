@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 import pandas as pd
-import openpyxl
 
 from _logging_setup import setup_logging
 

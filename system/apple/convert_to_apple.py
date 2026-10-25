@@ -11,8 +11,6 @@ from tkinter import filedialog, messagebox, ttk
 import os
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
-import re
 
 from _vcard_fields import extract_type_label
 

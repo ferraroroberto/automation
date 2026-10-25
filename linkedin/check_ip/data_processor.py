@@ -13,7 +13,6 @@ Date: March 2025
 import datetime
 from datetime import timezone
 import logging
-import numpy as np
 import pandas as pd
 import re
 from typing import Optional

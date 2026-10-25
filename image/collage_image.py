@@ -39,7 +39,6 @@ def get_all_images(folder: str) -> List[str]:
 
 # Function to calculate the optimal grid size for A4 ratio
 def find_best_grid(num_images: int, max_value: int, a4_ratio: float) -> Tuple[int, int]:
-    best_ratio = None
     best_diff = float('inf')
     best_grid = (0, 0)
 
@@ -51,7 +50,6 @@ def find_best_grid(num_images: int, max_value: int, a4_ratio: float) -> Tuple[in
 
             # Check if this ratio is closer to the A4 ratio
             if diff < best_diff and cols * rows <= num_images:
-                best_ratio = ratio
                 best_diff = diff
                 best_grid = (cols, rows)
 

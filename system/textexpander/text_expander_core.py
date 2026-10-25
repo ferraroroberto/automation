@@ -8,7 +8,7 @@ for text expansion functionality.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any
 from dataclasses import dataclass
 
 # Configure module logger
