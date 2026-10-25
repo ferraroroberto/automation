@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure, instruction, doc refs and dead code ratchets, then the unittest suites.
+# pass/fail: byte-compile, the structure, instruction, doc refs, dead code and static ratchets, then the unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -62,6 +62,18 @@ try {
     & $python "scripts/dead_code_ratchet.py"
     if ($LASTEXITCODE -eq 3) { Fail "dead code ratchet NOT CONFIRMED (exit 3) -- it could not read or parse the tracked Python." }
     if ($LASTEXITCODE -ne 0) { Fail "dead code ratchet failed (see findings above)." }
+
+    # Opt-in via .fleet.toml [static_ratchet]. Exit 1 is a duplicated block, unused name or
+    # curated ruff finding the baseline does not record; exit 3 is "not confirmed" (no npx,
+    # ruff missing, a detector that did not run). Both fail: 3 is never a pass.
+    Write-Host "==> static ratchet..." -ForegroundColor Cyan
+    & $python "scripts/static_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "static ratchet NOT CONFIRMED (exit 3) -- a detector (npx/jscpd or ruff) could not run." }
+    if ($LASTEXITCODE -ne 0) { Fail "static ratchet failed (see findings above)." }
+
+    Write-Host "==> unittest (tests/scripts)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/scripts -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "gate wiring unittest suite failed." }
 
     Write-Host "==> unittest (tests/system/foldersearcher)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/system/foldersearcher -p "test_*.py"

@@ -20,6 +20,8 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe scripts\instruction_ratchet.py
 & .\.venv\Scripts\python.exe scripts\doc_refs_ratchet.py
 & .\.venv\Scripts\python.exe scripts\dead_code_ratchet.py
+& .\.venv\Scripts\python.exe scripts\static_ratchet.py
+& .\.venv\Scripts\python.exe -m unittest discover -s tests/scripts -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/google -p "test_*.py"
@@ -37,7 +39,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m pytest -q tests/parking
 ```
 
-All twenty must exit 0 / report `OK`.
+All twenty-two must exit 0 / report `OK`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
@@ -51,7 +53,9 @@ An instruction ratchet gates the same run. `scripts/instruction_ratchet.py` is v
 
 A doc refs ratchet follows it. `scripts/doc_refs_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored doc_refs_ratchet`, never edit). It reads `README.md`, this file and `docs/**/*.md` and fails when one names a repo path, `python -m` module or relative link that does not exist and is not recorded in `.doc-refs-ratchet-baseline.json`. The baseline is empty: point a stale reference at what exists, or list an intentional pointer in `allow_refs`. No port is declared in `.fleet.toml`, so ports are not checked. Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[doc_refs_ratchet]` table in `.fleet.toml`.
 
-A dead code ratchet closes the list. `scripts/dead_code_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored dead_code_ratchet`, never edit). It fails when a new function, class or method has no reference anywhere in the tracked tree and is not recorded in `.dead-code-ratchet-baseline.json`. The baseline is empty: call or delete a new definition rather than raising it. A hook something outside Python calls goes in `allow` or `entry_decorators` in the `[dead_code_ratchet]` table of `.fleet.toml`. Exit 3 is NOT CONFIRMED and fails the gate.
+A dead code ratchet follows it. `scripts/dead_code_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored dead_code_ratchet`, never edit). It fails when a new function, class or method has no reference anywhere in the tracked tree and is not recorded in `.dead-code-ratchet-baseline.json`. The baseline is empty: call or delete a new definition rather than raising it. A hook something outside Python calls goes in `allow` or `entry_decorators` in the `[dead_code_ratchet]` table of `.fleet.toml`. Exit 3 is NOT CONFIRMED and fails the gate.
+
+A static ratchet closes the list. `scripts/static_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored static_ratchet`, never edit). It fails on a finding that `.static-ratchet-baseline.json` does not record: a duplicated block (`jscpd`, run through `npx`), an unused import or variable, or one of the curated `ruff` bug and security codes. The baseline holds today's findings at their real size and can only shrink: fix the finding rather than raising it, and only `--update-baseline --allow-additions` adds an entry. It needs `npx` and the venv's `ruff`; a detector that could not run is exit 3, NOT CONFIRMED, and fails the gate. Config is the `[static_ratchet]` table in `.fleet.toml`. `tests/scripts/` pins that every ratchet declared in `.fleet.toml` runs as a gate stage that fails on exit 3.
 
 ## Internal architecture
 

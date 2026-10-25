@@ -210,3 +210,7 @@ playwright>=1.48
 tzdata>=2024.1
 holidays>=0.50
 pytest>=8.0
+
+# Gate tooling: scripts/static_ratchet.py runs ruff from the venv (jscpd comes from npx)
+# Source: scripts/static_ratchet.py
+ruff>=0.10.0
