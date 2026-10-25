@@ -11,9 +11,10 @@ import subprocess
 import tempfile
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
 from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration
+from _tk_widgets import build_progress_section
 
 log = logging.getLogger(__name__)
 
@@ -324,16 +325,10 @@ class VideoTrimApp:
         self.queue_listbox = tk.Listbox(queue_frame, height=6, font=("Consolas", 9))
         self.queue_listbox.pack(fill=tk.BOTH, expand=True)
 
-        # Progress (like video_download)
-        progress_frame = tk.Frame(self.root)
-        progress_frame.pack(fill=tk.X, padx=10, pady=5)
-        self.progress_bar = ttk.Progressbar(progress_frame, maximum=100, mode='determinate')
-        self.progress_bar.pack(fill=tk.X)
-        self.progress_label = tk.Label(progress_frame, text="0%", fg="gray")
-        self.progress_label.pack(anchor="e")
-
-        self.status_label = tk.Label(self.root, textvariable=self.status_var, fg="gray", anchor="w")
-        self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+        # Progress
+        self.progress_bar, self.progress_label, self.status_label = build_progress_section(
+            self.root, self.status_var
+        )
 
         self._on_mode_change()
         self._sync_entries_and_labels()

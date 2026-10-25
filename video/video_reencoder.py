@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration
+from _tk_widgets import build_progress_section
 
 
 def get_file_info(file_path):
@@ -163,15 +164,9 @@ class VideoReencoderApp:
         self.process_btn.pack(side=tk.LEFT)
 
         # Progress
-        progress_frame = tk.Frame(self.root)
-        progress_frame.pack(fill=tk.X, padx=10, pady=5)
-        self.progress_bar = ttk.Progressbar(progress_frame, maximum=100, mode="determinate")
-        self.progress_bar.pack(fill=tk.X)
-        self.progress_label = tk.Label(progress_frame, text="0%", fg="gray")
-        self.progress_label.pack(anchor="e")
-
-        self.status_label = tk.Label(self.root, textvariable=self.status_var, fg="gray", anchor="w")
-        self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.progress_bar, self.progress_label, self.status_label = build_progress_section(
+            self.root, self.status_var
+        )
 
     def _browse(self):
         path = filedialog.askopenfilename(

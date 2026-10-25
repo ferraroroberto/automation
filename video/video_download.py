@@ -15,6 +15,8 @@ from urllib.parse import urlparse, parse_qs
 import requests
 import yt_dlp
 
+from _tk_widgets import build_progress_section
+
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from no_window import NO_WINDOW  # noqa: E402
@@ -279,15 +281,9 @@ class VideoDownloaderApp:
         self.download_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         # Progress
-        progress_frame = tk.Frame(self.root)
-        progress_frame.pack(fill=tk.X, padx=10, pady=5)
-        self.progress_bar = ttk.Progressbar(progress_frame, maximum=100, mode='determinate')
-        self.progress_bar.pack(fill=tk.X)
-        self.progress_label = tk.Label(progress_frame, text="0%", fg="gray")
-        self.progress_label.pack(anchor="e")
-
-        self.status_label = tk.Label(self.root, textvariable=self.status_var, fg="gray", anchor="w")
-        self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.progress_bar, self.progress_label, self.status_label = build_progress_section(
+            self.root, self.status_var
+        )
 
     def _browse_folder(self):
         folder = filedialog.askdirectory(title="Select Download Folder")

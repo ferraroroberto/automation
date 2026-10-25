@@ -11,7 +11,7 @@ in exactly one place instead of being copy-pasted per script.
 """
 
 import json
-import logging
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -21,29 +21,10 @@ import websocket
 import win32con
 import win32gui
 
-
-def setup_logging(name: str) -> logging.Logger:
-    """Configure a logger that writes INFO+ to the package's shared logging.log
-    and WARNING+ to the console, matching the convention used across this
-    package's other modules.
-    """
-    log_file = Path(__file__).parent.parent / "logging.log"
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.WARNING)
-    console_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
-
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    return logger
-
+# common/ holds the one setup_logging; it is dependency-free, and appended
+# (not inserted) so none of its sibling modules can shadow a devtools one.
+sys.path.append(str(Path(__file__).resolve().parent.parent / "common"))
+from _logging_setup import setup_logging  # noqa: E402
 
 logger = setup_logging(__name__)
 

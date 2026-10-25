@@ -18,6 +18,9 @@ The sync process:
 ## 📁 Files
 
 - `notion_articles_sync.py` - Main Python module with threading support and comprehensive type hints
+- `property_mapping.py` - Reads Notion property values and builds the target payloads (mixin of the sync class)
+- `change_detection.py` - Full and incremental comparison of the source and target databases (mixin of the sync class)
+- `sync_logger.py` - The one logger every module of the sync writes to
 - `notion_articles_sync.json` - Configuration file with environment variable placeholders
 - `notion_articles_sync_last_time.txt` - Tracks last successful sync time
 - `notion_articles_sync_readme.md` - This comprehensive documentation
@@ -123,7 +126,7 @@ Why the comparison is needed:
 - **Notion bumps `last_edited_time` for non-content reasons**: schema edits on the database, formula recomputes, related-row changes, and our own write-back of `target rowid` all set `last_edited_time` to "now" on every row, even when none of the synced fields changed. A naive sync re-processes the entire database after any such event.
 - **Round-trip serialization differs**: Notion returns the same instant as `2025-09-20T06:55:00.000Z` from one property and `...+00:00` from another. The same select value comes back as `"x"` from a `select` and `["x"]` from a `multi_select`.
 
-The comparator [`items_are_different()`](notion_articles_sync.py) walks every mapped field and uses [`_values_equivalent()`](notion_articles_sync.py) which normalizes:
+The comparator [`items_are_different()`](change_detection.py) walks every mapped field and uses [`_values_equivalent()`](change_detection.py) which normalizes:
 
 - ISO datetimes via `datetime.fromisoformat` (handles `Z` ↔ `+00:00`, sub-second precision)
 - `None`, `""`, and `[]` as equivalent empty
