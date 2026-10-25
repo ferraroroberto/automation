@@ -61,7 +61,7 @@ def resolve_token(config: Dict[str, Any]) -> str:
     return token
 
 
-# Thin aliases onto the shared notion/utils.py extractors (dedup: issue #64).
+# Thin aliases onto the shared notion/utils.py extractors.
 extract_title = notion_utils.extract_title_text
 extract_rich_text = notion_utils.extract_rich_text_value
 extract_relation_ids = notion_utils.extract_relation_ids

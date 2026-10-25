@@ -506,7 +506,7 @@ class PhotosWeb:
         self.page.get_by_role("button", name=re.compile(r"add to album", re.I)).first.click()
         self.page.get_by_role("menuitem", name=re.compile(r"^Album$", re.I)).first.click()
         # Click the option row: its text spans don't take pointer events, so a click on the "New
-        # album" text always lands on the row and Playwright reports the row as intercepting (#180).
+        # album" text always lands on the row; a click on the text is reported as intercepted.
         dialog = self.page.get_by_role("dialog")
         dialog.get_by_role("option", name=NEW_ALBUM_RE).first.click()
         name = self.page.get_by_role("textbox", name="Edit album name")

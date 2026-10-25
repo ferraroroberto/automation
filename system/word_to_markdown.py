@@ -50,7 +50,7 @@ class WordToMarkdownConverter:
         self.project_root = self._find_project_root()
         # Project-root-relative (not cwd-relative), so running from anywhere
         # other than the repo root doesn't scatter test folders under the
-        # wrong CWD (audit issue #67).
+        # wrong CWD.
         self.test_folder = self.project_root / "system/test-word-to-markdown"
         
     def _find_project_root(self) -> Path:

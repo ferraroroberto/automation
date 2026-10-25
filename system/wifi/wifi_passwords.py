@@ -230,8 +230,7 @@ def main(config: Optional[Dict[str, Any]] = None) -> None:
         config = load_config()
 
     args = None  # Guard against UnboundLocalError in the except block below if
-                 # argument parsing itself raises before `args` is assigned
-                 # (audit issue #67).
+                 # argument parsing itself raises before `args` is assigned.
     try:
         # Parse command line arguments
         parser = argparse.ArgumentParser(

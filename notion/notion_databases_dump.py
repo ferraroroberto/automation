@@ -119,10 +119,8 @@ def download_database_data(database, output_folder, api_token, excel_path):
     df.to_excel(output_path, index=False, engine='openpyxl')
 
     # Check if column_widths is valid (in this case, non-empty) before applying.
-    # get_column_widths() always returns a list (audit issue #67 — this used
-    # to compare against the sentinel `False`, which a `[]` also satisfies
-    # under `==`, so the "not valid" and "read but empty" cases were
-    # indistinguishable).
+    # get_column_widths() always returns a list, so emptiness is the "not valid"
+    # test; a sentinel comparison could not tell "not valid" from "read but empty".
     if not column_widths:
         log.warning("⚠️ Column widths are not valid, skipping the step.")
     else:

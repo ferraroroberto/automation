@@ -46,7 +46,7 @@ import sys
 from pathlib import Path
 from typing import NamedTuple, Optional, Sequence
 
-# system/_lib holds the shared native-console-tool decoder (see #106/#108).
+# system/_lib holds the shared native-console-tool decoder.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "system"))
 from _lib.console_output import NO_WINDOW as _NO_WINDOW  # noqa: E402
 from _lib.console_output import decode_console_bytes  # noqa: E402
@@ -143,7 +143,7 @@ def _run_console(command: Sequence[str], *, timeout: int, label: str) -> Console
         )
     elif (proc.stdout or b"") and not stdout.strip():
         # Bytes came back but decoded to nothing - the answer is unknown,
-        # never an empty result. This is exactly the shape #108 is about.
+        # never an empty result. This is exactly the shape the tri-state answers exist for.
         logger.error(
             "❌ %s exited 0 but produced no readable output "
             "(%d raw bytes, decoded as %s) - result is unknown, not empty.",

@@ -25,7 +25,7 @@ def is_in_virtualenv():
     # Check if the Python executable path contains a typical VENV directory
     # segment. Matched against whole path segments, not substrings — 'env'
     # used to match any path containing it (e.g. "...\Envelope\..." or
-    # "...\environment\..."), producing false positives (audit issue #67).
+    # "...\environment\..."), producing false positives.
     executable_path = sys.executable.lower()
     venv_indicators = {'.venv', 'virtualenv', 'venv'}
     path_segments = re.split(r'[\\/]+', executable_path)

@@ -61,7 +61,7 @@ class ParkingApi:
                 timeout=self._timeout,
             )
         finally:
-            # Breadcrumb for slow responses (e.g. the 37 s first answer at a Thursday release, #139).
+            # Breadcrumb for slow responses (e.g. the 37 s first answer at a Thursday release).
             logger.info("ℹ️ api %s took %.2fs", label, time.monotonic() - started)
         status = response.status_code
         if status in (401, 403):

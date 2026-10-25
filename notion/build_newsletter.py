@@ -118,7 +118,7 @@ class NotionNewsletterBuilder:
 
             # Extract title. Note: unlike notion_utils.extract_title_text (which joins
             # every rich-text segment), this intentionally keeps only the FIRST segment's
-            # plain_text - preserved as-is to avoid a behavior change (see issue #64 notes).
+            # plain_text, so a multi-segment title is cut at the first segment.
             title_prop = properties.get('article', {})
             if title_prop.get('type') != 'title':
                 return None
