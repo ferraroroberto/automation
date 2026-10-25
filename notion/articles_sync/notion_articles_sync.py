@@ -600,19 +600,6 @@ class NotionArticlesSync:
         logger.info("📅 No previous sync found - will perform full sync")
         return None
     
-    def set_last_sync_time(self, sync_time: Optional[datetime] = None) -> None:
-        """Set the last sync time manually.
-        
-        Args:
-            sync_time: The sync time to set. If None, sets to current UTC time.
-        """
-        if sync_time is None:
-            sync_time = datetime.now(timezone.utc)
-        
-        self.last_sync_time = sync_time
-        self.save_sync_time()
-        logger.info(f"📅 Manually set last sync time to: {self.last_sync_time.isoformat()}")
-    
     def reset_sync_time(self) -> None:
         """Reset the last sync time to force a full sync on next run."""
         self.last_sync_time = None

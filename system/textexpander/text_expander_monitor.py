@@ -352,20 +352,3 @@ class KeyboardMonitor:
     def _perform_expansion(self, expansion: str, chars_to_remove: int) -> None:
         """Perform the text expansion. Delegates to the module-level perform_expansion()."""
         perform_expansion(expansion, chars_to_remove, self.on_expansion_triggered)
-
-    def is_monitoring(self) -> bool:
-        """Check if keyboard monitoring is active.
-
-        Returns:
-            True if monitoring is active, False otherwise.
-        """
-        return self.monitoring
-
-    def get_buffer_content(self) -> str:
-        """Get current buffer content for debugging.
-
-        Returns:
-            Current buffer content as string.
-        """
-        with self.buffer_lock:
-            return ''.join(self.buffer)

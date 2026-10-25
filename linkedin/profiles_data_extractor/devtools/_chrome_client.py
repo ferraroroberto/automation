@@ -224,15 +224,6 @@ class ChromeDevToolsClient:
         })
         return result.get('result', {}).get('value')
 
-    def get_current_url(self) -> str:
-        """Get the current page URL.
-
-        Returns:
-            Current page URL
-        """
-        result = self.evaluate_javascript("window.location.href")
-        return result or ""
-
     def close(self):
         """Close the WebSocket connection."""
         if self.ws:
