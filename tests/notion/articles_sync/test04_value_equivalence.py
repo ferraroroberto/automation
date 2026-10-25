@@ -11,59 +11,23 @@ incremental sync to flag every Notion-bumped item as 'changed':
   - empty values come back as None, "", or [] depending on property type
 """
 
-import threading
 import unittest
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "notion" / "articles_sync"))
-
-from notion_articles_sync import NotionArticlesSync  # noqa: E402
-
-
-def _make_sync():
-    sync = NotionArticlesSync.__new__(NotionArticlesSync)
-    sync.field_mapping = {
-        "article": "article",
-        "topic": "topic",
-        "rowid": "source rowid",
-        "created": "created",
-    }
-    sync.api_call_count = 0
-    sync.api_call_lock = threading.Lock()
-    sync._schema_cache = {}
-    return sync
-
-
-def _title(value):
-    return {"type": "title", "title": [{"plain_text": value, "text": {"content": value}}]}
-
-
-def _rich_text(value):
-    return {"type": "rich_text", "rich_text": [{"plain_text": value, "text": {"content": value}}]}
-
-
-def _formula_string(value):
-    return {"type": "formula", "formula": {"type": "string", "string": value}}
-
-
-def _select(name):
-    return {"type": "select", "select": {"name": name}}
-
-
-def _multi_select(*names):
-    return {"type": "multi_select", "multi_select": [{"name": n} for n in names]}
-
-
-def _date(start):
-    return {"type": "date", "date": {"start": start}}
+from _sync_fixtures import (
+    prop_rich_text,
+    prop_title,
+    prop_formula_string,
+    prop_select,
+    prop_multi_select,
+    prop_date,
+    make_sync,
+)
 
 
 class TestValuesEquivalent(unittest.TestCase):
 
     def setUp(self):
-        self.sync = _make_sync()
+        self.sync = make_sync()
 
     def test_identical_values(self):
         self.assertTrue(self.sync._values_equivalent("foo", "foo"))
@@ -109,24 +73,24 @@ class TestItemsAreDifferent(unittest.TestCase):
     """Confirms the comparator ignores last_edited_time and walks mapped fields."""
 
     def setUp(self):
-        self.sync = _make_sync()
+        self.sync = make_sync()
 
     def _src(self, **overrides):
         props = {
-            "rowid": _formula_string("aaaa"),
-            "article": _title("Hello"),
-            "topic": _select("ai"),
-            "created": _date("2025-09-20T06:55:00.000Z"),
+            "rowid": prop_formula_string("aaaa"),
+            "article": prop_title("Hello"),
+            "topic": prop_select("ai"),
+            "created": prop_date("2025-09-20T06:55:00.000Z"),
         }
         props.update(overrides)
         return {"id": "src", "last_edited_time": "2026-01-11T13:42:00.000Z", "properties": props}
 
     def _tgt(self, **overrides):
         props = {
-            "source rowid": _rich_text("aaaa"),
-            "article": _title("Hello"),
-            "topic": _multi_select("ai"),
-            "created": _date("2025-09-20T06:55:00.000+00:00"),
+            "source rowid": prop_rich_text("aaaa"),
+            "article": prop_title("Hello"),
+            "topic": prop_multi_select("ai"),
+            "created": prop_date("2025-09-20T06:55:00.000+00:00"),
         }
         props.update(overrides)
         return {"id": "tgt", "last_edited_time": "2025-11-23T00:00:00.000Z", "properties": props}
@@ -143,14 +107,14 @@ class TestItemsAreDifferent(unittest.TestCase):
 
     def test_real_field_change_is_detected(self):
         self.assertTrue(self.sync.items_are_different(
-            self._src(article=_title("Changed")),
+            self._src(article=prop_title("Changed")),
             self._tgt(),
         ))
 
     def test_topic_added_is_detected(self):
         self.assertTrue(self.sync.items_are_different(
-            self._src(topic=_select("ai")),
-            self._tgt(topic=_multi_select("ai", "ml")),
+            self._src(topic=prop_select("ai")),
+            self._tgt(topic=prop_multi_select("ai", "ml")),
         ))
 
 

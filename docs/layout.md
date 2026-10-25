@@ -60,7 +60,4 @@ A tests folder holds no `__init__.py`: `unittest discover -s tests/<domain>` and
 
 ## Baselined offenders
 
-The ratchet records these at their size on adoption, so they may not grow. New code goes in a new module beside them, never into them.
-
-- Files over 1,000 lines: `notion/articles_sync/notion_articles_sync.py`. It is one `NotionArticlesSync` class whose methods share the config, the Notion client and the sync state, and the tests build instances directly with `__new__` and set that state by hand, so splitting it is a redesign rather than a move.
-- Functions over 100 lines: none.
+None: the structure baseline is empty. `notion/articles_sync/notion_articles_sync.py` stays under the file limit by keeping the property mapping (`property_mapping.py`) and change detection (`change_detection.py`) in mixin modules beside it; its tests still build `NotionArticlesSync` directly with `__new__` and set the state by hand. New code goes in a module of its own, not back into a file near the limit.

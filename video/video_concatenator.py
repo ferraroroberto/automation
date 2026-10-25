@@ -11,10 +11,11 @@ import subprocess
 import tempfile
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 from typing import List, Optional
 
 from _ffmpeg_utils import NO_WINDOW, get_video_duration
+from _tk_widgets import build_progress_section
 
 log = logging.getLogger(__name__)
 
@@ -254,15 +255,9 @@ class VideoConcatenatorApp:
         self.process_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         # Progress
-        progress_frame = tk.Frame(self.root)
-        progress_frame.pack(fill=tk.X, padx=10, pady=5)
-        self.progress_bar = ttk.Progressbar(progress_frame, maximum=100, mode="determinate")
-        self.progress_bar.pack(fill=tk.X)
-        self.progress_label = tk.Label(progress_frame, text="0%", fg="gray")
-        self.progress_label.pack(anchor="e")
-
-        self.status_label = tk.Label(self.root, textvariable=self.status_var, fg="gray", anchor="w")
-        self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.progress_bar, self.progress_label, self.status_label = build_progress_section(
+            self.root, self.status_var
+        )
 
     def _add_videos(self):
         paths = filedialog.askopenfilenames(
