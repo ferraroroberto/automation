@@ -111,13 +111,6 @@ def resize_image_to_max_size(
         return False
 
 
-def resize_image_quality_only(image_path: Path, max_size_kb: float, quality_start: int = 95) -> bool:
-    """
-    Resize image by reducing only quality (not dimensions) to meet maximum file size requirement.
-    Returns True if successful, False otherwise.
-    """
-    return resize_image_to_max_size(image_path, max_size_kb, quality_start, preserve_dimensions=True)
-
 def process_folder(folder_path: Path, max_size_kb: float, preserve_dimensions: bool = False):
     """
     Process all images in the folder, resizing them to the maximum file size.

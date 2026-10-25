@@ -107,21 +107,6 @@ class TreeSizeAnalyzer:
             pass
         return 4096
 
-    def get_folder_size_shallow(self, path: str) -> int:
-        total_size = 0
-        try:
-            for item in os.listdir(path):
-                item_path = os.path.join(path, item)
-                if os.path.isfile(item_path):
-                    try:
-                        total_size += os.path.getsize(item_path)
-                    except OSError:
-                        pass
-        except OSError as e:
-            if e.errno != errno.EIO:
-                logging.warning(f"Error calculating shallow size for {path}: {e}")
-        return total_size
-
     def format_size(self, size: int) -> str:
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
             if size < 1024.0:
