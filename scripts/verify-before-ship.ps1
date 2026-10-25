@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure, instruction, doc refs, dead code, static, docs and comment ratchets, then the unittest suites.
+# pass/fail: byte-compile, the structure, instruction, doc refs, dead code, static, docs, comment and conventions ratchets, then the unittest suites.
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -86,6 +86,14 @@ try {
     & $python "scripts/comment_ratchet.py"
     if ($LASTEXITCODE -eq 3) { Fail "comment ratchet NOT CONFIRMED (exit 3) -- it could not scan a source file or the tree." }
     if ($LASTEXITCODE -ne 0) { Fail "comment ratchet failed (see findings above)." }
+
+    # Opt-in via .fleet.toml [conventions_ratchet]. Exit 1 is a file whose count for an enabled rule
+    # (no-window, no-drive-path) rose above its baseline; exit 3 is "not confirmed" (git unusable, a
+    # tracked .py file that does not parse). Both fail: 3 is never a pass.
+    Write-Host "==> conventions ratchet..." -ForegroundColor Cyan
+    & $python "scripts/conventions_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "conventions ratchet NOT CONFIRMED (exit 3) -- it could not read or parse the tracked Python." }
+    if ($LASTEXITCODE -ne 0) { Fail "conventions ratchet failed (see findings above)." }
 
     Write-Host "==> unittest (tests/scripts)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/scripts -p "test_*.py"

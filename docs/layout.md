@@ -9,7 +9,7 @@ A multi-tool `pipeline-cli` repo: each top-level folder is a tool domain holding
 | `browser_stealth.py` | Shared Playwright launch kwargs and init script every browser-driving tool imports |
 | `no_window.py` | Shared `NO_WINDOW` subprocess flag for Windows spawns |
 | `requirements.txt` | The one dependency list for every tool |
-| `scripts/` | `verify-before-ship.ps1` (the gate) and the vendored `structure_ratchet.py`, `instruction_ratchet.py`, `doc_refs_ratchet.py`, `dead_code_ratchet.py`, `static_ratchet.py`, `docs_ratchet.py` and `comment_ratchet.py` |
+| `scripts/` | `verify-before-ship.ps1` (the gate) and the vendored `structure_ratchet.py`, `instruction_ratchet.py`, `doc_refs_ratchet.py`, `dead_code_ratchet.py`, `static_ratchet.py`, `docs_ratchet.py`, `comment_ratchet.py` and `conventions_ratchet.py` |
 | `docs/` | Durable reference: this file and `architecture.mmd` |
 | `tests/` | Every test, under `tests/<domain>/` (see below) |
 

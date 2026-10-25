@@ -23,6 +23,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe scripts\static_ratchet.py
 & .\.venv\Scripts\python.exe scripts\docs_ratchet.py
 & .\.venv\Scripts\python.exe scripts\comment_ratchet.py
+& .\.venv\Scripts\python.exe scripts\conventions_ratchet.py
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/scripts -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system -p "test_*.py"
@@ -41,7 +42,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m pytest -q tests/parking
 ```
 
-All twenty-four must exit 0 / report `OK`.
+All twenty-five must exit 0 / report `OK`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
@@ -61,7 +62,9 @@ A static ratchet follows it. `scripts/static_ratchet.py` is vendored byte-for-by
 
 A docs ratchet follows it. `scripts/docs_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored docs_ratchet`, never edit). It fails when the root `README.md` passes 40 KiB or grows past its entry, or when `README.md` or a `docs/**/*.md` file carries more history markers than `.docs-ratchet-baseline.json` records: an issue reference such as `#123`, a dated heading or a changelog heading. The baseline is empty: state the present-tense why in words, and move detail into `docs/<topic>.md`. Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[docs_ratchet]` table in `.fleet.toml`.
 
-A comment ratchet closes the list. `scripts/comment_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored comment_ratchet`, never edit). It counts issue references in the comments of product code (`.py`, `.js`, `.css`, `.ps1`; tests and vendored scripts are left out) and fails when a file's count rises above `.comment-ratchet-baseline.json`. The baseline holds today's references at their real size and can only shrink: a comment states the present-tense why in words, and the history lives in the issue and `git log`. Only `--update-baseline --allow-additions` adds an entry. Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[comment_ratchet]` table in `.fleet.toml`.
+A comment ratchet follows it. `scripts/comment_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored comment_ratchet`, never edit). It counts issue references in the comments of product code (`.py`, `.js`, `.css`, `.ps1`; tests and vendored scripts are left out) and fails when a file's count rises above `.comment-ratchet-baseline.json`. The baseline holds today's references at their real size and can only shrink: a comment states the present-tense why in words, and the history lives in the issue and `git log`. Only `--update-baseline --allow-additions` adds an entry. Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[comment_ratchet]` table in `.fleet.toml`.
+
+A conventions ratchet closes the list. `scripts/conventions_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored conventions_ratchet`, never edit). It holds two fleet conventions as `ast` rules and fails when a file's count for a rule rises above `.conventions-ratchet-baseline.json`: `no-window` (a `subprocess` spawn passes `creationflags=`, which here means `no_window.NO_WINDOW`) and `no-drive-path` (no hardcoded drive-letter path in a string). The baseline is empty, so a new hit fails by name: fix it, or keep a reasoned `# <rule>-exempt: <why>` marker on the call. The other rules stay off because the repo has no `app/` or `src/` folder (`logging-not-print`), no constant-time compare helper (`secret-compare`) and no git wrapper (`git-wrapper`). Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[conventions_ratchet]` table in `.fleet.toml`.
 
 ## Internal architecture
 
