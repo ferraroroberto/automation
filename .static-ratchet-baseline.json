@@ -6,14 +6,6 @@
     {"key": "dup:91b73673d1fe:video/video_download.py|video/video_trim.py", "files": ["video/video_download.py", "video/video_trim.py"]},
     {"key": "dup:a32746944eb1:tests/notion/articles_sync/test03_incremental_sync.py|tests/notion/articles_sync/test04_value_equivalence.py", "files": ["tests/notion/articles_sync/test03_incremental_sync.py", "tests/notion/articles_sync/test04_value_equivalence.py"]},
     {"key": "dup:be82eda60270:linkedin/profiles_data_extractor/common/_logging_setup.py|linkedin/profiles_data_extractor/devtools/_chrome_client.py", "files": ["linkedin/profiles_data_extractor/common/_logging_setup.py", "linkedin/profiles_data_extractor/devtools/_chrome_client.py"]},
-    {"key": "lint:S113:image/imgur_check_rate.py:response = requests.get(\"https://api.imgur.com/3/credits\", headers=headers)", "files": ["image/imgur_check_rate.py"]},
-    {"key": "lint:S113:linkedin/check_ip/imgur_client.py:response = requests.get(", "files": ["linkedin/check_ip/imgur_client.py"]},
-    {"key": "lint:S113:linkedin/check_ip/imgur_client.py:response = requests.post(", "files": ["linkedin/check_ip/imgur_client.py"]},
-    {"key": "lint:S113:linkedin/check_ip/search_client.py:response = requests.get(\"https://serpapi.com/search\", params=test_params)", "files": ["linkedin/check_ip/search_client.py"]},
-    {"key": "lint:S113:linkedin/check_ip/search_client.py:response = requests.get(self.search_endpoint, params=params)", "files": ["linkedin/check_ip/search_client.py"]},
-    {"key": "lint:S113:notion/normalize_names.py:response = requests.patch(", "files": ["notion/normalize_names.py"]},
-    {"key": "lint:S113:notion/normalize_url.py:response = requests.patch(", "files": ["notion/normalize_url.py"]},
-    {"key": "lint:S113:notion/utils.py:response = requests.post(url, headers=headers, json=payload)", "files": ["notion/utils.py"]},
     {"key": "unused:F841:video/screen_recorder.py:e", "files": ["video/screen_recorder.py"]}
   ]
 }

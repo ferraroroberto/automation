@@ -17,6 +17,9 @@ log = logging.getLogger(__name__)
 # Set the NOTION_PARAMS_FILE environment variable to the path on each machine.
 DEFAULT_PARAMS_FILE = os.getenv("NOTION_PARAMS_FILE", "")
 
+# Seconds a Notion request may stall before it raises; shared with the normalizers' page updates.
+REQUEST_TIMEOUT_S = 30
+
 # Function to read the parameters from the txt file (legacy support)
 def read_params_from_txt_file(file_path: str) -> Dict[str, str]:
     params = {}
@@ -199,7 +202,7 @@ def paginated_database_query(
             payload['start_cursor'] = start_cursor
 
         try:
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_S)
             response.raise_for_status()
 
             data = response.json()
