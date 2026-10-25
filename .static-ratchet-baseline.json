@@ -5,7 +5,6 @@
     {"key": "dup:04fe0694bb25:video/video_concatenator.py|video/video_reencoder.py", "files": ["video/video_concatenator.py", "video/video_reencoder.py"]},
     {"key": "dup:91b73673d1fe:video/video_download.py|video/video_trim.py", "files": ["video/video_download.py", "video/video_trim.py"]},
     {"key": "dup:a32746944eb1:tests/notion/articles_sync/test03_incremental_sync.py|tests/notion/articles_sync/test04_value_equivalence.py", "files": ["tests/notion/articles_sync/test03_incremental_sync.py", "tests/notion/articles_sync/test04_value_equivalence.py"]},
-    {"key": "dup:be82eda60270:linkedin/profiles_data_extractor/common/_logging_setup.py|linkedin/profiles_data_extractor/devtools/_chrome_client.py", "files": ["linkedin/profiles_data_extractor/common/_logging_setup.py", "linkedin/profiles_data_extractor/devtools/_chrome_client.py"]},
-    {"key": "unused:F841:video/screen_recorder.py:e", "files": ["video/screen_recorder.py"]}
+    {"key": "dup:be82eda60270:linkedin/profiles_data_extractor/common/_logging_setup.py|linkedin/profiles_data_extractor/devtools/_chrome_client.py", "files": ["linkedin/profiles_data_extractor/common/_logging_setup.py", "linkedin/profiles_data_extractor/devtools/_chrome_client.py"]}
   ]
 }
