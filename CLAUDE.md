@@ -21,6 +21,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe scripts\doc_refs_ratchet.py
 & .\.venv\Scripts\python.exe scripts\dead_code_ratchet.py
 & .\.venv\Scripts\python.exe scripts\static_ratchet.py
+& .\.venv\Scripts\python.exe scripts\docs_ratchet.py
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/scripts -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system -p "test_*.py"
@@ -39,7 +40,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m pytest -q tests/parking
 ```
 
-All twenty-two must exit 0 / report `OK`.
+All twenty-three must exit 0 / report `OK`.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
@@ -55,7 +56,9 @@ A doc refs ratchet follows it. `scripts/doc_refs_ratchet.py` is vendored byte-fo
 
 A dead code ratchet follows it. `scripts/dead_code_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored dead_code_ratchet`, never edit). It fails when a new function, class or method has no reference anywhere in the tracked tree and is not recorded in `.dead-code-ratchet-baseline.json`. The baseline is empty: call or delete a new definition rather than raising it. A hook something outside Python calls goes in `allow` or `entry_decorators` in the `[dead_code_ratchet]` table of `.fleet.toml`. Exit 3 is NOT CONFIRMED and fails the gate.
 
-A static ratchet closes the list. `scripts/static_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored static_ratchet`, never edit). It fails on a finding that `.static-ratchet-baseline.json` does not record: a duplicated block (`jscpd`, run through `npx`), an unused import or variable, or one of the curated `ruff` bug and security codes. The baseline holds today's findings at their real size and can only shrink: fix the finding rather than raising it, and only `--update-baseline --allow-additions` adds an entry. It needs `npx` and the venv's `ruff`; a detector that could not run is exit 3, NOT CONFIRMED, and fails the gate. Config is the `[static_ratchet]` table in `.fleet.toml`. `tests/scripts/` pins that every ratchet declared in `.fleet.toml` runs as a gate stage that fails on exit 3.
+A static ratchet follows it. `scripts/static_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored static_ratchet`, never edit). It fails on a finding that `.static-ratchet-baseline.json` does not record: a duplicated block (`jscpd`, run through `npx`), an unused import or variable, or one of the curated `ruff` bug and security codes. The baseline holds today's findings at their real size and can only shrink: fix the finding rather than raising it, and only `--update-baseline --allow-additions` adds an entry. It needs `npx` and the venv's `ruff`; a detector that could not run is exit 3, NOT CONFIRMED, and fails the gate. Config is the `[static_ratchet]` table in `.fleet.toml`. `tests/scripts/` pins that every ratchet declared in `.fleet.toml` runs as a gate stage that fails on exit 3.
+
+A docs ratchet closes the list. `scripts/docs_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored docs_ratchet`, never edit). It fails when the root `README.md` passes 40 KiB or grows past its entry, or when `README.md` or a `docs/**/*.md` file carries more history markers than `.docs-ratchet-baseline.json` records: an issue reference such as `#123`, a dated heading or a changelog heading. The baseline is empty: state the present-tense why in words, and move detail into `docs/<topic>.md`. Exit 3 is NOT CONFIRMED and fails the gate. Config is the `[docs_ratchet]` table in `.fleet.toml`.
 
 ## Internal architecture
 
