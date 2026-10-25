@@ -65,7 +65,7 @@ class VideoConcatenator:
             # Probe each input's duration up front so progress can be computed
             # as (elapsed output time / total input duration) instead of the
             # old `elapsed * 2` guess, which hit 99% almost immediately on
-            # long concatenations (audit issue #67). Stream-copy concat's
+            # long concatenations. Stream-copy concat's
             # output duration is the sum of the input durations.
             total_duration: Optional[float] = 0.0
             for p in abs_paths:

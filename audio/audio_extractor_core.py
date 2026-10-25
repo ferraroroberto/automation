@@ -259,7 +259,7 @@ def main():
     if args.gui:
         # Route to the full-featured audio_extractor_gui.py (threaded
         # processing, progress bar, log panel) instead of re-implementing an
-        # ad-hoc file-picker + completion popup here (dedup: audit issue #64).
+        # ad-hoc file-picker + completion popup here.
         # Deferred import: audio_extractor_gui imports AudioExtractor from
         # this module, so importing it at module level would be circular.
         import audio_extractor_gui

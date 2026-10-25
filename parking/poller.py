@@ -96,7 +96,7 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
                 for day in pending if day in found]
     result.booked = [o.day for o in outcomes if o.status == "booked"]
     result.would_book = [o.day for o in outcomes if o.status == "would-book"]
-    # Only now, with every day tried: screenshots between two bookings cost the 09-24 burst two days (#139).
+    # Only now, with every day tried: screenshots between two bookings cost the 09-24 burst two days.
     report.report_outcomes(outcomes, cfg, state, notifier, now, site_url)
     return result
 

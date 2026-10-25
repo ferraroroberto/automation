@@ -105,8 +105,8 @@ class GmailWeb:
         for address in sorted(wanted):
             # Once the suggestion list is open, Tab turns the typed address into a chip, empties the
             # field and closes the list, keeping focus in To. Before it opens, Tab moves on to
-            # Subject. A trailing comma leaves the text in the field and the list open over Subject
-            # (#168); Escape with no list open closes the compose window.
+            # Subject. A trailing comma leaves the text in the field and the list open over Subject.
+            # Escape with no list open closes the compose window.
             field.press_sequentially(address, delay=25)
             try:
                 suggesting.wait_for(state="visible", timeout=10_000)

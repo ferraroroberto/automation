@@ -81,7 +81,7 @@ class IllustrationsFormatterGUI:
       a status line, and a scrollable log.
     """
 
-    # Shared with the core module (dedup: audit issue #64) - see illustrations_formatter.py.
+    # Shared with the core module so the two never drift - see illustrations_formatter.py.
     CONFIG_FILE = IllustrationsFormatter.CONFIG_FILE
     DEFAULT_1920X1080_FOLDER = os.getenv('ILLUSTRATIONS_DEST_1920X1080', '')
     DEFAULT_INSTAGRAM_FOLDER = os.getenv('ILLUSTRATIONS_DEST_INSTAGRAM', '')

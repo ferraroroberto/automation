@@ -194,8 +194,8 @@ class AppleContactConverter:
         elif ";" in line and not "TYPE=" in line:
             # Convert old format to new format. Isolate the prefix (before
             # the first ':') from the value first, then extract the type
-            # from the prefix alone - not the whole line (dedup: audit issue
-            # #64; the old whole-line split embedded the value into the
+            # from the prefix alone - not the whole line (the old whole-line
+            # split embedded the value into the
             # type string for the common single-semicolon shape, see Notes).
             prefix, sep, value = line.partition(":")
             phone_type = extract_type_label(prefix)

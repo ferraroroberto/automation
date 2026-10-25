@@ -110,7 +110,7 @@ def apply_column_widths(excel_path: str, column_widths: List[Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Shared Notion API helpers (dedup: audit issue #64)
+# Shared Notion API helpers
 #
 # These consolidate logic that was independently reimplemented across
 # build_newsletter.py, normalize_names.py, normalize_url.py,
@@ -240,7 +240,7 @@ def query_recently_created_pages(
 
 
 # ---------------------------------------------------------------------------
-# Shared Notion property-value extraction (dedup: audit issue #64)
+# Shared Notion property-value extraction
 #
 # Consolidates the "title / rich_text / select / multi_select / date /
 # checkbox / url" extraction reimplemented across build_newsletter.py,
