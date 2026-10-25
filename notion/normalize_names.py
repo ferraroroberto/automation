@@ -425,7 +425,8 @@ class NotionNameNormalizer:
             response = requests.patch(
                 f"https://api.notion.com/v1/pages/{page_id}",
                 headers=self.headers,
-                json=update_data
+                json=update_data,
+                timeout=notion_utils.REQUEST_TIMEOUT_S
             )
             response.raise_for_status()
             logging.debug(f"✅ Successfully updated page {page_id[:8]}...{page_id[-2:]}")

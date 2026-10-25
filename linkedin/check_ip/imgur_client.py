@@ -18,6 +18,11 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# An upload carries the image body, so it gets longer than the credential check;
+# a timeout counts as a network error and takes the retry path.
+UPLOAD_TIMEOUT_S = 60
+CHECK_TIMEOUT_S = 10
+
 
 class ImgurClient:
     """Client for uploading images to Imgur with retry logic."""
@@ -56,7 +61,8 @@ class ImgurClient:
                     response = requests.post(
                         self.api_url,
                         headers=self.headers,
-                        files={"image": file}
+                        files={"image": file},
+                        timeout=UPLOAD_TIMEOUT_S
                     )
                 
                 if response.status_code == 200:
@@ -97,7 +103,8 @@ class ImgurClient:
             # Make a simple request to validate credentials
             response = requests.get(
                 "https://api.imgur.com/3/account/me",
-                headers=self.headers
+                headers=self.headers,
+                timeout=CHECK_TIMEOUT_S
             )
             
             if response.status_code == 200:

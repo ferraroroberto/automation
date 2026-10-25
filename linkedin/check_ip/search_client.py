@@ -21,6 +21,10 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# `no_cache` Lens searches run fresh on SerpAPI's side, so they get longer than the key check.
+SEARCH_TIMEOUT_S = 60
+CHECK_TIMEOUT_S = 10
+
 
 class SearchClient:
     """Client for performing Google Lens searches via SerpAPI."""
@@ -59,7 +63,7 @@ class SearchClient:
         }
         
         try:
-            response = requests.get(self.search_endpoint, params=params)
+            response = requests.get(self.search_endpoint, params=params, timeout=SEARCH_TIMEOUT_S)
             
             logger.info(f"🔍 Response Status for {search_type}: {response.status_code}")
             
@@ -176,7 +180,7 @@ class SearchClient:
                 "api_key": self.api_key
             }
             
-            response = requests.get("https://serpapi.com/search", params=test_params)
+            response = requests.get("https://serpapi.com/search", params=test_params, timeout=CHECK_TIMEOUT_S)
             
             if response.status_code == 200:
                 logger.info("✅ SerpAPI key validated successfully")

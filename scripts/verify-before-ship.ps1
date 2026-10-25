@@ -115,6 +115,10 @@ try {
     & $python -m unittest discover -s tests/notion/articles_sync -p "test*.py"
     if ($LASTEXITCODE -ne 0) { Fail "notion articles sync unittest suite failed." }
 
+    Write-Host "==> unittest (tests/notion)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/notion -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "notion request timeout unittest suite failed." }
+
     Write-Host "==> unittest (tests/system/wifi)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/system/wifi -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "wifi netsh decoding unittest suite failed." }

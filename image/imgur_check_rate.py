@@ -12,6 +12,9 @@ load_dotenv()
 # Get access token from environment variable
 ACCESS_TOKEN = os.getenv("IMGUR_ACCESS_TOKEN")
 
+# A stalled connection would otherwise block this one-shot check forever.
+REQUEST_TIMEOUT_S = 10
+
 def check_imgur_rate_limit():
     """
     Fetches and displays the current Imgur API rate limits for an authenticated user.
@@ -21,7 +24,11 @@ def check_imgur_rate_limit():
         return
 
     headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-    response = requests.get("https://api.imgur.com/3/credits", headers=headers)
+    try:
+        response = requests.get("https://api.imgur.com/3/credits", headers=headers, timeout=REQUEST_TIMEOUT_S)
+    except requests.exceptions.RequestException as e:
+        log.error("❌ Failed to fetch rate limits: %s", e)
+        return
 
     if response.status_code == 200:
         rate_info = response.json()["data"]
