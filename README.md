@@ -322,7 +322,7 @@ python -m venv .venv
 
 This is a grab-bag of independent scripts, not a single application — there is no linter config, no CI workflow, and no repo-wide test suite. What the repo does hold itself to:
 
-- **Verification before shipping:** `powershell -File scripts\verify-before-ship.ps1` — byte-compiles every module, runs the structure, instruction, doc refs and dead code ratchets, then the unit-test suites under `tests/`. See [`CLAUDE.md`](CLAUDE.md) § Verification for the current list; the script is the source of truth. It must exit 0.
+- **Verification before shipping:** `powershell -File scripts\verify-before-ship.ps1` — byte-compiles every module, runs the structure, instruction, doc refs, dead code and static ratchets, then the unit-test suites under `tests/`. See [`CLAUDE.md`](CLAUDE.md) § Verification for the current list; the script is the source of truth. It must exit 0.
 - **The repo `.venv`, by path:** `& .\.venv\Scripts\python.exe ...` — a bare `python`/`py` is not reliably on PATH on this machine.
 - **Branch-based pipeline** (no forks): one issue → one `<type>/<issue-N>-<slug>` branch → one PR → squash-merge. Never commit to `main` directly. Full rules in [`CLAUDE.md`](CLAUDE.md).
 - **New or moved domain folders and shared helpers** update [`docs/architecture.mmd`](docs/architecture.mmd) in the same PR.
