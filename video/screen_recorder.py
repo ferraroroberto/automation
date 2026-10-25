@@ -206,7 +206,9 @@ class ScreenRecorderGUI:
                     if sleep_time > 0:
                         time.sleep(sleep_time)
         except Exception as e:
-            self.master.after(0, lambda: messagebox.showerror("Recording Error", str(e)))
+            # `e` is unbound once this block ends, before the Tk loop runs the lambda.
+            message = str(e)
+            self.master.after(0, lambda: messagebox.showerror("Recording Error", message))
             self.master.after(0, self.stop_recording)
 
     def _check_split(self):
