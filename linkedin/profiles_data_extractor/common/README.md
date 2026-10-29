@@ -13,8 +13,12 @@ The common components provide the core infrastructure and user interface for the
 | `dashboard.py` | Streamlit dashboard for data visualization and analytics |
 | `dataentry.py` | Interactive data entry interface with intelligent search |
 | `reachout.py` | Reachout manager for uncontacted, revoked, and discarded contacts |
+| `extract_data.py` | Extract Data tab — launches Chrome with remote debugging and the DevTools orchestrator batch file |
+| `history.py` | History tab — search, view, and delete audit rows written by `history_manager.py` |
 | `history_manager.py` | History tracking and audit logging for all record changes |
 | `excel_format_manager.py` | Excel formatting, hyperlink conversion, and styling utilities |
+| `loaders.py` | Shared config/Excel loading helpers (`load_config`, `load_excel_data`) used by every tab |
+| `_lib.py` | Shared fuzzy-search, formatting, and color-gradient helpers used by every tab |
 | `linkedin_profiles_data.json` | Configuration file with extraction settings and paths |
 | `excel_format_spec.json` | Excel formatting specifications and styling rules |
 | `main.py` | Main application launcher with tabbed interface |
@@ -25,7 +29,14 @@ The common components provide the core infrastructure and user interface for the
 ```bash
 main.bat
 ```
-Launches the complete LinkedIn Reachout Hub with both dashboard and data entry tabs. This is the only launcher — there is no separate dashboard-only or Excel-formatting-test script.
+Launches the LinkedIn Reachout Hub with five tabs:
+- **📊 Dashboard** — data visualization and analytics (`dashboard.py`)
+- **✏️ Data Entry** — intelligent search and record editing (`dataentry.py`)
+- **🎯 Reachout Manager** — uncontacted, revoked, and discarded contacts (`reachout.py`)
+- **📥 Extract Data** — launches Chrome with remote debugging enabled, reports whether the debug port is live, and launches the DevTools orchestrator batch file (`extract_data.py`)
+- **📜 History** — search and view the audit log, and delete history rows (`history.py`, backed by `history_manager.py`)
+
+This is the only launcher — there is no separate dashboard-only or Excel-formatting-test script.
 
 ## 🔍 Data Entry Features
 

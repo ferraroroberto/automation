@@ -192,14 +192,11 @@ Full per-script reference: [`text/README.md`](text/README.md).
 git clone https://github.com/ferraroroberto/automation.git
 cd automation
 
-# 2. Create virtual environment
+# 2. Create the virtual environment once
 python -m venv .venv
 
-# 3. Activate virtual environment
-.venv\Scripts\Activate.ps1
-
-# 4. Install dependencies
-pip install -r requirements.txt
+# 3. Install dependencies — invoke the venv's python by path, never activate
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 **Unix/Linux/macOS:**
@@ -208,14 +205,11 @@ pip install -r requirements.txt
 git clone https://github.com/ferraroroberto/automation.git
 cd automation
 
-# 2. Create virtual environment
+# 2. Create the virtual environment once
 python3 -m venv .venv
 
-# 3. Activate virtual environment
-source .venv/bin/activate
-
-# 4. Install dependencies
-pip install -r requirements.txt
+# 3. Install dependencies — invoke the venv's python by path, never activate
+./.venv/bin/python -m pip install -r requirements.txt
 ```
 
 ### **Configuration Setup**
@@ -297,11 +291,12 @@ brew install ffmpeg
 **Virtual Environment Issues:**
 ```bash
 # Check virtual environment status
-python system/venv_manager.py
+& .\.venv\Scripts\python.exe system/venv_manager.py
 
-# Recreate virtual environment
+# Recreate the virtual environment
 rm -rf .venv
 python -m venv .venv
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 **Permission Errors:**
@@ -320,7 +315,7 @@ python -m venv .venv
 
 ## 🧪 Conventions
 
-This is a grab-bag of independent scripts, not a single application — there is no linter config, no CI workflow, and no repo-wide test suite. What the repo does hold itself to:
+This is a grab-bag of independent scripts, not a single application — there is no linter config and no CI workflow. What the repo does hold itself to:
 
 - **Verification before shipping:** `powershell -File scripts\verify-before-ship.ps1` — byte-compiles every module, runs the structure, instruction, doc refs, dead code, static, docs, comment and conventions ratchets, then the unit-test suites under `tests/`. See [`CLAUDE.md`](CLAUDE.md) § Verification for the current list; the script is the source of truth. It must exit 0.
 - **The repo `.venv`, by path:** `& .\.venv\Scripts\python.exe ...` — a bare `python`/`py` is not reliably on PATH on this machine.

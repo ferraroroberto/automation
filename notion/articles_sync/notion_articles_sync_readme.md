@@ -216,7 +216,7 @@ When `--debug` is enabled:
 #### 2. Configuration Validation Failures
 **Problem**: `❌ Configuration validation failed`
 **Solution**:
-- Check that all required fields are present in `.env`
+- Check that all required fields are present in `notion_articles_sync.json`
 - Ensure database IDs are valid Notion UUIDs
 - Verify numeric values are within valid ranges
 
@@ -230,7 +230,7 @@ When `--debug` is enabled:
 #### 4. Database Access Denied
 **Problem**: `❌ Cannot access target database`
 **Solution**:
-- Double-check database IDs in `.env` file
+- Double-check database IDs in `notion_articles_sync.json`
 - Ensure integration has read/write permissions
 - Verify databases are shared with the integration
 
@@ -340,24 +340,6 @@ When reporting issues, include:
 - Environment variable names (not values)
 - Notion integration permissions
 - System information and Python version
-
-## 🔄 Migration from Previous Versions
-
-### Breaking Changes
-- **Environment Variables**: Only API token now uses `.env` file
-- **Configuration Validation**: JSON schema validation is now mandatory
-- **Type Hints**: All functions now have comprehensive type annotations
-
-### Migration Steps
-1. **Create `.env` file** in project root with your configuration
-2. **Update configuration file** to use environment variable placeholders
-3. **Install new dependencies**: `pip install python-dotenv jsonschema`
-4. **Test configuration**: Run with `--status` flag first
-
-### Backward Compatibility
-- Existing functionality remains unchanged
-- Configuration file structure is preserved
-- All command line options work as before
 
 ---
 

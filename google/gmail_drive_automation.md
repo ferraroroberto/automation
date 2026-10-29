@@ -155,36 +155,22 @@ Create a `config.json` file based on the `config_gmail_drive.json.sample`:
 
 ## 🚀 Installation
 
-### Step 1: Clone and Setup Environment
+### Step 1: Use the Repo's Virtual Environment
 
-**Windows PowerShell:**
-```powershell
-# Clone repository (or copy files to a folder)
-mkdir gmail-drive-automation; cd gmail-drive-automation
-
-# Create virtual environment
-python -m venv .venv
-
-# Activate virtual environment
-.\.venv\Scripts\Activate.ps1
-```
-
-**Unix/Linux/macOS:**
-```bash
-# Clone repository (or copy files to a folder)
-mkdir gmail-drive-automation; cd gmail-drive-automation
-
-# Create virtual environment
-python3 -m venv .venv
-
-# Activate virtual environment
-source .venv/bin/activate
-```
+This tool runs from the repo root's `.venv` (created once at the repo root with
+`python -m venv .venv`) — never a fresh venv inside `google/`, and never
+activated. `run_gmail_drive.bat` invokes `..\.venv\Scripts\python.exe` by path.
 
 ### Step 2: Install Dependencies
 
+**Windows PowerShell (from the repo root):**
+```powershell
+& .\.venv\Scripts\python.exe -m pip install -r google\requirements_gmail_drive.txt
+```
+
+**Unix/Linux/macOS (from the repo root):**
 ```bash
-pip install -r requirements_gmail_drive.txt
+./.venv/bin/python -m pip install -r google/requirements_gmail_drive.txt
 ```
 
 ### Step 3: Setup Configuration
@@ -195,12 +181,13 @@ pip install -r requirements_gmail_drive.txt
 
 ### Step 4: Run the Automation
 
-```bash
+**From the repo root, by path:**
+```powershell
 # Basic run
-python gmail_drive_automation.py
+& .\.venv\Scripts\python.exe google\gmail_drive_automation.py
 
 # With custom config file
-python gmail_drive_automation.py --config my_config.json
+& .\.venv\Scripts\python.exe google\gmail_drive_automation.py --config my_config.json
 
 # With debug logging
 python gmail_drive_automation.py --debug
