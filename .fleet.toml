@@ -77,15 +77,19 @@ baseline = ".dead-code-ratchet-baseline.json"
 enabled  = true
 baseline = ".static-ratchet-baseline.json"
 
-# [docs_ratchet] -- the scaffold's baseline-and-ratchet stage over README.md and docs/**/*.md:
+# [docs_ratchet] -- the scaffold's baseline-and-ratchet stage over Markdown docs:
 # the root README's size in bytes and the history markers (issue references, dated and
 # changelog headings) per file. The gate runs scripts/docs_ratchet.py, which fails when either
-# rises above .docs-ratchet-baseline.json. Existing debt is baselined, never excluded. Exit 3
-# (git unusable, a non-UTF-8 file, an unclosed fence or comment) fails the gate as NOT
-# CONFIRMED. Procedure: project-scaffolding docs/docs-ratchet.md.
+# rises above .docs-ratchet-baseline.json. `include` widens the vendored default
+# (`README.md`, `docs/`) to every tool-domain folder in `extra_roots`, since a per-tool
+# README carries the same present-tense rule the vendored default only checked at the
+# root. Existing debt is baselined, never excluded. Exit 3 (git unusable, a non-UTF-8
+# file, an unclosed fence or comment) fails the gate as NOT CONFIRMED. Procedure:
+# project-scaffolding docs/docs-ratchet.md.
 [docs_ratchet]
 enabled  = true
 baseline = ".docs-ratchet-baseline.json"
+include  = ["README.md", "docs/", "audio/", "excel/", "git-housekeeping/", "google/", "html/", "image/", "linkedin/", "notion/", "parking/", "smart_life/", "system/", "text/", "video/"]
 
 # [comment_ratchet] -- the scaffold's baseline-and-ratchet stage over issue references
 # (#NNN) in product-code comments (.py, .js, .css, .ps1), counted per file. The gate runs

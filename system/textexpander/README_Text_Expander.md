@@ -194,14 +194,12 @@ When enabled, the application shows Windows notifications for:
 ### Error Recovery
 
 **Configuration Errors:**
-- Invalid JSON automatically falls back to defaults
-- Error details logged with recovery steps
+- Invalid JSON raises `ConfigError` and the process exits; fix the file and relaunch
+- Error details are logged before the exit
 - GUI prevents invalid abbreviation entries
 
 **Monitoring Errors:**
-- Automatic restart attempts for transient failures
-- Graceful degradation with status notifications
-- Manual restart option via tray menu
+- No automatic restart — a failed monitor must be relaunched manually via the tray menu
 
 ### Debug Mode
 
@@ -272,21 +270,6 @@ from system.textexpander.text_expander_core import TextExpanderCore
 core = TextExpanderCore()
 core.add_abbreviation("mysig", "My Custom Signature")
 ```
-
-## 📈 Future Enhancements
-
-**Planned Features:**
-- Import/export abbreviation sets
-- Cloud synchronization
-- Advanced pattern matching
-- Statistics and usage analytics
-- Custom expansion scripts
-- Mobile companion app
-
-**Extension Points:**
-- `TextExpanderCore` can be extended for custom storage backends
-- `KeyboardMonitor` supports additional input methods
-- GUI can be themed and extended with plugins
 
 ---
 
