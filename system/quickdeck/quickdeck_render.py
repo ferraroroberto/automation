@@ -5,8 +5,7 @@ QuickDeck button-image rendering.
 Pure PIL compositing: turn an emoji glyph plus a label into the PNG bytes
 PySimpleGUI paints onto a button. No GUI toolkit is imported here, so this
 module can be exercised (and eyeballed) without a display or a PySimpleGUI
-licence — which was the point of splitting it out of `quickdeck.py`
-(audit issue #92).
+licence.
 """
 
 import io
@@ -55,9 +54,9 @@ def _load_font(font_paths: List[str], size: int) -> ImageFont.FreeTypeFont:
     Try each TTF path in order, returning the first that loads at `size`;
     falls back to PIL's built-in default font if none are usable.
 
-    Consolidates the "pick a TTF from a platform fallback list, load with
-    ImageFont.truetype, fall through to load_default()" pattern previously
-    copy-pasted four times across QuickDeck (dedup: audit issue #64).
+    The single "pick a TTF from a platform fallback list, load with
+    ImageFont.truetype, fall through to load_default()" implementation used
+    everywhere QuickDeck needs a font.
     """
     font = None
     for font_path in font_paths:
@@ -76,9 +75,7 @@ def measure_text_width(text: str, text_size: int) -> float:
     """
     Width in pixels of `text` rendered at `text_size` with the label font.
 
-    Falls back to a character-count approximation if no usable font is found,
-    matching the estimate the three former inline copies of this measurement
-    used (audit issue #92).
+    Falls back to a character-count approximation if no usable font is found.
     """
     try:
         font = _load_font(_text_font_paths(), text_size)

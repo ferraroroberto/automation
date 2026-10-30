@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Shared Google OAuth + config-loading helpers.
 
-Consolidates the config JSON loader and the load-token / refresh /
-re-authenticate / save-token dance (audit issue #64). Each caller still
-builds its own set of API services from the returned credentials, since
-that varies by script.
+The single config JSON loader and load-token / refresh / re-authenticate /
+save-token dance used by every Google script. Each caller still builds its
+own set of API services from the returned credentials, since that varies by
+script.
 """
 
 import json

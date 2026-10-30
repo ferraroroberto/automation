@@ -5,7 +5,7 @@ QuickDeck action executors.
 One function per button `type` — shell, url, copy, python — plus the dispatch
 that maps a button config onto them. The GUI is injected as callbacks through
 `ActionContext` rather than imported, so the executors run (and can be driven
-from a test or a REPL) without PySimpleGUI (audit issue #92).
+from a test or a REPL) without PySimpleGUI.
 """
 
 import os
@@ -149,8 +149,7 @@ def execute_python_action(button_config: Dict[str, Any], ctx: ActionContext) -> 
     restricted to a whitelist, which is trivially escapable (e.g. via
     `().__class__.__mro__[-1].__subclasses__()`) and does not restrict
     imports, file I/O, or process spawning. Only put trusted code in a
-    "python" button's config (audit issue #67 — this used to be
-    documented as "safely", which it isn't).
+    "python" button's config.
     """
     try:
         code = button_config.get("code", "")

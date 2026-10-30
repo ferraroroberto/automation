@@ -1,17 +1,14 @@
 """
-Shared vCard TEL/EMAIL/ADR TYPE-label parsing.
+Shared vCard TEL/EMAIL/ADR TYPE-label parsing, used by both unify_vcards.py
+and convert_to_apple.py so the two never drift apart. A position-based split
+on the whole line mis-parses the common single-semicolon legacy shape like
+"TEL;HOME:+123": splitting on ";" before isolating the value from the prefix
+leaves "HOME:+123" as the extracted type, or lets it leak into the
+reconstructed value for ADR.
 
-Consolidates the TYPE= extraction logic previously duplicated - and drifted -
-between unify_vcards.py (regex `TYPE=([^;:]+)`) and convert_to_apple.py
-(position-based split on the WHOLE line, which mis-parsed the common
-single-semicolon legacy shape like "TEL;HOME:+123" - because it split on
-";" before isolating the value from the prefix, "HOME:+123" ended up as the
-extracted type, or leaked into the reconstructed value for ADR - see the
-audit issue #64 dedup Notes for the concrete before/after traces).
-
-extract_type_label() implements unify_vcards.py's behavior (regex-first,
-correct per the vCard spec since TYPE= may appear anywhere in the property
-parameter list), falling back to the legacy positional convention
+extract_type_label() extracts TYPE= via regex first (correct per the vCard
+spec, since TYPE= may appear anywhere in the property parameter list),
+falling back to the legacy positional convention
 (`PROPERTY;TYPE:VALUE`, using the second semicolon-separated segment of the
 *prefix only* - i.e. the part before the first ':') when no TYPE= parameter
 is present at all. Both callers must isolate `prefix` (everything before the

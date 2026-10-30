@@ -4,8 +4,8 @@ QuickDeck configuration editor.
 
 A self-contained PySimpleGUI editor for `quickdeck.json`: general/window/grid/
 theme settings plus a per-button edit dialog. It talks to the running app
-through the small surface documented on `QuickDeckConfig.__init__` (audit
-issue #92), so it can be opened against any object exposing those attributes.
+through the small surface documented on `QuickDeckConfig.__init__`, so it
+can be opened against any object exposing those attributes.
 """
 
 import json

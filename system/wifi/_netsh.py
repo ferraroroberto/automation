@@ -10,19 +10,18 @@ that is UTF-8, while native Windows console tools write their own console
 code page. The mismatch is not reliably loud: the output comes back
 mangled or empty instead of raising, and a caller that inspects it then
 reports "not connected" / "no profiles" / "export failed" for reasons that
-have nothing to do with the network. `app-launcher#743` is the fleet
-incident behind the rule; `encoding='utf-8'` is the same bug stated
-explicitly rather than inherited.
+have nothing to do with the network; `encoding='utf-8'` is the same bug
+stated explicitly rather than inherited.
 
 So every call here captures raw bytes — never `text=`, never `encoding=` —
 and decodes explicitly.
 
 The decoder itself, and the measured rationale for its ordered candidate
-list, moved to `system/_lib/console_output.py` in `#108` so the second
-instance of this bug (`video/gpu_recovery.py`) could reuse it rather than
-re-derive it. The names below are re-exported unchanged: this module's
-callers and its test suite still reach `decode_console_bytes`, `NO_WINDOW`
-and `NETSH_ENCODINGS` through `_netsh`.
+list, live in `system/_lib/console_output.py`, shared with the other
+console-output caller (`video/gpu_recovery.py`) rather than re-derived
+here. The names below are re-exported unchanged: this module's callers and
+its test suite still reach `decode_console_bytes`, `NO_WINDOW` and
+`NETSH_ENCODINGS` through `_netsh`.
 """
 
 from __future__ import annotations

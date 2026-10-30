@@ -14,7 +14,7 @@ Features:
 - Cross-platform support (Windows, macOS, Linux)
 - Auto-creates default config if missing
 
-Layout (audit issue #92 split this module into four):
+Layout:
 - `quickdeck.py`            - this file: config load, main window, event loop, CLI
 - `quickdeck_config_gui.py` - the settings/button editor windows
 - `quickdeck_render.py`     - PIL emoji + label button-image rendering

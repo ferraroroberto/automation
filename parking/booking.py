@@ -2,8 +2,8 @@
 
 Shared by the regular poll and the Thursday burst workers. The site answers a
 `createBooking` for a slot that has just gone with a booking in state REJECTED
-(not an error), so a REJECTED answer moves straight on to the next slot - the
-2026-09-24 burst lost two days by stopping there (#139).
+(not an error), so a REJECTED answer moves straight on to the next slot
+instead of stopping the day's attempt there.
 """
 
 from __future__ import annotations

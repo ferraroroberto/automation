@@ -25,8 +25,8 @@ Reading the three console tools
 `powershell`, `nvidia-smi` and `pnputil` are native Windows console tools:
 they write their own console code page, so their output is captured as raw
 bytes and decoded explicitly through `system/_lib/console_output.py` - never
-with `text=` or `encoding=`, which decode with the *parent's* locale instead
-(`#106`, `#108`). Every query here therefore answers in a tri-state:
+with `text=` or `encoding=`, which decode with the *parent's* locale instead.
+Every query here therefore answers in a tri-state:
 `GpuQuery.known` and `SmiReading.known` say whether the fact was established
 at all, so "could not read the GPU" is never reported as "the GPU is gone".
 
@@ -115,10 +115,10 @@ def _run_console(command: Sequence[str], *, timeout: int, label: str) -> Console
 
     Captures raw bytes - never `text=`, never `encoding=` - because those
     decode with the *parent's* locale rather than the child's console code
-    page. See `system/_lib/console_output.py` for the measured failure mode
-    (`#106`, `#108`); the short version is that under `PYTHONUTF8=1` a bad
-    decode empties the whole output while still reporting exit 0, which is
-    indistinguishable from "the tool answered nothing".
+    page. See `system/_lib/console_output.py` for the measured failure mode:
+    under `PYTHONUTF8=1` a bad decode empties the whole output while still
+    reporting exit 0, which is indistinguishable from "the tool answered
+    nothing".
 
     Never raises. Every failure path logs, so a `ConsoleRun` that could not
     be read leaves a breadcrumb instead of a silent negative.

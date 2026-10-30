@@ -1,13 +1,11 @@
 """
 Shared FFmpeg / ffprobe helpers: GPU detection and video duration lookup.
 
-Consolidates check_gpu_available() and get_video_duration(), previously
-duplicated verbatim across video_reencoder.py and video_trim.py (dedup:
-audit issue #64). Uses the narrower, more precise exception list from
-video_trim.py's get_video_duration() (subprocess.CalledProcessError /
-FileNotFoundError / ValueError) rather than video_reencoder.py's bare
-`except Exception`, so an unexpected bug surfaces instead of being
-silently swallowed as "no duration".
+check_gpu_available() and get_video_duration() are the single source for
+both video_reencoder.py and video_trim.py. get_video_duration() narrows
+its exception list to subprocess.CalledProcessError / FileNotFoundError /
+ValueError rather than catching bare `Exception`, so an unexpected bug
+surfaces instead of being silently swallowed as "no duration".
 """
 
 import subprocess

@@ -7,7 +7,8 @@ filename patterns, and finally falls back to the filesystem's creation /
 modified timestamps. `get_file_info` turns that into the one row the rest of
 the pipeline works on; `process_files` walks a tree into a DataFrame.
 
-Split out of `photos_archive.py` (audit issue #92).
+Shared by `photos_archive.py`'s "use existing metadata" and "fresh scan"
+flows.
 """
 
 import logging

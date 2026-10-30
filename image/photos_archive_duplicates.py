@@ -7,7 +7,8 @@ file counts, and the burst ("short sequence") heuristic used to exclude
 machine-gun shots. `recalculate_metadata` re-derives the whole lot from an
 Excel inventory loaded back off disk.
 
-Split out of `photos_archive.py` (audit issue #92).
+Shared by `photos_archive.py`'s "use existing metadata" and "fresh scan"
+flows.
 """
 
 import hashlib

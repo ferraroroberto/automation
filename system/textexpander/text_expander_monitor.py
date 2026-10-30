@@ -29,8 +29,8 @@ def _snapshot_clipboard() -> Optional[Dict[int, bytes]]:
     Capture every clipboard format currently present via Win32
     OpenClipboard/EnumClipboardFormats, so it can be restored verbatim after
     a temporary text paste. pyperclip only round-trips CF_UNICODETEXT, so a
-    save/restore built on it silently clobbers any non-text clipboard
-    content (image, RTF, file list) with an empty string (audit issue #67).
+    save/restore built on it would silently clobber any non-text clipboard
+    content (image, RTF, file list) with an empty string.
 
     Returns None if the clipboard can't be opened (e.g. win32clipboard is
     unavailable, or another process holds the clipboard open).
@@ -88,8 +88,7 @@ def perform_expansion(expansion: str, chars_to_remove: int, on_expansion_trigger
     Module-level (not a KeyboardMonitor method) so callers that only need to
     replay an expansion — e.g. the GUI's "launch abbreviation" action — can
     call it directly instead of reaching into a peer module's private method
-    or spinning up a whole KeyboardMonitor instance just to invoke it (audit
-    issue #67).
+    or spinning up a whole KeyboardMonitor instance just to invoke it.
     """
     controller = None
     try:

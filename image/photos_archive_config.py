@@ -2,9 +2,8 @@
 Configuration and logging for the photo-archive tool.
 
 Owns `photos_archive.json`: loading it, validating it, filling in defaults, and
-setting up the run's log file. Split out of `photos_archive.py` (audit issue
-#92) so the metadata, duplicate-detection and CLI layers share one config seam
-instead of a module-level global.
+setting up the run's log file, so the metadata, duplicate-detection and CLI
+layers share one config seam instead of a module-level global.
 
 The config is loaded lazily on the first `get_config()` call rather than at
 import time, so a malformed or missing `photos_archive.json` surfaces inside
