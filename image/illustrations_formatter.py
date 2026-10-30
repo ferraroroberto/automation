@@ -52,8 +52,8 @@ def default_illustrations_config() -> Dict[str, Any]:
     """Built-in defaults for illustrations_formatter_config.json.
 
     Shared by IllustrationsFormatter.load_config() and
-    IllustrationsFormatterGUI.load_config() (dedup: audit issue #64) - returns
-    a fresh dict each call so callers can safely mutate their copy.
+    IllustrationsFormatterGUI.load_config() - returns a fresh dict each call
+    so callers can safely mutate their copy.
     """
     return {
         'source_folder': '',

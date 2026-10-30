@@ -2,7 +2,7 @@
 
 Shared by the regular poll and the Thursday burst. Callers send these only
 after every day has been tried: capturing screenshots between two bookings
-cost the 2026-09-24 burst two days (#139).
+takes minutes, and a burst slot that has just gone stays open only seconds.
 """
 
 from __future__ import annotations

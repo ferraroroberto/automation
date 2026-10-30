@@ -2,10 +2,9 @@
 """
 Shared folder-batch image -> JPG conversion scaffolding.
 
-Consolidates the "folder-pick -> collect files by extension -> per-file
-validate -> PIL load -> RGB convert -> save JPG -> count/skip -> completion
-messagebox" shape duplicated between heic_to_jpg_converter.py and
-png_to_jpg_converter.py (dedup: audit issue #64).
+Shared "folder-pick -> collect files by extension -> per-file validate ->
+PIL load -> RGB convert -> save JPG -> count/skip -> completion messagebox"
+scaffolding for heic_to_jpg_converter.py and png_to_jpg_converter.py.
 
 The two callers differ meaningfully in how they make an image JPEG-safe
 (HEIC: naive RGB convert; PNG: alpha-composite onto a white background),

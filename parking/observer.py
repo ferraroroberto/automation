@@ -1,4 +1,4 @@
-"""Headed Chrome windows on the bookings list, so the owner can watch a burst (#139).
+"""Headed Chrome windows on the bookings list, so the owner can watch a burst.
 
 Watch-only: nothing here clicks. Each window loads before the target and is
 reloaded once, when its day's worker finishes - never during the fast loop, so

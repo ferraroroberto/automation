@@ -8,9 +8,9 @@ Before the target it:
 
 Each worker waits for the target itself, then scans and books its own day until
 it sticks or the burst window ends, so one day's slow step or rejection never
-delays another (the 2026-09-24 burst lost two days that way, #139). The
-orchestrator relays the workers' progress to Telegram as batched pings and,
-once every worker has a result, sends the booking confirmations with screenshots.
+delays another. The orchestrator relays the workers' progress to Telegram as
+batched pings and, once every worker has a result, sends the booking
+confirmations with screenshots.
 
 ``python -m parking.poller --rehearse-burst`` runs the same flow a few seconds
 from now in forced dry-run: nothing booked, no state written, nothing sent.

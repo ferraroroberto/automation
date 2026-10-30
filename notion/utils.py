@@ -135,7 +135,7 @@ def build_notion_headers(api_key: str) -> Dict[str, str]:
 def resolve_notion_credentials(config: Dict[str, Any]) -> Tuple[str, str, Dict[str, str]]:
     """Resolve (api_key, database_id, headers) from a loaded config dict / env.
 
-    Mirrors the identical `_setup_api_credentials` previously duplicated in
+    The single `_setup_api_credentials` implementation shared by
     normalize_names.py and normalize_url.py. Raises ValueError if either the
     API key or the database_id can't be resolved.
     """
@@ -151,9 +151,9 @@ def resolve_notion_credentials(config: Dict[str, Any]) -> Tuple[str, str, Dict[s
 def load_json_config_with_fallback(config_path: str, caller_file: str) -> Dict[str, Any]:
     """Load a JSON config file, falling back to caller_file's own directory.
 
-    Mirrors the "try config_path, then try alongside the calling script" pattern
-    previously duplicated in build_newsletter.py, normalize_names.py,
-    normalize_url.py, and sample_illustrations.py.
+    Shared by build_newsletter.py, normalize_names.py, normalize_url.py, and
+    sample_illustrations.py: try config_path, then try alongside the calling
+    script.
     """
     paths_to_try = [
         config_path,
@@ -185,10 +185,9 @@ def paginated_database_query(
     `query_body` may carry any combination of 'filter' / 'sorts' / 'page_size' (or
     none); it is not mutated in place, a per-page copy receives 'start_cursor'.
 
-    Consolidates the paginated-query loop previously duplicated (with an
-    identical POST / has_more / next_cursor / error-branch shape) across
-    build_newsletter.py, normalize_names.py, normalize_url.py, and
-    journal_automation.py.
+    The single paginated-query loop (POST / has_more / next_cursor /
+    error-branch) shared by build_newsletter.py, normalize_names.py,
+    normalize_url.py, and journal_automation.py.
     """
     url = f"https://api.notion.com/v1/databases/{database_id}/query"
     payload: Dict[str, Any] = dict(query_body) if query_body else {}

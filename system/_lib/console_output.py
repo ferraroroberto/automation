@@ -26,10 +26,10 @@ mismatch bite, and neither is what a reader expects:
   `except (subprocess.SubprocessError, OSError)` does not catch, so the
   tool dies with an unhandled traceback well away from the real cause.
 
-`app-launcher#743` is the fleet incident behind the rule (blank `next_run`
-on all 20 jobs for weeks, because a dead query was indistinguishable from a
-quiet system); `#106` fixed the `netsh` instance in this repo and `#108`
-the `video/gpu_recovery.py` one.
+A silently blank or missing result from a scheduling/status query (e.g. a
+`next_run` field) is indistinguishable from a genuinely quiet system until
+someone checks the raw bytes - the rule below is the fix for that failure
+mode wherever a native console tool's output feeds a decision.
 
 So every caller here captures raw bytes - never `text=`, never `encoding=`
 - and decodes explicitly through `decode_console_bytes`.
@@ -37,8 +37,8 @@ So every caller here captures raw bytes - never `text=`, never `encoding=`
 Why a candidate list rather than one pinned codec
 -------------------------------------------------
 The usual fleet remedy is to pin `encoding="oem", errors="replace"`, on the
-grounds that these tools emit the OEM code page. Measured for `netsh`
-(`#106`), that is only half true: profile names come back as **UTF-8**
+grounds that these tools emit the OEM code page. Measured for `netsh`,
+that is only half true: profile names come back as **UTF-8**
 regardless of the console page - the SSID `Roberto’s iPhone` arrives as the
 bytes `e2 80 99` - so a pinned `oem` decode turns it into
 `RobertoÔÇÖs iPhone`. netsh's own localized labels *do* follow the console

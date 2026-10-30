@@ -15,10 +15,9 @@ Configuration: photos_archive.json (follows AGENTS.md guidelines)
 
 This file is the CLI: the interactive prompts, the copy/delete file operations
 they gate, and the two run flows (existing metadata vs fresh scan). The logic
-underneath lives in three siblings, split out by audit issue #92 —
-`photos_archive_config.py` (config + logging), `photos_archive_metadata.py`
-(date extraction + scanning), `photos_archive_duplicates.py` (duplicate and
-day-grouping analysis).
+underneath lives in three siblings — `photos_archive_config.py` (config +
+logging), `photos_archive_metadata.py` (date extraction + scanning),
+`photos_archive_duplicates.py` (duplicate and day-grouping analysis).
 """
 
 import logging
@@ -173,7 +172,7 @@ def _apply_exclusion_thresholds(df: pd.DataFrame) -> None:
     mutating df['exclude'] in place.
 
     Shared by main()'s "use existing metadata + recalculate" and "fresh scan"
-    flows (dedup: audit issue #64).
+    flows.
     """
     config = get_config()
     log_top_unified_days(df)
@@ -207,8 +206,7 @@ def _confirm_copy_and_cleanup(df: pd.DataFrame, metadata_path: str) -> None:
     copied/discarded source files, then save the (possibly mutated) metadata
     back to metadata_path.
 
-    Shared by main()'s "use existing metadata" and "fresh scan" flows (dedup:
-    audit issue #64).
+    Shared by main()'s "use existing metadata" and "fresh scan" flows.
     """
     behavior_flags = get_config()['behavior_flags']
 
@@ -270,7 +268,7 @@ def _run_from_existing_metadata(dest_folder: str) -> None:
     Prompt for an existing metadata Excel file via a Tkinter dialog, optionally
     recalculate the duplicate/exclusion logic, then confirm/copy/cleanup.
 
-    Split out of main()'s "use existing metadata" branch (audit issue #67).
+    The "use existing metadata" half of main()'s two run flows.
     """
     metadata_file = _ask_for_metadata_file()
     if not metadata_file:
@@ -299,7 +297,7 @@ def _run_fresh_scan(source_folder: str, dest_folder: str, current_time_str: str)
     Scan source_folder from scratch, compute duplicate/exclusion metadata,
     save an inventory Excel, then confirm/copy/cleanup.
 
-    Split out of main()'s "fresh scan" branch (audit issue #67).
+    The "fresh scan" half of main()'s two run flows.
     """
     # Check if hardcoded folders are valid
     if not (os.path.exists(source_folder) and os.path.isdir(source_folder)):

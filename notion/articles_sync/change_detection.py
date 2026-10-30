@@ -99,8 +99,7 @@ class ChangeDetectionMixin:
     def _index_source_by_rowid(self, source_items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         """Index (non-excluded) source items by their 'rowid' property.
 
-        Shared by detect_changes_full_sync() and detect_changes_incremental()
-        (audit issue #67).
+        Shared by detect_changes_full_sync() and detect_changes_incremental().
         """
         source_by_rowid: Dict[str, Dict[str, Any]] = {}
         for item in source_items:
@@ -119,8 +118,7 @@ class ChangeDetectionMixin:
         most recently edited item when the same source rowid appears more
         than once.
 
-        Shared by detect_changes_full_sync() and detect_changes_incremental()
-        (audit issue #67).
+        Shared by detect_changes_full_sync() and detect_changes_incremental().
         """
         target_by_source_rowid: Dict[str, Dict[str, Any]] = {}
         for item in target_items:
@@ -152,9 +150,8 @@ class ChangeDetectionMixin:
         matching source as deleted.
 
         Shared diff step between detect_changes_full_sync() and
-        detect_changes_incremental() (audit issue #67 — the two used to
-        duplicate ~15-20 lines each of this same rowid -> target_by_rowid
-        lookup + "keep newer of duplicate" classification).
+        detect_changes_incremental(): the rowid -> target_by_rowid lookup
+        plus "keep newer of duplicate" classification both need.
 
         Returns:
             Tuple of (new_items, updated_items, deleted_items, unchanged_count)

@@ -60,8 +60,8 @@ def encode_message(image_path: str, message: str, output_path: str) -> None:
     Encodes a hidden message into an image using LSB steganography.
 
     Uses numpy array slicing + bit-shift over a flat pixel buffer instead of
-    per-pixel getpixel()/putpixel() calls, which is O(w*h) in pure Python
-    (audit issue #67).
+    per-pixel getpixel()/putpixel() calls, avoiding O(w*h) pure-Python
+    overhead on large images.
 
     Parameters:
     - image_path: Path to the input image.
@@ -100,7 +100,7 @@ def load_dataframe(file_path: str, logger: logging.Logger, description: str = "f
 
     Retries only on the "file locked/missing" error family (FileNotFoundError,
     PermissionError) and only up to max_retries times, so a persistently
-    missing/locked file raises instead of looping forever (audit issue #67).
+    missing/locked file raises instead of looping forever.
     """
     attempt = 0
     while True:
