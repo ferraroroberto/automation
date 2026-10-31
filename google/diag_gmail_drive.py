@@ -145,61 +145,6 @@ def test_duplicate_prevention() -> bool:
         return False
 
 
-def test_spreadsheet_structure() -> bool:
-    """Test spreadsheet structure validation."""
-    logger.info("🧪 Testing spreadsheet structure...")
-    
-    try:
-        # Mock spreadsheet data
-        mock_spreadsheet = {
-            'properties': {
-                'title': 'Email Tracking Dashboard',
-                'timeZone': 'UTC'
-            },
-            'sheets': [
-                {
-                    'properties': {
-                        'title': 'Email Tracking',
-                        'gridProperties': {
-                            'rowCount': 1000,
-                            'columnCount': 4
-                        }
-                    }
-                }
-            ]
-        }
-        
-        # Validate structure
-        if 'properties' not in mock_spreadsheet:
-            logger.error("❌ Missing properties in spreadsheet structure")
-            return False
-        
-        if 'sheets' not in mock_spreadsheet:
-            logger.error("❌ Missing sheets in spreadsheet structure")
-            return False
-        
-        if len(mock_spreadsheet['sheets']) == 0:
-            logger.error("❌ No sheets defined in spreadsheet")
-            return False
-        
-        # Validate sheet properties
-        sheet = mock_spreadsheet['sheets'][0]
-        if sheet['properties']['title'] != 'Email Tracking':
-            logger.error("❌ Incorrect sheet title")
-            return False
-        
-        if sheet['properties']['gridProperties']['columnCount'] != 4:
-            logger.error("❌ Incorrect column count")
-            return False
-        
-        logger.info("✅ Spreadsheet structure test passed")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Spreadsheet structure test failed: {e}")
-        return False
-
-
 def run_all_tests() -> bool:
     """Run all tests and return overall success status."""
     logger.info("🚀 Starting Gmail and Drive automation tests...")
@@ -209,7 +154,6 @@ def run_all_tests() -> bool:
         test_config_loading,
         test_email_data_processing,
         test_duplicate_prevention,
-        test_spreadsheet_structure
     ]
     
     passed = 0
