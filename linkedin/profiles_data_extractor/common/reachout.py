@@ -408,61 +408,58 @@ def _render_reachout_form(df_all, data_path):
     return True
 
 
+def _delete_reachout_profile(df_all, data_path, name_to_delete, pending_key):
+    """Remove the named profile from the workbook, log it to history and reset the edit panel."""
+    try:
+        mask = df_all['name'].str.lower() == name_to_delete.lower() if 'name' in df_all.columns else pd.Series([False] * len(df_all))
+        if not mask.any():
+            st.error("❌ Profile not found for deletion.")
+            return
+
+        # Get record data for history before deleting
+        record_to_delete = df_all[mask].iloc[0].to_dict()
+        df_all = df_all[~mask].copy()
+
+        if not save_to_excel(df_all, data_path):
+            st.error("❌ Failed to save changes after deletion!")
+            return
+
+        st.success(f"✅ Profile '{name_to_delete}' deleted successfully!")
+        log_history(record_to_delete, action="delete")
+
+        st.session_state.reachout_selected_record = None
+        st.session_state.reachout_original_name = None
+        st.session_state.reachout_editing = False
+        st.session_state.pop(pending_key, None)
+        st.rerun()
+    except Exception as e:
+        st.error(f"❌ Error deleting profile: {str(e)}")
+
+
 def _render_delete_section(df_all, data_path):
-    """Show the delete button with its two-step confirmation."""
-    # Delete Profile button (red, similar to Open Profile button)
+    """Show the delete button with its two-step confirmation.
+
+    The confirmation is rendered from a session-state flag, not from inside the
+    first button's branch: a click reruns the script, and a nested button is
+    only evaluated while its parent button is still True.
+    """
+    name = st.session_state.reachout_original_name
+    pending_key = f"confirm_delete_{name}"
+
     st.markdown("---")
     col_delete, col_spacer = st.columns([1, 3])
     with col_delete:
         if st.button("🗑️ Delete Profile", key="delete_profile", type="secondary",
                    help="Permanently delete this profile from the database"):
-            # Confirm deletion with a dialog-like approach
-            confirm_key = f"confirm_delete_{st.session_state.reachout_original_name}"
-            if confirm_key not in st.session_state:
-                st.session_state[confirm_key] = False
+            st.session_state[pending_key] = True
 
-            if not st.session_state[confirm_key]:
-                st.warning(f"⚠️ Are you sure you want to delete '{st.session_state.reachout_original_name}'? This action cannot be undone!")
-                if st.button("✅ Yes, Delete", key=f"confirm_yes_{st.session_state.reachout_original_name}"):
-                    st.session_state[confirm_key] = True
-                    st.rerun()
-                if st.button("❌ Cancel", key=f"confirm_no_{st.session_state.reachout_original_name}"):
-                    del st.session_state[confirm_key]
-                    st.rerun()
-            else:
-                # Perform deletion
-                try:
-                    # Find and remove the record
-                    name_to_delete = st.session_state.reachout_original_name
-                    mask = df_all['name'].str.lower() == name_to_delete.lower() if 'name' in df_all.columns else pd.Series([False] * len(df_all))
-
-                    if mask.any():
-                        # Get record data for history before deleting
-                        record_to_delete = df_all[mask].iloc[0].to_dict()
-
-                        # Remove the record
-                        df_all = df_all[~mask].copy()
-
-                        # Save to Excel
-                        if save_to_excel(df_all, data_path):
-                            st.success(f"✅ Profile '{name_to_delete}' deleted successfully!")
-                            
-                            # Log history
-                            log_history(record_to_delete, action="delete")
-
-                            # Clear session state
-                            st.session_state.reachout_selected_record = None
-                            st.session_state.reachout_original_name = None
-                            st.session_state.reachout_editing = False
-                            if confirm_key in st.session_state:
-                                del st.session_state[confirm_key]
-                            st.rerun()
-                        else:
-                            st.error("❌ Failed to save changes after deletion!")
-                    else:
-                        st.error("❌ Profile not found for deletion.")
-                except Exception as e:
-                    st.error(f"❌ Error deleting profile: {str(e)}")
+        if st.session_state.get(pending_key):
+            st.warning(f"⚠️ Are you sure you want to delete '{name}'? This action cannot be undone!")
+            if st.button("✅ Yes, Delete", key=f"confirm_yes_{name}"):
+                _delete_reachout_profile(df_all, data_path, name, pending_key)
+            if st.button("❌ Cancel", key=f"confirm_no_{name}"):
+                del st.session_state[pending_key]
+                st.rerun()
 
 
 def _render_edit_panel(df_all, data_path):

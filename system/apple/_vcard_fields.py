@@ -19,6 +19,11 @@ import re
 from typing import Optional
 
 
+def has_type_param(text: str) -> bool:
+    """True when `text` carries a TYPE= parameter; the name is case-insensitive in vCard (iCloud writes `type=`)."""
+    return re.search(r'TYPE=', text, re.IGNORECASE) is not None
+
+
 def extract_type_label(prefix: str, *, legacy_positional_fallback: bool = True) -> Optional[str]:
     """
     Extract the TYPE value from a vCard property prefix (the part before the
@@ -35,8 +40,8 @@ def extract_type_label(prefix: str, *, legacy_positional_fallback: bool = True) 
     they've already confirmed no TYPE= is present, so the fallback is the
     only path that can fire there).
     """
-    if "TYPE=" in prefix:
-        type_match = re.search(r'TYPE=([^;:]+)', prefix)
+    if has_type_param(prefix):
+        type_match = re.search(r'TYPE=([^;:]+)', prefix, re.IGNORECASE)
         if type_match:
             return type_match.group(1).upper()
         return None

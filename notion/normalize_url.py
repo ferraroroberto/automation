@@ -69,9 +69,8 @@ class NotionURLNormalizer:
             parsed = urlparse(original_url)
             
             # Check if domain is in the preserved list
-            domain = parsed.netloc.lower()
-            # Handle subdomains roughly
-            if any(p in domain for p in self.domains_preserving_params):
+            domain = (parsed.hostname or '').lower()
+            if any(domain == p or domain.endswith('.' + p) for p in self.domains_preserving_params):
                 return original_url
                 
             # Reconstruct URL without query parameters and fragment
@@ -145,28 +144,7 @@ class NotionURLNormalizer:
 
     def _update_page_url(self, page_id: str, new_url: str) -> bool:
         """Update the link property of a Notion page."""
-        update_data = {
-            "properties": {
-                "link": {
-                    "url": new_url
-                }
-            }
-        }
-        
-        try:
-            response = requests.patch(
-                f"https://api.notion.com/v1/pages/{page_id}",
-                headers=self.headers,
-                json=update_data,
-                timeout=notion_utils.REQUEST_TIMEOUT_S
-            )
-            response.raise_for_status()
-            logging.debug(f"✅ Successfully updated page {page_id[:8]}...")
-            return True
-            
-        except requests.exceptions.RequestException as e:
-            logging.error(f"❌ Failed to update page {page_id[:8]}...: {e}")
-            return False
+        return notion_utils.patch_page_properties(self.headers, page_id, {"link": {"url": new_url}})
 
     def process_database(self, days: int, dry_run: bool = False, testing_mode: bool = False) -> List[Dict]:
         """
@@ -177,60 +155,25 @@ class NotionURLNormalizer:
             dry_run: If True, no changes are written to Notion.
             testing_mode: If True, validates that cleaned URLs are accessible.
         """
-        pages = self._query_notion_database(days)
-        results = []
-        stats = {'processed': 0, 'updated': 0, 'unchanged': 0, 'would_update': 0}
-        
-        if dry_run:
-            logging.info("🔍 DRY RUN MODE: No changes will be made to Notion")
-        
-        for page in pages:
-            page_info = self._extract_page_info(page)
-            if not page_info:
-                continue
-            
-            page_id, last_edited_time, original_url = page_info
-            cleaned_url = self._clean_url(original_url)
-            
-            # Validate URL if testing mode is enabled
-            validation_msg = ""
-            if testing_mode:
-                is_valid, status_msg = self._check_url_validity(cleaned_url)
-                status_icon = "✅" if is_valid else "❌"
-                validation_msg = f" [{status_icon} Link: {status_msg}]"
-            
-            result = {
-                'page_id': page_id,
-                'original_url': original_url,
-                'cleaned_url': cleaned_url
-            }
-            results.append(result)
-            stats['processed'] += 1
-            
-            if original_url != cleaned_url:
-                if dry_run:
-                    stats['would_update'] += 1
-                    logging.info(f'📝 [DRY RUN] Would clean: "{original_url}" → "{cleaned_url}"{validation_msg}')
-                else:
-                    if self._update_page_url(page_id, cleaned_url):
-                        stats['updated'] += 1
-                        logging.info(f'📝 Cleaned: "{original_url}" → "{cleaned_url}"{validation_msg}')
-                    else:
-                        logging.error(f'❌ Failed to update: "{original_url}"')
-            else:
-                stats['unchanged'] += 1
-                logging.info(f'✅ Already clean: "{original_url}"{validation_msg}')
-        
-        self._log_summary(stats, dry_run)
-        return results
+        def validation_note(cleaned_url: str) -> str:
+            is_valid, status_msg = self._check_url_validity(cleaned_url)
+            return f" [{'✅' if is_valid else '❌'} Link: {status_msg}]"
 
-    def _log_summary(self, stats: Dict[str, int], dry_run: bool = False):
-        """Log processing summary."""
-        logging.info(f"✅ Processed {stats['processed']} pages")
-        if dry_run:
-            logging.info(f"📝 Would update {stats['would_update']}, unchanged {stats['unchanged']}")
-        else:
-            logging.info(f"📝 Updated {stats['updated']}, unchanged {stats['unchanged']}")
+        return notion_utils.normalize_pages(
+            self._query_notion_database(days),
+            extract_page_info=self._extract_page_info,
+            transform=self._clean_url,
+            update_page=self._update_page_url,
+            make_result=lambda page_id, _last_edited, original, cleaned: {
+                'page_id': page_id,
+                'original_url': original,
+                'cleaned_url': cleaned,
+            },
+            dry_run=dry_run,
+            verb="clean",
+            unchanged_label="Already clean",
+            annotate=validation_note if testing_mode else None,
+        )
 
 
 def setup_logging(debug: bool = False):

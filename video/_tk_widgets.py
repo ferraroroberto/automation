@@ -29,3 +29,10 @@ def build_progress_section(
     status_label = tk.Label(root, textvariable=status_var, fg="gray", anchor="w")
     status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
     return progress_bar, progress_label, status_label
+
+
+def set_progress(root: tk.Misc, progress_bar: ttk.Progressbar, progress_label: tk.Label, percent: float) -> None:
+    """Show ``percent`` on the bar and its label, then repaint."""
+    progress_bar["value"] = percent
+    progress_label.config(text=f"{percent:.1f}%")
+    root.update_idletasks()

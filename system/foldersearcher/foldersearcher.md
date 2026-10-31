@@ -87,9 +87,10 @@ The tray app picks up a rebuilt index without a restart: whenever the window ope
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `root_paths` | `[]` | List of root folders to index. |
-| `structure_file` | `<script dir>/folder_structure.txt` | Where the index is written. |
 | `skip_depth` | `4` | Leading path components hidden in the result list. |
 | `prune_email_branches` | `true` | Collapse item subtrees to the owning item. |
+
+The index is always written to `folder_structure.txt` beside the script; it is not configurable.
 
 **Save Config** on the Folders tab persists `skip_depth` and `prune_email_branches`. Adding or removing a root saves immediately.
 

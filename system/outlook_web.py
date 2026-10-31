@@ -271,6 +271,12 @@ class OutlookWeb:
         rows = self._all_row_texts()
         return {s for s in subjects if any(s in row for row in rows)}
 
+    def sent_subjects(self, subjects: Iterable[str]) -> set[str]:
+        """Which of ``subjects`` already show in Sent Items (the rows rendered at the top, newest first,
+        which is where a message from an interrupted earlier run sits)."""
+        self._open_folder("Sent Items")
+        return {s for s in subjects if self._rows().filter(has_text=s).count() > 0}
+
     def verify(self, subjects: Iterable[str]) -> list[str]:
         """Subjects missing from Drafts as the server returns them after a fresh load."""
         wanted = list(subjects)

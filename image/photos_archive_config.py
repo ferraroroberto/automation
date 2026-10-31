@@ -46,13 +46,10 @@ def load_config() -> Dict[str, Any]:
             raise ValueError("short_sequence_seconds must be integer")
 
         # Set defaults for optional fields
-        config.setdefault('log_folder', config.get('destination_folder'))
         config['logging'] = config.get('logging', {})
         config['logging'].setdefault('level', 'INFO')
-        config['logging'].setdefault('progress_reporting_interval', 1000)
         config['duplicate_detection'] = config.get('duplicate_detection', {})
         config['duplicate_detection'].setdefault('enable_sha256_check', True)
-        config['duplicate_detection'].setdefault('keep_largest_file', True)
 
         return config
     except FileNotFoundError:
@@ -71,11 +68,9 @@ def get_config() -> Dict[str, Any]:
     return _config
 
 
-def setup_logging(log_folder: Optional[str] = None) -> None:
+def setup_logging(log_folder: str) -> None:
     """Configure logging to timestamped file in specified folder."""
     config = get_config()
-    if log_folder is None:
-        log_folder = config.get('log_folder', config['destination_folder'])
 
     timestamp = datetime.now().strftime('%Y%m%d-%H%M')
     log_file = os.path.join(log_folder, f'photo_processing_{timestamp}.log')

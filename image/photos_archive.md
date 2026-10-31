@@ -119,7 +119,7 @@ Files are renamed using unified format: `YYYYMMDD-HHMMSS.extension`
 ### Duplicate Handling
 - Files with same unified name are marked as duplicates
 - SHA256 content hashing available for exact duplicate detection
-- Keeps largest file or allows manual selection
+- A different photo already holding the destination name is never treated as copied: it is copied under the next free `-NNN` suffix, and only an identical file (same size and SHA256) counts as already archived
 - Adds suffixes for non-duplicate similar files: `20240115-143045-001.jpg`
 
 ### Metadata Files

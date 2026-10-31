@@ -84,8 +84,7 @@ The application uses JSON configuration stored in `text_expander_config.json`. C
     "trigger_key": "/",
     "auto_start": true,
     "show_notifications": true,
-    "max_abbreviation_length": 50,
-    "replacement_delay_ms": 100
+    "max_abbreviation_length": 50
   }
 }
 ```
@@ -101,7 +100,6 @@ The application uses JSON configuration stored in `text_expander_config.json`. C
 - **auto_start** (`boolean`): Whether to start monitoring on launch (default: true)
 - **show_notifications** (`boolean`): Show Windows notifications for expansions (default: true)
 - **max_abbreviation_length** (`integer`): Maximum characters in abbreviation name (default: 50)
-- **replacement_delay_ms** (`integer`): Delay before text replacement in milliseconds (default: 100)
 
 ### Configuration Management
 

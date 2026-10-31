@@ -11,8 +11,6 @@
         "max_results": 100
     },
     "settings": {
-        "timezone": "UTC",
-        "retry_attempts": 3,
-        "retry_delay_seconds": 5
+        "timezone": "UTC"
     }
 }

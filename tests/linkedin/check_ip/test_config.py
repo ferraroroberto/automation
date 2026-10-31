@@ -73,5 +73,15 @@ class CustomConfigFlagTests(unittest.TestCase):
             self.assertEqual(args.serpapi_key, "cli-key")
 
 
+class MissingConfigTests(unittest.TestCase):
+    def test_missing_config_exits_without_writing_a_default_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            missing = Path(folder) / "linkedin_search_image.json"
+            with self.assertRaises(SystemExit) as raised:
+                check_ip_config.Config(str(missing))
+            self.assertNotEqual(raised.exception.code, 0)
+            self.assertFalse(missing.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

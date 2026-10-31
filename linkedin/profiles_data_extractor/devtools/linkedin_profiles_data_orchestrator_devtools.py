@@ -55,6 +55,10 @@ convert_url_columns_to_hyperlinks = excel_format_manager.convert_url_columns_to_
 logger = setup_logging(__name__)
 
 
+class WorkbookLockedError(RuntimeError):
+    """The destination workbook stayed locked (open in Excel) through every retry."""
+
+
 class LinkedInProfilesDataOrchestratorDevTools:
     """Orchestrates LinkedIn profile data extraction and Excel file merging using DevTools."""
 
@@ -127,6 +131,16 @@ class LinkedInProfilesDataOrchestratorDevTools:
             time.sleep(retry_delay)
         return True
 
+    def _require_file_access(self, file_path: str, unsaved_profiles: int = 0) -> None:
+        """Raise WorkbookLockedError unless ``file_path`` becomes accessible within the retry schedule."""
+        if self.wait_for_file_access(file_path):
+            return
+        detail = f"; {unsaved_profiles} extracted profile(s) were NOT saved" if unsaved_profiles else ""
+        raise WorkbookLockedError(
+            f"'{os.path.basename(file_path)}' is still locked after the retry schedule{detail}. "
+            "Close it in Excel and run again."
+        )
+
     @staticmethod
     def _filter_named_profiles(new_profiles: List[Dict[str, str]], columns_to_use: List[str]) -> List[Dict[str, str]]:
         """Keep only the wanted columns of each profile, dropping profiles without a name."""
@@ -175,6 +189,9 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
         Returns:
             Tuple of (inserted_count, skipped_count, total_records).
+
+        Raises:
+            WorkbookLockedError: The workbook stayed locked, so nothing was saved.
         """
         # Columns to use from the profiles (as specified in requirements)
         columns_to_use = ['name', 'url_profile', 'job_title', 'follows_from', 'company', 'location']
@@ -197,9 +214,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
         try:
             # Check if file is accessible before reading
-            if not self.wait_for_file_access(destination_file):
-                logger.info("ℹ️  User chose to exit - skipping Excel merge")
-                return 0, len(filtered_profiles), 0
+            self._require_file_access(destination_file, len(filtered_profiles))
 
             # Read existing Excel file
             df_existing = pd.read_excel(destination_file, engine='openpyxl')
@@ -232,9 +247,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             df_combined = pd.concat([df_existing, df_new], ignore_index=True)
 
             # Check file access before writing
-            if not self.wait_for_file_access(destination_file):
-                logger.info("ℹ️  User chose to exit - changes not saved")
-                return 0, len(filtered_profiles), len(df_existing)
+            self._require_file_access(destination_file, len(new_profiles_filtered))
 
             # Save back to Excel
             df_combined.to_excel(destination_file, index=False, engine='openpyxl')
@@ -246,6 +259,8 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
             return inserted_count, skipped_count, total_records
 
+        except WorkbookLockedError:
+            raise
         except Exception as e:
             logger.error(f"❌ Failed to merge profiles into Excel: {e}")
             raise
@@ -339,9 +354,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             # Wait for file access if it exists
             if os.path.exists(destination_file):
                 logger.info(f"🔍 Checking access to destination file: {destination_file}")
-                if not self.wait_for_file_access(destination_file):
-                    logger.info("⏹️  User chose to exit")
-                    return
+                self._require_file_access(destination_file)
 
             # STEP 1: Extract profiles from Chrome tabs using DevTools
             self._log_step_banner("STEP 1: Extracting data from Chrome tabs...")
@@ -469,6 +482,7 @@ Examples:
         logger.info("⏹️  Interrupted by user")
     except Exception as e:
         logger.error(f"❌ An error occurred: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

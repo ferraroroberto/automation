@@ -143,12 +143,10 @@ The configuration file defines:
   "description": "Configuration for journal automation",
   "input": {
     "database_id": "884de9f611464ca69e6028a6cbbafc00",
-    "database_url": "https://www.notion.so/...",
     "date_property": "Date"
   },
   "output": {
     "directory": "E://automation//notion-automation-files//journal-output//",
-    "format": "single_file",
     "filename_pattern": "{start_date} to {end_date}-journal-consolidated.txt"
   },
   "fields": [

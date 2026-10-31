@@ -8,7 +8,7 @@ import json
 import requests
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Optional, Dict, List, Any, Callable, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -214,7 +214,7 @@ def paginated_database_query(
 
         except requests.exceptions.RequestException as e:
             log.error("❌ Failed to query Notion database: %s", e)
-            if getattr(e, 'response', None):
+            if getattr(e, 'response', None) is not None:
                 log.error("📊 Status: %s, Response: %s...", e.response.status_code, (e.response.text or '')[:200])
             raise
 
@@ -311,3 +311,94 @@ def extract_property(prop: Dict[str, Any]) -> Any:
     """
     extractor = _PROPERTY_EXTRACTORS.get(prop.get('type'))
     return extractor(prop) if extractor else None
+
+
+# ---------------------------------------------------------------------------
+# Shared page-normalization pass
+#
+# normalize_names.py and normalize_url.py both walk the recently created pages,
+# rewrite one property through a per-tool transform and PATCH the change back.
+# ---------------------------------------------------------------------------
+
+def patch_page_properties(headers: Dict[str, str], page_id: str, properties: Dict[str, Any]) -> bool:
+    """PATCH `properties` onto a Notion page; returns False (and logs why) on failure."""
+    page_short = f"{page_id[:8]}...{page_id[-2:]}"
+    try:
+        response = requests.patch(
+            f"https://api.notion.com/v1/pages/{page_id}",
+            headers=headers,
+            json={"properties": properties},
+            timeout=REQUEST_TIMEOUT_S,
+        )
+        response.raise_for_status()
+        log.debug("✅ Successfully updated page %s", page_short)
+        return True
+    except requests.exceptions.RequestException as e:
+        log.error("❌ Failed to update page %s: %s", page_short, e)
+        # A Response is falsy for 4xx/5xx, so test identity, not truthiness.
+        if getattr(e, 'response', None) is not None:
+            log.error("📊 Status: %s, Response: %s...", e.response.status_code, (e.response.text or '')[:200])
+        return False
+
+
+def log_normalization_summary(stats: Dict[str, int], dry_run: bool = False) -> None:
+    """Log the processed / updated / unchanged counts of a normalization pass."""
+    log.info("✅ Processed %s pages", stats['processed'])
+    if dry_run:
+        log.info("📝 Would update %s, unchanged %s", stats['would_update'], stats['unchanged'])
+    else:
+        log.info("📝 Updated %s, unchanged %s", stats['updated'], stats['unchanged'])
+
+
+def normalize_pages(
+    pages: List[Dict[str, Any]],
+    *,
+    extract_page_info: Callable[[Dict[str, Any]], Optional[Tuple[str, str, str]]],
+    transform: Callable[[str], str],
+    update_page: Callable[[str, str], bool],
+    make_result: Callable[[str, str, str, str], Dict[str, Any]],
+    dry_run: bool,
+    verb: str,
+    unchanged_label: str,
+    annotate: Optional[Callable[[str], str]] = None,
+) -> List[Dict[str, Any]]:
+    """Run `transform` over each page's value and write back the ones that change.
+
+    `extract_page_info(page)` returns (page_id, last_edited_time, value) or None
+    to skip the page; `update_page(page_id, new_value)` writes the change;
+    `make_result(page_id, last_edited_time, original, new)` builds the per-page
+    result row. `verb` ("change", "clean") and `unchanged_label` word the log
+    lines; `annotate(new_value)` appends a note to each line (URL validation).
+    """
+    results: List[Dict[str, Any]] = []
+    stats = {'processed': 0, 'updated': 0, 'unchanged': 0, 'would_update': 0}
+
+    if dry_run:
+        log.info("🔍 DRY RUN MODE: No changes will be made to Notion")
+
+    for page in pages:
+        page_info = extract_page_info(page)
+        if not page_info:
+            continue
+
+        page_id, last_edited_time, original = page_info
+        new_value = transform(original)
+        note = annotate(new_value) if annotate else ""
+
+        results.append(make_result(page_id, last_edited_time, original, new_value))
+        stats['processed'] += 1
+
+        if original == new_value:
+            stats['unchanged'] += 1
+            log.info('✅ %s: "%s"%s', unchanged_label, original, note)
+        elif dry_run:
+            stats['would_update'] += 1
+            log.info('📝 [DRY RUN] Would %s: "%s" → "%s"%s', verb, original, new_value, note)
+        elif update_page(page_id, new_value):
+            stats['updated'] += 1
+            log.info('📝 %s: "%s" → "%s"%s', verb.capitalize(), original, new_value, note)
+        else:
+            log.error('❌ Failed to update: "%s"', original)
+
+    log_normalization_summary(stats, dry_run)
+    return results

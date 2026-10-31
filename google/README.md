@@ -16,7 +16,7 @@ The `diag_*` scripts in this folder aren't automations themselves — they're on
 
 ### `diag_gmail_drive.py`
 
-Offline diagnostic suite for `gmail_drive_automation.py` — makes no Google API calls and needs no credentials. It runs four checks: that `config_gmail_drive.json.sample` exists and contains the `auth`/`spreadsheet`/`gmail`/`settings` sections the automation expects; that the module's real `build_sheet_row()` turns mock email dicts into the correct 4-column row with content truncated to 100 characters plus `...`; that its real `filter_new_emails()` drops duplicate emails (by stripped subject, header row ignored) from a mock incoming batch; and that a mock spreadsheet response has the expected `properties`/`sheets` structure with a 4-column grid. Exits 0 only if all four pass.
+Offline diagnostic suite for `gmail_drive_automation.py` — makes no Google API calls and needs no credentials. It runs three checks: that `config_gmail_drive.json.sample` exists and contains the `auth`/`spreadsheet`/`gmail`/`settings` sections the automation expects; that the module's real `build_sheet_row()` turns mock email dicts into the correct 4-column row with content truncated to 100 characters plus `...`; and that its real `filter_new_emails()` drops duplicate emails (by stripped subject, header row ignored) from a mock incoming batch. Exits 0 only if all three pass.
 
 Run it after changing `gmail_drive_automation.py`'s data-processing logic (row building, dedup, or spreadsheet-shape assumptions), or as a fast sanity check before scheduling a run, since it needs no network access or live credentials:
 

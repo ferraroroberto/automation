@@ -21,7 +21,6 @@ class TextExpanderSettings:
     auto_start: bool
     show_notifications: bool
     max_abbreviation_length: int
-    replacement_delay_ms: int
 
 @dataclass
 class TextExpanderConfig:
@@ -42,8 +41,7 @@ class TextExpanderCore:
             "trigger_key": "/",
             "auto_start": True,
             "show_notifications": True,
-            "max_abbreviation_length": 50,
-            "replacement_delay_ms": 100
+            "max_abbreviation_length": 50
         }
     }
 
@@ -78,8 +76,7 @@ class TextExpanderCore:
                 trigger_key=settings_data['trigger_key'],
                 auto_start=settings_data['auto_start'],
                 show_notifications=settings_data['show_notifications'],
-                max_abbreviation_length=settings_data['max_abbreviation_length'],
-                replacement_delay_ms=settings_data['replacement_delay_ms']
+                max_abbreviation_length=settings_data['max_abbreviation_length']
             )
 
             # Parse abbreviations
@@ -133,7 +130,7 @@ class TextExpanderCore:
                 raise ConfigError("❌ 'settings' must be an object")
 
             required_settings = ['trigger_key', 'auto_start', 'show_notifications',
-                               'max_abbreviation_length', 'replacement_delay_ms']
+                               'max_abbreviation_length']
 
             for setting in required_settings:
                 if setting not in settings:
@@ -276,8 +273,7 @@ class TextExpanderCore:
                     'trigger_key': self.config.settings.trigger_key,
                     'auto_start': self.config.settings.auto_start,
                     'show_notifications': self.config.settings.show_notifications,
-                    'max_abbreviation_length': self.config.settings.max_abbreviation_length,
-                    'replacement_delay_ms': self.config.settings.replacement_delay_ms
+                    'max_abbreviation_length': self.config.settings.max_abbreviation_length
                 }
             }
 

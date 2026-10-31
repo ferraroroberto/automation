@@ -14,7 +14,6 @@ from typing import Dict, Any, Tuple
 
 import pandas as pd
 import webbrowser
-import easygui
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -33,6 +32,10 @@ class GuiLogHandler(logging.Handler):
             self.gui_callback(msg)
         except Exception:
             self.handleError(record)
+
+
+# The module's own logger exists at import time, so helpers work when imported (tests) as well as from main().
+logger = logging.getLogger(__name__)
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
@@ -79,16 +82,14 @@ def load_excel_data(file_path: str) -> pd.DataFrame:
         df = pd.read_excel(file_path)
         logger.info(f"Successfully loaded {len(df)} rows from Excel file")
         return df
-    except PermissionError:
-        easygui.msgbox(
-            f"Permission denied: Unable to access the file at {file_path}.",
-            title="File Access Error"
-        )
+    except PermissionError as e:
         logger.error(f"Permission denied accessing file: {file_path}")
-        sys.exit(1)
+        # Raised, not sys.exit: this runs on the GUI's worker thread, where SystemExit
+        # would end the thread silently and leave the dialog on "Processing...".
+        raise PermissionError(f"Permission denied: unable to access the file at {file_path}") from e
     except Exception as e:
         logger.error(f"Error reading Excel file: {e}")
-        sys.exit(1)
+        raise
 
 
 class FilterDialog:
@@ -516,8 +517,7 @@ Examples:
     args = parser.parse_args()
 
     # Setup logging
-    global logger
-    logger = setup_logging(args.verbose)
+    setup_logging(args.verbose)
 
     # Load configuration
     config = load_config(args.config)

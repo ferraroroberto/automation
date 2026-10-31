@@ -33,13 +33,13 @@ No CLI arguments — it's GUI-only. Double-click `audio_extractor_gui.bat` to la
 
 ## 🔁 convert_ogg_mp3.py
 
-Converts a single `.ogg` file to `.mp3` (192k bitrate) via `pydub`, saving the output alongside the source with the same base name. Resolves its own FFmpeg binary at runtime through `imageio_ffmpeg` (used for both encoding and probing), so it works without a separate FFmpeg install on `PATH`.
+Converts a single `.ogg` file to `.mp3` (192k bitrate) by running the FFmpeg binary bundled with `imageio-ffmpeg` directly (no `ffprobe` step), saving the output alongside the source with the same base name. It works without a separate FFmpeg or FFprobe install on `PATH`.
 
 ```bash
 python audio/convert_ogg_mp3.py
 ```
 
-No CLI arguments — opens a file-picker dialog filtered to `*.ogg`. Requires the `pydub` and `imageio-ffmpeg` Python packages.
+No CLI arguments — opens a file-picker dialog filtered to `*.ogg`. Requires the `imageio-ffmpeg` Python package.
 
 ## 📝 transcript_collate.py
 

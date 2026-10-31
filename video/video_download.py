@@ -15,7 +15,7 @@ from urllib.parse import urlparse, parse_qs
 import requests
 import yt_dlp
 
-from _tk_widgets import build_progress_section
+from _tk_widgets import build_progress_section, set_progress
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -295,9 +295,7 @@ class VideoDownloaderApp:
         self.root.update_idletasks()
 
     def _update_progress(self, percent):
-        self.progress_bar['value'] = percent
-        self.progress_label.config(text=f"{percent:.1f}%")
-        self.root.update_idletasks()
+        set_progress(self.root, self.progress_bar, self.progress_label, percent)
 
     def _get_hls_headers(self):
         referer = self.hls_referer.get().strip()

@@ -14,71 +14,15 @@ from _chrome_client import ChromeDevToolsClient, setup_logging
 
 logger = setup_logging(__name__)
 
-_PROFILE_JS = """
-        (function() {
-            const profile = {};
-
-            // Try search results first
-            const searchResult = document.querySelector('div[data-view-name="people-search-result"]');
-            if (searchResult) {
-                // Extract name from the title link
-                const nameLink = searchResult.querySelector('a[data-view-name="search-result-lockup-title"]');
-                if (nameLink) {
-                    profile.name = nameLink.textContent?.trim();
-                }
-
-                // Extract URL
-                const profileLink = searchResult.querySelector('a[href*="/in/"]');
-                if (profileLink) {
-                    let href = profileLink.getAttribute('href');
-                    if (href) {
-                        if (href.startsWith('/in/')) {
-                            href = 'https://www.linkedin.com' + href;
-                        }
-                        profile.url_profile = href.split('?')[0];
-                    }
-                }
-
-                // Extract job title and location from paragraphs
-                const paragraphs = searchResult.querySelectorAll('p');
-                let jobTitleFound = false;
-
-                for (const p of paragraphs) {
-                    const text = p.textContent?.trim();
-                    if (!text) continue;
-                    if (profile.name && text.includes(profile.name)) continue;
-                    if (text.match(/^[•\\s]*[123](?:st|nd|rd)$/)) continue;
-                    if (text.includes('followers')) continue;
-                    if (text.includes('mutual connection')) continue;
-
-                    if (!jobTitleFound) {
-                        profile.job_title = text;
-                        jobTitleFound = true;
-                        continue;
-                    }
-
-                    profile.location = text;
-                    break;
-                }
-            } else {
-                // Fallback: Profile page selectors
-                const nameEl = document.querySelector('h1.text-heading-xlarge') ||
-                               document.querySelector('h1[data-test-id="hero__page__title"]');
-                if (nameEl) profile.name = nameEl.textContent?.trim();
-
-                const jobEl = document.querySelector('.pv-text-details__left-panel .text-body-medium');
-                if (jobEl) profile.job_title = jobEl.textContent?.trim();
-
-                const locEl = document.querySelector('.pv-text-details__left-panel .text-body-small');
-                if (locEl) profile.location = locEl.textContent?.trim();
-
-                profile.url_profile = window.location.href.split('?')[0];
-            }
-
-            // Extract company from search filter pill
+# Card parsing lives in one JS fragment so the single-profile and search-results
+# scripts cannot drift apart (selector lists, skip rules, URL cleanup).
+_CARD_JS = """
+        function extractCompany(profile) {
+            // Company comes from the search filter pill, not from the card.
             const companySelectors = [
                 'button[id="searchFilter_currentCompany"]',
-                '.artdeco-pill[aria-label*="Current company"]'
+                '.artdeco-pill[aria-label*="Current company"]',
+                '.search-reusables__filter-pill-button[aria-label*="company"]'
             ];
 
             for (const selector of companySelectors) {
@@ -91,104 +35,96 @@ _PROFILE_JS = """
                     }
                 }
             }
+        }
 
+        function extractCard(result) {
+            const profile = {};
+
+            const nameLink = result.querySelector('a[data-view-name="search-result-lockup-title"]');
+            if (nameLink) {
+                profile.name = nameLink.textContent?.trim();
+            }
+
+            const profileLink = result.querySelector('a[href*="/in/"]');
+            if (profileLink) {
+                let href = profileLink.getAttribute('href');
+                if (href) {
+                    if (href.startsWith('/in/')) {
+                        href = 'https://www.linkedin.com' + href;
+                    }
+                    profile.url_profile = href.split('?')[0];
+                }
+            }
+
+            // First non-name paragraph is the job title, the second the location.
+            const paragraphs = result.querySelectorAll('p');
+            let jobTitleFound = false;
+
+            for (const p of paragraphs) {
+                const text = p.textContent?.trim();
+                if (!text) continue;
+                if (profile.name && text.includes(profile.name)) continue;
+                if (text.match(/^[•\\s]*[123](?:st|nd|rd)$/)) continue;
+                if (text.includes('followers')) continue;
+                if (text.includes('mutual connection')) continue;
+
+                if (!jobTitleFound) {
+                    profile.job_title = text;
+                    jobTitleFound = true;
+                    continue;
+                }
+
+                profile.location = text;
+                break;
+            }
+
+            extractCompany(profile);
             profile.follows_from = null;
+            return profile;
+        }
+"""
 
+_PROFILE_JS = """
+        (function() {
+""" + _CARD_JS + """
+            // Try search results first
+            const searchResult = document.querySelector('div[data-view-name="people-search-result"]');
+            if (searchResult) {
+                return extractCard(searchResult);
+            }
+
+            // Fallback: profile page selectors
+            const profile = {};
+            const nameEl = document.querySelector('h1.text-heading-xlarge') ||
+                           document.querySelector('h1[data-test-id="hero__page__title"]');
+            if (nameEl) profile.name = nameEl.textContent?.trim();
+
+            const jobEl = document.querySelector('.pv-text-details__left-panel .text-body-medium');
+            if (jobEl) profile.job_title = jobEl.textContent?.trim();
+
+            const locEl = document.querySelector('.pv-text-details__left-panel .text-body-small');
+            if (locEl) profile.location = locEl.textContent?.trim();
+
+            profile.url_profile = window.location.href.split('?')[0];
+            extractCompany(profile);
+            profile.follows_from = null;
             return profile;
         })();
         """
 
 _SEARCH_RESULTS_JS = """
         (function() {
+""" + _CARD_JS + """
             const profiles = [];
-
-            // Find all search result containers using the new LinkedIn structure
             const searchResults = document.querySelectorAll('div[data-view-name="people-search-result"]');
 
-            for (let i = 0; i < searchResults.length; i++) {
-                const result = searchResults[i];
+            for (const result of searchResults) {
                 try {
-                    const profile = {};
-
-                    // Extract name from the title link
-                    const nameLink = result.querySelector('a[data-view-name="search-result-lockup-title"]');
-                    if (nameLink) {
-                        profile.name = nameLink.textContent?.trim();
-                    }
-
-                    // Extract URL from LinkedIn profile link
-                    const profileLink = result.querySelector('a[href*="/in/"]');
-                    if (profileLink) {
-                        let href = profileLink.getAttribute('href');
-                        if (href) {
-                            // Make sure it's a full URL
-                            if (href.startsWith('/in/')) {
-                                href = 'https://www.linkedin.com' + href;
-                            }
-                            // Clean URL by removing query parameters
-                            profile.url_profile = href.split('?')[0];
-                        }
-                    }
-
-                    // Find all <p> tags that end content blocks (followed by </p>)
-                    // The structure after the name is: job_title in first p, location in second p
-                    const paragraphs = result.querySelectorAll('p');
-                    let jobTitleFound = false;
-                    let locationFound = false;
-
-                    for (const p of paragraphs) {
-                        const text = p.textContent?.trim();
-                        if (!text) continue;
-
-                        // Skip if it contains the name (already extracted)
-                        if (profile.name && text.includes(profile.name)) continue;
-
-                        // Skip connection degree indicators and social proof
-                        if (text.match(/^[•\\s]*[123](?:st|nd|rd)$/)) continue;
-                        if (text.includes('followers')) continue;
-                        if (text.includes('mutual connection')) continue;
-
-                        // First non-name paragraph is job title
-                        if (!jobTitleFound) {
-                            profile.job_title = text;
-                            jobTitleFound = true;
-                            continue;
-                        }
-
-                        // Second is location
-                        if (!locationFound) {
-                            profile.location = text;
-                            locationFound = true;
-                            break;
-                        }
-                    }
-
-                    // Extract company from search filter pill
-                    const companySelectors = [
-                        'button[id="searchFilter_currentCompany"]',
-                        '.artdeco-pill[aria-label*="Current company"]',
-                        '.search-reusables__filter-pill-button[aria-label*="company"]'
-                    ];
-
-                    for (const selector of companySelectors) {
-                        const element = document.querySelector(selector);
-                        if (element) {
-                            const text = element.textContent?.trim();
-                            if (text) {
-                                profile.company = text.replace(/\\s+\\d+$/, '');
-                                break;
-                            }
-                        }
-                    }
-
-                    // follows_from is always null
-                    profile.follows_from = null;
-
-                    // Only add profile if we have at least a name or URL
+                    const profile = extractCard(result);
+                    // Only keep cards with at least a name or URL
                     if (profile.name || profile.url_profile) {
                         profiles.push(profile);
                     }
-
                 } catch (error) {
                     console.log('Error extracting profile:', error);
                 }

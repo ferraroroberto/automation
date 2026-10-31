@@ -158,7 +158,6 @@ class FolderSearcherConfig:
         """Serialize back to the on-disk schema (new keys only)."""
         return {
             "root_paths": list(self.root_paths),
-            "structure_file": self.structure_file,
             "skip_depth": self.skip_depth,
             "prune_email_branches": self.prune_email_branches,
         }

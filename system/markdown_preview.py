@@ -26,6 +26,7 @@ Usage:
 import argparse
 import ctypes
 import logging
+import tempfile
 import threading
 import time
 from ctypes import wintypes
@@ -44,6 +45,10 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
+# A second launch leaves the .md path it was given here for the running instance
+# (the named event only wakes it); the temp folder is per-user on Windows.
+HANDOFF_FILE = Path(tempfile.gettempdir()) / "markdown_preview_open.txt"
 
 MARKDOWN_EXTENSIONS = ["fenced_code", "tables", "toc", "codehilite", "sane_lists"]
 
@@ -247,6 +252,21 @@ applyGlyph();
 </html>"""
 
 
+def write_handoff(path: Path, handoff: Path = HANDOFF_FILE) -> None:
+    """Leave ``path`` for the running instance to pick up."""
+    handoff.write_text(str(path), encoding="utf-8")
+
+
+def take_handoff(handoff: Path = HANDOFF_FILE) -> Optional[Path]:
+    """Return the path a second launch left behind (and clear it), or None."""
+    try:
+        text = handoff.read_text(encoding="utf-8").strip()
+        handoff.unlink()
+    except OSError:
+        return None
+    return Path(text) if text else None
+
+
 class Api:
     """Exposed to JS so the window's theme survives a live-reload re-render."""
 
@@ -422,7 +442,9 @@ class MarkdownPreviewApp:
         self._mutex = k.CreateMutexW(None, True, self._MUTEX_NAME)
         if k.GetLastError() != self._ERROR_ALREADY_EXISTS:
             return True
-        # Another instance is running — ask it to show its window.
+        # Another instance is running — hand it the file, then ask it to show its window.
+        if self.current_file is not None:
+            write_handoff(self.current_file.resolve())
         EVENT_MODIFY_STATE = 0x0002
         k.OpenEventW.restype = wintypes.HANDLE
         k.OpenEventW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
@@ -454,6 +476,10 @@ class MarkdownPreviewApp:
             while not self._quitting:
                 result = k.WaitForSingleObject(h, 500)
                 if result == WAIT_OBJECT_0 and self.window is not None:
+                    handed_over = take_handoff()
+                    if handed_over is not None:
+                        self.current_file = handed_over
+                        self._load_current()
                     self.window.show()
         finally:
             k.CloseHandle(h)

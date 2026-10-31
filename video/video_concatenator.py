@@ -6,7 +6,6 @@ Supports both GUI and command-line interfaces. Uses stream copy (no re-encode) b
 import argparse
 import logging
 import os
-import re
 import subprocess
 import tempfile
 import threading
@@ -14,10 +13,15 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import List, Optional
 
-from _ffmpeg_utils import NO_WINDOW, get_video_duration
-from _tk_widgets import build_progress_section
+from _ffmpeg_utils import NO_WINDOW, get_video_duration, run_ffmpeg_with_progress
+from _tk_widgets import build_progress_section, set_progress
 
 log = logging.getLogger(__name__)
+
+
+def _concat_list_text(paths: List[str]) -> str:
+    r"""Concat-demuxer list: one `file '<path>'` line per clip, each `'` in a path written as `'\''`."""
+    return "".join("file '{}'\n".format(p.replace("'", "'\\''")) for p in paths)
 
 
 def _total_duration(paths: List[str]) -> Optional[float]:
@@ -30,34 +34,6 @@ def _total_duration(paths: List[str]) -> Optional[float]:
             break
         total_duration += duration
     return total_duration
-
-
-def _run_ffmpeg_with_progress(cmd: List[str], total_duration: Optional[float], progress_callback) -> int:
-    """Run ffmpeg, reporting progress from its time= lines; returns the exit code."""
-    # Run with progress parsing for concat (ffmpeg may output time=)
-    process = subprocess.Popen(
-        cmd,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        bufsize=1,
-        creationflags=NO_WINDOW,
-    )
-    time_pat = re.compile(r"time=(\d+):(\d+):(\d+)\.(\d+)")
-    for line in process.stderr:
-        if progress_callback and "time=" in line:
-            m = time_pat.search(line)
-            if m:
-                h, mn, s, ms = map(int, m.groups())
-                elapsed = h * 3600 + mn * 60 + s + ms / 100.0
-                if total_duration:
-                    percent = (elapsed / total_duration) * 100.0
-                else:
-                    # Could not probe durations upfront; fall back to
-                    # the previous rough estimate.
-                    percent = elapsed * 2
-                progress_callback(min(99.0, percent))
-    process.wait()
-    return process.returncode
 
 
 class VideoConcatenator:
@@ -96,9 +72,9 @@ class VideoConcatenator:
 
         try:
             abs_paths = [os.path.abspath(p).replace("\\", "/") for p in paths]
-            with open(list_file, "w") as f:
-                for p in abs_paths:
-                    f.write(f"file '{p}'\n")
+            # ffmpeg reads the list as UTF-8, whatever the locale encoding is.
+            with open(list_file, "w", encoding="utf-8", newline="\n") as f:
+                f.write(_concat_list_text(abs_paths))
 
             if status_callback:
                 status_callback(f"Concatenating {len(paths)} videos...")
@@ -121,7 +97,7 @@ class VideoConcatenator:
                 output_path,
             ]
 
-            returncode = _run_ffmpeg_with_progress(cmd, total_duration, progress_callback)
+            returncode = run_ffmpeg_with_progress(cmd, total_duration, progress_callback, max_percent=99.0)
 
             if os.path.exists(list_file):
                 os.remove(list_file)
@@ -317,9 +293,7 @@ class VideoConcatenatorApp:
             self.output_path.set(path)
 
     def _update_progress(self, percent):
-        self.progress_bar["value"] = percent
-        self.progress_label.config(text=f"{percent:.1f}%")
-        self.root.update_idletasks()
+        set_progress(self.root, self.progress_bar, self.progress_label, percent)
 
     def _start_process(self):
         if len(self.video_paths) < 2:

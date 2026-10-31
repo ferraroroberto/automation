@@ -12,7 +12,6 @@
     "trigger_key": "/",
     "auto_start": true,
     "show_notifications": true,
-    "max_abbreviation_length": 50,
-    "replacement_delay_ms": 100
+    "max_abbreviation_length": 50
   }
 }

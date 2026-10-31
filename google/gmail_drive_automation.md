@@ -119,9 +119,7 @@ Create a `config.json` file based on the `config_gmail_drive.json.sample`:
         "max_results": 100
     },
     "settings": {
-        "timezone": "UTC",
-        "retry_attempts": 3,
-        "retry_delay_seconds": 5
+        "timezone": "UTC"
     }
 }
 ```
@@ -141,8 +139,6 @@ Create a `config.json` file based on the `config_gmail_drive.json.sample`:
 
 #### Settings (`settings`)
 - `timezone`: Timezone for date formatting
-- `retry_attempts`: Number of retry attempts for API calls
-- `retry_delay_seconds`: Delay between retry attempts
 
 ### Gmail Search Query Examples
 

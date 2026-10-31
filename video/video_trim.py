@@ -6,15 +6,14 @@ Supports both GUI and command-line interfaces.
 import argparse
 import logging
 import os
-import re
 import subprocess
 import tempfile
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration
-from _tk_widgets import build_progress_section
+from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration, run_ffmpeg_with_progress
+from _tk_widgets import build_progress_section, set_progress
 
 log = logging.getLogger(__name__)
 
@@ -121,39 +120,10 @@ def trim_video(input_path, start_sec, end_sec, progress_callback=None, status_ca
             output_file
         ]
 
-    # Pattern to parse FFmpeg stderr: time=HH:MM:SS.ms, time=MM:SS.ms, or time=SS.ms
-    time_pattern = re.compile(
-        r"time=(\d+):(\d+):(\d+)\.(\d+)|time=(\d+):(\d+)\.(\d+)|time=(\d+)\.(\d+)"
-    )
-
     def run_ffmpeg():
-        process = subprocess.Popen(
-            ffmpeg_cmd,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            bufsize=1,
-            creationflags=NO_WINDOW,
-        )
-        for line in process.stderr:
-            if "time=" in line:
-                # Parse time from ffmpeg output
-                m = time_pattern.search(line)
-                if m:
-                    if m.group(1) is not None:  # HH:MM:SS.ms
-                        h, mn, s, ms = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
-                        elapsed = h * 3600 + mn * 60 + s + ms / 100.0
-                    elif m.group(5) is not None:  # MM:SS.ms
-                        mn, s, ms = int(m.group(5)), int(m.group(6)), int(m.group(7))
-                        elapsed = mn * 60 + s + ms / 100.0
-                    else:  # SS.ms
-                        s, ms = int(m.group(8)), int(m.group(9))
-                        elapsed = s + ms / 100.0
-                    pct = min(100.0, 100.0 * elapsed / duration)
-                    if progress_callback:
-                        progress_callback(pct)
-        process.wait()
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, ffmpeg_cmd)
+        returncode = run_ffmpeg_with_progress(ffmpeg_cmd, duration, progress_callback)
+        if returncode != 0:
+            raise subprocess.CalledProcessError(returncode, ffmpeg_cmd)
         if progress_callback:
             progress_callback(100.0)
         return output_file
@@ -454,9 +424,7 @@ class VideoTrimApp:
         self.status_var.set("Queue cleared")
 
     def _update_progress(self, percent):
-        self.progress_bar["value"] = percent
-        self.progress_label.config(text=f"{percent:.1f}%")
-        self.root.update_idletasks()
+        set_progress(self.root, self.progress_bar, self.progress_label, percent)
 
     def _process_queue(self):
         if not self.queue:

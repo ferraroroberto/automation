@@ -20,6 +20,9 @@ except ImportError:
     HEIC_SUPPORT = False
     logger.warning("pillow-heif not installed. HEIC support disabled. Install with: pip install pillow-heif")
 
+# Outputs and scratch files this tool writes beside the inputs; never inputs themselves.
+GENERATED_SUFFIXES = ('_resize', '_temp')
+
 SUPPORTED_FORMATS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'}
 if HEIC_SUPPORT:
     SUPPORTED_FORMATS.update({'.heic', '.heif'})
@@ -89,7 +92,8 @@ def resize_image_to_max_size(
                     output_path = image_path.parent / f"{image_path.stem}_resize.jpg"
                 else:
                     output_path = image_path.parent / f"{image_path.stem}_resize{image_path.suffix}"
-                temp_path.rename(output_path)
+                # replace(), not rename(): Windows rename raises when a previous run left the target.
+                temp_path.replace(output_path)
                 if preserve_dimensions:
                     logger.info(f"Success: Resized to {new_size_kb:.2f} KB (quality: {quality}, dimensions unchanged)")
                 else:
@@ -109,6 +113,9 @@ def resize_image_to_max_size(
     except Exception as e:
         logger.error(f"Error processing {image_path}: {str(e)}")
         return False
+    finally:
+        # Nothing may be left behind for the next glob to pick up as an input.
+        temp_path.unlink(missing_ok=True)
 
 
 def process_folder(folder_path: Path, max_size_kb: float, preserve_dimensions: bool = False):
@@ -116,6 +123,9 @@ def process_folder(folder_path: Path, max_size_kb: float, preserve_dimensions: b
     Process all images in the folder, resizing them to the maximum file size.
     """
     for file_path in folder_path.glob('*'):
+        if file_path.stem.endswith(GENERATED_SUFFIXES):
+            logger.info(f"Skipping generated file: {file_path}")
+            continue
         if file_path.suffix.lower() in SUPPORTED_FORMATS:
             logger.info(f"Processing {file_path}")
             if preserve_dimensions:
