@@ -12,6 +12,7 @@ from unittest import mock
 import browser_stealth as bs
 from google import photos_weekly_album as pwa
 from google import photos_weekly_album_job as job
+from google import photos_weekly_counts as counts
 from google.gmail_web import GmailError, GmailWeb
 
 SAMPLE = Path(pwa.__file__).with_name("photos_weekly_album.json.sample")
@@ -71,7 +72,7 @@ class TitleTests(unittest.TestCase):
 
 class LabelTests(unittest.TestCase):
     def test_photo_and_video_labels(self):
-        self.assertEqual(pwa.label_datetime("Photo - Landscape - Oct 3, 2026, 8:23:55 AM"),
+        self.assertEqual(counts.label_datetime("Photo - Landscape - Oct 3, 2026, 8:23:55 AM"),
                          datetime(2026, 10, 3, 8, 23, 55))
         self.assertEqual(pwa.label_date("Video - Portrait - Oct 9, 2026, 6:47:52 PM"), date(2026, 10, 9))
 

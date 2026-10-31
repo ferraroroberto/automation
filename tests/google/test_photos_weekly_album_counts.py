@@ -63,6 +63,26 @@ class CollectGuardTests(unittest.TestCase):
             web.collect(self.START, self.END)
         self.assertIn("2026-10-24: headers 279, tiles 290", str(ctx.exception))
 
+    def test_an_early_read_of_the_oldest_day_is_vouched_for_by_the_final_counter(self):
+        sat, sun = self.START, date(2026, 10, 25)
+        # Oldest day read 289 of its 300 tiles; 4 screenshots unticked; counter holds 300 + 40 - 4.
+        sel = self._web({sat: 289, sun: 40}, {sat: 300, sun: 40}, excluded=4, selected=336).collect(
+            self.START, self.END)
+        self.assertEqual((sel.per_day[sat], sel.day_total, sel.week_tiles), (300, 340, 340))
+
+    def test_extra_tiles_on_the_oldest_day_abort_when_the_counter_disagrees(self):
+        sat, sun = self.START, date(2026, 10, 25)
+        # The sweep counted 11 tiles the headers never selected; the counter confirms the headers.
+        web = self._web({sat: 289, sun: 40}, {sat: 300, sun: 40}, excluded=4, selected=325)
+        with self.assertRaises(pwa.FlowError) as ctx:
+            web.collect(self.START, self.END)
+        self.assertIn("2026-10-24: headers 289, tiles 300", str(ctx.exception))
+
+    def test_a_short_day_after_the_oldest_is_never_reconciled(self):
+        sat, sun = self.START, date(2026, 10, 25)
+        self.assertEqual(pwa.reconcile_boundary_day({sat: 289, sun: 30}, {sat: 300, sun: 40}, sat, 336, 4),
+                         {sat: 289, sun: 30})
+
     def test_matching_counts_pass(self):
         sat = self.START
         sel = self._web({sat: 290}, {sat: 290}, excluded=4, selected=286).collect(self.START, self.END)
