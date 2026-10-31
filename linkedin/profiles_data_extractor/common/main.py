@@ -14,75 +14,8 @@ from extract_data import main as extract_data_main
 from history import main as history_main
 from loaders import load_config, load_excel_data
 
-def get_current_theme_mode():
-    """Determine if the current theme is light or dark based on config.toml."""
-    config_path = Path(__file__).parent / ".streamlit" / "config.toml"
-    
-    # Default to dark if file doesn't exist or can't be read
-    if not config_path.exists():
-        return "dark"
-        
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            # Simple check for background color
-            if 'backgroundColor = "#FFFFFF"' in content:
-                return "light"
-            else:
-                return "dark"
-    except (OSError, UnicodeDecodeError):
-        return "dark"
-
-def toggle_theme():
-    """Toggle between light and dark mode by updating config.toml."""
-    config_dir = Path(__file__).parent / ".streamlit"
-    config_path = config_dir / "config.toml"
-
-    # Ensure directory exists
-    config_dir.mkdir(exist_ok=True)
-
-    current_mode = get_current_theme_mode()
-
-    if current_mode == "light":
-        # Switch to Dark
-        new_config = """[theme]
-primaryColor = "#1E88E5"
-backgroundColor = "#0E1117"
-secondaryBackgroundColor = "#262730"
-textColor = "#FAFAFA"
-font = "sans serif"
-"""
-    else:
-        # Switch to Light
-        new_config = """[theme]
-primaryColor = "#1E88E5"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
-font = "sans serif"
-"""
-
-    with open(config_path, "w", encoding="utf-8") as f:
-        f.write(new_config)
-
-    # Trigger a rerun to apply changes
-    st.rerun()
-
-
 def render_sidebar_filters(df):
-    """Render the shared sidebar (theme toggle and filters); returns the filtered frame and the filter selections."""
-    # Shared Sidebar Filters
-    st.sidebar.header("App Settings")
-    
-    # Theme Toggle
-    current_mode = get_current_theme_mode()
-    if st.sidebar.button(
-        f"Switch to {'Light' if current_mode == 'dark' else 'Dark'} Mode",
-        key="main_theme_toggle",
-    ):
-        toggle_theme()
-        
-    st.sidebar.divider()
+    """Render the shared sidebar filters; returns the filtered frame and the filter selections."""
     st.sidebar.header("Filters")
 
     # Note about Data Editor

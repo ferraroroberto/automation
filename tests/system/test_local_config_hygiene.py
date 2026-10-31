@@ -123,6 +123,16 @@ class LocalConfigHygieneTests(unittest.TestCase):
             "file itself, so a run with a missing/unreadable config would overwrite it",
         )
 
+    def test_streamlit_theme_config_is_never_rewritten_by_the_app(self) -> None:
+        """`.streamlit/config.toml` is tracked; a sidebar toggle that rewrote it
+        dirtied the working tree with a per-machine preference. Theme switching
+        is Streamlit's own settings menu, so no source may open that file."""
+        common = REPO_ROOT / "linkedin" / "profiles_data_extractor" / "common"
+        offenders = sorted(
+            path.name for path in common.glob("*.py") if ".streamlit" in path.read_text(encoding="utf-8")
+        )
+        self.assertEqual(offenders, [], f"sources that touch .streamlit/config.toml: {offenders}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
