@@ -31,11 +31,13 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 from urllib.parse import urljoin
 
 from browser_stealth import launch_persistent
 from google.gmail_web import EMAIL_RE, GmailNotSignedIn, GmailWeb
+from google.photos_weekly_counts import (count_mismatches, days_of, label_date,
+                                         reconcile_boundary_day, settled_value)
 
 logger = logging.getLogger("photos_weekly_album")
 
@@ -51,7 +53,6 @@ COUNTER_POLL_MS = 400  # pause between reads while a select-all's "N selected" c
 REVEAL_TIMEOUT_MS = 5_000  # a scroll/hover on a tile that is gone fails fast, not at the 30 s default
 
 SATURDAY = 5  # date.weekday()
-LABEL_RE = re.compile(r"^(Photo|Video)\b.* - ([A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M)$")
 COUNT_RE = re.compile(r"^(\d+) items?\b")
 # The option row's name is its icon ligature plus its text ("add New album"); an album row ends in its item count.
 NEW_ALBUM_RE = re.compile(r"(?:^|\s)New album$")
@@ -192,47 +193,6 @@ def build_title(template: str, counters: dict, week_start: date) -> str:
         return template.format(**values)
     except (KeyError, IndexError) as exc:
         raise ValueError(f"title template placeholder {exc} has no counter in config") from exc
-
-
-def label_datetime(label: str) -> Optional[datetime]:
-    """Date taken from a tile label like ``Photo - Landscape - Oct 3, 2026, 8:23:55 AM``."""
-    match = LABEL_RE.match(" ".join(label.split()))  # also folds the narrow no-break space before AM/PM
-    return datetime.strptime(match.group(2), "%b %d, %Y, %I:%M:%S %p") if match else None
-
-
-def label_date(label: str) -> Optional[date]:
-    taken = label_datetime(label)
-    return taken.date() if taken else None
-
-
-def days_of(start: date, end: date) -> list[date]:
-    return [start + timedelta(days=n) for n in range((end - start).days + 1)]
-
-
-def count_mismatches(per_day: dict[date, int], tiles_per_day: dict[date, int]) -> list[str]:
-    """One ``<day>: headers N, tiles M`` entry per day whose two counts disagree."""
-    return [f"{day}: headers {per_day.get(day, 0)}, tiles {tiles_per_day.get(day, 0)}"
-            for day in sorted(set(per_day) | set(tiles_per_day))
-            if per_day.get(day, 0) != tiles_per_day.get(day, 0)]
-
-
-def settled_value(read: Callable[[], int], pause: Callable[[], None], floor: int,
-                  stable_reads: int = 3, max_reads: int = 40) -> int:
-    """``read()`` once it has stopped changing for ``stable_reads`` reads in a row.
-
-    Photos counts a big day's items up after a select-all click rather than jumping to the total, so
-    a single read right after the click is short. A value still at ``floor`` (nothing selected yet)
-    never counts as settled until the reads run out.
-    """
-    last, run_length = -1, 0
-    for _ in range(max_reads):
-        value = read()
-        run_length = run_length + 1 if value == last else 1
-        last = value
-        if run_length >= stable_reads and value != floor:
-            return value
-        pause()
-    return last
 
 
 def find_share_link(texts: list[str]) -> Optional[str]:
@@ -675,6 +635,13 @@ class PhotosWeb:
         result = Selection(per_day=self.select_week(start, end))
         result.tiles_per_day, result.excluded, result.excluded_missing = self.drop_excluded(start, end, excluded)
         result.selected = self._counter()
+        reconciled = reconcile_boundary_day(result.per_day, result.tiles_per_day, start,
+                                            result.selected, result.excluded)
+        if reconciled is not result.per_day:
+            logger.warning("⚠️ %s: day header read %d but the sweep and the final counter agree on %d; "
+                           "the header count was read before it finished climbing", start,
+                           result.per_day.get(start, 0), reconciled[start])
+            result.per_day = reconciled
         for day in days_of(start, end):
             logger.info("ℹ️ %s %s: day header %d, tile sweep %d", day.strftime("%a"), day,
                         result.per_day.get(day, 0), result.tiles_per_day.get(day, 0))
