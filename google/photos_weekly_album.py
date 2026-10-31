@@ -31,7 +31,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urljoin
 
 from browser_stealth import launch_persistent
@@ -47,6 +47,7 @@ DEFAULT_PROFILE = Path.home() / ".photos-weekly-album-profile"
 PHOTOS_URL = "https://photos.google.com/"
 ALBUMS_URL = "https://photos.google.com/albums"
 SCREENSHOTS_LINK = "Screenshots & recordings"
+REVEAL_TIMEOUT_MS = 5_000  # a scroll/hover on a tile that is gone fails fast, not at the 30 s default
 
 SATURDAY = 5  # date.weekday()
 LABEL_RE = re.compile(r"^(Photo|Video)\b.* - ([A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M)$")
@@ -412,6 +413,31 @@ class PhotosWeb:
 
     # -- selection ----------------------------------------------------------------------------
 
+    def _reveal_box(self, selector: str, reveal: str, what: str) -> Any:
+        """The checkbox at ``selector``, scrolled into view and shown, ready to click.
+
+        Photos virtualises the grid, so a tile ``_scan`` reported can be off-screen or re-rendered
+        by the time it is clicked; a hover on it then waits out Playwright's 30 s default. Scroll
+        first, bound the hover, and on a miss re-mark with ``SCAN_JS`` and try once more before a
+        FlowError that names the step.
+        """
+        for attempt in range(2):
+            box = self.page.locator(selector).first
+            try:
+                box.scroll_into_view_if_needed(timeout=REVEAL_TIMEOUT_MS)
+                if not box.is_visible():
+                    self.page.locator(reveal).first.hover(timeout=REVEAL_TIMEOUT_MS)
+                return box
+            except Exception as exc:  # Playwright's TimeoutError, or a detached element
+                if attempt:
+                    raise FlowError(f"{what}: the checkbox could not be scrolled into view and "
+                                    f"revealed after a rescan ({type(exc).__name__})") from exc
+                logger.info("ℹ️ %s: checkbox not reachable (%s); rescanning and retrying", what,
+                            type(exc).__name__)
+                self.page.evaluate(SCAN_JS)  # the scroll may have re-rendered the marked element
+                self.page.wait_for_timeout(500)
+        raise AssertionError("unreachable")  # pragma: no cover
+
     def _click_checked(self, selector: str, reveal: str, want: bool, what: str) -> None:
         """Real click on a checkbox, asserting the new state; one retry (clicks can be dropped).
 
@@ -421,9 +447,7 @@ class PhotosWeb:
         """
         state = "true" if want else "false"
         for _ in range(2):
-            box = self.page.locator(selector).first
-            if not box.is_visible():
-                self.page.locator(reveal).first.hover()
+            box = self._reveal_box(selector, reveal, what)
             box.click()
             try:  # aria-checked follows the click by a moment
                 self.page.locator(f'{selector}[aria-checked="{state}"]').first.wait_for(timeout=3_000)
