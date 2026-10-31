@@ -12,6 +12,9 @@ INSTALL_PATHS = [
     r"C:\Program Files\HWiNFO64\HWiNFO64.exe",
     r"C:\Program Files (x86)\HWiNFO64\HWiNFO64.exe",
 ]
+# The Elgato Stream Deck plugin's own hwinfo-plugin.exe and its parent hwinfo.exe.
+PLUGIN_NAMES = ("hwinfo-plugin.exe", "hwinfo.exe")
+PLUGIN_DIR = "com.exension.hwinfo.sdplugin"
 
 
 def find_install_path() -> str:
@@ -56,6 +59,65 @@ def stop_running() -> None:
             log.warning("Could not kill %s (pid %d)", PROCESS_NAME, proc.pid, exc_info=True)
 
 
+def _plugin_procs():
+    # Matched by exact name AND an exe path inside the plugin folder, so neither HWiNFO64 nor any
+    # other hwinfo.exe is touched; a process whose exe path can't be read (None) never matches.
+    return [
+        proc
+        for proc in psutil.process_iter(["name", "exe"])
+        if (proc.info["name"] or "").lower() in PLUGIN_NAMES
+        and PLUGIN_DIR in (proc.info["exe"] or "").lower()
+    ]
+
+
+def stop_plugin() -> set:
+    """Stop the Stream Deck HWiNFO plugin (it leaks memory); return the pids that were stopped."""
+    procs = _plugin_procs()
+    if not procs:
+        log.info("Stream Deck HWiNFO plugin was not running")
+        return set()
+    for proc in procs:
+        log.info("Terminating %s (pid %d)", proc.info["name"], proc.pid)
+        try:
+            proc.terminate()
+        except psutil.Error:
+            log.warning("Could not signal %s (pid %d)", proc.info["name"], proc.pid, exc_info=True)
+
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and _plugin_procs():
+        time.sleep(0.5)
+
+    for proc in _plugin_procs():
+        log.warning("%s (pid %d) did not exit gracefully, killing", proc.info["name"], proc.pid)
+        try:
+            proc.kill()
+        except psutil.Error:
+            log.warning("Could not kill %s (pid %d)", proc.info["name"], proc.pid, exc_info=True)
+    return {proc.pid for proc in procs}
+
+
+def wait_plugin_relaunch(old_pids: set, timeout: float = 60, interval: float = 1) -> bool:
+    """Stream Deck restarts the plugin on its own (about 15 s); True once a new one is running."""
+    deadline = time.monotonic() + timeout
+    while True:
+        if any(
+            proc.info["name"].lower() == PLUGIN_NAMES[0] and proc.pid not in old_pids
+            for proc in _plugin_procs()
+        ):
+            log.info("plugin relaunched")
+            return True
+        if time.monotonic() >= deadline:
+            log.warning("plugin relaunch not confirmed within %ds", timeout)
+            return False
+        time.sleep(interval)
+
+
+def restart_plugin() -> None:
+    stopped = stop_plugin()
+    if stopped:
+        wait_plugin_relaunch(stopped)
+
+
 def restart() -> None:
     stop_running()
     install_path = find_install_path()
@@ -67,6 +129,7 @@ def restart() -> None:
     # the calling process, subprocess.Popen still fails regardless of
     # close_fds, while os.startfile succeeds).
     os.startfile(install_path, cwd=os.path.dirname(install_path))
+    restart_plugin()  # after HWiNFO64 is back, so the relaunched plugin finds its sensors
 
 
 def main() -> None:

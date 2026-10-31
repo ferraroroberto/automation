@@ -64,7 +64,7 @@ Lists the files directly inside a chosen folder (top level only, not recursive) 
 
 ## 🌡️ hwinfo_restart.py
 
-Restarts HWiNFO64 (a system monitoring app that stops reporting after a continuous 12-hour run) — terminates it if running, then relaunches it from its install path. Intended to be run on a recurring schedule (e.g. every 8 hours) by an external scheduler; the script itself does a single restart cycle per invocation with no internal loop or sleep.
+Restarts HWiNFO64 (a system monitoring app that stops reporting after a continuous 12-hour run) — terminates it if running, then relaunches it from its install path. Intended to be run on a recurring schedule (e.g. every 8 hours) by an external scheduler; the script itself does a single restart cycle per invocation with no internal loop. After HWiNFO64 is back it also stops the Elgato Stream Deck HWiNFO plugin (`hwinfo-plugin.exe` and its parent `hwinfo.exe`, matched by name and by an exe path inside the `com.exension.hwinfo.sdPlugin` folder), which leaks memory; Stream Deck relaunches it within about 15 s, and the script polls up to 60 s and logs `plugin relaunched` or a warning `plugin relaunch not confirmed`. A plugin that is not running is only logged.
 
 - **How to run:** `python system/hwinfo_restart.py` — no command-line arguments. Looks for the install path at `C:\Program Files\HWiNFO64\HWiNFO64.exe`, falling back to the `(x86)` variant; raises `FileNotFoundError` if neither exists.
 - **Launcher:** `hwinfo_restart.bat` calls `python hwinfo_restart.py` — no args needed.
