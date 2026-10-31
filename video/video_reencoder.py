@@ -4,14 +4,12 @@ Supports both GUI and command-line interfaces. Uses GPU (NVENC) when available.
 """
 
 import os
-import re
-import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration
-from _tk_widgets import build_progress_section
+from _ffmpeg_utils import check_gpu_available, get_video_duration, run_ffmpeg_with_progress
+from _tk_widgets import build_progress_section, set_progress
 
 
 def get_file_info(file_path):
@@ -68,26 +66,9 @@ def reencode_video(
     ]
     cmd = [arg for arg in cmd if arg]
 
-    time_pattern = re.compile(r"time=(\d+):(\d+):(\d+)\.(\d+)")
-
     def run():
-        process = subprocess.Popen(
-            cmd,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            bufsize=1,
-            creationflags=NO_WINDOW,
-        )
-        for line in process.stderr:
-            if progress_callback and "time=" in line:
-                m = time_pattern.search(line)
-                if m:
-                    h, mn, s, ms = map(int, m.groups())
-                    elapsed = h * 3600 + mn * 60 + s + ms / 100.0
-                    pct = min(100.0, 100.0 * elapsed / duration)
-                    progress_callback(pct)
-        process.wait()
-        if process.returncode == 0:
+        returncode = run_ffmpeg_with_progress(cmd, duration, progress_callback)
+        if returncode == 0:
             if progress_callback:
                 progress_callback(100.0)
             if status_callback:
@@ -181,9 +162,7 @@ class VideoReencoderApp:
             self.status_var.set("Ready")
 
     def _update_progress(self, percent):
-        self.progress_bar["value"] = percent
-        self.progress_label.config(text=f"{percent:.1f}%")
-        self.root.update_idletasks()
+        set_progress(self.root, self.progress_bar, self.progress_label, percent)
 
     def _start_process(self):
         path = self.input_path.get().strip()

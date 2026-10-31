@@ -54,43 +54,6 @@ class Config:
             return script_dir / "linkedin_search_image.json"
         return Path(config_path)
     
-    def _create_default_config(self) -> Dict[str, Any]:
-        """
-        Create default configuration structure.
-        
-        Returns:
-            Dict[str, Any]: Default configuration dictionary
-        """
-        return {
-            "api_keys": {
-                "imgur_client_id": "",
-                "imgur_access_token": "",
-                "serpapi_key": ""
-            },
-            "folders": {
-                "images_folder": "./images",
-                "metadata_folder": "./metadata"
-            },
-            "file_names": {
-                "metadata_file": "metadata.xlsx",
-                "results_file": "search_results_database.xlsx",
-                "api_history_file": "api_history_database.xlsx"
-            },
-            "processing_thresholds": {
-                "linkedin_high_threshold": 50,
-                "high_linkedin_days": 7,
-                "standard_days": 180
-            },
-            "search_settings": {
-                "do_exact_search": True,
-                "do_similar_search": False
-            },
-            "allowed_extensions": [".jpg", ".jpeg", ".png", ".gif", ".bmp"],
-            "api_endpoints": {
-                "search_endpoint": "https://serpapi.com/search?engine=google_lens"
-            }
-        }
-    
     def _load_config(self) -> Dict[str, Any]:
         """
         Load configuration from JSON file.
@@ -102,20 +65,11 @@ class Config:
             SystemExit: If configuration file is missing or invalid
         """
         if not self.config_path.exists():
+            sample = Path(__file__).parent / "linkedin_search_image.json.sample"
             logger.error(f"❌ Configuration file not found: {self.config_path}")
-            logger.info("Creating a default configuration file...")
-            
-            default_config = self._create_default_config()
-            
-            try:
-                with open(self.config_path, 'w') as f:
-                    json.dump(default_config, f, indent=2)
-                logger.error("Please update the configuration file with your API keys and paths.")
-                sys.exit(1)
-            except Exception as e:
-                logger.error(f"❌ Error creating default configuration file: {e}")
-                sys.exit(1)
-        
+            logger.error(f"Copy {sample.name} to {self.config_path.name} and fill in your paths; API keys come from .env via the ${{VAR}} placeholders.")
+            sys.exit(1)
+
         try:
             with open(self.config_path, 'r') as f:
                 config = json.load(f)

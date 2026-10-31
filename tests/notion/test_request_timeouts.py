@@ -37,13 +37,13 @@ class NormalizerPatchTimeouts(unittest.TestCase):
 
     def test_name_update_passes_a_timeout_and_reports_failure(self):
         normalizer = self._normalizer(normalize_names.NotionNameNormalizer)
-        with mock.patch.object(normalize_names.requests, "patch", side_effect=TIMEOUT) as patch:
+        with mock.patch.object(notion_utils.requests, "patch", side_effect=TIMEOUT) as patch:
             self.assertFalse(normalizer._update_page_property("p" * 32, "Name", "value"))
         self.assertGreater(_timeout_of(patch.call_args), 0)
 
     def test_url_update_passes_a_timeout_and_reports_failure(self):
         normalizer = self._normalizer(normalize_url.NotionURLNormalizer)
-        with mock.patch.object(normalize_url.requests, "patch", side_effect=TIMEOUT) as patch:
+        with mock.patch.object(notion_utils.requests, "patch", side_effect=TIMEOUT) as patch:
             self.assertFalse(normalizer._update_page_url("p" * 32, "https://example.test"))
         self.assertGreater(_timeout_of(patch.call_args), 0)
 

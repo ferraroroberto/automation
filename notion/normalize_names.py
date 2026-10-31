@@ -17,7 +17,6 @@ import re
 import sys
 from typing import Dict, List, Optional, Tuple
 
-import requests
 from dotenv import load_dotenv
 
 import utils as notion_utils
@@ -413,35 +412,12 @@ class NotionNameNormalizer:
     
     def _update_page_property(self, page_id: str, property_name: str, new_value: str) -> bool:
         """Update a specific property of a Notion page via API."""
-        update_data = {
-            "properties": {
-                property_name: {
-                    "title": [{"type": "text", "text": {"content": new_value}}]
-                }
-            }
-        }
-        
-        try:
-            response = requests.patch(
-                f"https://api.notion.com/v1/pages/{page_id}",
-                headers=self.headers,
-                json=update_data,
-                timeout=notion_utils.REQUEST_TIMEOUT_S
-            )
-            response.raise_for_status()
-            logging.debug(f"✅ Successfully updated page {page_id[:8]}...{page_id[-2:]}")
-            return True
-            
-        except requests.exceptions.RequestException as e:
-            page_short = f"{page_id[:8]}...{page_id[-2:]}"
-            logging.error(f"❌ Failed to update page {page_short}: {e}")
-            if hasattr(e, 'response') and e.response:
-                logging.error(f"📊 Status: {e.response.status_code}, Response: {e.response.text[:200]}...")
-            return False
-        except Exception as e:
-            logging.error(f"❌ Unexpected error updating page {page_id[:8]}...{page_id[-2:]}: {e}")
-            return False
-    
+        return notion_utils.patch_page_properties(
+            self.headers,
+            page_id,
+            {property_name: {"title": [{"type": "text", "text": {"content": new_value}}]}},
+        )
+
     def process_database(self, days: int, dry_run: bool = False) -> List[Dict]:
         """
         Main method to process the database and update normalized results.
@@ -453,59 +429,21 @@ class NotionNameNormalizer:
         Returns:
             List of processing results with original and normalized names
         """
-        pages = self._query_notion_database(days)
-        results = []
-        stats = {'processed': 0, 'updated': 0, 'unchanged': 0, 'would_update': 0}
-        
-        if dry_run:
-            logging.info("🔍 DRY RUN MODE: No changes will be made to Notion")
-        
-        for page in pages:
-            page_info = self._extract_page_info(page)
-            if not page_info:
-                continue
-            
-            page_id, last_edited_time, original_name = page_info
-            normalized_name = self._normalize_name(original_name)
-            
-            result = {
+        return notion_utils.normalize_pages(
+            self._query_notion_database(days),
+            extract_page_info=self._extract_page_info,
+            transform=self._normalize_name,
+            update_page=lambda page_id, name: self._update_page_property(page_id, 'article', name),
+            make_result=lambda page_id, last_edited, original, normalized: {
                 'page_id': page_id,
-                'last_edited_time': last_edited_time,
-                'original_name': original_name,
-                'normalized_name': normalized_name
-            }
-            results.append(result)
-            stats['processed'] += 1
-            
-            # Update if changed, otherwise log as unchanged
-            if original_name != normalized_name:
-                if dry_run:
-                    stats['would_update'] += 1
-                    logging.info(f'📝 [DRY RUN] Would change: "{original_name}" → "{normalized_name}"')
-                else:
-                    if self._update_page_property(page_id, 'article', normalized_name):
-                        stats['updated'] += 1
-                        logging.info(f'📝 "{original_name}" → "{normalized_name}"')
-                    else:
-                        logging.error(f'❌ Failed to update: "{original_name}"')
-            else:
-                stats['unchanged'] += 1
-                logging.info(f'✅ Already normalized: "{original_name}"')
-            
-            # Log sample normalizations for debugging
-            if stats['processed'] <= 3:
-                logging.debug(f"🔍 Sample: '{original_name}' → '{normalized_name}'")
-        
-        self._log_summary(stats, dry_run)
-        return results
-    
-    def _log_summary(self, stats: Dict[str, int], dry_run: bool = False):
-        """Log processing summary."""
-        logging.info(f"✅ Processed {stats['processed']} pages")
-        if dry_run:
-            logging.info(f"📝 Would update {stats['would_update']}, unchanged {stats['unchanged']}")
-        else:
-            logging.info(f"📝 Updated {stats['updated']}, unchanged {stats['unchanged']}")
+                'last_edited_time': last_edited,
+                'original_name': original,
+                'normalized_name': normalized,
+            },
+            dry_run=dry_run,
+            verb="change",
+            unchanged_label="Already normalized",
+        )
 
 
 def setup_logging(debug: bool = False):

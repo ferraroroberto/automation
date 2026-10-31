@@ -23,7 +23,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional, Tuple
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from threading import Lock
 from dotenv import load_dotenv
 import jsonschema
@@ -196,32 +196,12 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
         self.sync_time_file = os.path.join(os.path.dirname(config_path), "notion_articles_sync_last_time.txt")
         self.load_sync_time()
         
-        # Thread pool executor
-        self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
-        
         logger.info("✅ Notion sync initialized")
         logger.info(f"📊 Source: {self.source_db}")
         logger.info(f"📊 Target: {self.target_db}")
         logger.info(f"🚀 Threading: {self.max_workers} workers, {self.requests_per_second} req/s")
         
         self.test_connections()
-    
-    def close(self) -> None:
-        """Shut down the thread pool executor.
-
-        Call explicitly (or use the object as a context manager) rather than
-        relying on __del__ — during interpreter shutdown the logging system may
-        already be torn down, making garbage-collection-time cleanup unreliable.
-        """
-        executor = getattr(self, 'executor', None)
-        if executor is not None:
-            executor.shutdown(wait=True)
-
-    def __enter__(self) -> "NotionArticlesSync":
-        return self
-
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        self.close()
     
     def setup_logging(self, debug: bool, config_path: str) -> None:
         """Setup logging configuration following RULES.md standards.
@@ -611,69 +591,31 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
         if not operations:
             return 0, 0
         
+        def submit(executor: ThreadPoolExecutor, op: Tuple[Any, ...]) -> Future:
+            if operation_type == 'create':
+                return executor.submit(self._process_create_operation, op[0])
+            if operation_type == 'update':
+                return executor.submit(self._process_update_operation, op[0], op[1])
+            return executor.submit(self._process_delete_operation, op[0])
+
+        # A single worker runs the operations one at a time, in order.
+        sequential = not self.parallel_operations or len(operations) == 1
+        workers = 1 if sequential else self.max_workers
+
         success_count = 0
         failed_count = 0
-        
-        if not self.parallel_operations or len(operations) == 1:
-            # Process sequentially
-            for op in operations:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [submit(executor, op) for op in operations]
+            for future in as_completed(futures):
                 try:
-                    if operation_type == 'create':
-                        item = op[0]
-                        archive_id = self.create_archive_entry(item)
-                        if archive_id:
-                            self.update_source_tracking(item["id"], archive_id)
-                            success_count += 1
-                        else:
-                            failed_count += 1
-                    elif operation_type == 'update':
-                        source_item, target_item = op
-                        if self.update_archive_entry(target_item, source_item):
-                            current_tracking = self.extract_value(
-                                source_item.get("properties", {}).get("target rowid", {})
-                            )
-                            self.update_source_tracking(
-                                source_item["id"], target_item["id"], current_tracking
-                            )
-                            success_count += 1
-                        else:
-                            failed_count += 1
-                    elif operation_type == 'delete':
-                        item = op[0]
-                        if self.delete_archive_entry(item):
-                            success_count += 1
-                        else:
-                            failed_count += 1
-                except Exception as e:
-                    logger.error(f"❌ Operation failed: {e}")
-                    failed_count += 1
-        else:
-            # Process in parallel batches
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                futures = []
-                
-                for op in operations:
-                    if operation_type == 'create':
-                        future = executor.submit(self._process_create_operation, op[0])
-                    elif operation_type == 'update':
-                        future = executor.submit(self._process_update_operation, op[0], op[1])
-                    elif operation_type == 'delete':
-                        future = executor.submit(self._process_delete_operation, op[0])
-                    
-                    futures.append(future)
-                
-                # Wait for all operations to complete
-                for future in as_completed(futures):
-                    try:
-                        result = future.result(timeout=60)
-                        if result:
-                            success_count += 1
-                        else:
-                            failed_count += 1
-                    except Exception as e:
-                        logger.error(f"❌ Batch operation failed: {e}")
+                    if future.result(timeout=60):
+                        success_count += 1
+                    else:
                         failed_count += 1
-        
+                except Exception as e:
+                    logger.error(f"❌ Batch operation failed: {e}")
+                    failed_count += 1
+
         return success_count, failed_count
     
     def _process_create_operation(self, item: Dict[str, Any]) -> bool:
@@ -863,20 +805,18 @@ def main():
     args = parser.parse_args()
     
     try:
-        # Initialize and run sync (context manager guarantees the thread pool
-        # executor is shut down explicitly, not at garbage-collection time)
-        with NotionArticlesSync(args.config, debug=args.debug) as sync:
-            if args.reset_sync_time:
-                sync.reset_sync_time()
+        sync = NotionArticlesSync(args.config, debug=args.debug)
+        if args.reset_sync_time:
+            sync.reset_sync_time()
 
-            if args.status:
-                sync.show_sync_status()
-                sys.exit(0)
+        if args.status:
+            sync.show_sync_status()
+            sys.exit(0)
 
-            if args.once:
-                sync.run_sync(force_full_sync=args.full_sync)
-            else:
-                sync.run_continuous(force_full_sync_first=args.full_sync)
+        if args.once:
+            sync.run_sync(force_full_sync=args.full_sync)
+        else:
+            sync.run_continuous(force_full_sync_first=args.full_sync)
 
     except KeyboardInterrupt:
         logger.info("⏹️ Sync stopped")
