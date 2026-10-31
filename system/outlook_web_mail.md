@@ -58,7 +58,7 @@ Drafting never sends. `--send` is the only way mail leaves, and it goes through 
 2. You must type `SEND` at the prompt, or pass `--yes`. With no terminal and no `--yes` it refuses (exit 2) and leaves the drafts unsent.
 3. For each message, `send` refuses unless exactly one draft has that subject, it is addressed to `--to`, and its attachments are present. After clicking Send it waits for the draft to leave Drafts and for the subject to appear in Sent Items; if it cannot confirm that, it fails and tells you to check the mailbox.
 
-A re-run only sends drafts that are still in Drafts, so already-sent messages are not sent twice.
+A re-run with `--send` first looks in Sent Items and skips (neither drafts nor sends) every subject already there, so a run that failed part-way does not send the messages that already went out twice. The Sent Items check reads the newest rows, so a message sent long ago under the same subject is not seen.
 
 ## Library use
 

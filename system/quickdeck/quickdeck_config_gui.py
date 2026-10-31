@@ -14,6 +14,8 @@ from typing import Any, Dict
 
 import PySimpleGUI as sg
 
+from quickdeck_button_config import apply_button_values, clear_slot, join_command
+
 # Hex colour literal, e.g. #111827 - the only format the theme accepts.
 _COLOR_PATTERN = r'^#[0-9A-Fa-f]{6}$'
 
@@ -218,61 +220,19 @@ class QuickDeckConfig:
         elif btn_type == "shell":
             cmd = btn_config.get("cmd", "")
             args = btn_config.get("args", [])
-            if args:
-                return f"{cmd} {' '.join(args)}"
-            return cmd
+            return join_command(cmd, args)
         return ""
 
     def _save_button_config(self, btn_index: int, values: Dict[str, Any]) -> None:
         """Save a single button configuration."""
         try:
-            label = values.get("label", "").strip()
-            emoji = values.get("emoji", "").strip()
-            hint = values.get("hint", "").strip()
-            btn_type = values.get("type", "shell")
-            action = values.get("action", "").strip()
-
-            if not label:
-                # Use default label instead of blocking with error
-                label = f"Button {btn_index + 1}"
-
-            # Create button configuration
-            button_config = {
-                "label": label,
-                "emoji": emoji,
-                "hint": hint,
-                "type": btn_type
-            }
-
-            # Add type-specific configuration
-            if btn_type == "url":
-                if not action.startswith(("http://", "https://")):
-                    # Provide default URL instead of blocking with error
-                    button_config["url"] = "https://www.google.com"
-                else:
-                    button_config["url"] = action
-            elif btn_type == "copy":
-                button_config["text"] = action
-            elif btn_type == "python":
-                button_config["code"] = action
-            elif btn_type == "shell":
-                parts = action.split()
-                if parts:
-                    button_config["cmd"] = parts[0]
-                    if len(parts) > 1:
-                        button_config["args"] = parts[1:]
-                else:
-                    # Provide a default command instead of blocking with error
-                    button_config["cmd"] = "echo"
-                    button_config["args"] = ["Button configured - add your command"]
-
-            # Update buttons list
             buttons = self.qd.config.get("buttons", [])
 
             # Ensure buttons list is long enough
             while len(buttons) <= btn_index:
                 buttons.append({})
 
+            button_config = apply_button_values(buttons[btn_index], values, btn_index + 1)
             buttons[btn_index] = button_config
 
             # Save to file
@@ -289,9 +249,7 @@ class QuickDeckConfig:
         try:
             buttons = self.qd.config.get("buttons", [])
 
-            if btn_index < len(buttons):
-                del buttons[btn_index]
-
+            if clear_slot(buttons, btn_index):
                 # Save to file
                 self.qd.config["buttons"] = buttons
                 self._write_config()

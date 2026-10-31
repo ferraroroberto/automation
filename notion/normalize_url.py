@@ -69,9 +69,8 @@ class NotionURLNormalizer:
             parsed = urlparse(original_url)
             
             # Check if domain is in the preserved list
-            domain = parsed.netloc.lower()
-            # Handle subdomains roughly
-            if any(p in domain for p in self.domains_preserving_params):
+            domain = (parsed.hostname or '').lower()
+            if any(domain == p or domain.endswith('.' + p) for p in self.domains_preserving_params):
                 return original_url
                 
             # Reconstruct URL without query parameters and fragment

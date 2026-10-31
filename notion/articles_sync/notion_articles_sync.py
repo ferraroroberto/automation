@@ -679,6 +679,11 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
         logger.info("=" * 80)
         logger.info("🚀 Starting sync cycle" + (" (FULL SYNC)" if force_full_sync else " (INCREMENTAL)"))
         
+        # The watermark is the moment the source is read, not the moment the
+        # cycle ends: an article edited while a long cycle runs must still look
+        # newer than the saved watermark on the next incremental sync.
+        cycle_started_at = datetime.now(timezone.utc)
+
         try:
             # Reset API counter
             with self.api_call_lock:
@@ -743,7 +748,7 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
             
             # Update last sync time on successful completion
             if total_failed == 0:
-                self.last_sync_time = datetime.now(timezone.utc)
+                self.last_sync_time = cycle_started_at
                 self.save_sync_time()
                 logger.info(f"📅 Updated last sync time to: {self.last_sync_time.isoformat()}")
             

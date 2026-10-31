@@ -16,6 +16,7 @@ import datetime
 import tkinter as tk
 from tkinter import filedialog
 
+from _vcard_fields import has_type_param
 from _vcard_model import Contact, ContactAddress, VCardParser, longest_common_substring
 
 # Configure logging
@@ -391,14 +392,14 @@ class VCardWriter:
 
         # Phone numbers
         for phone in contact.phones:
-            if "TYPE=" in phone.original_line:
+            if has_type_param(phone.original_line):
                 lines.append(phone.original_line)
             else:
                 lines.append(f"TEL;TYPE={phone.type_label}:{phone.number}")
 
         # Email addresses
         for email in contact.emails:
-            if "TYPE=" in email.original_line:
+            if has_type_param(email.original_line):
                 lines.append(email.original_line)
             else:
                 lines.append(f"EMAIL;TYPE={email.type_label}:{email.address}")

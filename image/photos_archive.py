@@ -26,13 +26,14 @@ import shutil
 import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog
-from typing import Optional
+from typing import Optional, Tuple
 
 import pandas as pd
 
 from photos_archive_config import get_config, setup_logging
 from photos_archive_duplicates import (
     calculate_short_sequence_counts,
+    calculate_sha256,
     calculate_time_intervals,
     calculate_total_files_unified_day,
     log_top_unified_days,
@@ -115,6 +116,32 @@ def delete_copied_files(df: pd.DataFrame) -> None:
     _delete_flagged_files(df, df['copy_success'] == 1, "files")
 
 
+def _same_content(source_path: str, dest_path: str) -> bool:
+    """True when both files have the same size and SHA-256."""
+    if os.path.getsize(source_path) != os.path.getsize(dest_path):
+        return False
+    return calculate_sha256(source_path) == calculate_sha256(dest_path)
+
+
+def _resolve_destination(source_path: str, dest_path: str) -> Tuple[str, bool]:
+    """Pick where ``source_path`` lands, as ``(path, already_there)``.
+
+    A free ``dest_path`` is used as is. If a file with the same content is
+    already there it counts as copied. If a different file holds the name (two
+    cameras in the same second, a burst), the next free ``-NNN`` suffix is used
+    so the source is copied rather than treated as archived and later deleted.
+    """
+    candidate = dest_path
+    base, extension = os.path.splitext(dest_path)
+    counter = 0
+    while os.path.exists(candidate):
+        if _same_content(source_path, candidate):
+            return candidate, True
+        counter += 1
+        candidate = f"{base}-{counter:03d}{extension}"
+    return candidate, False
+
+
 def copy_files(df: pd.DataFrame) -> None:
     """
     Copies non-duplicate files to the destination folder, renaming them based on the unified name.
@@ -145,9 +172,12 @@ def copy_files(df: pd.DataFrame) -> None:
             dest_path = os.path.join(destination_folder, new_file_name)
             df.at[index, 'destination_path'] = dest_path
 
-            # Skip files already present in the destination folder
-            if os.path.exists(dest_path):
-                df.at[index, 'copy_success'] = 1  # Assume already copied successfully
+            # A name already taken by a different photo gets the next free suffix;
+            # only an identical file counts as already copied.
+            dest_path, already_there = _resolve_destination(row['file_path'], dest_path)
+            df.at[index, 'destination_path'] = dest_path
+            if already_there:
+                df.at[index, 'copy_success'] = 1
                 continue
 
             try:

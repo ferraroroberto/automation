@@ -19,7 +19,7 @@ if ([string]::IsNullOrWhiteSpace($Password)) {
     throw "Password not supplied. Pass -Password or set the WIFI_PASSWORD environment variable."
 }
 
-$bytes = [System.Text.Encoding]::ASCII.GetBytes($Ssid)
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($Ssid)
 $hex = [BitConverter]::ToString($bytes) -replace '-', ''
 Write-Output "SSID: $Ssid"
 Write-Output "Hex:  $hex"

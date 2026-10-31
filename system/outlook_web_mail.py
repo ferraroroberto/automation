@@ -136,14 +136,23 @@ def confirm_send(count: int, to: str, assume_yes: bool, interactive: bool) -> bo
 
 
 def execute(specs: list[DraftSpec], url: str, headless: bool, send: bool, assume_yes: bool) -> int:
-    subjects = [s.subject for s in specs]
-    expected = {a.name: s.subject for s in specs for a in s.attachments}
     with OutlookWeb(url, headless) as web:
         try:
             web.require_signed_in()
         except NotSignedIn:
             logger.error("❌ not signed in; run with --login first")
             return 2
+        if send:
+            # A re-run after a partial failure must not draft and send the messages that already went out.
+            sent = web.sent_subjects([s.subject for s in specs])
+            if sent:
+                logger.warning("⚠️ already in Sent Items, not drafted or sent again: %s", sorted(sent))
+                specs = [s for s in specs if s.subject not in sent]
+            if not specs:
+                logger.info("ℹ️ every message is already in Sent Items; nothing to do")
+                return 0
+        subjects = [s.subject for s in specs]
+        expected = {a.name: s.subject for s in specs for a in s.attachments}
         if web.restore_subjects(expected):
             logger.info("ℹ️ restored a subject on a draft left by an earlier run")
         already = web.drafted_subjects(subjects)

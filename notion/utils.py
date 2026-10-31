@@ -214,7 +214,7 @@ def paginated_database_query(
 
         except requests.exceptions.RequestException as e:
             log.error("❌ Failed to query Notion database: %s", e)
-            if getattr(e, 'response', None):
+            if getattr(e, 'response', None) is not None:
                 log.error("📊 Status: %s, Response: %s...", e.response.status_code, (e.response.text or '')[:200])
             raise
 

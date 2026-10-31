@@ -12,7 +12,7 @@ import os
 import logging
 from pathlib import Path
 
-from _vcard_fields import extract_type_label
+from _vcard_fields import extract_type_label, has_type_param
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -188,10 +188,10 @@ class AppleContactConverter:
             line = f"{prefix}:{formatted_number}"
 
         # Ensure proper TYPE formatting
-        if "TYPE=" in line and ";" in line:
+        if has_type_param(line) and ";" in line:
             # Already properly formatted
             return line
-        elif ";" in line and not "TYPE=" in line:
+        elif ";" in line and not has_type_param(line):
             # Convert old format to new format. Isolate the prefix (before
             # the first ':') from the value first, then extract the type
             # from the prefix alone - not the whole line (the old whole-line
@@ -214,9 +214,9 @@ class AppleContactConverter:
             Formatted email line
         """
         # Ensure proper TYPE formatting
-        if "TYPE=" in line and ";" in line:
+        if has_type_param(line) and ";" in line:
             return line
-        elif ";" in line and not "TYPE=" in line:
+        elif ";" in line and not has_type_param(line):
             prefix, sep, value = line.partition(":")
             email_type = extract_type_label(prefix)
             if email_type:
@@ -234,9 +234,9 @@ class AppleContactConverter:
             Formatted address line
         """
         # Ensure proper TYPE formatting
-        if "TYPE=" in line and ";" in line:
+        if has_type_param(line) and ";" in line:
             return line
-        elif ";" in line and not "TYPE=" in line:
+        elif ";" in line and not has_type_param(line):
             prefix, sep, value = line.partition(":")
             addr_type = extract_type_label(prefix)
             if addr_type:

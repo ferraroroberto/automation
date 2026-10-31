@@ -35,7 +35,7 @@ def capture_specific_monitor(monitor_index: int, output_folder: Optional[str] = 
     # Capture the screenshot for the selected monitor
     with mss() as sct:
         monitors = sct.monitors
-        if monitor_index < 1 or monitor_index > len(monitors):
+        if monitor_index < 1 or monitor_index >= len(monitors):
             raise ValueError("Invalid monitor index. Please choose a valid one.")
 
         monitor = monitors[monitor_index]
@@ -49,7 +49,8 @@ def capture_specific_monitor(monitor_index: int, output_folder: Optional[str] = 
 
 def get_bottom_left_monitor(monitors: List[dict]) -> dict:
     """Find the monitor at the bottom-left position."""
-    return min(monitors[1:], key=lambda m: (m["top"], m["left"]))
+    # mss `top` grows downward, so the bottom row has the largest bottom edge.
+    return min(monitors[1:], key=lambda m: (-(m["top"] + m["height"]), m["left"]))
 
 def get_primary_monitor_index(monitors: List[dict]) -> int:
     """Find the index of the primary monitor in ``mss().monitors``.

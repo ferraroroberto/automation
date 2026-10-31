@@ -65,5 +65,37 @@ class PatchPagePropertiesTests(unittest.TestCase):
         self.assertTrue(any("Status: 400" in line for line in logs.output))
 
 
+class PreservedDomainTests(unittest.TestCase):
+    def _normalizer(self, preserved):
+        import normalize_url
+
+        instance = normalize_url.NotionURLNormalizer.__new__(normalize_url.NotionURLNormalizer)
+        instance.domains_preserving_params = set(preserved)
+        return instance
+
+    def test_preserved_domain_and_its_subdomains_keep_their_parameters(self):
+        normalizer = self._normalizer(["x.com"])
+        for url in ("https://x.com/a?s=1", "https://www.x.com/a?s=1", "https://x.com:443/a?s=1"):
+            self.assertEqual(normalizer._clean_url(url), url)
+
+    def test_domains_that_merely_end_with_the_preserved_name_are_cleaned(self):
+        normalizer = self._normalizer(["x.com"])
+        self.assertEqual(normalizer._clean_url("https://www.vox.com/a?utm=1"), "https://www.vox.com/a")
+        self.assertEqual(normalizer._clean_url("https://dropbox.com/a?utm=1"), "https://dropbox.com/a")
+
+
+class PaginatedQueryErrorLoggingTests(unittest.TestCase):
+    def test_error_body_is_logged_for_a_4xx_response(self):
+        response = requests.Response()
+        response.status_code = 400
+        response._content = b'{"message": "bad filter"}'
+        error = requests.exceptions.HTTPError("400", response=response)
+        with mock.patch.object(notion_utils.requests, "post", side_effect=error):
+            with self.assertLogs(notion_utils.log, level="ERROR") as logs:
+                with self.assertRaises(requests.exceptions.HTTPError):
+                    notion_utils.paginated_database_query({}, "db")
+        self.assertTrue(any("bad filter" in line for line in logs.output))
+
+
 if __name__ == "__main__":
     unittest.main()

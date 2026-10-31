@@ -93,5 +93,38 @@ class MergedContactTests(unittest.TestCase):
         self.assertEqual(sum(1 for line in written if line.startswith("BEGIN:VCARD")), 1)
 
 
+class LowercaseTypeParameterTests(unittest.TestCase):
+    """iCloud exports write `type=`; the parameter name is case-insensitive."""
+
+    def test_label_is_read_from_a_lowercase_parameter(self):
+        from _vcard_fields import extract_type_label
+
+        self.assertEqual(extract_type_label("TEL;type=CELL;type=pref"), "CELL")
+        self.assertEqual(extract_type_label("EMAIL;type=work", legacy_positional_fallback=False), "WORK")
+
+    def test_convert_to_apple_keeps_a_lowercase_typed_line(self):
+        from convert_to_apple import AppleContactConverter
+
+        converter = AppleContactConverter.__new__(AppleContactConverter)
+        line = "TEL;type=CELL;type=pref:+1 555 0100"
+        converted = converter._format_phone_line(line)
+        self.assertNotIn("TYPE=TYPE=", converted)
+        self.assertTrue(converted.lower().startswith("tel;type=cell"))
+
+    def test_writer_does_not_double_the_prefix_for_a_lowercase_typed_phone(self):
+        raw = "\n".join([
+            "BEGIN:VCARD", "VERSION:3.0", "FN:Sam Example", "N:Example;Sam;;;",
+            "TEL;type=CELL;type=pref:+1 555 0100", "END:VCARD",
+        ])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "in.vcf")
+            Path(path).write_text(raw, encoding="utf-8")
+            contacts = VCardParser().parse_file(path)
+            out = os.path.join(tmp, "out.vcf")
+            VCardWriter().write_contacts(contacts, out)
+            written = Path(out).read_text(encoding="utf-8")
+        self.assertNotIn("TYPE=TYPE=", written)
+
+
 if __name__ == "__main__":
     unittest.main()

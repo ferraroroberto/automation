@@ -19,6 +19,11 @@ from _tk_widgets import build_progress_section, set_progress
 log = logging.getLogger(__name__)
 
 
+def _concat_list_text(paths: List[str]) -> str:
+    r"""Concat-demuxer list: one `file '<path>'` line per clip, each `'` in a path written as `'\''`."""
+    return "".join("file '{}'\n".format(p.replace("'", "'\\''")) for p in paths)
+
+
 def _total_duration(paths: List[str]) -> Optional[float]:
     """Sum of the input durations, or None when any one cannot be probed."""
     total_duration = 0.0
@@ -67,9 +72,9 @@ class VideoConcatenator:
 
         try:
             abs_paths = [os.path.abspath(p).replace("\\", "/") for p in paths]
-            with open(list_file, "w") as f:
-                for p in abs_paths:
-                    f.write(f"file '{p}'\n")
+            # ffmpeg reads the list as UTF-8, whatever the locale encoding is.
+            with open(list_file, "w", encoding="utf-8", newline="\n") as f:
+                f.write(_concat_list_text(abs_paths))
 
             if status_callback:
                 status_callback(f"Concatenating {len(paths)} videos...")

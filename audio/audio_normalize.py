@@ -162,7 +162,7 @@ def analyze_audio_levels(input_path: str) -> Optional[Dict]:
         ffmpeg_cmd = [
             "ffmpeg",
             "-i", input_path,
-            "-filter_complex", "ebur128=peak=true",
+            "-filter_complex", "ebur128=peak=true+sample",
             "-f", "null",
             "-"
         ]
@@ -463,20 +463,21 @@ def show_results(original_analysis: Dict, output_path: str) -> None:
     for i, (label, key, unit) in enumerate(metrics, 1):
         ttk.Label(comparison_frame, text=f"{label} ({unit}):").grid(row=i, column=0, sticky="w", padx=5, pady=2)
 
-        before_val = original_analysis.get(key, 0)
-        after_val = normalized_analysis.get(key, 0) if normalized_analysis else 0
-        change = after_val - before_val
+        # A key ffmpeg did not report is N/A, never a measured 0.0 dBFS.
+        before_val = original_analysis.get(key)
+        after_val = normalized_analysis.get(key) if normalized_analysis else None
+        measured = isinstance(before_val, (int, float)) and isinstance(after_val, (int, float))
+        change = after_val - before_val if measured else None
 
-        # Format values safely
-        before_text = f"{before_val:.1f}" if isinstance(before_val, (int, float)) else str(before_val)
-        after_text = f"{after_val:.1f}" if isinstance(after_val, (int, float)) else str(after_val)
-        change_text = f"{change:+.1f}" if isinstance(change, (int, float)) else str(change)
+        before_text = f"{before_val:.1f}" if isinstance(before_val, (int, float)) else "N/A"
+        after_text = f"{after_val:.1f}" if isinstance(after_val, (int, float)) else "N/A"
+        change_text = f"{change:+.1f}" if change is not None else "N/A"
 
         ttk.Label(comparison_frame, text=before_text).grid(row=i, column=1, padx=5)
         ttk.Label(comparison_frame, text=after_text).grid(row=i, column=2, padx=5)
 
         # Color-code change (green for improvement, red for degradation)
-        change_color = "green" if abs(change) < 0.5 else "blue"
+        change_color = "green" if change is not None and abs(change) < 0.5 else "blue"
         ttk.Label(comparison_frame, text=change_text, foreground=change_color).grid(row=i, column=3, padx=5)
 
     # Summary text

@@ -158,9 +158,10 @@ class FakeWeb:
     """Stands in for OutlookWeb; records calls so the orchestration can be checked offline."""
     instance = None
 
-    def __init__(self, url, headless, missing=(), signed_in=True):
+    def __init__(self, url, headless, missing=(), signed_in=True, sent=()):
         FakeWeb.instance = self
         self.calls, self.missing, self.signed_in = [], list(missing), signed_in
+        self.sent = set(sent)
 
     def __enter__(self):
         return self
@@ -177,6 +178,9 @@ class FakeWeb:
 
     def drafted_subjects(self, subjects):
         return set()
+
+    def sent_subjects(self, subjects):
+        return {s for s in subjects if s in self.sent}
 
     def draft(self, spec):
         self.calls.append(("draft", spec.subject))
@@ -224,6 +228,20 @@ class ExecuteTests(unittest.TestCase):
         code, calls = self._run(True, True, missing=["a.txt"])
         self.assertEqual(code, 1)
         self.assertNotIn(("send", "a.txt"), calls)
+
+    def test_send_rerun_skips_subjects_already_in_sent_items(self):
+        second = self.f.with_name("b.txt")
+        second.write_text("y")
+        self.specs = [ow.DraftSpec("x@y.z", "a.txt", (self.f,)), ow.DraftSpec("x@y.z", "b.txt", (second,))]
+        code, calls = self._run(True, True, sent=["a.txt"])
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [("draft", "b.txt"), ("send", "b.txt")])
+
+    def test_send_rerun_with_everything_sent_does_nothing(self):
+        self.assertEqual(self._run(True, True, sent=["a.txt"]), (0, []))
+
+    def test_draft_only_run_does_not_consult_sent_items(self):
+        self.assertEqual(self._run(False, False, sent=["a.txt"]), (0, [("draft", "a.txt")]))
 
     def test_not_signed_in_exits_two(self):
         self.assertEqual(self._run(True, True, signed_in=False), (2, []))
