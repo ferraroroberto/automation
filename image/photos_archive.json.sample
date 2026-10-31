@@ -2,7 +2,6 @@
     "_comment": "Photo Archive Configuration - Follows AGENTS.md guidelines for JSON config",
     "source_folder": "C:/path/to/photos/inbox",
     "destination_folder": "C:/path/to/photos/archive",
-    "log_folder": null,
     "file_extensions": {
         "image": [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif"],
         "video": [".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv"]
@@ -36,12 +35,9 @@
         ]
     },
     "logging": {
-        "level": "INFO",
-        "progress_reporting_interval": 1000,
-        "enable_file_logging": true
+        "level": "INFO"
     },
     "duplicate_detection": {
-        "enable_sha256_check": true,
-        "keep_largest_file": true
+        "enable_sha256_check": true
     }
 }

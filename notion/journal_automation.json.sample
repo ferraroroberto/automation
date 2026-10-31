@@ -1,17 +1,11 @@
 {
   "description": "Configuration for journal automation - processes Notion journal database exports",
-  "date_range": {
-    "type": "weekly",
-    "description": "Calculate from Monday to Sunday of previous week"
-  },
   "input": {
     "database_id": "884de9f611464ca69e6028a6cbbafc00",
-    "database_url": "https://www.notion.so/robertoferraro/884de9f611464ca69e6028a6cbbafc00?v=8c31f2b691ec49ee9b31f5411b9c06c4",
     "date_property": "Date"
   },
   "output": {
     "directory": "C://path//to//journal-output//",
-    "format": "single_file",
     "filename_pattern": "{start_date} to {end_date}-journal-consolidated.txt"
   },
   "fields": [
@@ -117,11 +111,5 @@
       "column": "share a moment",
       "display_name": "share a moment"
     }
-  ],
-  "processing": {
-    "remove_duplicates": true,
-    "filter_empty_brackets": true,
-    "filter_nan": true,
-    "sort_by_date": true
-  }
+  ]
 }

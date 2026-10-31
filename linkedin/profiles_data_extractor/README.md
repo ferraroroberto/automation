@@ -60,10 +60,9 @@ main.bat
 ## ⚙️ Configuration
 
 Edit `common/linkedin_profiles_data.json` to configure:
-- **Output Paths**: Excel file locations and directories
-- **Extraction Settings**: Data collection parameters and selectors
-- **Tab Management**: Browser automation settings and timing
-- **Destination Files**: Primary data storage locations
+- **`destination_file`**: the Excel workbook profiles are merged into
+- **`history_file`**: the workbook that records processed profiles
+- **`max_tabs`**: how many open browser tabs one run processes
 
 Edit `common/excel_format_spec.json` to customize:
 - **Cell Formatting**: Colors, fonts, borders, and styling

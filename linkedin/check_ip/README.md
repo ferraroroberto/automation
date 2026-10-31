@@ -108,8 +108,10 @@ The application uses intelligent processing thresholds to optimize performance:
 
 ### Prerequisites
 
-```bash
-pip install pandas numpy requests openpyxl
+Install the repo's root `requirements.txt` into `.venv` (`pandas`, `numpy`, `requests`, `openpyxl` and `python-dotenv` are all in it):
+
+```powershell
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 ### Required API Keys

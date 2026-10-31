@@ -55,7 +55,6 @@ class NotionNameNormalizer:
         self.proper_names = set(self.config.get('proper_name_whitelist', []))
         self.special_cases = set(self.config.get('special_cases', []))
         self.common_words = set(self.config.get('common_words', []))
-        self.common_words_with_punct = set(self.config.get('common_words_with_punct', []))
     
     def _initialize_spacy(self):
         """Initialize optional spaCy NLP support."""

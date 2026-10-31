@@ -2,20 +2,9 @@
   "module_name": "linkedin_profiles_data_orchestrator_module",
   "description": "LinkedIn profiles data orchestrator module",
   "version": "1.0.0",
-  "output_columns": [
-    "name",
-    "url",
-    "job_title",
-    "follows_from",
-    "company",
-    "location"
-  ],
-  "output_path": "C:\\path\\to\\contacts reachout",
   "destination_file": "C:\\path\\to\\contacts reachout\\contacts.xlsx",
   "history_file": "C:\\path\\to\\contacts reachout\\contacts_history.xlsx",
   "max_tabs": 50,
-  "wait_time_seconds": 5,
-  "tab_switch_delay": 1.5,
   "created_at": "2025-12-23T12:00:00",
   "author": "Automation Script"
 }

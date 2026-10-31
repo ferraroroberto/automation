@@ -45,9 +45,6 @@ The tool uses a JSON configuration file (`normalize_names.json`) with the follow
   ],
   "common_words": [
     "the", "and", "of", "for", "in", "on", "at"
-  ],
-  "common_words_with_punct": [
-    "a", "an", "the", "and", "or", "but"
   ]
 }
 ```
@@ -60,7 +57,6 @@ The tool uses a JSON configuration file (`normalize_names.json`) with the follow
 - **proper_name_whitelist**: List of proper names to preserve (companies, people, products)
 - **special_cases**: Multi-word proper names that need special handling
 - **common_words**: Common words that shouldn't be treated as proper names
-- **common_words_with_punct**: Common words with punctuation for contraction handling
 
 ## 📊 Normalization Rules
 
