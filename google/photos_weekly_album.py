@@ -31,7 +31,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import urljoin
 
 from browser_stealth import launch_persistent
@@ -47,6 +47,7 @@ DEFAULT_PROFILE = Path.home() / ".photos-weekly-album-profile"
 PHOTOS_URL = "https://photos.google.com/"
 ALBUMS_URL = "https://photos.google.com/albums"
 SCREENSHOTS_LINK = "Screenshots & recordings"
+COUNTER_POLL_MS = 400  # pause between reads while a select-all's "N selected" counter climbs
 REVEAL_TIMEOUT_MS = 5_000  # a scroll/hover on a tile that is gone fails fast, not at the 30 s default
 
 SATURDAY = 5  # date.weekday()
@@ -208,6 +209,32 @@ def days_of(start: date, end: date) -> list[date]:
     return [start + timedelta(days=n) for n in range((end - start).days + 1)]
 
 
+def count_mismatches(per_day: dict[date, int], tiles_per_day: dict[date, int]) -> list[str]:
+    """One ``<day>: headers N, tiles M`` entry per day whose two counts disagree."""
+    return [f"{day}: headers {per_day.get(day, 0)}, tiles {tiles_per_day.get(day, 0)}"
+            for day in sorted(set(per_day) | set(tiles_per_day))
+            if per_day.get(day, 0) != tiles_per_day.get(day, 0)]
+
+
+def settled_value(read: Callable[[], int], pause: Callable[[], None], floor: int,
+                  stable_reads: int = 3, max_reads: int = 40) -> int:
+    """``read()`` once it has stopped changing for ``stable_reads`` reads in a row.
+
+    Photos counts a big day's items up after a select-all click rather than jumping to the total, so
+    a single read right after the click is short. A value still at ``floor`` (nothing selected yet)
+    never counts as settled until the reads run out.
+    """
+    last, run_length = -1, 0
+    for _ in range(max_reads):
+        value = read()
+        run_length = run_length + 1 if value == last else 1
+        last = value
+        if run_length >= stable_reads and value != floor:
+            return value
+        pause()
+    return last
+
+
 def find_share_link(texts: list[str]) -> Optional[str]:
     """The first album share link (short or full form) in ``texts``."""
     for text in texts:
@@ -283,7 +310,7 @@ class Config:
 @dataclass
 class Selection:
     per_day: dict[date, int] = field(default_factory=dict)
-    week_tiles: int = 0
+    tiles_per_day: dict[date, int] = field(default_factory=dict)
     excluded: int = 0
     excluded_missing: int = 0
     selected: int = 0
@@ -291,6 +318,10 @@ class Selection:
     @property
     def day_total(self) -> int:
         return sum(self.per_day.values())
+
+    @property
+    def week_tiles(self) -> int:
+        return sum(self.tiles_per_day.values())
 
 
 # -- browser flow ---------------------------------------------------------------------------------
@@ -351,6 +382,10 @@ class PhotosWeb:
 
     def _counter(self) -> int:
         return int(self.page.evaluate(COUNTER_JS))
+
+    def _settled_counter(self, before: int) -> int:
+        """The "N selected" counter once a select-all from ``before`` has finished counting up."""
+        return settled_value(self._counter, lambda: self.page.wait_for_timeout(COUNTER_POLL_MS), floor=before)
 
     # -- session ------------------------------------------------------------------------------
 
@@ -474,8 +509,7 @@ class PhotosWeb:
                 self.page.evaluate(SCAN_JS)  # re-mark: the scroll may have re-rendered the header
                 head = f'[data-pwa-head="{target["key"]}"]'
                 self._click_checked(head, f"{head} >> xpath=..", True, f"day {day}")
-                self.page.wait_for_timeout(500)  # let the "N selected" counter catch up
-                per_day[day] = self._counter() - before
+                per_day[day] = self._settled_counter(before) - before
                 logger.info("ℹ️ %s %s: %d items", day.strftime("%a"), day, per_day[day])
                 continue
             dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
@@ -483,10 +517,10 @@ class PhotosWeb:
                 break
         return {day: per_day.get(day, 0) for day in days_of(start, end)}
 
-    def drop_excluded(self, start: date, end: date, excluded: dict[str, str]) -> tuple[int, int, int]:
+    def drop_excluded(self, start: date, end: date, excluded: dict[str, str]) -> tuple[dict[date, int], int, int]:
         """Untick the week's tiles whose label matches an excluded item.
 
-        Returns (week tiles seen, tiles unticked, excluded items not found in the timeline).
+        Returns (week tiles seen per day, tiles unticked, excluded items not found in the timeline).
         The collection and the timeline use different tile ids, so tiles are matched by label:
         type, orientation and the second the item was taken. More timeline tiles with a label
         than excluded items carrying it can't be told apart, so that aborts.
@@ -494,7 +528,7 @@ class PhotosWeb:
         wanted = Counter(excluded.values())
         self.page.evaluate(SCROLL_TOP_JS, 0)
         self.page.wait_for_timeout(1_000)
-        week: dict[str, str] = {}
+        week: dict[str, date] = {}
         dropped: dict[str, str] = {}
         while True:
             scan = self._scan()
@@ -502,7 +536,7 @@ class PhotosWeb:
                 taken = label_date(tile["label"])
                 if not taken or not start <= taken <= end:
                     continue
-                week[tile["id"]] = tile["label"]
+                week[tile["id"]] = taken
                 if tile["label"] not in wanted or tile["id"] in dropped:
                     continue
                 if Counter(dropped.values())[tile["label"]] >= wanted[tile["label"]]:
@@ -517,7 +551,8 @@ class PhotosWeb:
             dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
             if (dates and min(dates) < start) or not self._wheel():
                 break
-        return len(week), len(dropped), sum((wanted - Counter(dropped.values())).values())
+        return (dict(Counter(week.values())), len(dropped),
+                sum((wanted - Counter(dropped.values())).values()))
 
     def clear_selection(self) -> None:
         self.page.keyboard.press("Escape")
@@ -638,11 +673,16 @@ class PhotosWeb:
         excluded = self.screenshot_labels(start, end)
         logger.info("ℹ️ %d screenshots/recordings in the week to leave out", len(excluded))
         result = Selection(per_day=self.select_week(start, end))
-        result.week_tiles, result.excluded, result.excluded_missing = self.drop_excluded(start, end, excluded)
+        result.tiles_per_day, result.excluded, result.excluded_missing = self.drop_excluded(start, end, excluded)
         result.selected = self._counter()
+        for day in days_of(start, end):
+            logger.info("ℹ️ %s %s: day header %d, tile sweep %d", day.strftime("%a"), day,
+                        result.per_day.get(day, 0), result.tiles_per_day.get(day, 0))
         if result.week_tiles != result.day_total:
             raise FlowError(f"saw {result.week_tiles} tiles in the week but the day headers selected "
-                            f"{result.day_total}; the sweep missed items, so screenshots may remain")
+                            f"{result.day_total} (differs on "
+                            f"{'; '.join(count_mismatches(result.per_day, result.tiles_per_day)) or 'no single day'}); "
+                            "the sweep missed items, so screenshots may remain")
         if result.selected != result.day_total - result.excluded:
             raise FlowError(f"selection counter reads {result.selected}, expected "
                             f"{result.day_total} - {result.excluded} screenshots")
@@ -731,6 +771,7 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool, send: bo
                             "would refuse to create another", existing[1], existing[0])
             sel = web.collect(start, end)
             record.update(per_day={d.isoformat(): n for d, n in sel.per_day.items()},
+                          tiles_per_day={d.isoformat(): n for d, n in sel.tiles_per_day.items()},
                           excluded=sel.excluded, excluded_missing=sel.excluded_missing, selected=sel.selected)
             report(start, end, title, sel)
             if dry_run:
