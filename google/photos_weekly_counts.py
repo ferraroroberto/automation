@@ -28,28 +28,10 @@ def days_of(start: date, end: date) -> list[date]:
 
 
 def count_mismatches(per_day: dict[date, int], tiles_per_day: dict[date, int]) -> list[str]:
-    """One ``<day>: headers N, tiles M`` entry per day whose two counts disagree."""
-    return [f"{day}: headers {per_day.get(day, 0)}, tiles {tiles_per_day.get(day, 0)}"
+    """One ``<day>: selected N, tiles M`` entry per day whose two counts disagree."""
+    return [f"{day}: selected {per_day.get(day, 0)}, tiles {tiles_per_day.get(day, 0)}"
             for day in sorted(set(per_day) | set(tiles_per_day))
             if per_day.get(day, 0) != tiles_per_day.get(day, 0)]
-
-
-def reconcile_boundary_day(per_day: dict[date, int], tiles_per_day: dict[date, int], start: date,
-                           selected: int, excluded: int) -> dict[date, int]:
-    """``per_day`` with the oldest day's header count raised to its tile count when the final counter vouches for it.
-
-    The oldest day is the last select-all clicked, so nothing after it absorbs a count read before
-    it finished climbing (an earlier day's late increments land in the next day's delta). When that
-    day alone is short and the end-of-run "N selected" counter equals the week's tiles minus the
-    unticked screenshots, the header click did select every tile and only its read was early. Any
-    other disagreement is left for the guard.
-    """
-    short_by = tiles_per_day.get(start, 0) - per_day.get(start, 0)
-    others_agree = all(per_day.get(day, 0) == tiles_per_day.get(day, 0)
-                       for day in set(per_day) | set(tiles_per_day) if day != start)
-    if short_by > 0 and others_agree and selected == sum(tiles_per_day.values()) - excluded:
-        return {**per_day, start: tiles_per_day[start]}
-    return per_day
 
 
 def settled_value(read: Callable[[], int], pause: Callable[[], None], floor: int,
