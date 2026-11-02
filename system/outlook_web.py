@@ -53,11 +53,15 @@ class DraftSpec:
             raise ValueError("a draft needs a recipient and a subject")
 
 
+AVATAR_INITIALS = re.compile(r"[A-Z]{1,2}")
+
+
 def clean_row(text: str) -> str:
-    """A row's text without icon glyphs (private-use characters) or blank lines: hovering a row adds
-    its action icons, which would make two reads of the same row compare different."""
+    """A row's text without icon glyphs (private-use characters), blank lines or avatar initials:
+    hovering a row adds its action icons, and an avatar's one or two capital letters come and go as it
+    renders, either of which would make two reads of the same row compare different."""
     lines = (re.sub("[\ue000-\uf8ff]", "", line).strip() for line in text.splitlines())
-    return "\n".join(line for line in lines if line)
+    return "\n".join(line for line in lines if line and not AVATAR_INITIALS.fullmatch(line))
 
 
 def merge_snapshots(seen: list[str], new: list[str]) -> list[str]:
@@ -208,6 +212,17 @@ class OutlookWeb:
 
     # -- drafting ---------------------------------------------------------------------------
 
+    def _show_home_ribbon(self) -> None:
+        """Switch the ribbon to Home when "New mail" is not on screen: a draft still open in the reading
+        pane keeps the Message tab selected, and opening a folder does not change the tab."""
+        if self._new_mail_button().is_visible():
+            return
+        logger.info("ℹ️ New mail not visible; switching the ribbon to Home")
+        try:
+            self.page.get_by_role("tab", name="Home").first.click(timeout=10_000)
+        except Exception:
+            logger.warning("⚠️ no Home tab to click; trying New mail anyway")
+
     def _open_compose(self, attempts: int = 3) -> None:
         """The first click after navigating is sometimes swallowed, so retry until the compose shows.
 
@@ -215,6 +230,7 @@ class OutlookWeb:
         """
         self._open_drafts()
         for _ in range(attempts):
+            self._show_home_ribbon()
             self._new_mail_button().click()
             try:
                 self._subject_box().wait_for(state="visible", timeout=8_000)
