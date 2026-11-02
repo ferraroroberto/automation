@@ -274,6 +274,25 @@ class CleanRowTests(unittest.TestCase):
         self.assertEqual(ow.clean_row(plain), plain)
 
 
+class AvatarInitialsTests(unittest.TestCase):
+    def test_avatar_initials_do_not_change_a_row(self):
+        plain = "[Draft] SOME PERSON\npart_05\n16:07"
+        for initials in ("RF", "R", "XY"):
+            with self.subTest(initials=initials):
+                self.assertEqual(ow.clean_row(f"{initials}\n{plain}"), plain)
+
+    def test_only_whole_lines_of_one_or_two_capitals_are_dropped(self):
+        row = "[Draft] SOME PERSON\nREPORT\nRe: Q3\nok\nA1"
+        self.assertEqual(ow.clean_row(row), row)
+
+    def test_snapshots_differing_only_by_avatar_merge_without_duplicates(self):
+        rows = [f"[Draft] SOME PERSON\nobs_{n:02d}\n15:{n:02d}" for n in range(12)]
+        first = [f"RF\n{r}" for r in rows[:8]]
+        second = [f"R\n{r}" if n % 2 else r for n, r in enumerate(rows[4:])]
+        merged = ow.merge_snapshots([ow.clean_row(r) for r in first], [ow.clean_row(r) for r in second])
+        self.assertEqual(merged, rows)
+
+
 class _Rows:
     def __init__(self, texts):
         self._texts = texts
@@ -335,6 +354,59 @@ class ScanLongListTests(unittest.TestCase):
         self.assertEqual(web._count_drafts("obs_03"), 2)
         self.assertEqual(web._count_drafts("obs_04"), 1)
         self.assertEqual(web._count_drafts("obs_50"), 0)
+
+
+class _Button:
+    def __init__(self, page, name):
+        self.page, self.name = page, name
+
+    @property
+    def first(self):
+        return self
+
+    def is_visible(self):
+        return self.page.home_selected
+
+    def click(self, timeout=30_000):
+        self.page.clicks.append(self.name)
+        if self.name == "Home":
+            self.page.home_selected = True
+
+
+class _Page:
+    """Ribbon stand-in: "New mail" is visible only while the Home tab is selected."""
+
+    def __init__(self, home_selected, has_home_tab=True):
+        self.home_selected, self.has_home_tab, self.clicks = home_selected, has_home_tab, []
+
+    def get_by_role(self, role, name=None, **kwargs):
+        if role == "tab" and not self.has_home_tab:
+            raise RuntimeError("no Home tab")
+        return _Button(self, name if role == "tab" else "New mail")
+
+
+class OpenComposeTests(unittest.TestCase):
+    def _web(self, **page):
+        web = ow.OutlookWeb()
+        web.page = _Page(**page)
+        web._open_drafts = lambda: None
+        web._subject_box = lambda: mock.Mock()
+        return web
+
+    def test_message_ribbon_is_switched_to_home_before_new_mail(self):
+        web = self._web(home_selected=False)
+        web._open_compose()
+        self.assertEqual(web.page.clicks, ["Home", "New mail"])
+
+    def test_home_ribbon_is_left_alone(self):
+        web = self._web(home_selected=True)
+        web._open_compose()
+        self.assertEqual(web.page.clicks, ["New mail"])
+
+    def test_missing_home_tab_still_tries_new_mail(self):
+        web = self._web(home_selected=False, has_home_tab=False)
+        web._open_compose(attempts=1)
+        self.assertEqual(web.page.clicks, ["New mail"])
 
 
 class StructureTests(unittest.TestCase):
