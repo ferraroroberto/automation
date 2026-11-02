@@ -9,6 +9,7 @@ Reusable from any script; ``system/outlook_web_mail.py`` is the command-line too
         web.require_signed_in()
         web.draft(spec)
         assert not web.verify([spec.subject])
+        assert not web.repair_attachments([spec])   # {} when every draft carries its file
         # web.send(spec)   # explicit, never implied by drafting
 
 The signed-in Chrome profile lives outside the repo (``OUTLOOK_WEB_PROFILE_DIR``, default
@@ -35,10 +36,21 @@ NO_SUBJECT = "(No subject)"
 # neighbouring snapshots overlapping, and the cap bounds a list that never reports its end.
 SCROLL_STEP = 500
 MAX_SCROLLS = 200
+# A draft whose file did not stick is discarded and drafted again at most this many times.
+REDO_CAP = 2
+# How long an opened draft gets to show each of its files before it counts as missing it.
+ATTACHMENT_WAIT_MS = 10_000
+# The folder's own counter reads "Drafts 12" / "Drafts [12]"; an empty folder shows no number.
+FOLDER_COUNT = re.compile(r"^\s*Drafts\W*(\d+)\b", re.I)
 
 
 class NotSignedIn(RuntimeError):
     """The saved profile is not signed in to the mailbox."""
+
+
+class DraftCountMismatch(RuntimeError):
+    """The scanned Drafts rows and the folder's own counter disagree, so neither can be trusted to
+    decide which draft to discard."""
 
 
 @dataclass(frozen=True)
@@ -62,6 +74,21 @@ def clean_row(text: str) -> str:
     renders, either of which would make two reads of the same row compare different."""
     lines = (re.sub("[\ue000-\uf8ff]", "", line).strip() for line in text.splitlines())
     return "\n".join(line for line in lines if line and not AVATAR_INITIALS.fullmatch(line))
+
+
+def parse_folder_count(label: str) -> Optional[int]:
+    """The number in a folder's tree label (``Drafts 12``, ``Drafts [12]``), None when it shows none."""
+    match = FOLDER_COUNT.match(clean_row(label))
+    return int(match.group(1)) if match else None
+
+
+def count_state(scanned: int, counter: Optional[int]) -> str:
+    """``agree``, ``disagree`` or ``unknown``: how the scanned row count stands against the counter.
+    An empty folder shows no counter, so zero rows with no counter agree; rows with no counter are
+    ``unknown``, which is not a pass."""
+    if counter is None:
+        return "agree" if scanned == 0 else "unknown"
+    return "agree" if scanned == counter else "disagree"
 
 
 def merge_snapshots(seen: list[str], new: list[str]) -> list[str]:
@@ -299,6 +326,139 @@ class OutlookWeb:
         self.refresh()
         present = self.drafted_subjects(wanted)
         return [s for s in wanted if s not in present]
+
+    # -- attachment check and capped redo ---------------------------------------------------
+
+    def _draft_counter(self) -> Optional[int]:
+        """The Drafts folder's own count from its tree item, None when it cannot be read."""
+        item = self.page.get_by_role("treeitem", name=re.compile(r"^Drafts", re.I)).first
+        try:
+            return parse_folder_count(item.inner_text())
+        except Exception:
+            logger.info("ℹ️ could not read the Drafts counter")
+            return None
+
+    def _check_counts(self, strict: bool) -> list[str]:
+        """Scan the open Drafts list and cross-check its length against the folder counter.
+
+        Disagreement raises ``DraftCountMismatch`` (after one re-read, since the counter can lag a
+        save); a counter that cannot be read raises only when ``strict``, which every discard needs.
+        """
+        rows = self._all_row_texts()
+        counter = self._draft_counter()
+        state = count_state(len(rows), counter)
+        if state == "disagree":
+            self._pause(3_000)
+            counter = self._draft_counter()
+            state = count_state(len(rows), counter)
+        if state == "disagree":
+            raise DraftCountMismatch(
+                f"the Drafts scan found {len(rows)} rows but the folder counter says {counter}; "
+                "nothing was discarded")
+        if state == "unknown":
+            logger.warning("⚠️ the Drafts counter is unreadable; %d scanned rows are not cross-checked", len(rows))
+            if strict:
+                raise DraftCountMismatch(
+                    f"the Drafts counter is unreadable, so {len(rows)} scanned rows are not confirmed; "
+                    "nothing was discarded")
+        return rows
+
+    @staticmethod
+    def _require_one(rows: list[str], subject: str) -> None:
+        found = sum(subject in row for row in rows)
+        if found != 1:
+            raise RuntimeError(f"expected exactly one draft with subject {subject!r}, found {found}")
+
+    def _open_draft_exact(self, subject: str) -> None:
+        """Open the draft whose Subject box reads exactly ``subject``: a row that merely contains the
+        text (``a.txt`` inside ``ba.txt``) is opened, compared and passed over."""
+        for _ in self._scroll_positions():
+            rows = self._rows().filter(has_text=subject)
+            for index in range(rows.count()):
+                rows.nth(index).click()
+                self._pause(2_000)
+                try:
+                    if self._subject_box().input_value() == subject:
+                        return
+                except Exception:
+                    continue
+        raise RuntimeError(f"no draft with exactly the subject {subject!r} to open")
+
+    def _attachment_shown(self, name: str) -> bool:
+        """The opened draft shows ``name`` as an attachment. List rows are options too and carry the
+        subject (often the file name), so rows, which read ``[Draft]``, are left out."""
+        option = self.page.get_by_role("option", name=re.compile(re.escape(name))).filter(
+            has_not_text="[Draft]").first
+        try:
+            option.wait_for(state="visible", timeout=ATTACHMENT_WAIT_MS)
+            return True
+        except Exception:
+            return False
+
+    def verify_attachments(self, specs: Iterable[DraftSpec]) -> dict[str, list[str]]:
+        """``{subject: [file names it lacks]}`` for drafts that opened without all their files.
+
+        Each draft is opened and waited on for its attachments after a fresh load. Anything but exactly
+        one draft per subject, or a scan that disagrees with the folder counter, raises.
+        """
+        wanted = [s for s in specs if s.attachments]
+        if not wanted:
+            return {}
+        self.refresh()
+        self._open_drafts()
+        rows = self._check_counts(strict=False)
+        lacking: dict[str, list[str]] = {}
+        for spec in wanted:
+            self._require_one(rows, spec.subject)
+            self._open_draft_exact(spec.subject)
+            absent = [p.name for p in spec.attachments if not self._attachment_shown(p.name)]
+            if absent:
+                lacking[spec.subject] = absent
+        return lacking
+
+    def _click_discard(self) -> None:
+        self.page.get_by_role("button", name=re.compile(r"^Discard", re.I)).first.click(timeout=10_000)
+        try:  # a confirmation dialog appears for some drafts
+            self.page.get_by_role("dialog").get_by_role(
+                "button", name=re.compile(r"^(Discard|OK|Yes)$", re.I)).first.click(timeout=3_000)
+        except Exception:
+            logger.info("ℹ️ no discard confirmation")
+
+    def discard_draft(self, subject: str) -> None:
+        """Discard the one draft with exactly ``subject``. Refuses unless the scan and the folder
+        counter agree and exactly one row has the subject, and afterwards checks that exactly that
+        draft, and no other, left the list."""
+        self.refresh()
+        self._open_drafts()
+        rows = self._check_counts(strict=True)
+        self._require_one(rows, subject)
+        self._open_draft_exact(subject)
+        self._click_discard()
+        self._pause(3_000)
+        self.refresh()
+        self._open_drafts()
+        after = self._check_counts(strict=True)
+        if len(after) != len(rows) - 1 or any(subject in row for row in after):
+            raise RuntimeError(f"discarding {subject!r} did not remove exactly that draft "
+                               f"({len(rows)} rows before, {len(after)} after)")
+
+    def repair_attachments(self, specs: Iterable[DraftSpec], redo_cap: int = REDO_CAP) -> dict[str, list[str]]:
+        """Redo each draft that lacks a file: discard that one draft and draft it again, up to
+        ``redo_cap`` times. Returns what still lacks files; the other drafts are never touched."""
+        specs = list(specs)
+        lacking = self.verify_attachments(specs)
+        for spec in (s for s in specs if s.subject in lacking):
+            for attempt in range(1, redo_cap + 1):
+                logger.warning("⚠️ %s lacks %s; redoing (%d of %d)", spec.subject, lacking[spec.subject],
+                               attempt, redo_cap)
+                self.discard_draft(spec.subject)
+                self.draft(spec)
+                again = self.verify_attachments([spec])
+                if not again:
+                    del lacking[spec.subject]
+                    break
+                lacking[spec.subject] = again[spec.subject]
+        return lacking
 
     def restore_subjects(self, expected: dict[str, str]) -> int:
         """Subject-less drafts get their subject back from an attachment name in ``expected``

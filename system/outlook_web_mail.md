@@ -71,16 +71,20 @@ with OutlookWeb() as web:
     web.require_signed_in()
     web.draft(spec)
     assert not web.verify([spec.subject])
+    assert not web.repair_attachments([spec])  # {} once every draft carries its file
     # web.send(spec)  # explicit; drafting never implies it
 ```
 
-`DraftSpec(to, subject, attachments=(), body="")` is the whole input. `OutlookWeb` also offers `drafted_subjects`, `verify`, `restore_subjects` and `screenshot`.
+`DraftSpec(to, subject, attachments=(), body="")` is the whole input. `OutlookWeb` also offers `drafted_subjects`, `verify`, `verify_attachments`, `repair_attachments`, `restore_subjects` and `screenshot`.
 
 ## What a run does
 
 1. Opens the mailbox with the saved profile; exits 2 if it is not signed in. It restores the subject on any subject-less draft carrying one of this run's files (left by an earlier run) and skips drafts already present, so a re-run never duplicates. Other drafts of yours are left alone.
 2. For each remaining draft, always from the Drafts list (where "New mail" is): attaches each file as a copy (choosing it when Outlook offers a OneDrive link), then body, recipient and subject, then saves. The subject goes in last on purpose: one typed before the upload finishes was lost in manual runs.
-3. Reloads and checks every subject is in Drafts, repairing a subject-less draft from its attachment name. Exit 0 only when all are verified, otherwise 1 with a screenshot under `<profile>/failures/`.
+3. Reloads and checks every subject is in Drafts, repairing a subject-less draft from its attachment name.
+4. Opens each draft and waits for every one of its files to show as an attachment. A draft that lacks one is discarded and drafted again, at most twice and only that draft; one still without its file after that fails the run and is named in the log. Before any discard, the number of rows the scroll scan found must equal the Drafts folder's own counter and exactly one row must carry the subject; otherwise the run stops with an error and discards nothing. An unreadable counter blocks a discard too.
+
+Exit 0 only when all are verified, otherwise 1 with a screenshot under `<profile>/failures/`.
 
 Exit codes: `0` ok, `1` a draft or send failed or could not be verified, `2` usage error, refused request, not signed in, or send not confirmed.
 
@@ -93,4 +97,4 @@ Exit codes: `0` ok, `1` a draft or send failed or could not be verified, `2` usa
 
 ## Tests
 
-`python -m unittest discover -s tests/system -p "test_outlook_web_mail.py"` covers part discovery, selection parsing, request building, the send logic against a fake browser (never sends unless asked, needs confirmation, never sends unverified drafts), and a guard that only the library's `send` method can click Send. The real browser steps are checked by live runs.
+`python -m unittest discover -s tests/system -p "test_outlook_web_mail.py"` covers part discovery, selection parsing, request building, the send logic against a fake browser (never sends unless asked, needs confirmation, never sends unverified drafts), the attachment check and capped redo over an invented mailbox, and the scan-versus-counter cross-check, and a guard that only the library's `send` method can click Send. The real browser steps are checked by live runs.

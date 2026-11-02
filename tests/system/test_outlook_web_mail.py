@@ -158,10 +158,11 @@ class FakeWeb:
     """Stands in for OutlookWeb; records calls so the orchestration can be checked offline."""
     instance = None
 
-    def __init__(self, url, headless, missing=(), signed_in=True, sent=()):
+    def __init__(self, url, headless, missing=(), signed_in=True, sent=(), lacking=None, repair_error=None):
         FakeWeb.instance = self
         self.calls, self.missing, self.signed_in = [], list(missing), signed_in
         self.sent = set(sent)
+        self.lacking, self.repair_error = lacking or {}, repair_error
 
     def __enter__(self):
         return self
@@ -175,6 +176,12 @@ class FakeWeb:
 
     def restore_subjects(self, expected):
         return 0
+
+    def repair_attachments(self, specs):
+        self.calls.append(("repair", [s.subject for s in specs]))
+        if self.repair_error:
+            raise self.repair_error
+        return dict(self.lacking)
 
     def drafted_subjects(self, subjects):
         return set()
@@ -210,19 +217,35 @@ class ExecuteTests(unittest.TestCase):
             return owm.execute(self.specs, "u", True, send, yes), FakeWeb.instance.calls
 
     def test_drafting_never_sends(self):
-        self.assertEqual(self._run(False, False), (0, [("draft", "a.txt")]))
+        self.assertEqual(self._run(False, False), (0, [("draft", "a.txt"), ("repair", ["a.txt"])]))
 
     def test_send_with_yes_sends_what_it_drafted(self):
-        self.assertEqual(self._run(True, True), (0, [("draft", "a.txt"), ("send", "a.txt")]))
+        self.assertEqual(self._run(True, True),
+                         (0, [("draft", "a.txt"), ("repair", ["a.txt"]), ("send", "a.txt")]))
+
+    def test_a_draft_still_without_its_file_fails_the_run_and_is_never_sent(self):
+        with self.assertLogs("outlook_web_mail", "ERROR") as logs:
+            code, calls = self._run(True, True, lacking={"a.txt": ["a.txt"]})
+        self.assertEqual(code, 1)
+        self.assertNotIn(("send", "a.txt"), calls)
+        self.assertIn("a.txt", "\n".join(logs.output))
+
+    def test_a_count_mismatch_stops_the_run_without_sending(self):
+        error = ow.DraftCountMismatch("scan 5, counter 3")
+        with self.assertLogs("outlook_web_mail", "ERROR") as logs:
+            code, calls = self._run(True, True, repair_error=error)
+        self.assertEqual(code, 1)
+        self.assertNotIn(("send", "a.txt"), calls)
+        self.assertIn("scan 5, counter 3", "\n".join(logs.output))
 
     def test_send_without_confirmation_leaves_drafts_unsent(self):
-        self.assertEqual(self._run(True, False, tty=False), (2, [("draft", "a.txt")]))
+        self.assertEqual(self._run(True, False, tty=False), (2, [("draft", "a.txt"), ("repair", ["a.txt"])]))
 
     def test_typed_confirmation(self):
         with mock.patch("builtins.input", return_value="SEND"):
             self.assertEqual(self._run(True, False, tty=True)[0], 0)
         with mock.patch("builtins.input", return_value="yes"):
-            self.assertEqual(self._run(True, False, tty=True), (2, [("draft", "a.txt")]))
+            self.assertEqual(self._run(True, False, tty=True), (2, [("draft", "a.txt"), ("repair", ["a.txt"])]))
 
     def test_unverified_drafts_are_never_sent(self):
         code, calls = self._run(True, True, missing=["a.txt"])
@@ -235,13 +258,14 @@ class ExecuteTests(unittest.TestCase):
         self.specs = [ow.DraftSpec("x@y.z", "a.txt", (self.f,)), ow.DraftSpec("x@y.z", "b.txt", (second,))]
         code, calls = self._run(True, True, sent=["a.txt"])
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [("draft", "b.txt"), ("send", "b.txt")])
+        self.assertEqual(calls, [("draft", "b.txt"), ("repair", ["b.txt"]), ("send", "b.txt")])
 
     def test_send_rerun_with_everything_sent_does_nothing(self):
         self.assertEqual(self._run(True, True, sent=["a.txt"]), (0, []))
 
     def test_draft_only_run_does_not_consult_sent_items(self):
-        self.assertEqual(self._run(False, False, sent=["a.txt"]), (0, [("draft", "a.txt")]))
+        self.assertEqual(self._run(False, False, sent=["a.txt"]),
+                         (0, [("draft", "a.txt"), ("repair", ["a.txt"])]))
 
     def test_not_signed_in_exits_two(self):
         self.assertEqual(self._run(True, True, signed_in=False), (2, []))
@@ -354,6 +378,183 @@ class ScanLongListTests(unittest.TestCase):
         self.assertEqual(web._count_drafts("obs_03"), 2)
         self.assertEqual(web._count_drafts("obs_04"), 1)
         self.assertEqual(web._count_drafts("obs_50"), 0)
+
+
+class FolderCountTests(unittest.TestCase):
+    def test_counter_text_variants(self):
+        for label, expected in (("Drafts 12", 12), ("Drafts [12]", 12), ("Drafts\n12", 12),
+                                ("Drafts\n3", 3), ("drafts, 7 items", 7), ("Drafts", None),
+                                ("Sent Items 4", None), ("", None)):
+            with self.subTest(label=label):
+                self.assertEqual(ow.parse_folder_count(label), expected)
+
+    def test_count_state(self):
+        self.assertEqual(ow.count_state(5, 5), "agree")
+        self.assertEqual(ow.count_state(5, 3), "disagree")
+        self.assertEqual(ow.count_state(0, None), "agree")
+        self.assertEqual(ow.count_state(4, None), "unknown")
+
+
+class SimMailbox(ow.OutlookWeb):
+    """An OutlookWeb over an invented mailbox: ``drafts`` maps subject -> file names the saved draft
+    carries. ``lose`` lists subjects whose next ``n`` saves drop their files. No browser."""
+
+    def __init__(self, drafts, lose=None, counter="live"):
+        super().__init__()
+        self.drafts = {s: set(f) for s, f in drafts.items()}
+        self.lose = dict(lose or {})
+        self.counter, self.opened = counter, None
+        self.log = []
+
+    # the page, the pauses and the loads are not under test
+    def refresh(self):
+        pass
+
+    def _open_drafts(self):
+        pass
+
+    def _pause(self, ms):
+        pass
+
+    def _all_row_texts(self):
+        return [f"[Draft] SOME PERSON\n{s}\n10:00" for s in self.drafts]
+
+    def _draft_counter(self):
+        return len(self.drafts) if self.counter == "live" else self.counter
+
+    def _open_draft_exact(self, subject):
+        if subject not in self.drafts:
+            raise RuntimeError(f"no draft with exactly the subject {subject!r} to open")
+        self.opened = subject
+
+    def _attachment_shown(self, name):
+        return name in self.drafts[self.opened]
+
+    def _click_discard(self):
+        self.log.append(("discard", self.opened))
+        del self.drafts[self.opened]
+
+    def draft(self, spec):
+        self.log.append(("draft", spec.subject))
+        dropped = self.lose.get(spec.subject, 0) > 0
+        if dropped:
+            self.lose[spec.subject] -= 1
+        self.drafts[spec.subject] = set() if dropped else {p.name for p in spec.attachments}
+
+
+def _spec(subject, *files):
+    return ow.DraftSpec("x@y.z", subject, tuple(Path(f) for f in files))
+
+
+class AttachmentCheckTests(unittest.TestCase):
+    def test_a_draft_without_its_file_is_named_with_the_missing_file(self):
+        web = SimMailbox({"one": {"one.zip"}, "two": set(), "three": {"three.zip"}})
+        specs = [_spec("one", "one.zip"), _spec("two", "two.zip"), _spec("three", "three.zip")]
+        self.assertEqual(web.verify_attachments(specs), {"two": ["two.zip"]})
+
+    def test_every_file_of_a_multi_file_draft_is_checked(self):
+        web = SimMailbox({"both": {"a.zip"}})
+        self.assertEqual(web.verify_attachments([_spec("both", "a.zip", "b.zip")]), {"both": ["b.zip"]})
+
+    def test_complete_drafts_and_attachment_free_specs_pass(self):
+        web = SimMailbox({"one": {"one.zip"}, "note": set()})
+        self.assertEqual(web.verify_attachments([_spec("one", "one.zip"), _spec("note")]), {})
+
+    def test_a_subject_that_is_not_exactly_one_row_is_an_error_not_a_pass(self):
+        for drafts in ({}, {"dup": {"d.zip"}, "dup ": {"d.zip"}}):
+            with self.subTest(drafts=drafts):
+                web = SimMailbox(drafts)
+                with self.assertRaisesRegex(RuntimeError, "expected exactly one draft"):
+                    web.verify_attachments([_spec("dup", "d.zip")])
+
+
+class CountCrossCheckTests(unittest.TestCase):
+    def test_disagreement_raises_and_names_both_numbers(self):
+        web = SimMailbox({"one": {"one.zip"}, "two": set()}, counter=5)
+        with self.assertRaisesRegex(ow.DraftCountMismatch, "2 rows.*counter says 5"):
+            web.verify_attachments([_spec("one", "one.zip")])
+
+    def test_a_disagreement_never_discards_or_redrafts(self):
+        web = SimMailbox({"two": set()}, counter=9)
+        with self.assertRaises(ow.DraftCountMismatch):
+            web.repair_attachments([_spec("two", "two.zip")])
+        self.assertEqual(web.log, [])
+        self.assertIn("two", web.drafts)
+
+    def test_a_lagging_counter_that_catches_up_on_the_re_read_is_accepted(self):
+        web = SimMailbox({"one": {"one.zip"}, "two": {"two.zip"}})
+        reads = iter([1, 2])
+        web._draft_counter = lambda: next(reads)
+        self.assertEqual(web.verify_attachments([_spec("one", "one.zip")]), {})
+
+    def test_an_unreadable_counter_blocks_a_discard_but_not_a_read_only_check(self):
+        web = SimMailbox({"two": set()}, counter=None)
+        with self.assertLogs("outlook_web", "WARNING"):
+            self.assertEqual(web.verify_attachments([_spec("two", "two.zip")]), {"two": ["two.zip"]})
+        with self.assertRaisesRegex(ow.DraftCountMismatch, "unreadable"), self.assertLogs("outlook_web", "WARNING"):
+            web.discard_draft("two")
+        self.assertEqual(web.log, [])
+
+    def test_an_empty_folder_with_no_counter_is_consistent(self):
+        web = SimMailbox({}, counter=None)
+        self.assertEqual(web._check_counts(strict=True), [])
+
+
+class RepairAttachmentsTests(unittest.TestCase):
+    def test_only_the_draft_lacking_its_file_is_redone(self):
+        web = SimMailbox({"one": {"one.zip"}, "two": set(), "three": {"three.zip"}})
+        specs = [_spec("one", "one.zip"), _spec("two", "two.zip"), _spec("three", "three.zip")]
+        self.assertEqual(web.repair_attachments(specs), {})
+        self.assertEqual(web.log, [("discard", "two"), ("draft", "two")])
+        self.assertEqual(web.drafts["two"], {"two.zip"})
+        self.assertEqual(set(web.drafts), {"one", "two", "three"})
+
+    def test_a_healthy_set_is_left_untouched(self):
+        web = SimMailbox({"one": {"one.zip"}})
+        self.assertEqual(web.repair_attachments([_spec("one", "one.zip")]), {})
+        self.assertEqual(web.log, [])
+
+    def test_the_redo_is_capped_and_the_draft_is_reported(self):
+        web = SimMailbox({"two": set()}, lose={"two": 99})
+        with self.assertLogs("outlook_web", "WARNING"):
+            result = web.repair_attachments([_spec("two", "two.zip")], redo_cap=2)
+        self.assertEqual(result, {"two": ["two.zip"]})
+        self.assertEqual(web.log, [("discard", "two"), ("draft", "two")] * 2)
+
+    def test_a_second_attempt_can_succeed(self):
+        web = SimMailbox({"two": set()}, lose={"two": 1})
+        with self.assertLogs("outlook_web", "WARNING"):
+            self.assertEqual(web.repair_attachments([_spec("two", "two.zip")], redo_cap=3), {})
+        self.assertEqual(web.log, [("discard", "two"), ("draft", "two")] * 2)
+
+    def test_a_discard_that_removes_more_than_that_draft_aborts_the_redo(self):
+        web = SimMailbox({"one": {"one.zip"}, "two": set()})
+
+        def discard_both():
+            web.log.append(("discard", "both"))
+            web.drafts.clear()
+        web._click_discard = discard_both
+        with self.assertLogs("outlook_web", "WARNING"), self.assertRaisesRegex(RuntimeError, "did not remove exactly"):
+            web.repair_attachments([_spec("one", "one.zip"), _spec("two", "two.zip")])
+        self.assertEqual(web.log, [("discard", "both")])
+
+    def test_a_discard_that_removes_nothing_aborts_the_redo(self):
+        web = SimMailbox({"two": set()})
+        web._click_discard = lambda: web.log.append(("discard", "nothing"))
+        with self.assertLogs("outlook_web", "WARNING"), self.assertRaisesRegex(RuntimeError, "did not remove exactly"):
+            web.repair_attachments([_spec("two", "two.zip")])
+        self.assertEqual(web.log, [("discard", "nothing")])
+
+
+class AttachmentLocatorTests(unittest.TestCase):
+    def test_list_rows_are_filtered_out_of_the_attachment_options(self):
+        web = ow.OutlookWeb()
+        filtered = web.page = mock.MagicMock()
+        options = filtered.get_by_role.return_value
+        self.assertTrue(web._attachment_shown("report.pdf"))
+        options.filter.assert_called_once_with(has_not_text="[Draft]")
+        options.filter.return_value.first.wait_for.side_effect = TimeoutError
+        self.assertFalse(web._attachment_shown("report.pdf"))
 
 
 class _Button:

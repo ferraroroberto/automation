@@ -175,7 +175,17 @@ def execute(specs: list[DraftSpec], url: str, headless: bool, send: bool, assume
             logger.error("❌ still missing from Drafts: %s", missing)
             logger.error("❌ screenshot: %s", web.screenshot("verify"))
             return 1
-        logger.info("✅ all %d drafts are in Drafts with their subjects", len(specs))
+        try:
+            lacking = web.repair_attachments(specs)
+        except RuntimeError as exc:  # includes DraftCountMismatch: stop, never repair by discarding
+            logger.error("❌ attachment check stopped: %s", exc)
+            logger.error("❌ screenshot: %s", web.screenshot("attachments"))
+            return 1
+        if lacking:
+            logger.error("❌ still without their attachment after the redo cap: %s", lacking)
+            logger.error("❌ screenshot: %s", web.screenshot("attachments"))
+            return 1
+        logger.info("✅ all %d drafts are in Drafts with their subjects and files", len(specs))
         if not send:
             logger.info("ℹ️ nothing was sent")
             return 0
