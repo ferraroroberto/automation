@@ -16,7 +16,6 @@
     {"key": "image/transparency_variants.py", "counts": {"unresolved": 1}},
     {"key": "linkedin/check_ip/storage.py", "counts": {"unresolved": 1}},
     {"key": "linkedin/genially_profiles_extractor/genially_profiles_extractor.py", "counts": {"unresolved": 9}},
-    {"key": "linkedin/profiles_data_extractor/common/_logging_setup.py", "counts": {"code-folder": 2}},
     {"key": "linkedin/profiles_data_extractor/common/excel_format_manager.py", "counts": {"unresolved": 2}},
     {"key": "linkedin/profiles_data_extractor/common/extract_data.py", "counts": {"unresolved": 1}},
     {"key": "linkedin/profiles_data_extractor/devtools/linkedin_profiles_data_orchestrator_devtools.py", "counts": {"unresolved": 3}},

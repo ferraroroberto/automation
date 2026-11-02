@@ -1,5 +1,7 @@
 """Reachout Manager's two-step delete must actually reach the deletion (Streamlit AppTest, no Excel)."""
 
+import tempfile
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -8,6 +10,7 @@ from unittest import mock
 from streamlit.testing.v1 import AppTest
 
 COMMON = Path(__file__).resolve().parents[4] / "linkedin/profiles_data_extractor/common"
+os.environ.setdefault("LINKEDIN_EXTRACTOR_LOG_FILE", os.path.join(tempfile.gettempdir(), "linkedin_extractor_tests.log"))
 sys.path.insert(0, str(COMMON))
 
 import reachout  # noqa: E402
