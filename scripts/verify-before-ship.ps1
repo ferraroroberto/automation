@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure, instruction, doc refs, dead code, static, docs, comment and conventions ratchets, then the unittest suites.
+# pass/fail: byte-compile, the structure, instruction, doc refs, dead code, static, docs, comment, conventions and runtime write ratchets, then the unittest suites inside the runtime write probe (--snapshot before, --probe after: any untracked or ignored file they leave under a code folder fails).
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -97,6 +97,21 @@ try {
     if ($LASTEXITCODE -eq 3) { Fail "conventions ratchet NOT CONFIRMED (exit 3) -- it could not read or parse the tracked Python." }
     if ($LASTEXITCODE -ne 0) { Fail "conventions ratchet failed (see findings above)." }
 
+    # Opt-in via .fleet.toml [runtime_write_ratchet]. Exit 1 is a file whose count of write targets
+    # resolving under a code folder rose above its baseline; exit 3 is "not confirmed" (a new target
+    # it cannot resolve, git unusable, a tracked .py file that does not parse). Both fail.
+    Write-Host "==> runtime write ratchet..." -ForegroundColor Cyan
+    & $python "scripts/runtime_write_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "runtime write ratchet NOT CONFIRMED (exit 3) -- see the unresolved targets above." }
+    if ($LASTEXITCODE -ne 0) { Fail "runtime write ratchet failed (see findings above)." }
+
+    # Runtime write probe, first half: what already sits untracked or ignored under the code
+    # folders, so the probe after the suites names only what they wrote.
+    $runtimeSnapshot = Join-Path ([IO.Path]::GetTempPath()) "runtime-write-snapshot-$PID.json"
+    Write-Host "==> runtime write probe (snapshot)..." -ForegroundColor Cyan
+    & $python "scripts/runtime_write_ratchet.py" --snapshot $runtimeSnapshot
+    if ($LASTEXITCODE -ne 0) { Fail "runtime write probe could not take its snapshot (exit $LASTEXITCODE)." }
+
     Write-Host "==> unittest (tests/scripts)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/scripts -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "gate wiring unittest suite failed." }
@@ -168,6 +183,11 @@ try {
     Write-Host "==> pytest (tests/parking)..." -ForegroundColor Cyan
     & $python -m pytest -q tests/parking
     if ($LASTEXITCODE -ne 0) { Fail "parking pytest suite failed." }
+
+    Write-Host "==> runtime write probe..." -ForegroundColor Cyan
+    & $python "scripts/runtime_write_ratchet.py" --probe $runtimeSnapshot
+    if ($LASTEXITCODE -eq 3) { Fail "runtime write probe NOT CONFIRMED (exit 3) -- the snapshot could not be read." }
+    if ($LASTEXITCODE -ne 0) { Fail "runtime write probe failed: the suites left a file under a code folder (see above)." }
 }
 finally {
     Pop-Location
