@@ -330,10 +330,14 @@ class OutlookWeb:
     # -- attachment check and capped redo ---------------------------------------------------
 
     def _draft_counter(self) -> Optional[int]:
-        """The Drafts folder's own count from its tree item, None when it cannot be read."""
+        """The Drafts folder's own count from its tree item, None when it cannot be read.
+
+        The item's text drops the count while Drafts is the open folder, but its title ("Drafts - 3
+        items (0 unread)") always carries it, so the title is read first."""
         item = self.page.get_by_role("treeitem", name=re.compile(r"^Drafts", re.I)).first
         try:
-            return parse_folder_count(item.inner_text())
+            count = parse_folder_count(item.get_attribute("title") or "")
+            return count if count is not None else parse_folder_count(item.inner_text())
         except Exception:
             logger.info("ℹ️ could not read the Drafts counter")
             return None

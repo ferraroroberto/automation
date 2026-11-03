@@ -395,6 +395,40 @@ class FolderCountTests(unittest.TestCase):
         self.assertEqual(ow.count_state(4, None), "unknown")
 
 
+class _TreeItem:
+    """The Drafts tree item as the live page renders it."""
+
+    def __init__(self, text, title):
+        self.text, self.title = text, title
+
+    @property
+    def first(self):
+        return self
+
+    def inner_text(self):
+        return self.text
+
+    def get_attribute(self, name):
+        return self.title if name == "title" else None
+
+
+class DraftCounterTests(unittest.TestCase):
+    def _counter(self, text, title):
+        web = ow.OutlookWeb()
+        web.page = mock.Mock()
+        web.page.get_by_role.return_value = _TreeItem(text, title)
+        return web._draft_counter()
+
+    def test_open_drafts_folder_hides_the_count_in_its_text_but_not_in_its_title(self):
+        self.assertEqual(self._counter("\nDrafts\nselected\n", "Drafts - 3 items (0 unread)"), 3)
+
+    def test_closed_drafts_folder_reads_from_its_text(self):
+        self.assertEqual(self._counter("\nDrafts\n[3]\nitems", None), 3)
+
+    def test_no_count_anywhere_is_unknown(self):
+        self.assertIsNone(self._counter("\nDrafts\nselected", None))
+
+
 class SimMailbox(ow.OutlookWeb):
     """An OutlookWeb over an invented mailbox: ``drafts`` maps subject -> file names the saved draft
     carries. ``lose`` lists subjects whose next ``n`` saves drop their files. No browser."""
