@@ -6,6 +6,7 @@ layer       = "working-pipe"
 icon        = "🤖"
 description = "Python automation grab-bag."
 shape       = "pipeline-cli"
+depends_on  = ["fleet-config"]
 # One folder per tool domain; docs/layout.md says what each holds. Tests live under
 # tests/<domain>/, never beside the code.
 extra_roots = ["audio", "excel", "git-housekeeping", "google", "html", "image", "linkedin", "notion", "parking", "smart_life", "system", "text", "video"]
