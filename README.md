@@ -138,7 +138,7 @@ A deterministic poller (no LLM) that checks every 15 minutes for a free parking 
 - **`background.py`** - Set desktop/taskbar color theme (black or light grey)
 - **`outlook_web_mail.py`** / **`outlook_web.py`** - Playwright tool and reusable library that draft (and, only when asked, send) Outlook-on-the-web mail with any files attached, incl. numbered parts of a split file — see [`system/outlook_web_mail.md`](system/outlook_web_mail.md)
 - **`markdown_preview.py`** - Tray-resident GitHub-style Markdown previewer (Edge WebView2) with light/dark toggle and live reload — see [`system/markdown_preview.md`](system/markdown_preview.md)
-- **`foldersearcher/`** - Tray-resident multi-root folder-name search with email-branch pruning and path-depth display, plus a headless `scan` CLI run nightly as an app-launcher job — see [`system/foldersearcher/foldersearcher.md`](system/foldersearcher/foldersearcher.md)
+- **`foldersearcher/`** - Retired (folder-explorer's folder search replaces it): tray-resident multi-root folder-name search with email-branch pruning and path-depth display, plus a headless `scan` CLI — see [`system/foldersearcher/foldersearcher.md`](system/foldersearcher/foldersearcher.md)
 - **`treesize/`** - Folder size utilities
 
 Reference for the previously-undocumented `system/` scripts (background, keycaster, unzip_with_password, rename_files, copy_git_project, word_to_markdown, list_files_to_xls): [`system/README.md`](system/README.md).
