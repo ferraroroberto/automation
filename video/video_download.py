@@ -21,6 +21,10 @@ from _tk_widgets import build_progress_section, set_progress
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from no_window import NO_WINDOW  # noqa: E402
 
+# An HLS stream is copied without re-encoding, but a long recording over a slow link can
+# take hours; 4 h bounds a stalled ffmpeg, not a long stream.
+_HLS_TIMEOUT_S = 14400
+
 
 # -----------------------------------------------------------------------------
 # YouTube download (yt-dlp)
@@ -110,11 +114,19 @@ def download_hls(m3u8_url, output_path, filename, headers=None, status_callback=
             command,
             check=True,
             creationflags=NO_WINDOW,
+            timeout=_HLS_TIMEOUT_S,
         )
         if progress_callback:
             progress_callback(100)
         if status_callback:
             status_callback(f"Done: {m3u8_url}")
+    except subprocess.TimeoutExpired:
+        if progress_callback:
+            progress_callback(0)
+        if status_callback:
+            status_callback(f"Failed: ffmpeg timed out after {_HLS_TIMEOUT_S}s")
+        else:
+            raise
     except subprocess.CalledProcessError as e:
         if progress_callback:
             progress_callback(0)

@@ -21,6 +21,9 @@ from googleapiclient.discovery import build
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
+# gcloud starts a Python runtime per call and can take several seconds; 60 s means it is wedged.
+_GCLOUD_TIMEOUT_S = 60
+
 def check_gcloud_config():
     """Check current gcloud configuration"""
     print("🔍 Checking gcloud configuration...")
@@ -42,12 +45,15 @@ def check_gcloud_config():
                     # Try direct command
                     result = subprocess.run(['gcloud', '--version'],
                                           capture_output=True, text=True, check=True,
-                                          creationflags=_NO_WINDOW)
+                                          creationflags=_NO_WINDOW, timeout=_GCLOUD_TIMEOUT_S)
                     gcloud_cmd = 'gcloud'
                     break
                 elif os.path.exists(path):
                     gcloud_cmd = path
                     break
+            except subprocess.TimeoutExpired:
+                print(f"   ⚠️ `gcloud --version` timed out after {_GCLOUD_TIMEOUT_S}s; trying known install paths.")
+                continue
             except (subprocess.CalledProcessError, FileNotFoundError):
                 continue
         
@@ -61,18 +67,21 @@ def check_gcloud_config():
         # Check current project
         result = subprocess.run([gcloud_cmd, 'config', 'get-value', 'project'],
                               capture_output=True, text=True, check=True,
-                              creationflags=_NO_WINDOW)
+                              creationflags=_NO_WINDOW, timeout=_GCLOUD_TIMEOUT_S)
         current_project = result.stdout.strip()
         print(f"   📋 Current gcloud project: {current_project}")
         
         # Check account
         result = subprocess.run([gcloud_cmd, 'auth', 'list', '--filter=status:ACTIVE'],
                               capture_output=True, text=True, check=True,
-                              creationflags=_NO_WINDOW)
+                              creationflags=_NO_WINDOW, timeout=_GCLOUD_TIMEOUT_S)
         active_accounts = result.stdout.strip()
         print(f"   👤 Active gcloud accounts:\n{active_accounts}")
-        
+
         return current_project
+    except subprocess.TimeoutExpired:
+        print(f"   ❌ gcloud did not answer within {_GCLOUD_TIMEOUT_S}s.")
+        return None
     except subprocess.CalledProcessError as e:
         print(f"   ❌ gcloud not configured or not in PATH: {e}")
         return None

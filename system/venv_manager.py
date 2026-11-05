@@ -14,6 +14,11 @@ log = logging.getLogger(__name__)
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
+# `pip list` reads local metadata and answers in seconds; 2 min means a wedged pip.
+_PIP_LIST_TIMEOUT_S = 120
+# An uninstall can wait on a locked file or a slow disk; 5 min bounds a stuck pip.
+_PIP_UNINSTALL_TIMEOUT_S = 300
+
 def is_in_virtualenv():
     """Check if currently running in a virtual environment."""
     # Check standard virtualenv indicators
@@ -80,7 +85,8 @@ def deactivate_venv():
 def get_installed_packages():
     """Get a list of installed packages."""
     result = subprocess.run([sys.executable, "-m", "pip", "list", "--format=freeze"],
-                           capture_output=True, text=True, check=True, creationflags=_NO_WINDOW)
+                           capture_output=True, text=True, check=True, creationflags=_NO_WINDOW,
+                           timeout=_PIP_LIST_TIMEOUT_S)
     return result.stdout.strip().split('\n')
 
 def is_admin():
@@ -130,6 +136,7 @@ def safe_uninstall_package(package):
             capture_output=True,
             text=True,
             creationflags=_NO_WINDOW,
+            timeout=_PIP_UNINSTALL_TIMEOUT_S,
         )
         
         # Check if there was a permission error
@@ -142,6 +149,7 @@ def safe_uninstall_package(package):
                 capture_output=True,
                 text=True,
                 creationflags=_NO_WINDOW,
+                timeout=_PIP_UNINSTALL_TIMEOUT_S,
             )
             
             if user_result.returncode == 0:
@@ -153,7 +161,9 @@ def safe_uninstall_package(package):
             return True, f"Successfully uninstalled {package}"
         else:
             return False, f"Failed to uninstall {package}: {result.stderr}"
-            
+
+    except subprocess.TimeoutExpired:
+        return False, f"Timed out uninstalling {package}: pip ran past {_PIP_UNINSTALL_TIMEOUT_S}s"
     except Exception as e:
         return False, f"Error uninstalling {package}: {str(e)}"
 

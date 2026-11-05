@@ -18,6 +18,10 @@ from _tk_widgets import build_progress_section, set_progress
 
 log = logging.getLogger(__name__)
 
+# Concatenating re-encodes every clip with libx264; a long set runs for an hour or more,
+# so 2 h bounds a stuck ffmpeg without cutting off a big job.
+_CONCAT_TIMEOUT_S = 7200
+
 
 def _concat_list_text(paths: List[str]) -> str:
     r"""Concat-demuxer list: one `file '<path>'` line per clip, each `'` in a path written as `'\''`."""
@@ -164,6 +168,7 @@ class VideoConcatenator:
                 capture_output=True,
                 text=True,
                 creationflags=NO_WINDOW,
+                timeout=_CONCAT_TIMEOUT_S,
             )
             if result.returncode == 0:
                 if progress_callback:
@@ -173,6 +178,10 @@ class VideoConcatenator:
                 return True
             if status_callback:
                 status_callback(result.stderr[:200] if result.stderr else "FFmpeg failed")
+            return False
+        except subprocess.TimeoutExpired:
+            if status_callback:
+                status_callback(f"FFmpeg timed out after {_CONCAT_TIMEOUT_S}s")
             return False
         except Exception as e:
             if status_callback:

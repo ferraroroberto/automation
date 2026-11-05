@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
+# A version or stream probe answers in well under a second; 30 s means a wedged child.
+_PROBE_TIMEOUT_S = 30
+# A feature-length video re-encoded to MP3 legitimately runs for minutes; 30 min bounds a stuck ffmpeg.
+_EXTRACT_TIMEOUT_S = 1800
+
+
 def _mp3_path(output_file: Path) -> Path:
     """Append `.mp3` to the output name.
 
@@ -39,9 +45,12 @@ class AudioExtractor:
     def check_ffmpeg(self) -> bool:
         """Check if FFmpeg and FFprobe are available."""
         try:
-            subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True, creationflags=_NO_WINDOW)
-            subprocess.run(['ffprobe', '-version'], capture_output=True, check=True, creationflags=_NO_WINDOW)
+            subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True, creationflags=_NO_WINDOW, timeout=_PROBE_TIMEOUT_S)
+            subprocess.run(['ffprobe', '-version'], capture_output=True, check=True, creationflags=_NO_WINDOW, timeout=_PROBE_TIMEOUT_S)
             return True
+        except subprocess.TimeoutExpired:
+            logger.error(f"FFmpeg or FFprobe did not answer a version check within {_PROBE_TIMEOUT_S}s.")
+            return False
         except (subprocess.CalledProcessError, FileNotFoundError):
             logger.error("FFmpeg or FFprobe not found. Please install FFmpeg.")
             return False
@@ -65,7 +74,7 @@ class AudioExtractor:
                 str(video_file)
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True, creationflags=_NO_WINDOW)
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True, creationflags=_NO_WINDOW, timeout=_PROBE_TIMEOUT_S)
             data = json.loads(result.stdout)
             
             audio_tracks = []
@@ -81,6 +90,9 @@ class AudioExtractor:
             
             return audio_tracks
             
+        except subprocess.TimeoutExpired:
+            logger.error(f"FFprobe timed out after {_PROBE_TIMEOUT_S}s reading audio tracks from {video_file.name}")
+            return []
         except subprocess.CalledProcessError as e:
             logger.error(f"Error getting audio tracks from {video_file.name}: {e}")
             return []
@@ -110,10 +122,13 @@ class AudioExtractor:
                 str(_mp3_path(output_file))
             ]
             
-            subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW)
+            subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW, timeout=_EXTRACT_TIMEOUT_S)
             logger.info(f"Extracted track {track_index} to {_mp3_path(output_file).name}")
             return True
-            
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"FFmpeg timed out after {_EXTRACT_TIMEOUT_S}s extracting track {track_index} from {video_file.name}")
+            return False
         except subprocess.CalledProcessError as e:
             logger.error(f"Error extracting track {track_index} from {video_file.name}: {e}")
             return False
@@ -159,10 +174,13 @@ class AudioExtractor:
                     str(_mp3_path(output_file))
                 ]
             
-            subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW)
+            subprocess.run(cmd, capture_output=True, check=True, creationflags=_NO_WINDOW, timeout=_EXTRACT_TIMEOUT_S)
             logger.info(f"Extracted and mixed all audio tracks to {_mp3_path(output_file).name}")
             return True
-            
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"FFmpeg timed out after {_EXTRACT_TIMEOUT_S}s mixing audio from {video_file.name}")
+            return False
         except subprocess.CalledProcessError as e:
             logger.error(f"Error extracting unified audio from {video_file.name}: {e}")
             return False

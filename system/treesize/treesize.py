@@ -132,6 +132,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# The opener (explorer, open, xdg-open) hands the path to the desktop and returns at once;
+# 30 s means it is wedged.
+_OPENER_TIMEOUT_S = 30
+
+
+def _run_opener(cmd: List[str], **kwargs: Any) -> None:
+    """Run a file-manager opener, bounded; an expiry is logged as its own failure."""
+    try:
+        subprocess.run(cmd, check=False, timeout=_OPENER_TIMEOUT_S, **kwargs)
+    except subprocess.TimeoutExpired:
+        logger.error(f"Opener {cmd[0]} did not return within {_OPENER_TIMEOUT_S}s")
+
+
 class TreeSizeApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -577,9 +590,9 @@ class TreeSizeApp:
         if platform.system() == 'Windows':
             os.startfile(path)
         elif platform.system() == 'Darwin':
-            subprocess.run(['open', path], check=False)
+            _run_opener(['open', path])
         else:
-            subprocess.run(['xdg-open', path], check=False)
+            _run_opener(['xdg-open', path])
 
     def open_selected_file_location(self) -> None:
         """Reveal selected file in explorer / finder."""
@@ -594,15 +607,14 @@ class TreeSizeApp:
         if platform.system() == 'Windows':
             # Normalize path and keep '/select,' in the same argument list
             norm_path = os.path.normpath(path)
-            subprocess.run(
+            _run_opener(
                 ['explorer', '/select,', norm_path],
-                check=False,
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
         elif platform.system() == 'Darwin':
-            subprocess.run(['open', '-R', path], check=False)
+            _run_opener(['open', '-R', path])
         else:
-            subprocess.run(['xdg-open', os.path.dirname(path)], check=False)
+            _run_opener(['xdg-open', os.path.dirname(path)])
 
     def on_folder_expand(self, event: Any) -> None:
         """Handle folder expansion - load subfolders if not already loaded"""

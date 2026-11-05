@@ -43,6 +43,9 @@ from _lib.console_output import (  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+# A wlan scan or profile connect takes seconds; 60 s means netsh is wedged.
+NETSH_TIMEOUT_S = 60
+
 # Re-exported under this module's historical name (see the docstring).
 NETSH_ENCODINGS: Tuple[str, ...] = CONSOLE_ENCODINGS
 
@@ -108,6 +111,18 @@ def run_netsh(args: Sequence[str]) -> NetshResult:
             command,
             capture_output=True,
             creationflags=NO_WINDOW,
+            timeout=NETSH_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        message = f"timed out after {NETSH_TIMEOUT_S}s"
+        logger.error("❌ '%s' %s", printable, message)
+        return NetshResult(
+            args=tuple(command),
+            returncode=-1,
+            stdout="",
+            stderr="",
+            encoding=None,
+            error=message,
         )
     except (FileNotFoundError, OSError) as exc:
         logger.error("❌ Could not run '%s': %s", printable, exc)

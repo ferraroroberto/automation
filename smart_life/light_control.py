@@ -19,6 +19,9 @@ from no_window import NO_WINDOW  # noqa: E402
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEVICES_FILE = SCRIPT_DIR / "devices.json"
 SNAPSHOT_FILE = SCRIPT_DIR / "snapshot.json"
+# A tinytuya scan or snapshot probes the LAN device by device (and may call the Tuya
+# cloud); a large home takes minutes, so 5 min bounds a stuck child, not a slow network.
+TINYTUYA_TIMEOUT_S = 300
 CLOUD_CONFIG_FILES = [SCRIPT_DIR / "cloud.json", SCRIPT_DIR / "tinytuya.json"]
 
 logger = logging.getLogger(__name__)
@@ -277,11 +280,15 @@ def list_devices(devices: List[Dict[str, Any]]) -> None:
 def scan_network() -> None:
     """Run tinytuya network scan to discover devices (via CLI)."""
     logger.info("🔍 Scanning local network for Tuya devices …")
-    subprocess.run(
-        [sys.executable, "-m", "tinytuya", "scan"],
-        check=False,
-        creationflags=NO_WINDOW,
-    )
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "tinytuya", "scan"],
+            check=False,
+            creationflags=NO_WINDOW,
+            timeout=TINYTUYA_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        logger.error(f"❌ tinytuya scan timed out after {TINYTUYA_TIMEOUT_S}s")
 
 
 def update_devices(devices_path: Path, snapshot_path: Path) -> None:
@@ -324,7 +331,11 @@ def update_devices(devices_path: Path, snapshot_path: Path) -> None:
             cwd=str(devices_path.parent),
             check=False,
             creationflags=NO_WINDOW,
+            timeout=TINYTUYA_TIMEOUT_S,
         )
+    except subprocess.TimeoutExpired:
+        logger.error(f"❌ tinytuya snapshot timed out after {TINYTUYA_TIMEOUT_S}s; devices.json was not updated")
+        sys.exit(1)
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
