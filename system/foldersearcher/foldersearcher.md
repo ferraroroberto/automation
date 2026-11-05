@@ -1,5 +1,7 @@
 # Folder Searcher
 
+> **Retired.** [folder-explorer](https://github.com/ferraroroberto/folder-explorer)'s Search tab (Folders) replaces this tray: it searches every folder path in its own disk index with the same AND-of-words match, email-branch pruning and skip-N-levels display, and `python -m app.cli folders search --query ... --json` there gives another app the same results. Its nightly scan replaces this one's. The tray is no longer started, and the code stays: task-os vendors `foldersearcher_core.py`, and life-os reads `folder_structure.txt` for one release when folder-explorer is not found.
+
 A Tkinter tray app that indexes folder *names* across one or more root folders and searches them instantly. Faster and more focused than Windows search, because it never looks at files — only folders — and it searches a pre-built index rather than the disk.
 
 ## Features
@@ -78,7 +80,7 @@ The tray app picks up a rebuilt index without a restart: whenever the window ope
 
 ### Nightly job
 
-`run-scan-nightly.bat` runs the CLI scan in the foreground with the repo `.venv`'s `python.exe` (`PYTHONUTF8=1`) and exits with its exit code. It is registered in app-launcher as the machine-local job `foldersearcher-scan-nightly` (schedule `none`, `session_less`, `alert_on_failure`), chained from both `on_success` and `on_failure` of `email-archiver-scan-nightly` — so the nightly chain is backup → email-archiver scan → folder scan, and folders created during the day are in the next morning's index.
+`run-scan-nightly.bat` runs the CLI scan in the foreground with the repo `.venv`'s `python.exe` (`PYTHONUTF8=1`) and exits with its exit code. It is not part of the nightly chain: folder-explorer's nightly scan replaces it. Run it by hand to refresh `folder_structure.txt` while something still reads it.
 
 ## Configuration
 
