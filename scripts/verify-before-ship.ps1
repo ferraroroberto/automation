@@ -90,7 +90,7 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail "comment ratchet failed (see findings above)." }
 
     # Opt-in via .fleet.toml [conventions_ratchet]. Exit 1 is a file whose count for an enabled rule
-    # (no-window, no-drive-path) rose above its baseline; exit 3 is "not confirmed" (git unusable, a
+    # (no-window, no-drive-path, subprocess-timeout) rose above its baseline; exit 3 is "not confirmed" (git unusable, a
     # tracked .py file that does not parse). Both fail: 3 is never a pass.
     Write-Host "==> conventions ratchet..." -ForegroundColor Cyan
     & $python "scripts/conventions_ratchet.py"

@@ -55,6 +55,15 @@ logger = logging.getLogger(__name__)
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
+# Each ffmpeg pass decodes the whole file in real time or faster; an hour-long
+# recording takes minutes, so 30 min bounds a stuck child without cutting off a long file.
+_FFMPEG_PASS_TIMEOUT_S = 1800
+
+
+def _run_ffmpeg(cmd: list, **kwargs) -> subprocess.CompletedProcess:
+    """Run one bounded ffmpeg pass without a console window; expiry raises TimeoutExpired."""
+    return subprocess.run(cmd, creationflags=_NO_WINDOW, timeout=_FFMPEG_PASS_TIMEOUT_S, **kwargs)
+
 
 # -------------------------------------------------------
 # Function: choose_file
@@ -167,14 +176,7 @@ def analyze_audio_levels(input_path: str) -> Optional[Dict]:
             "-"
         ]
 
-        result = subprocess.run(
-            ffmpeg_cmd,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            creationflags=_NO_WINDOW,
-        )
+        result = _run_ffmpeg(ffmpeg_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
         if result.returncode != 0:
             logger.error(f"❌ Analysis failed: {result.stderr}")
@@ -189,6 +191,9 @@ def analyze_audio_levels(input_path: str) -> Optional[Dict]:
             logger.warning("⚠️ Could not parse analysis results")
             return None
 
+    except subprocess.TimeoutExpired:
+        logger.error(f"❌ Analysis timed out: ffmpeg ran past {_FFMPEG_PASS_TIMEOUT_S}s")
+        return None
     except Exception as e:
         logger.error(f"❌ Analysis error: {e}")
         return None
@@ -358,14 +363,7 @@ def normalize_audio(input_path: str, target_lufs: float) -> Optional[str]:
         ]
 
         logger.debug("📏 First pass: measuring loudness characteristics")
-        measure_result = subprocess.run(
-            measure_cmd,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            creationflags=_NO_WINDOW,
-        )
+        measure_result = _run_ffmpeg(measure_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
         if measure_result.returncode != 0:
             logger.error(f"❌ Measurement failed: {measure_result.stderr}")
@@ -399,13 +397,15 @@ def normalize_audio(input_path: str, target_lufs: float) -> Optional[str]:
             output_file
         ]
 
-        subprocess.run(
-            normalize_cmd, check=True, capture_output=True, text=True, creationflags=_NO_WINDOW
-        )
+        _run_ffmpeg(normalize_cmd, check=True, capture_output=True, text=True)
 
         logger.info("✅ Audio normalization completed successfully")
         return output_file
 
+    except subprocess.TimeoutExpired:
+        logger.error(f"❌ Normalization timed out: ffmpeg ran past {_FFMPEG_PASS_TIMEOUT_S}s")
+        messagebox.showerror("Error", f"Normalization timed out: ffmpeg ran past {_FFMPEG_PASS_TIMEOUT_S}s")
+        return None
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ Normalization failed: {e}")
         messagebox.showerror("Error", f"Normalization failed:\n{e}")

@@ -11,6 +11,9 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW  # noqa: E402
 
+# Trimming plus loudnorm re-encodes one clip; 30 min bounds a stuck ffmpeg, not a long clip.
+_FFMPEG_TIMEOUT_S = 1800
+
 # Configure module-level logger
 logger = logging.getLogger(__name__)
 
@@ -123,6 +126,7 @@ def trim_audio(input_path: str, start_time: str, end_time: str) -> None:
             ffmpeg_cmd,
             check=True,
             creationflags=NO_WINDOW,
+            timeout=_FFMPEG_TIMEOUT_S,
         )
 
         logger.info("✅ Audio trimming completed successfully")
@@ -130,6 +134,9 @@ def trim_audio(input_path: str, start_time: str, end_time: str) -> None:
             f"Trimmed audio saved as:\n{output_file}\n\n"
             f"Duration: {duration} seconds")
 
+    except subprocess.TimeoutExpired:
+        logger.error(f"❌ FFmpeg timed out after {_FFMPEG_TIMEOUT_S}s")
+        messagebox.showerror("Error", f"FFmpeg timed out after {_FFMPEG_TIMEOUT_S}s")
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ FFmpeg failed: {e}")
         messagebox.showerror("Error", f"FFmpeg failed:\n{e}")

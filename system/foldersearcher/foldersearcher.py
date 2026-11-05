@@ -46,6 +46,9 @@ from foldersearcher_core import (
     search,
 )
 
+# explorer.exe hands the folder to the shell and returns at once; 30 s means it is wedged.
+_EXPLORER_TIMEOUT_S = 30
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -503,6 +506,7 @@ class FolderSearcher:
                     ['explorer', full_path],
                     check=True,
                     creationflags=NO_WINDOW,
+                    timeout=_EXPLORER_TIMEOUT_S,
                 )
                 logger.info("Opened folder using subprocess: %s", full_path)
             except (OSError, subprocess.SubprocessError) as exc2:

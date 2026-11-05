@@ -10,6 +10,7 @@ ValueError rather than catching bare `Exception`, so an unexpected bug
 surfaces instead of being silently swallowed as "no duration".
 """
 
+import logging
 import re
 import subprocess
 import sys
@@ -22,17 +23,29 @@ from typing import Callable, List, Optional
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW  # noqa: E402
 
+logger = logging.getLogger(__name__)
+
+# nvidia-smi and `ffmpeg -encoders` answer in about a second; 30 s means a wedged child.
+_GPU_PROBE_TIMEOUT_S = 30
+
 
 def check_gpu_available() -> bool:
     """Return True if an NVIDIA GPU with NVENC support is available for ffmpeg."""
     try:
-        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, creationflags=NO_WINDOW)
+        result = subprocess.run(
+            ["nvidia-smi"], capture_output=True, text=True, creationflags=NO_WINDOW,
+            timeout=_GPU_PROBE_TIMEOUT_S,
+        )
         if result.returncode != 0:
             return False
         encoders_check = subprocess.run(
-            ["ffmpeg", "-encoders"], capture_output=True, text=True, creationflags=NO_WINDOW
+            ["ffmpeg", "-encoders"], capture_output=True, text=True, creationflags=NO_WINDOW,
+            timeout=_GPU_PROBE_TIMEOUT_S,
         )
         return "h264_nvenc" in encoders_check.stdout
+    except subprocess.TimeoutExpired:
+        logger.warning("⚠️ GPU probe did not answer within %ss; encoding on the CPU", _GPU_PROBE_TIMEOUT_S)
+        return False
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 

@@ -18,6 +18,10 @@ import subprocess
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW  # noqa: E402
 
+# A large archive legitimately extracts for many minutes; 1 h bounds a 7z stuck on a
+# prompt or a dead disk, not a big archive.
+_SEVEN_ZIP_TIMEOUT_S = 3600
+
 def setup_logging():
     """Setup logging configuration."""
     logging.basicConfig(
@@ -129,6 +133,7 @@ def extract_with_7zip(archive_path, output_dir, password=None, seven_zip_path=No
             capture_output=True,
             text=True,
             creationflags=NO_WINDOW,
+            timeout=_SEVEN_ZIP_TIMEOUT_S,
         )
         if result.stdout.strip():
             logger.info("%s", result.stdout.strip())
@@ -143,6 +148,9 @@ def extract_with_7zip(archive_path, output_dir, password=None, seven_zip_path=No
         else:
             logger.error("Extraction failed: %s", result.stderr)
             return False
+    except subprocess.TimeoutExpired:
+        logger.error("Extraction failed: 7-Zip ran past %ss and was stopped", _SEVEN_ZIP_TIMEOUT_S)
+        return False
     except Exception as e:
         logger.error("Error running 7-Zip: %s", e)
         return False

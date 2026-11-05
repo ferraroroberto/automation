@@ -83,6 +83,20 @@ class ResultStateTests(unittest.TestCase):
         self.assertFalse(result.succeeded)
         self.assertFalse(result.has_output)
 
+    def test_timed_out_run_is_unknown_with_its_own_error(self) -> None:
+        def hang(*args: object, **kwargs: object) -> None:
+            self.assertEqual(kwargs.get("timeout"), _netsh.NETSH_TIMEOUT_S)
+            raise subprocess.TimeoutExpired(cmd="netsh", timeout=_netsh.NETSH_TIMEOUT_S)
+
+        original = subprocess.run
+        subprocess.run = hang  # type: ignore[assignment]
+        try:
+            result = _netsh.run_netsh(["wlan", "show", "interfaces"])
+        finally:
+            subprocess.run = original  # type: ignore[assignment]
+        self.assertFalse(result.ran, "a wedged netsh must read as unknown, not as an empty answer")
+        self.assertIn("timed out", result.error or "")
+
     def test_current_ssid_reports_unknown_when_the_query_fails(self) -> None:
         failed = _netsh.NetshResult(
             args=("netsh", "wlan", "show", "interfaces"),

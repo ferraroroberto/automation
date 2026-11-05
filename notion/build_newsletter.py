@@ -27,6 +27,9 @@ import utils as notion_utils
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW  # noqa: E402
 
+# clip.exe copies one short line instantly; 30 s means it is wedged.
+_CLIP_TIMEOUT_S = 30
+
 # Load environment variables
 load_dotenv()
 
@@ -340,16 +343,20 @@ def copy_to_clipboard(text: str) -> None:
         import subprocess
 
         # UTF-16LE bytes break clip; tkinter's clipboard is cleared when the root is destroyed.
-        subprocess.run(
-            ["clip"],
-            input=text,
-            text=True,
-            encoding="utf-8",
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=NO_WINDOW,
-        )
+        try:
+            subprocess.run(
+                ["clip"],
+                input=text,
+                text=True,
+                encoding="utf-8",
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=NO_WINDOW,
+                timeout=_CLIP_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"clip.exe did not finish within {_CLIP_TIMEOUT_S}s; the clipboard was not set") from None
         return
 
     import tkinter as tk
@@ -397,7 +404,11 @@ def prompt_must_read_line(
 
     must_read = int(choice)
     line = format_must_read_line(top_names, must_read)
-    copy_to_clipboard(line)
+    try:
+        copy_to_clipboard(line)
+    except RuntimeError as exc:
+        logging.error(f"❌ {exc}. Must-read line: {line}")
+        return
     logging.info(f"📋 Must-read line (copied to clipboard): {line}")
 
 

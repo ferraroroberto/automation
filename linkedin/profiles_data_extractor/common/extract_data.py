@@ -9,6 +9,9 @@ import time
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 from no_window import NO_WINDOW  # noqa: E402
 
+# `start` only asks the shell to open the file and returns at once; 30 s means it is wedged.
+_OPEN_FILE_TIMEOUT_S = 30
+
 
 def _start_chrome_debug() -> None:
     """Launch Chrome with remote debugging on port 9222 and check the port answers."""
@@ -123,6 +126,7 @@ def _open_excel_file() -> None:
                     shell=True,
                     check=True,
                     creationflags=NO_WINDOW,
+                    timeout=_OPEN_FILE_TIMEOUT_S,
                 )
                 st.success("✅ Excel file opened!")
             else:
@@ -130,6 +134,8 @@ def _open_excel_file() -> None:
         else:
             st.error("❌ Configuration file not found")
 
+    except subprocess.TimeoutExpired:
+        st.error(f"❌ Opening the Excel file timed out after {_OPEN_FILE_TIMEOUT_S}s")
     except Exception as e:
         st.error(f"❌ Error opening Excel file: {e}")
 
