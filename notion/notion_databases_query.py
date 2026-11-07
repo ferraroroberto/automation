@@ -1,10 +1,11 @@
 # requirements: public
 import logging
+
 import pandas as pd
 from notion_client import Client
 
 # requirements: custom functions
-from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
+from utils import DEFAULT_PARAMS_FILE, read_params_from_txt_file
 
 log = logging.getLogger(__name__)
 

@@ -7,8 +7,8 @@ then create a copy with "_transp_xx" suffix (saved as PNG for alpha support).
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 
 try:
     from PIL import Image

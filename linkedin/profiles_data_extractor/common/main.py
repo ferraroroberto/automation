@@ -1,7 +1,8 @@
-import streamlit as st
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import pandas as pd
+import streamlit as st
 
 # Add the current directory to Python path to import local modules
 current_dir = Path(__file__).parent
@@ -9,10 +10,11 @@ sys.path.insert(0, str(current_dir))
 
 from dashboard import main as dashboard_main
 from dataentry import main as dataentry_main
-from reachout import main as reachout_main
 from extract_data import main as extract_data_main
 from history import main as history_main
 from loaders import load_config, load_excel_data
+from reachout import main as reachout_main
+
 
 def render_sidebar_filters(df):
     """Render the shared sidebar filters; returns the filtered frame and the filter selections."""

@@ -19,7 +19,8 @@ import json
 import os
 import sys
 import time
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
+
 import pandas as pd
 from pynput import keyboard
 
@@ -27,11 +28,11 @@ from pynput import keyboard
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the DevTools extractor module
-from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools
-from _chrome_client import setup_logging
-
 # Import from common directory using importlib for reliable path handling
 import importlib.util
+
+from _chrome_client import setup_logging
+from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools
 
 # Calculate path from devtools directory to common directory (../common)
 script_dir = os.path.dirname(os.path.abspath(__file__))

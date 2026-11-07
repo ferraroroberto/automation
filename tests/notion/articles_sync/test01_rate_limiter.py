@@ -3,10 +3,10 @@
 Unit tests for RateLimiter class to ensure it doesn't hang.
 """
 
-import time
-import threading
-import unittest
 import sys
+import threading
+import time
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "notion" / "articles_sync"))

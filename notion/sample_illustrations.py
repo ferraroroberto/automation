@@ -29,9 +29,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from dotenv import load_dotenv
-
 import utils as notion_utils
+from dotenv import load_dotenv
 
 load_dotenv()
 

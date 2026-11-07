@@ -7,9 +7,9 @@ for text expansion functionality.
 
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Optional, Any
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 # Configure module logger
 logger = logging.getLogger(__name__)

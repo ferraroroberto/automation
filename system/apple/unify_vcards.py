@@ -7,14 +7,14 @@ It analyzes contacts for potential duplicates based on shared phone numbers and 
 then guides users through an interactive process to merge or keep contacts.
 """
 
+import datetime
+import logging
 import os
 import re
-import logging
-from pathlib import Path
-from typing import List, Optional, Tuple, Set
-import datetime
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog
+from typing import List, Optional, Set, Tuple
 
 from _vcard_fields import has_type_param
 from _vcard_model import Contact, ContactAddress, VCardParser, longest_common_substring

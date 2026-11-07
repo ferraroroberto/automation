@@ -1,7 +1,7 @@
-import logging
-import re
 import json
+import logging
 import os
+import re
 import sys
 from datetime import datetime
 
@@ -10,8 +10,9 @@ log = logging.getLogger(__name__)
 # Try to import tkinter, but don't fail if it's not available
 try:
     import tkinter as tk
-    from tkinter import ttk, scrolledtext
+    from tkinter import scrolledtext, ttk
     from tkinter.font import Font
+
     import pyperclip
     TKINTER_AVAILABLE = True
 except ImportError:

@@ -18,9 +18,8 @@ from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import requests
-from dotenv import load_dotenv
-
 import utils as notion_utils
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()

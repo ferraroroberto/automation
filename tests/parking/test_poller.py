@@ -3,12 +3,12 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from test_planner_auth import make_token
 
 from parking import poller, report
 from parking.api import ApiError, AuthError
 from parking.config import load_config
 from parking.state import State
-from test_planner_auth import make_token
 
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=ZoneInfo("Europe/Madrid"))  # Sunday; next Mon = 21st
 

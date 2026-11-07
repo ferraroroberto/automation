@@ -83,10 +83,10 @@ import socket
 import sys
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from tkinter import filedialog, messagebox
+from typing import Any, Dict, List, Optional
 
 try:
     from scapy.all import ARP, Ether, srp

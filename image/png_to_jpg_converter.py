@@ -1,8 +1,12 @@
-from PIL import Image, UnidentifiedImageError
-from pathlib import Path
 import logging
+from pathlib import Path
 
-from _image_to_jpg_converter import select_folder, convert_folder_to_jpg, show_completion_messagebox
+from _image_to_jpg_converter import (
+    convert_folder_to_jpg,
+    select_folder,
+    show_completion_messagebox,
+)
+from PIL import Image, UnidentifiedImageError
 
 logger = logging.getLogger(__name__)
 

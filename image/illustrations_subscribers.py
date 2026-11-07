@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
+
 # Set up logging
 def setup_logging(log_level: str = "INFO") -> logging.Logger:
     """Configure logging with the specified log level."""

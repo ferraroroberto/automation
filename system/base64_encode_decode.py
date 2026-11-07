@@ -1,10 +1,9 @@
 import base64
 import logging
-from pathlib import Path
-from typing import Iterable
-
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
+from typing import Iterable
 
 LOG_FORMAT = "%(levelname)s | %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)

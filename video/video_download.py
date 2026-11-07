@@ -10,11 +10,10 @@ import threading
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import requests
 import yt_dlp
-
 from _tk_widgets import build_progress_section, set_progress
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).

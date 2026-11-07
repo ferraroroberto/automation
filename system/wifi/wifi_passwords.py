@@ -12,16 +12,16 @@ Usage:
     python wifi_passwords.py --debug
 """
 
-import tempfile
-import os
-import glob
-import xml.etree.ElementTree as ET
-import json
-import sys
 import argparse
+import glob
+import json
 import logging
-from typing import List, Dict, Any, Optional
+import os
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # _netsh.py is a sibling; make it importable when this file is run as a script.
 SCRIPT_DIR = Path(__file__).resolve().parent

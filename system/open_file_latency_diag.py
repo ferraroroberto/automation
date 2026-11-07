@@ -24,7 +24,6 @@ file picker (usually bundled with Python on Windows).
 from __future__ import annotations
 
 # pyright: reportMissingModuleSource=false
-
 import argparse
 import logging
 import statistics

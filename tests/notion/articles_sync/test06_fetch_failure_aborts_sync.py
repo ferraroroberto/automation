@@ -11,12 +11,11 @@ rows look new and duplicated them.
 The Notion client is faked at `api_call`, so no network is touched.
 """
 
+import sys
 import threading
 import unittest
-from unittest.mock import Mock
-
-import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "notion" / "articles_sync"))
 

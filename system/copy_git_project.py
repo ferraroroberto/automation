@@ -2,8 +2,8 @@
 import argparse
 import logging
 import shutil
-from pathlib import Path
 import sys
+from pathlib import Path
 
 try:
     from pathspec import PathSpec

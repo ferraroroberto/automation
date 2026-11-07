@@ -18,7 +18,6 @@ from datetime import datetime
 from typing import Optional
 
 import pandas as pd
-
 from photos_archive_config import get_config
 
 # How often the SHA256 pass reports progress, in files.

@@ -16,8 +16,8 @@ here; those differences stay as caller-supplied parameters.
 
 import logging
 import tkinter as tk
-from tkinter import filedialog, messagebox
 from pathlib import Path
+from tkinter import filedialog, messagebox
 from typing import Callable, Dict, Iterable
 
 from PIL import Image, UnidentifiedImageError

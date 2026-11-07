@@ -1,11 +1,11 @@
 import logging
-from pathlib import Path
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Optional
 
-from PIL import Image
 import pillow_heif
+from PIL import Image
 
 pillow_heif.register_heif_opener()
 

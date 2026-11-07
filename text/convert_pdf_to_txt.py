@@ -1,8 +1,9 @@
+import logging
 import os
 import sys
-import logging
-from pypdf import PdfReader
 from tkinter import Tk, filedialog
+
+from pypdf import PdfReader
 
 # Setup logger
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

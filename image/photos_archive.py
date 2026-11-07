@@ -29,11 +29,10 @@ from tkinter import filedialog
 from typing import Optional, Tuple
 
 import pandas as pd
-
 from photos_archive_config import get_config, setup_logging
 from photos_archive_duplicates import (
-    calculate_short_sequence_counts,
     calculate_sha256,
+    calculate_short_sequence_counts,
     calculate_time_intervals,
     calculate_total_files_unified_day,
     log_top_unified_days,

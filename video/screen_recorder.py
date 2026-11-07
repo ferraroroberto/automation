@@ -14,17 +14,18 @@ Notes:
 • Cursor overlay ensures visibility on light/dark backgrounds.
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox
-import cv2
-import numpy as np
-import pyautogui
-from datetime import datetime
 import threading
 import time
+import tkinter as tk
+from datetime import datetime
 from pathlib import Path
-from screeninfo import get_monitors
+from tkinter import messagebox, ttk
+
+import cv2
 import mss
+import numpy as np
+import pyautogui
+from screeninfo import get_monitors
 
 # --- CONFIGURATION -------------------------------------------------------
 OUTPUT_DIR = Path.home() / "Downloads" / "videos"

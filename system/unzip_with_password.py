@@ -4,15 +4,15 @@ Simple password-protected archive file extractor with GUI path selection.
 Supports ZIP, 7Z, and RAR files.
 """
 
-import os
-import sys
-import zipfile
 import argparse
 import logging
-from pathlib import Path
-import tkinter as tk
-from tkinter import filedialog
+import os
 import subprocess
+import sys
+import tkinter as tk
+import zipfile
+from pathlib import Path
+from tkinter import filedialog
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[1]))

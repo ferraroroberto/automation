@@ -4,11 +4,12 @@ Text Expander GUI Module
 Provides a tkinter-based graphical interface for managing text expander abbreviations.
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
 import logging
-from typing import Optional
 import threading
+import tkinter as tk
+from tkinter import messagebox, scrolledtext, ttk
+from typing import Optional
+
 import win32gui
 
 from .text_expander_core import TextExpanderCore
@@ -382,7 +383,8 @@ class TextExpanderGUI:
                 return
             def do_expansion():
                 import time
-                from pynput.keyboard import Key, Controller
+
+                from pynput.keyboard import Controller, Key
                 keyboard = Controller()
                 # Simulate ALT+TAB to switch to previous window
                 keyboard.press(Key.alt)

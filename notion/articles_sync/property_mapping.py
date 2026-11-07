@@ -8,7 +8,6 @@ state (`field_mapping`, `target_db`, `_schema_cache`) and `api_call`.
 from typing import Any, Dict
 
 
-
 class PropertyMappingMixin:
     """Extract, format and map Notion properties between source and target."""
 

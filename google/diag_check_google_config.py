@@ -12,8 +12,8 @@ import sys
 from pathlib import Path
 
 log = logging.getLogger(__name__)
-from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 # Suppress the console window each gcloud spawn would otherwise flash.

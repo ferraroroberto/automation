@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Repo-root shared helper.
 sys.path.append(str(REPO_ROOT))
 from no_window import NO_WINDOW  # noqa: E402
+
 SOURCE_SUFFIXES = (".py", ".ps1", ".js")
 
 # Sample files whose keys are user data or a device dump, not settings.

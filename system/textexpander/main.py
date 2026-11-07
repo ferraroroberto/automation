@@ -6,11 +6,11 @@ and system tray functionality.
 """
 
 import logging
-import sys
 import signal
+import sys
 import threading
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ from .text_expander_core import TextExpanderCore
 from .text_expander_gui import TextExpanderGUI
 from .text_expander_monitor import KeyboardMonitor
 from .text_expander_tray import TextExpanderTray
+
 
 class TextExpanderApp:
     """Main text expander application orchestrator."""

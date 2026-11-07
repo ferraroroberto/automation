@@ -14,10 +14,11 @@ import datetime
 import json
 import logging
 import os
-import pandas as pd
-import requests
 import urllib.parse
 from typing import Optional, Tuple
+
+import pandas as pd
+import requests
 
 logger = logging.getLogger(__name__)
 

@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from test_poller import FakeApi, FakeNotifier, cfg, env  # noqa: F401 (fixtures)
 
 from parking import burst, burst_worker
 from parking.booking import DayOutcome
 from parking.state import State, load_state
-from test_poller import FakeApi, FakeNotifier, cfg, env  # noqa: F401 (fixtures)
 
 TZ = ZoneInfo("Europe/Madrid")
 TARGET = datetime(2026, 9, 24, 16, 0, tzinfo=TZ)  # a Thursday release (the 24th itself is a holiday)

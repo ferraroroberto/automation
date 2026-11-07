@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from tkinter import filedialog, Tk
+from tkinter import Tk, filedialog
 
 log = logging.getLogger(__name__)
 

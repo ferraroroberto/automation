@@ -1,9 +1,10 @@
-import streamlit as st
-import subprocess
 import os
-from pathlib import Path
+import subprocess
 import sys
 import time
+from pathlib import Path
+
+import streamlit as st
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[3]))

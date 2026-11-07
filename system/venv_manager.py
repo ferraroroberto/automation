@@ -1,11 +1,11 @@
+import ctypes
 import logging
 import os
+import platform
 import re
 import subprocess
 import sys
 from pathlib import Path
-import ctypes
-import platform
 
 log = logging.getLogger(__name__)
 

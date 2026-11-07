@@ -6,8 +6,8 @@ import sys
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from utils import load_env_variables, load_json_config
 import utils as notion_utils
+from utils import load_env_variables, load_json_config
 
 logger = logging.getLogger(__name__)
 

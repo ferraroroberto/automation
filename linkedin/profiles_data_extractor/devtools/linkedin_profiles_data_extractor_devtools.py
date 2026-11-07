@@ -8,9 +8,8 @@ Excel is the orchestrator's job (`merge_to_excel`).
 
 from typing import Dict, List, Tuple
 
-from pynput import keyboard
-
 from _chrome_client import ChromeDevToolsClient, setup_logging
+from pynput import keyboard
 
 logger = setup_logging(__name__)
 

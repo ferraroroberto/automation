@@ -12,7 +12,12 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-from _ffmpeg_utils import NO_WINDOW, check_gpu_available, get_video_duration, run_ffmpeg_with_progress
+from _ffmpeg_utils import (
+    NO_WINDOW,
+    check_gpu_available,
+    get_video_duration,
+    run_ffmpeg_with_progress,
+)
 from _tk_widgets import build_progress_section, set_progress
 
 log = logging.getLogger(__name__)

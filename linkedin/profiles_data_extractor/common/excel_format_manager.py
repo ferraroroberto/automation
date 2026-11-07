@@ -13,12 +13,11 @@ import re
 from typing import Dict, Optional
 
 import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from _logging_setup import setup_logging
+from openpyxl.cell.cell import Cell
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
-from openpyxl.cell.cell import Cell
-
-from _logging_setup import setup_logging
 
 logger = setup_logging(__name__)
 

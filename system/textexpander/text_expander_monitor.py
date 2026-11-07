@@ -7,8 +7,9 @@ Handles global keyboard monitoring and abbreviation detection using pynput.
 import logging
 import threading
 import time
-from typing import Optional, Callable, Dict
 from collections import deque
+from typing import Callable, Dict, Optional
+
 import pyperclip
 
 try:

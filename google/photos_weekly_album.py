@@ -36,7 +36,14 @@ from urllib.parse import urljoin
 
 from browser_stealth import launch_persistent
 from google.gmail_web import EMAIL_RE, GmailNotSignedIn, GmailWeb
-from google.photos_weekly_counts import Selection, Sweep, count_mismatches, days_of, label_date, settled_value
+from google.photos_weekly_counts import (
+    Selection,
+    Sweep,
+    count_mismatches,
+    days_of,
+    label_date,
+    settled_value,
+)
 
 logger = logging.getLogger("photos_weekly_album")
 

@@ -20,14 +20,14 @@ a distributable single-file exe (see ``README_PDF_Converter.md``); pick the
 other for ad-hoc batch runs.
 """
 
+import logging
 import os
 import sys
 import time
-import logging
-from pathlib import Path
-from typing import List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from threading import Lock
+from typing import List, Optional, Tuple
 
 # Try to import PyMuPDF
 try:

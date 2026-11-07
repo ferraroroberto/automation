@@ -1,18 +1,23 @@
 # requirements: public
+import datetime
 import logging
 import os
+import time
+
 import pandas as pd
 from notion_client import Client
-import datetime
-import time
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 # requirements: custom functions
-from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
-from utils import get_column_widths
-from utils import apply_column_widths
+from utils import (
+    DEFAULT_PARAMS_FILE,
+    apply_column_widths,
+    get_column_widths,
+    read_params_from_txt_file,
+)
+
 
 # Function to update the last_download and n_rows columns in the Excel file
 def update_last_download_in_excel(database, excel_path, n_rows, output_path):

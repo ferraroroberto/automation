@@ -28,18 +28,17 @@ Usage:
 """
 
 import argparse
+import ctypes
 import logging
 import threading
 import time
 import tkinter as tk
-import ctypes
 from typing import Optional
 
 import pyautogui
 import pystray
-from PIL import Image, ImageDraw
-
 from _lib.single_instance import acquire_named_mutex
+from PIL import Image, ImageDraw
 
 # ------------------------------------------------------------------------------
 # Configuration
