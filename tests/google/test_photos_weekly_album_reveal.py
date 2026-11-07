@@ -2,7 +2,9 @@
 (no browser, no network)."""
 
 import unittest
+from datetime import date
 from pathlib import Path
+from unittest import mock
 
 from google import photos_weekly_album as pwa
 
@@ -148,3 +150,41 @@ class OffScreenTileTests(unittest.TestCase):
         self.assertIn("screenshot tile", str(ctx.exception))
         self.assertEqual(page.rescans, 1)
         self.assertTrue(all(t == pwa.REVEAL_TIMEOUT_MS for t in page.timeouts))
+
+
+class SelectWeekFallbackTests(unittest.TestCase):
+    """A day whose header checkbox never shows is skipped; drop_excluded ticks its tiles."""
+
+    DAYS = [date(2026, 11, 4), date(2026, 11, 3)]
+
+    def _run(self, failing_day):
+        web = pwa.PhotosWeb(Path("unused"))
+        web.page = mock.Mock()
+        selected = {"n": 0}
+        headers = [{"key": f"K{d.day}", "label": f"Photo - Landscape - {d.strftime('%b')} {d.day}, 2026, 8:00:00 AM"}
+                   for d in self.DAYS]
+
+        def click(selector, reveal, want, what):
+            if failing_day and f"K{failing_day.day}" in selector:
+                raise pwa.FlowError(f"{what}: the checkbox could not be scrolled into view and revealed "
+                                    "after a rescan (TimeoutError)")
+            selected["n"] += 10
+
+        with mock.patch.object(web, "_open"), mock.patch.object(web, "_wheel", return_value=False), \
+                mock.patch.object(web, "_scan", side_effect=lambda: {"headers": headers, "tiles": []}), \
+                mock.patch.object(web, "_counter", side_effect=lambda: selected["n"]), \
+                mock.patch.object(web, "_settled_counter", side_effect=lambda before: selected["n"]), \
+                mock.patch.object(web, "_click_checked", side_effect=click):
+            with self.assertLogs("photos_weekly_album", "INFO") as logs:
+                result = web.select_week(self.DAYS[1], self.DAYS[0])
+        return result, logs.output
+
+    def test_a_header_that_never_reveals_falls_back_to_its_tiles_and_the_run_continues(self):
+        result, logs = self._run(failing_day=self.DAYS[1])
+        self.assertEqual(result, {date(2026, 11, 3): 0, date(2026, 11, 4): 10})
+        self.assertTrue(any("header checkbox unavailable" in line and "2026-11-03" in line for line in logs))
+
+    def test_every_header_that_reveals_keeps_the_header_path(self):
+        result, logs = self._run(failing_day=None)
+        self.assertEqual(result, {date(2026, 11, 3): 10, date(2026, 11, 4): 10})
+        self.assertFalse(any("unavailable" in line for line in logs))
