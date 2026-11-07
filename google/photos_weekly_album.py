@@ -28,7 +28,7 @@ import string
 import sys
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
@@ -36,7 +36,7 @@ from urllib.parse import urljoin
 
 from browser_stealth import launch_persistent
 from google.gmail_web import EMAIL_RE, GmailNotSignedIn, GmailWeb
-from google.photos_weekly_counts import count_mismatches, days_of, label_date, settled_value
+from google.photos_weekly_counts import Selection, Sweep, count_mismatches, days_of, label_date, settled_value
 
 logger = logging.getLogger("photos_weekly_album")
 
@@ -266,28 +266,6 @@ class Config:
                    email=EmailConfig.load(raw.get("email")))
 
 
-@dataclass
-class Selection:
-    per_day: dict[date, int] = field(default_factory=dict)  # added by each day header's select-all
-    tiles_per_day: dict[date, int] = field(default_factory=dict)
-    ticked_per_day: dict[date, int] = field(default_factory=dict)  # tiles the header missed, ticked one by one
-    excluded: int = 0
-    excluded_missing: int = 0
-    selected: int = 0
-
-    @property
-    def selected_per_day(self) -> dict[date, int]:
-        return dict(Counter(self.per_day) + Counter(self.ticked_per_day))
-
-    @property
-    def day_total(self) -> int:
-        return sum(self.selected_per_day.values())
-
-    @property
-    def week_tiles(self) -> int:
-        return sum(self.tiles_per_day.values())
-
-
 # -- browser flow ---------------------------------------------------------------------------------
 
 class PhotosWeb:
@@ -489,12 +467,13 @@ class PhotosWeb:
                 break
         return {day: per_day.get(day, 0) for day in days_of(start, end)}
 
-    def drop_excluded(self, start: date, end: date, excluded: dict[str, str]
-                      ) -> tuple[dict[date, int], dict[date, int], int, int]:
+    def drop_excluded(self, start: date, end: date, excluded: dict[str, str]) -> Sweep:
         """Untick the week's tiles whose label matches an excluded item; tick the others left unticked.
 
-        Returns (week tiles seen per day, tiles ticked per day, tiles unticked, excluded items not
-        found in the timeline). A day header's select-all ticks only the tiles Photos has rendered
+        Returns, per day, the tiles seen, the tiles ticked by hand, the excluded tiles seen and the
+        ones among them that had to be unticked (a header's select-all took them; a day whose
+        header could not be revealed never did), plus the excluded items not found in the
+        timeline. A day header's select-all ticks only the tiles Photos has rendered
         around the header, so a day of a few hundred items comes out short by a varying number;
         scrolling the day in first does not change that, so each tile it left is ticked here.
         The collection and the timeline use different tile ids, so tiles are matched by label:
@@ -507,6 +486,8 @@ class PhotosWeb:
         week: dict[str, date] = {}
         ticked: dict[str, date] = {}
         dropped: dict[str, str] = {}
+        dropped_day: dict[str, date] = {}
+        unticked: dict[str, date] = {}
         while True:
             scan = self._scan()
             for tile in scan["tiles"]:
@@ -530,12 +511,17 @@ class PhotosWeb:
                 if tile["checked"]:
                     self._click_checked(f'[data-pwa-tile="{tile["id"]}"]', f'a[href*="/photo/{tile["id"]}"]',
                                         False, "screenshot tile")
+                    unticked[tile["id"]] = taken
                 dropped[tile["id"]] = tile["label"]
+                dropped_day[tile["id"]] = taken
             dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
             if (dates and min(dates) < start) or not self._wheel():
                 break
-        return (dict(Counter(week.values())), dict(Counter(ticked.values())), len(dropped),
-                sum((wanted - Counter(dropped.values())).values()))
+        return Sweep(tiles_per_day=dict(Counter(week.values())), ticked_per_day=dict(Counter(ticked.values())),
+                     screenshots_per_day=dict(Counter(dropped_day.values())),
+                     unticked_per_day=dict(Counter(unticked.values())), unticked=len(unticked),
+                     seen_screenshots=len(dropped),
+                     missing_screenshots=sum((wanted - Counter(dropped.values())).values()))
 
     def clear_selection(self) -> None:
         self.page.keyboard.press("Escape")
@@ -656,21 +642,27 @@ class PhotosWeb:
         excluded = self.screenshot_labels(start, end)
         logger.info("ℹ️ %d screenshots/recordings in the week to leave out", len(excluded))
         result = Selection(per_day=self.select_week(start, end))
-        (result.tiles_per_day, result.ticked_per_day, result.excluded,
-         result.excluded_missing) = self.drop_excluded(start, end, excluded)
+        sweep = self.drop_excluded(start, end, excluded)
+        result.tiles_per_day, result.ticked_per_day = sweep.tiles_per_day, sweep.ticked_per_day
+        result.screenshots_per_day, result.unticked_per_day = sweep.screenshots_per_day, sweep.unticked_per_day
+        result.excluded, result.excluded_missing = sweep.seen_screenshots, sweep.missing_screenshots
         result.selected = self._counter()
+        selected, selectable = result.selected_per_day, result.selectable_per_day
         for day in days_of(start, end):
-            logger.info("ℹ️ %s %s: day header %d + ticked by tile %d = %d, tile sweep %d", day.strftime("%a"),
-                        day, result.per_day.get(day, 0), result.ticked_per_day.get(day, 0),
-                        result.selected_per_day.get(day, 0), result.tiles_per_day.get(day, 0))
-        if result.week_tiles != result.day_total:
-            mismatches = count_mismatches(result.selected_per_day, result.tiles_per_day)
-            raise FlowError(f"saw {result.week_tiles} tiles in the week but {result.day_total} were selected "
-                            f"(differs on {'; '.join(mismatches) or 'no single day'}); "
+            logger.info("ℹ️ %s %s: sweep %d tiles = %d selectable + %d screenshots left out; selected %d "
+                        "(day header %d + ticked by tile %d - unticked %d); unreachable %d",
+                        day.strftime("%a"), day, result.tiles_per_day.get(day, 0), selectable.get(day, 0),
+                        result.screenshots_per_day.get(day, 0), selected.get(day, 0), result.per_day.get(day, 0),
+                        result.ticked_per_day.get(day, 0), result.unticked_per_day.get(day, 0),
+                        max(selectable.get(day, 0) - selected.get(day, 0), 0))
+        mismatches = count_mismatches(selected, selectable)
+        if mismatches:
+            raise FlowError(f"saw {result.week_tiles} selectable tiles in the week but {result.day_total} were "
+                            f"selected (differs on {'; '.join(mismatches)}); "
                             "the sweep missed items, so screenshots may remain")
-        if result.selected != result.day_total - result.excluded:
-            raise FlowError(f"selection counter reads {result.selected}, expected "
-                            f"{result.day_total} - {result.excluded} screenshots")
+        if result.selected != result.day_total:
+            raise FlowError(f"selection counter reads {result.selected}, expected {result.day_total} "
+                            f"({sweep.unticked} screenshots unticked)")
         return result
 
 
@@ -686,8 +678,8 @@ def report(start: date, end: date, title: str, sel: Selection) -> None:
     logger.info("ℹ️ week %s (Sat) .. %s (Fri) -> title: %s", start, end, title)
     for day in sel.per_day:
         logger.info("ℹ️   %s %s  %4d", day.strftime("%a"), day, sel.selected_per_day.get(day, 0))
-    logger.info("ℹ️ day total %d - screenshots %d = %d selected%s", sel.day_total, sel.excluded,
-                sel.selected, f" ({sel.excluded_missing} screenshots not in the timeline)"
+    logger.info("ℹ️ %d selected (counter %d), %d screenshots left out%s", sel.day_total, sel.selected,
+                sel.excluded, f" ({sel.excluded_missing} screenshots not in the timeline)"
                 if sel.excluded_missing else "")
 
 

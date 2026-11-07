@@ -6,6 +6,8 @@ Split from ``photos_weekly_album`` so the browser flow stays small; nothing here
 from __future__ import annotations
 
 import re
+from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Callable, Optional
 
@@ -32,6 +34,49 @@ def count_mismatches(per_day: dict[date, int], tiles_per_day: dict[date, int]) -
     return [f"{day}: selected {per_day.get(day, 0)}, tiles {tiles_per_day.get(day, 0)}"
             for day in sorted(set(per_day) | set(tiles_per_day))
             if per_day.get(day, 0) != tiles_per_day.get(day, 0)]
+
+
+@dataclass
+class Sweep:
+    """What the per-tile pass saw and did, per day."""
+
+    tiles_per_day: dict[date, int] = field(default_factory=dict)  # every dated tile, screenshots included
+    ticked_per_day: dict[date, int] = field(default_factory=dict)  # tiles the header missed, ticked one by one
+    screenshots_per_day: dict[date, int] = field(default_factory=dict)  # tiles that are excluded items
+    unticked_per_day: dict[date, int] = field(default_factory=dict)  # of those, the ones a header had selected
+    unticked: int = 0
+    seen_screenshots: int = 0
+    missing_screenshots: int = 0  # excluded items the timeline never showed
+
+
+@dataclass
+class Selection:
+    per_day: dict[date, int] = field(default_factory=dict)  # added by each day header's select-all
+    tiles_per_day: dict[date, int] = field(default_factory=dict)
+    ticked_per_day: dict[date, int] = field(default_factory=dict)  # tiles the header missed, ticked one by one
+    screenshots_per_day: dict[date, int] = field(default_factory=dict)
+    unticked_per_day: dict[date, int] = field(default_factory=dict)
+    excluded: int = 0  # screenshot tiles in the week's timeline
+    excluded_missing: int = 0
+    selected: int = 0
+
+    @property
+    def selected_per_day(self) -> dict[date, int]:
+        """Tiles selected once the pass is done: headers' select-all + ticked by hand - unticked screenshots."""
+        return dict(Counter(self.per_day) + Counter(self.ticked_per_day) - Counter(self.unticked_per_day))
+
+    @property
+    def selectable_per_day(self) -> dict[date, int]:
+        """The sweep's tiles minus the excluded ones: what the selection must equal, day by day."""
+        return dict(Counter(self.tiles_per_day) - Counter(self.screenshots_per_day))
+
+    @property
+    def day_total(self) -> int:
+        return sum(self.selected_per_day.values())
+
+    @property
+    def week_tiles(self) -> int:
+        return sum(self.selectable_per_day.values())
 
 
 def settled_value(read: Callable[[], int], pause: Callable[[], None], floor: int,
