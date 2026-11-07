@@ -1,7 +1,8 @@
-import os
 import logging
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
+
 from PIL import Image, ImageChops, ImageStat
 
 # Configure logging
@@ -35,6 +36,7 @@ def unpack_gif() -> None:
         
         # Create a specific directory for the frames to avoid clutter
         output_dir = os.path.join(base_dir, f"{name_no_ext}_frames")
+        # runtime-write-exempt: frames folder is created beside the GIF the user picked
         os.makedirs(output_dir, exist_ok=True)
 
         with Image.open(file_path) as im:

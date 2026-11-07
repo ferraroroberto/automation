@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from tkinter import filedialog, Tk
+from tkinter import Tk, filedialog
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ def save_combined_file(directory, content):
     )
 
     if output_filename:
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(output_filename, 'w', encoding='utf-8') as file:
             file.writelines(content)
         log.info("Combined file saved as: %s", output_filename)

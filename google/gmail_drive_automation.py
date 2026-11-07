@@ -10,13 +10,13 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
+import _auth
 
 # Third-party library imports
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
-import _auth
 
 # Configure logging
 logging.basicConfig(

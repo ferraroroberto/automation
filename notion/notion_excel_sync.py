@@ -1,7 +1,8 @@
 import logging
+
 import pandas as pd
-from notion_client import Client, APIResponseError
-from utils import read_params_from_txt_file, DEFAULT_PARAMS_FILE
+from notion_client import APIResponseError, Client
+from utils import DEFAULT_PARAMS_FILE, read_params_from_txt_file
 
 log = logging.getLogger(__name__)
 

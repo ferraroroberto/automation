@@ -1,16 +1,22 @@
+import ast
 import logging
 import os
-import sys
-import pandas as pd
 import re
+import sys
 import warnings
-import ast
+
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 # requirements: custom functions
-from utils import read_params_from_txt_file, get_column_widths, apply_column_widths, DEFAULT_PARAMS_FILE
+from utils import (
+    DEFAULT_PARAMS_FILE,
+    apply_column_widths,
+    get_column_widths,
+    read_params_from_txt_file,
+)
 
 # Suppress openpyxl warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl.worksheet._reader")

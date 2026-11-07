@@ -1,13 +1,13 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import errno
-import os
-import logging
-import threading
-from datetime import datetime
 import ctypes
+import errno
+import logging
+import os
 import platform
 import subprocess
+import threading
+import tkinter as tk
+from datetime import datetime
+from tkinter import filedialog, messagebox, ttk
 from typing import Any, List
 
 

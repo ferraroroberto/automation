@@ -11,8 +11,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
-from _sync_fixtures import make_sync
 import notion_articles_sync
+from _sync_fixtures import make_sync
 
 CYCLE_START = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 

@@ -21,16 +21,17 @@ Date: March 2025
 
 import datetime
 import logging
-import pandas as pd
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 # Import our modules
-from config import parse_arguments, get_app_config
-from storage import StorageManager
+from config import get_app_config, parse_arguments
+from data_processor import DataProcessor
 from imgur_client import ImgurClient
 from search_client import SearchClient
-from data_processor import DataProcessor
+from storage import StorageManager
 
 # Configure logging
 logging.basicConfig(

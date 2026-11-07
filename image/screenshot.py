@@ -4,6 +4,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
+
 from mss import mss
 from PIL import Image
 
@@ -25,6 +26,7 @@ def capture_specific_monitor(monitor_index: int, output_folder: Optional[str] = 
 
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         os.makedirs(output_folder)
 
     # Generate a filename with the current timestamp

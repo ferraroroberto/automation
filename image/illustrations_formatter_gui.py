@@ -19,17 +19,17 @@ Single Image → 1920 × 1080 tab
     is available.
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-import threading
-import queue
-import logging
 import json
-import time
-from pathlib import Path
-from typing import Optional, Dict, Any
-import sys
+import logging
 import os
+import queue
+import sys
+import threading
+import time
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, scrolledtext, ttk
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
@@ -39,16 +39,16 @@ try:
     from illustrations_formatter import (
         IllustrationsFormatter,
         ProcessingResult,
-        parse_color,
         default_illustrations_config,
+        parse_color,
     )
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from illustrations_formatter import (
         IllustrationsFormatter,
         ProcessingResult,
-        parse_color,
         default_illustrations_config,
+        parse_color,
     )
 
 

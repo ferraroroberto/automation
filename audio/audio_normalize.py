@@ -36,14 +36,14 @@ EBU R128 Benefits:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
-import os
-import sys
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-import subprocess
 import json
 import logging
+import os
+import subprocess
+import sys
+import tkinter as tk
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 from typing import Dict, Optional, Tuple
 
 # Configure module-level logger

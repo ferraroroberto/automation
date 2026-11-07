@@ -16,13 +16,13 @@ The app runs from the system tray. Click the tray icon to open the window;
 closing the window minimizes it back to the tray. Quit from the tray menu.
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
 import logging
 import os
 import subprocess
 import sys
+import tkinter as tk
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 from typing import List, Optional
 
 import pystray
@@ -34,8 +34,6 @@ from _lib.single_instance import acquire_named_mutex
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from no_window import NO_WINDOW  # noqa: E402
-
 from foldersearcher_core import (
     FolderIndex,
     FolderSearcherConfig,
@@ -45,6 +43,8 @@ from foldersearcher_core import (
     save_config,
     search,
 )
+
+from no_window import NO_WINDOW  # noqa: E402
 
 # explorer.exe hands the folder to the shell and returns at once; 30 s means it is wedged.
 _EXPLORER_TIMEOUT_S = 30

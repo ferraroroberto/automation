@@ -1,9 +1,11 @@
-import PySimpleGUI as sg # type: ignore
-import pygetwindow as gw
 import threading
 import time
+from typing import Any, Optional
+
 import keyboard
-from typing import Optional, Any
+import pygetwindow as gw
+import PySimpleGUI as sg  # type: ignore
+
 
 # ---------- helper functions ----------
 def find_chrome_window() -> Optional[Any]:

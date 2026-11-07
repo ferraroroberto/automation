@@ -8,11 +8,11 @@ and pagination information, eliminating the need for text copy-paste operations.
 import json
 import os
 import time
-from typing import Optional, Dict, List, Set
-import pandas as pd
-from pynput import keyboard
+from typing import Dict, List, Optional, Set
 
-from _chrome_client import ChromeDevToolsClient, setup_logging, activate_chrome
+import pandas as pd
+from _chrome_client import ChromeDevToolsClient, activate_chrome, setup_logging
+from pynput import keyboard
 
 logger = setup_logging(__name__)
 

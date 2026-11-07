@@ -19,7 +19,8 @@ import json
 import os
 import sys
 import time
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
+
 import pandas as pd
 from pynput import keyboard
 
@@ -27,11 +28,11 @@ from pynput import keyboard
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the DevTools extractor module
-from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools
-from _chrome_client import setup_logging
-
 # Import from common directory using importlib for reliable path handling
 import importlib.util
+
+from _chrome_client import setup_logging
+from linkedin_profiles_data_extractor_devtools import LinkedInProfileExtractorDevTools
 
 # Calculate path from devtools directory to common directory (../common)
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -104,6 +105,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             True if file is accessible, False otherwise.
         """
         try:
+            # runtime-write-exempt: opens the file read/write only to test it is not locked; writes nothing
             with open(file_path, 'r+b'):
                 pass
             return True
@@ -328,6 +330,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             return
 
         # Ensure destination directory exists
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         os.makedirs(os.path.dirname(destination_file), exist_ok=True)
 
         # Create paths to common directory files (same as in main())
@@ -372,6 +375,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
             # Ensure destination directory exists
             destination_dir = os.path.dirname(destination_file)
+            # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
             os.makedirs(destination_dir, exist_ok=True)
 
             inserted_count, skipped_count, total_records = self.merge_to_excel(profiles, destination_file)

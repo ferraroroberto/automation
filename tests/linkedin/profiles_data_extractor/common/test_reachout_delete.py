@@ -1,8 +1,8 @@
 """Reachout Manager's two-step delete must actually reach the deletion (Streamlit AppTest, no Excel)."""
 
-import tempfile
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock

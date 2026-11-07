@@ -18,11 +18,10 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 import pandas as pd
+from photos_archive_config import get_config
 from PIL import Image
 from PIL.ExifTags import TAGS
 from pymediainfo import MediaInfo
-
-from photos_archive_config import get_config
 
 # How often the directory walk reports progress, in files.
 _SCAN_PROGRESS_INTERVAL = 1000

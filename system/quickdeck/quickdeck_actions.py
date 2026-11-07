@@ -11,10 +11,10 @@ from a test or a REPL) without PySimpleGUI.
 import os
 import subprocess
 import sys
-from pathlib import Path
 import webbrowser
 from dataclasses import dataclass
 from io import StringIO
+from pathlib import Path
 from typing import Any, Callable, Dict
 
 import pyperclip

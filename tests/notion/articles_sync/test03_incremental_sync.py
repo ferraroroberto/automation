@@ -18,14 +18,14 @@ import unittest
 from unittest.mock import Mock
 
 from _sync_fixtures import (
-    prop_rich_text,
-    prop_title,
-    prop_formula_string,
-    prop_select,
-    prop_multi_select,
-    prop_date,
-    prop_checkbox,
     make_sync,
+    prop_checkbox,
+    prop_date,
+    prop_formula_string,
+    prop_multi_select,
+    prop_rich_text,
+    prop_select,
+    prop_title,
 )
 
 

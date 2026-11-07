@@ -1,17 +1,16 @@
 
 import pandas as pd
-import streamlit as st
 import plotly.express as px
-
-from history_manager import log_history
-from loaders import load_config
+import streamlit as st
 from _lib import (
     fuzzy_search_profiles,
+    generate_color_gradient,
+    render_excel_formatting_section,
     save_to_excel,
     update_existing_record,
-    render_excel_formatting_section,
-    generate_color_gradient,
 )
+from history_manager import log_history
+from loaders import load_config
 
 
 def _select_view_df(df_filtered, view_mode):

@@ -36,7 +36,14 @@ from urllib.parse import urljoin
 
 from browser_stealth import launch_persistent
 from google.gmail_web import EMAIL_RE, GmailNotSignedIn, GmailWeb
-from google.photos_weekly_counts import Selection, Sweep, count_mismatches, days_of, label_date, settled_value
+from google.photos_weekly_counts import (
+    Selection,
+    Sweep,
+    count_mismatches,
+    days_of,
+    label_date,
+    settled_value,
+)
 
 logger = logging.getLogger("photos_weekly_album")
 
@@ -279,6 +286,7 @@ class PhotosWeb:
 
     def __enter__(self) -> "PhotosWeb":
         from playwright.sync_api import sync_playwright
+        # runtime-write-exempt: browser profile folder defaults under the home folder and is overridable in the config
         self.profile_dir.mkdir(parents=True, exist_ok=True)
         self._pw = sync_playwright().start()
         # Hidden or covered windows stop rendering the grid; keep Chrome from treating a covered
@@ -669,7 +677,9 @@ class PhotosWeb:
 # -- run ------------------------------------------------------------------------------------------
 
 def append_run_log(path: Path, record: dict) -> None:
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     path.parent.mkdir(parents=True, exist_ok=True)
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 

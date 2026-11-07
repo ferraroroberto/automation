@@ -29,11 +29,10 @@ from tkinter import filedialog
 from typing import Optional, Tuple
 
 import pandas as pd
-
 from photos_archive_config import get_config, setup_logging
 from photos_archive_duplicates import (
-    calculate_short_sequence_counts,
     calculate_sha256,
+    calculate_short_sequence_counts,
     calculate_time_intervals,
     calculate_total_files_unified_day,
     log_top_unified_days,
@@ -181,6 +180,7 @@ def copy_files(df: pd.DataFrame) -> None:
                 continue
 
             try:
+                # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
                 shutil.copy2(row['file_path'], dest_path)
                 df.at[index, 'copy_success'] = 1
                 copied_files_count += 1

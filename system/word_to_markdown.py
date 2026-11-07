@@ -8,8 +8,8 @@ Automatically tests conversion by processing all Word documents found in the pro
 """
 
 import argparse
-import re
 import logging
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -18,8 +18,8 @@ from typing import List, Optional
 try:
     from docx import Document
     from docx.document import Document as DocumentType
-    from docx.oxml.text.paragraph import CT_P
     from docx.oxml.table import CT_Tbl
+    from docx.oxml.text.paragraph import CT_P
     from docx.table import Table
     from docx.text.paragraph import Paragraph
 except ImportError:
@@ -211,6 +211,7 @@ class WordToMarkdownConverter:
     def save_markdown(self, content: str, output_path: Path):
         """Save Markdown content to file."""
         try:
+            # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             logger.info(f"💾 Markdown saved to: {output_path}")

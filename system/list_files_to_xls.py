@@ -18,12 +18,12 @@ Author: Automation Tools Collection
 License: MIT
 """
 
-import sys
 import logging
-from pathlib import Path
-from typing import List, Tuple, Optional
+import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
+from typing import List, Optional, Tuple
 
 try:
     from openpyxl import Workbook

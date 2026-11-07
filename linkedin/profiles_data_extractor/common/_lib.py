@@ -14,8 +14,10 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-
-from excel_format_manager import convert_url_columns_to_hyperlinks, apply_format_from_json
+from excel_format_manager import (
+    apply_format_from_json,
+    convert_url_columns_to_hyperlinks,
+)
 
 log = logging.getLogger(__name__)
 

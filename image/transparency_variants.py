@@ -7,8 +7,8 @@ then create a copy with "_transp_xx" suffix (saved as PNG for alpha support).
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 
 try:
     from PIL import Image
@@ -38,6 +38,7 @@ def make_transparent_variant(source_path: Path, transparency_pct: int, out_path:
     new_alpha = alpha.point(lambda x: int(x * opacity))
     img.putalpha(new_alpha)
 
+    # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path, "PNG")
     return True

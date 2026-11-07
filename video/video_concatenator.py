@@ -77,6 +77,7 @@ class VideoConcatenator:
         try:
             abs_paths = [os.path.abspath(p).replace("\\", "/") for p in paths]
             # ffmpeg reads the list as UTF-8, whatever the locale encoding is.
+            # runtime-write-exempt: writes a temp file the OS cleans up, outside the checkout
             with open(list_file, "w", encoding="utf-8", newline="\n") as f:
                 f.write(_concat_list_text(abs_paths))
 

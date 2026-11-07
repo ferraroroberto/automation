@@ -6,10 +6,10 @@ into ``Contact`` objects; the duplicate detection, merge and write steps live
 in ``unify_vcards.py``.
 """
 
-import re
 import logging
-from typing import List, Optional
+import re
 from dataclasses import dataclass, field
+from typing import List, Optional
 
 from _vcard_fields import extract_type_label
 

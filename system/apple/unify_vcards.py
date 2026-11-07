@@ -7,14 +7,14 @@ It analyzes contacts for potential duplicates based on shared phone numbers and 
 then guides users through an interactive process to merge or keep contacts.
 """
 
+import datetime
+import logging
 import os
 import re
-import logging
-from pathlib import Path
-from typing import List, Optional, Tuple, Set
-import datetime
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog
+from typing import List, Optional, Set, Tuple
 
 from _vcard_fields import has_type_param
 from _vcard_model import Contact, ContactAddress, VCardParser, longest_common_substring
@@ -358,6 +358,7 @@ class VCardWriter:
             vcard_lines.append("")  # Empty line between contacts
 
         # Write to file with proper line endings
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(file_path, 'w', encoding='utf-8', newline='\r\n') as f:
             f.write('\n'.join(vcard_lines))
 
@@ -540,6 +541,7 @@ class UnificationReport:
             ])
 
         # Write report
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines))
 

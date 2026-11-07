@@ -13,7 +13,6 @@ import re
 from typing import Any, Dict
 
 import PySimpleGUI as sg
-
 from quickdeck_button_config import apply_button_values, clear_slot, join_command
 
 # Hex colour literal, e.g. #111827 - the only format the theme accepts.

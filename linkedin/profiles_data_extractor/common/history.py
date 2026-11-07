@@ -1,11 +1,13 @@
 import os
+
 import pandas as pd
 import streamlit as st
+from _lib import fuzzy_search_names
 
 # Import history manager functions
 from history_manager import get_history_file_path
 from loaders import load_config
-from _lib import fuzzy_search_names
+
 
 def load_history_data():
     """Load history data from the history Excel file."""

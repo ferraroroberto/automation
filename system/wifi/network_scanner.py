@@ -83,10 +83,10 @@ import socket
 import sys
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from tkinter import filedialog, messagebox
+from typing import Any, Dict, List, Optional
 
 try:
     from scapy.all import ARP, Ether, srp
@@ -583,6 +583,7 @@ def save_json(devices: List[Dict[str, str]], output_file: str, config: Dict[str,
         }
 
     try:
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(
                 output_data,

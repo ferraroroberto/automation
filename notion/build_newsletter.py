@@ -11,17 +11,17 @@ Usage:
 """
 
 import argparse
-import re
 import logging
 import os
+import re
 import sys
 import webbrowser
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
-import requests
-from dotenv import load_dotenv
 
+import requests
 import utils as notion_utils
+from dotenv import load_dotenv
 
 # Repo-root shared helper.
 sys.path.append(str(Path(__file__).resolve().parents[1]))

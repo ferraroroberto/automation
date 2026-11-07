@@ -303,6 +303,7 @@ class WifiBatApp(tk.Tk):
         if not target:
             return
         try:
+            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
             Path(target).write_text(self._generate_bat_for(profile), encoding="utf-8")
         except OSError as exc:
             messagebox.showerror("Wi-Fi BAT Generator", f"Failed to write BAT:\n{exc}")

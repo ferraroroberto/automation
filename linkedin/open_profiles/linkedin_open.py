@@ -9,13 +9,13 @@ import json
 import logging
 import sys
 import threading
+import tkinter as tk
+import webbrowser
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from tkinter import messagebox, ttk
+from typing import Any, Dict, Tuple
 
 import pandas as pd
-import webbrowser
-import tkinter as tk
-from tkinter import ttk, messagebox
 
 
 class GuiLogHandler(logging.Handler):

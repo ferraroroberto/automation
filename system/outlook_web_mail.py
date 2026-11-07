@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from system.outlook_web import (OUTLOOK_URL, DraftSpec, NotSignedIn, OutlookWeb)
+from system.outlook_web import OUTLOOK_URL, DraftSpec, NotSignedIn, OutlookWeb
 
 logger = logging.getLogger("outlook_web_mail")
 

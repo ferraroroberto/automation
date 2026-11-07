@@ -5,7 +5,7 @@ Provides system tray icon functionality for background operation.
 """
 
 import logging
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 try:
     import pystray

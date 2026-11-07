@@ -14,21 +14,21 @@ Usage:
     python notion_articles_sync.py --debug
 """
 
+import argparse
 import json
+import logging
 import os
 import sys
 import time
-import argparse
-import logging
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional, Tuple
-import requests
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from threading import Lock
-from dotenv import load_dotenv
-import jsonschema
+from typing import Any, Dict, List, Optional, Tuple
 
+import jsonschema
+import requests
 from change_detection import ChangeDetectionMixin
+from dotenv import load_dotenv
 from property_mapping import PropertyMappingMixin
 from sync_logger import logger
 

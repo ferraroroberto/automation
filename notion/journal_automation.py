@@ -6,8 +6,8 @@ import sys
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from utils import load_env_variables, load_json_config
 import utils as notion_utils
+from utils import load_env_variables, load_json_config
 
 logger = logging.getLogger(__name__)
 
@@ -278,11 +278,13 @@ def process_journal_consolidated(config: dict[str, Any], env_vars: dict[str, str
     )
     
     # Ensure output directory exists
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     os.makedirs(output_dir, exist_ok=True)
     
     output_path = os.path.join(output_dir, output_filename)
     logger.info("📝 Writing consolidated output: %s", output_filename)
 
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(consolidated_output)
 

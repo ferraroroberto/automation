@@ -1,10 +1,12 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-import threading
-import queue
 import logging
+import queue
+import threading
+import tkinter as tk
 from pathlib import Path
+from tkinter import filedialog, messagebox, scrolledtext, ttk
+
 from audio_extractor_core import AudioExtractor
+
 
 class QueueHandler(logging.Handler):
     """Custom logging handler that puts messages in a queue."""

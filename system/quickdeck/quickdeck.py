@@ -30,10 +30,13 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import PySimpleGUI as sg
-
 from quickdeck_actions import ActionContext, execute_action
 from quickdeck_config_gui import QuickDeckConfig
-from quickdeck_render import button_image_size, create_combined_button_image, create_emoji_image
+from quickdeck_render import (
+    button_image_size,
+    create_combined_button_image,
+    create_emoji_image,
+)
 
 
 # Configure logging to console

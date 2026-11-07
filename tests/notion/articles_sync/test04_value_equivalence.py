@@ -14,13 +14,13 @@ incremental sync to flag every Notion-bumped item as 'changed':
 import unittest
 
 from _sync_fixtures import (
-    prop_rich_text,
-    prop_title,
-    prop_formula_string,
-    prop_select,
-    prop_multi_select,
-    prop_date,
     make_sync,
+    prop_date,
+    prop_formula_string,
+    prop_multi_select,
+    prop_rich_text,
+    prop_select,
+    prop_title,
 )
 
 

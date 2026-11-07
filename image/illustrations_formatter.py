@@ -29,7 +29,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
 from PIL import Image
@@ -318,6 +318,7 @@ class IllustrationsFormatter:
             if extend_border:
                 self._extend_edges(canvas, x_off, y_off, orig_w, orig_h)
 
+            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
             output_path.parent.mkdir(parents=True, exist_ok=True)
             canvas.save(output_path, 'PNG')
             self.logger.info(
@@ -390,6 +391,7 @@ class IllustrationsFormatter:
             if extend_border:
                 self._extend_edges(canvas, x_off, y_off, scaled_w, scaled_h)
 
+            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
             output_path.parent.mkdir(parents=True, exist_ok=True)
             canvas.save(output_path, 'PNG')
             self.logger.info(
@@ -479,6 +481,7 @@ class IllustrationsFormatter:
         if not source_path.is_dir():
             raise ValueError(f"Source path is not a directory: {source_folder}")
 
+        # runtime-write-exempt: destination is the path the user picks in the tool's own UI
         dest_path.mkdir(parents=True, exist_ok=True)
 
         image_files: List[Path] = []

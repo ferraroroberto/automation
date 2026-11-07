@@ -1,15 +1,14 @@
 
 import pandas as pd
 import streamlit as st
-
-from history_manager import log_history
-from loaders import load_config, load_excel_data
 from _lib import (
     fuzzy_search_names,
+    render_excel_formatting_section,
     save_to_excel,
     update_existing_record,
-    render_excel_formatting_section,
 )
+from history_manager import log_history
+from loaders import load_config, load_excel_data
 
 
 def _select_record(filtered_df, search_name):

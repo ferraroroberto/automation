@@ -10,11 +10,10 @@ import threading
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import requests
 import yt_dlp
-
 from _tk_widgets import build_progress_section, set_progress
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).
@@ -157,6 +156,7 @@ def download_direct_url(url, output_path, filename, status_callback=None, progre
                 block_size = 8192
                 if status_callback:
                     status_callback(f"Downloading: {url[:50]}...")
+                # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
                 with open(output_file, 'ab') as f:
                     for data in response.iter_content(block_size):
                         f.write(data)

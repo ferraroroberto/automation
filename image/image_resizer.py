@@ -1,12 +1,13 @@
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
-from pathlib import Path
-from PIL import Image
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog
 from typing import Optional
+
+from PIL import Image
 
 # Create logger at module level
 logger = logging.getLogger(__name__)

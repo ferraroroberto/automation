@@ -432,6 +432,7 @@ def download_photos(profiles: list[Profile], photos_dir: Path) -> None:
     """Download each profile's photo into ``photos_dir``. Mutates profiles in
     place to set ``photo_local`` to a path relative to ``photos_dir.parent``.
     Already-downloaded files are reused."""
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     photos_dir.mkdir(parents=True, exist_ok=True)
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT})
@@ -448,6 +449,7 @@ def download_photos(profiles: list[Profile], photos_dir: Path) -> None:
         try:
             r = session.get(p.photo, timeout=30)
             r.raise_for_status()
+            # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
             target.write_bytes(r.content)
             p.photo_local = rel
             logger.info("✅ photo %s -> %s", p.name, fname)
@@ -585,6 +587,7 @@ def write_html(profiles: list[Profile], out_dir: Path, stem: str, title: str) ->
         "__DATA__", json.dumps(payload, ensure_ascii=False)
     )
     html_path = out_dir / f"{stem}.html"
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     html_path.write_text(html, encoding="utf-8")
     return html_path
 
@@ -593,6 +596,7 @@ def write_html(profiles: list[Profile], out_dir: Path, stem: str, title: str) ->
 # I/O
 # --------------------------------------------------------------------------- #
 def write_outputs(profiles: list[Profile], out_dir: Path, stem: str) -> tuple[Path, Path]:
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / f"{stem}.json"
     csv_path = out_dir / f"{stem}.csv"
@@ -600,6 +604,7 @@ def write_outputs(profiles: list[Profile], out_dir: Path, stem: str) -> tuple[Pa
     json_payload = [
         {k: v for k, v in asdict(p).items() if k != "debug"} for p in profiles
     ]
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     json_path.write_text(
         json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -608,6 +613,7 @@ def write_outputs(profiles: list[Profile], out_dir: Path, stem: str) -> tuple[Pa
         "name", "role", "company", "email", "linkedin",
         "photo", "photo_local", "slide", "slide_name",
     ]
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     with csv_path.open("w", encoding="utf-8-sig", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=fieldnames)
         w.writeheader()
@@ -693,8 +699,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     out_dir = Path(cfg["output_dir"])
     stem = cfg["output_stem"]
     if cfg["save_raw"]:
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         out_dir.mkdir(parents=True, exist_ok=True)
         raw_path = out_dir / f"{stem}_raw.json"
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         raw_path.write_text(
             json.dumps(view, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -712,6 +720,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     else:
         logger.info("✅ Extracted %d profiles", len(profiles))
 
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     out_dir.mkdir(parents=True, exist_ok=True)
     if cfg["download_photos"]:
         download_photos(profiles, out_dir / "photos")

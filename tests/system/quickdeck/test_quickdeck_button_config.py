@@ -6,7 +6,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "system/quickdeck"))
 
-from quickdeck_button_config import apply_button_values, clear_slot, join_command, split_command  # noqa: E402
+from quickdeck_button_config import (  # noqa: E402
+    apply_button_values,
+    clear_slot,
+    join_command,
+    split_command,
+)
 
 
 def _values(**overrides):

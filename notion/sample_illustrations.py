@@ -29,9 +29,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from dotenv import load_dotenv
-
 import utils as notion_utils
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -127,6 +126,7 @@ def extract_topic(title: str, visualtype: str) -> str:
 def wipe_contents(folder: Path) -> None:
     """Remove everything inside folder (but keep the folder itself)."""
     if not folder.exists():
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         folder.mkdir(parents=True, exist_ok=True)
         return
     for entry in folder.iterdir():
@@ -206,9 +206,13 @@ def _copy_samples(rows: List[Dict[str, Any]]) -> int:
         src = Path(r["source_path"])
         flat = Path(r["dest_path_flat"])
         nested = Path(r["dest_path_nested"])
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         flat.parent.mkdir(parents=True, exist_ok=True)
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         nested.parent.mkdir(parents=True, exist_ok=True)
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         shutil.copy2(src, flat)
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         shutil.copy2(src, nested)
         copied += 1
     return copied
@@ -266,12 +270,14 @@ def main() -> int:
 
     logging.info(f"Wiping {dest_folder} …")
     wipe_contents(dest_folder)
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     (dest_folder / "all").mkdir(parents=True, exist_ok=True)
 
     copied = _copy_samples(rows)
 
     logging.info(f"Copied {copied} illustration(s) to flat + nested layouts")
 
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     xls_output.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows)
     df.to_excel(xls_output, index=False, engine="openpyxl")

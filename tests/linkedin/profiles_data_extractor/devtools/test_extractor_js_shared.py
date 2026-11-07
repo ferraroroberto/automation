@@ -1,8 +1,8 @@
 """The single-profile and search-results scripts must share one card parser."""
 
-import tempfile
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 

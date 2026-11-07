@@ -6,11 +6,11 @@ This module converts vCard (.vcf) files to Apple-compatible format using a Tkint
 It automatically adds the _apple suffix to the output filename.
 """
 
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-import os
 import logging
+import os
+import tkinter as tk
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 
 from _vcard_fields import extract_type_label, has_type_param
 
@@ -427,6 +427,7 @@ class AppleConverterGUI:
             
             # Write output file
             self._log_status("Writing output file...", "info")
+            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
             with open(self.output_file_path, 'w', encoding='utf-8', newline='\r\n') as f:
                 f.write(converted_content)
             

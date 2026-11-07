@@ -3,13 +3,14 @@
 Unit tests for API call functionality to identify hanging issues.
 """
 
+import sys
+import threading
 import time
 import unittest
-from unittest.mock import Mock, patch
-import threading
-import requests
-import sys
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "notion" / "articles_sync"))
 

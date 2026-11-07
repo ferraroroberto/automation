@@ -1,11 +1,11 @@
-import os
-import tkinter as tk
-from tkinter import filedialog, simpledialog, messagebox
-import subprocess
-import re
 import logging
+import os
+import re
+import subprocess
 import sys
+import tkinter as tk
 from pathlib import Path
+from tkinter import filedialog, messagebox, simpledialog
 
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[1]))

@@ -17,9 +17,8 @@ import re
 import sys
 from typing import Dict, List, Optional, Tuple
 
-from dotenv import load_dotenv
-
 import utils as notion_utils
+from dotenv import load_dotenv
 
 # Load environment variables from root .env file
 load_dotenv()

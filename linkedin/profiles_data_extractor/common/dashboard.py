@@ -2,9 +2,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-
-from loaders import load_config, load_excel_data  # noqa: F401 — re-exported for callers
 from _lib import generate_color_gradient
+from loaders import load_config, load_excel_data  # noqa: F401 — re-exported for callers
 
 # Page config is now handled in main.py
 
