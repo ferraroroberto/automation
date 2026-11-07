@@ -472,7 +472,15 @@ class PhotosWeb:
                 self.page.wait_for_timeout(500)
                 self.page.evaluate(SCAN_JS)  # re-mark: the scroll may have re-rendered the header
                 head = f'[data-pwa-head="{target["key"]}"]'
-                self._click_checked(head, f"{head} >> xpath=..", True, f"day {day}")
+                try:
+                    self._click_checked(head, f"{head} >> xpath=..", True, f"day {day}")
+                except FlowError as exc:
+                    # drop_excluded ticks every tile of this day that is still unticked, so a header
+                    # that never shows its checkbox costs speed, not the run.
+                    per_day[day] = max(self._counter() - before, 0)
+                    logger.info("ℹ️ %s %s: header checkbox unavailable (%s); its tiles are ticked one by one",
+                                day.strftime("%a"), day, exc)
+                    continue
                 per_day[day] = self._settled_counter(before) - before
                 logger.info("ℹ️ %s %s: %d items", day.strftime("%a"), day, per_day[day])
                 continue
