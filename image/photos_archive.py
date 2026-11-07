@@ -180,6 +180,7 @@ def copy_files(df: pd.DataFrame) -> None:
                 continue
 
             try:
+                # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
                 shutil.copy2(row['file_path'], dest_path)
                 df.at[index, 'copy_success'] = 1
                 copied_files_count += 1

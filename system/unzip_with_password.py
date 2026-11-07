@@ -169,6 +169,7 @@ def extract_archive(archive_path, password=None):
     
     try:
         # Create output directory
+        # runtime-write-exempt: extraction folder is created beside the archive the user picked
         archive_dir.mkdir(exist_ok=True)
         logger.info(f"Created output directory: {archive_dir}")
         

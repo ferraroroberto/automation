@@ -24,6 +24,7 @@ def _start_chrome_debug() -> None:
             debug_profile_dir = os.path.join(user_profile, r'AppData\Local\Google\Chrome\User Data\DebugProfile')
 
             # Create debug profile directory if it doesn't exist
+            # runtime-write-exempt: Chrome debug profile lives under the user's AppData, outside the checkout
             os.makedirs(debug_profile_dir, exist_ok=True)
 
             # Launch Chrome with remote debugging

@@ -198,6 +198,7 @@ def cut_middle_video(
         # Concatenate
         abs1 = os.path.abspath(temp1).replace("\\", "/")
         abs2 = os.path.abspath(temp2).replace("\\", "/")
+        # runtime-write-exempt: writes a temp file the OS cleans up, outside the checkout
         with open(list_file, "w") as f:
             f.write(f"file '{abs1}'\n")
             f.write(f"file '{abs2}'\n")

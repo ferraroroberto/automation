@@ -39,9 +39,12 @@ def copy_project(src_root: Path, dst_root: Path) -> None:
 
         target = dst_root / rel
         if path.is_dir():
+            # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
             target.mkdir(parents=True, exist_ok=True)
         else:
+            # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
             target.parent.mkdir(parents=True, exist_ok=True)
+            # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
             shutil.copy2(path, target)
 
     if git_dirs_skipped:

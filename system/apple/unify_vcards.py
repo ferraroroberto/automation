@@ -358,6 +358,7 @@ class VCardWriter:
             vcard_lines.append("")  # Empty line between contacts
 
         # Write to file with proper line endings
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(file_path, 'w', encoding='utf-8', newline='\r\n') as f:
             f.write('\n'.join(vcard_lines))
 
@@ -540,6 +541,7 @@ class UnificationReport:
             ])
 
         # Write report
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines))
 

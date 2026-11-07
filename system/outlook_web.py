@@ -119,6 +119,7 @@ class OutlookWeb:
 
     def __enter__(self) -> "OutlookWeb":
         from playwright.sync_api import sync_playwright
+        # runtime-write-exempt: browser profile defaults under the home folder and is overridable by env var
         profile_dir().mkdir(parents=True, exist_ok=True)
         self._pw = sync_playwright().start()
         self._context = launch_persistent(self._pw, str(profile_dir()), self.headless)
@@ -229,6 +230,7 @@ class OutlookWeb:
 
     def screenshot(self, label: str) -> Optional[Path]:
         folder = profile_dir() / "failures"
+        # runtime-write-exempt: browser profile defaults under the home folder and is overridable by env var
         folder.mkdir(parents=True, exist_ok=True)
         target = folder / f"{datetime.now():%Y%m%d-%H%M%S}-{label}.png"
         try:

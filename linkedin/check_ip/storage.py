@@ -38,6 +38,7 @@ class StorageManager:
             metadata_folder (Path): Folder for storing Excel files
         """
         self.metadata_folder = metadata_folder
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         self.metadata_folder.mkdir(parents=True, exist_ok=True)
         
     def setup_folders_and_files(self, images_folder: Path, metadata_file: str, 

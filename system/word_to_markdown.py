@@ -211,6 +211,7 @@ class WordToMarkdownConverter:
     def save_markdown(self, content: str, output_path: Path):
         """Save Markdown content to file."""
         try:
+            # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             logger.info(f"💾 Markdown saved to: {output_path}")

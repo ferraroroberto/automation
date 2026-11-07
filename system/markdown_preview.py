@@ -254,6 +254,7 @@ applyGlyph();
 
 def write_handoff(path: Path, handoff: Path = HANDOFF_FILE) -> None:
     """Leave ``path`` for the running instance to pick up."""
+    # runtime-write-exempt: hand-off file defaults to the OS temp dir
     handoff.write_text(str(path), encoding="utf-8")
 
 

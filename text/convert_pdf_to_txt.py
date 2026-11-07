@@ -36,6 +36,7 @@ def extract_text_from_pdf(pdf_path):
 def save_text_to_file(text, output_path):
     """Save text to a .txt file."""
     try:
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(text)
         logger.info(f"Text successfully saved to: {output_path}")

@@ -165,6 +165,7 @@ def save_json(rows: List[Dict[str, Any]], output_file: str, config: Dict[str, An
         }
     
     try:
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(
                 output_data, 

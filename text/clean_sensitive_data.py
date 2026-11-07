@@ -218,6 +218,7 @@ class CLIDataCleaner(DataCleanerBase):
             cleaned = self.clean_sensitive_data(text)
             
             if output_path:
+                # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(cleaned)
                 log.info("Cleaned text saved to: %s", output_path)

@@ -75,6 +75,7 @@ def setup_logging(log_folder: str) -> None:
     timestamp = datetime.now().strftime('%Y%m%d-%H%M')
     log_file = os.path.join(log_folder, f'photo_processing_{timestamp}.log')
 
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     os.makedirs(log_folder, exist_ok=True)
 
     # Set logging level from config
@@ -83,6 +84,7 @@ def setup_logging(log_folder: str) -> None:
     fmt = '%(asctime)s - %(levelname)s - %(message)s'
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
+    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
     file_handler = logging.FileHandler(log_file, mode='w')
     file_handler.setFormatter(logging.Formatter(fmt))
     console_handler = logging.StreamHandler()

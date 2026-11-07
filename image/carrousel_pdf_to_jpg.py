@@ -74,6 +74,7 @@ def pdf_to_images(pdf_files: List[str]) -> None:
             # Create the output folder if it doesn't exist
             if not os.path.exists(output_folder):
                 try:
+                    # runtime-write-exempt: destination is the path the user picks in the tool's own UI
                     os.makedirs(output_folder)
                     log.info("Created output folder: %s", output_folder)
                 except Exception as e:

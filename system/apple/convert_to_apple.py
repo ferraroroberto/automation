@@ -427,6 +427,7 @@ class AppleConverterGUI:
             
             # Write output file
             self._log_status("Writing output file...", "info")
+            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
             with open(self.output_file_path, 'w', encoding='utf-8', newline='\r\n') as f:
                 f.write(converted_content)
             

@@ -105,6 +105,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             True if file is accessible, False otherwise.
         """
         try:
+            # runtime-write-exempt: opens the file read/write only to test it is not locked; writes nothing
             with open(file_path, 'r+b'):
                 pass
             return True
@@ -329,6 +330,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             return
 
         # Ensure destination directory exists
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         os.makedirs(os.path.dirname(destination_file), exist_ok=True)
 
         # Create paths to common directory files (same as in main())
@@ -373,6 +375,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
             # Ensure destination directory exists
             destination_dir = os.path.dirname(destination_file)
+            # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
             os.makedirs(destination_dir, exist_ok=True)
 
             inserted_count, skipped_count, total_records = self.merge_to_excel(profiles, destination_file)

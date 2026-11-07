@@ -583,6 +583,7 @@ def save_json(devices: List[Dict[str, str]], output_file: str, config: Dict[str,
         }
 
     try:
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(
                 output_data,

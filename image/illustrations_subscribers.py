@@ -211,6 +211,7 @@ def _prepare_subscriber_folders(
     for name in names:
         # Create or clean subscriber folders
         subscriber_folder = os.path.join(config["metadata_archive_folder"], name)
+        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
         os.makedirs(subscriber_folder, exist_ok=True)  # Create the folder if it does not exist
         
         # Check if there are any subfolders
@@ -219,6 +220,7 @@ def _prepare_subscriber_folders(
             user_input = input(f"Do you want to delete the existing subfolders in {subscriber_folder}? (y/n): ").strip().lower()
             if user_input == 'y':
                 shutil.rmtree(subscriber_folder)  # Remove existing folder and its contents
+                # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
                 os.makedirs(subscriber_folder)  # Create a new clean folder
                 logger.info(f"Cleaned existing folder: {subscriber_folder}")
             else:
@@ -309,6 +311,7 @@ def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
             # Copy the file to each subscriber's folder
             for name in filtered_subscribers_df['name']:
                 destination_file = os.path.join(config["metadata_archive_folder"], name, f"{de_illustration}.png")
+                # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
                 shutil.copy2(source_file, destination_file)
             total_copied += 1
             total_files_processed += 1
@@ -327,6 +330,7 @@ def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
             for matched_file in matched_files:
                 for name in filtered_subscribers_df['name']:
                     destination_file = os.path.join(config["metadata_archive_folder"], name, os.path.basename(matched_file))
+                    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
                     shutil.copy2(matched_file, destination_file)
             total_files_processed += len(matched_files)
             total_unique_illustrations += 1

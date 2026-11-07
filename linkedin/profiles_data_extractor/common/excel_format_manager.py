@@ -105,7 +105,9 @@ def save_excel_format_to_json(excel_path: str, json_path: str) -> bool:
             format_spec["cell_formats"][col_letter]["number_format"] = "dd/mm/yyyy"
         
         # Save to JSON
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         os.makedirs(os.path.dirname(json_path), exist_ok=True)
+        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(format_spec, f, indent=2, ensure_ascii=False)
         
