@@ -197,5 +197,6 @@ def set_env_value(key: str, value: str, path: Path = ENV_PATH) -> None:
             replaced = True
     if not replaced:
         lines.append(f"{key}={value}")
+    # runtime-write-exempt: .env path is parking/.env; the poller reads it on every start
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     logger.info("ℹ️ %s written to %s", key, path.name)

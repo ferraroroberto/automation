@@ -120,9 +120,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     log_dir = LOG_DIR / "burst"
+    # runtime-write-exempt: parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     log_dir.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
     # Its own file (overwritten each burst): RotatingFileHandler is not safe across processes.
+    # runtime-write-exempt: parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     handlers = [logging.FileHandler(log_dir / f"{args.day}.log", mode="w", encoding="utf-8"),
                 logging.StreamHandler(sys.stdout)]
     for handler in handlers:
@@ -138,6 +140,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     events = args.run_dir / f"{args.day}.jsonl"
 
     def write(record: dict) -> None:
+        # runtime-write-exempt: run_dir comes from the burst caller (parking/state/burst); parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
         with events.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record) + "\n")
 

@@ -178,6 +178,7 @@ class QuickDeck:
         }
 
         try:
+            # runtime-write-exempt: config_path is the deck's config file beside the script; the deck reads it
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(default_config, f, indent=2, ensure_ascii=False)
             self.config = default_config

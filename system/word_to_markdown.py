@@ -64,6 +64,7 @@ class WordToMarkdownConverter:
     
     def _create_test_folder(self):
         """Create the test folder if it doesn't exist."""
+        # runtime-write-exempt: scratch folder for the converter's test copies, under system/ by design
         self.test_folder.mkdir(parents=True, exist_ok=True)
         logger.info(f"📁 Test folder created/verified: {self.test_folder}")
     
@@ -84,6 +85,7 @@ class WordToMarkdownConverter:
     def _copy_to_test_folder(self, doc_path: Path) -> Path:
         """Copy document to test folder."""
         dest_path = self.test_folder / doc_path.name
+        # runtime-write-exempt: destination is the converter's scratch test folder under system/
         shutil.copy2(doc_path, dest_path)
         logger.debug(f"📋 Copied {doc_path.name} to test folder")
         return dest_path

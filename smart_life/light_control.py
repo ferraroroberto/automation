@@ -357,6 +357,7 @@ def update_devices(devices_path: Path, snapshot_path: Path) -> None:
         elif _has_valid_ip(dev) and not _has_valid_ip(seen_names[name]):
             seen_names[name] = dev
     snapshot["devices"] = list(seen_names.values())
+    # runtime-write-exempt: devices.json is the tool's device list beside the script; the light controller reads it
     with open(devices_path, "w", encoding="utf-8") as fh:
         json.dump(snapshot, fh, indent=4)
     logger.info(f"✅ Updated {devices_path.name} with snapshot ({len(snapshot['devices'])} devices)")

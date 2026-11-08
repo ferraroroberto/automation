@@ -224,6 +224,7 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
             config_dir = os.path.dirname(os.path.abspath(config_path))
             log_file = os.path.join(config_dir, "notion_articles_sync.log")
             
+            # runtime-write-exempt: log sits beside the sync config the caller passes in
             file_handler = logging.FileHandler(log_file, encoding='utf-8')
             file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
             file_handler.setFormatter(file_formatter)
@@ -471,6 +472,7 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
         """Save the current sync time to file."""
         try:
             if self.last_sync_time:
+                # runtime-write-exempt: last-sync marker sits beside the sync config the caller passes in; the next run reads it
                 with open(self.sync_time_file, 'w') as f:
                     f.write(self.last_sync_time.isoformat())
                 logger.debug(f"📅 Saved sync time to file: {self.last_sync_time.isoformat()}")

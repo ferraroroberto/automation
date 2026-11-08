@@ -139,6 +139,7 @@ class TextExpanderCore:
     def _create_default_config(self) -> None:
         """Create default configuration file."""
         try:
+            # runtime-write-exempt: config_path is the expander's config file; the running expander reads it
             with open(self.config_path, 'w', encoding='utf-8') as file:
                 json.dump(self.DEFAULT_CONFIG, file, indent=2, ensure_ascii=False)
 
@@ -278,6 +279,7 @@ class TextExpanderCore:
             }
 
             # Write to file
+            # runtime-write-exempt: config_path is the expander's config file; the running expander reads it
             with open(self.config_path, 'w', encoding='utf-8') as file:
                 json.dump(config_data, file, indent=2, ensure_ascii=False)
 
