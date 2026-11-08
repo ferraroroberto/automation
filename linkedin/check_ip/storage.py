@@ -11,12 +11,16 @@ Date: March 2025
 """
 
 import logging
+import sys
 import time
 from pathlib import Path
 from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 try:
     import openpyxl
@@ -38,8 +42,7 @@ class StorageManager:
             metadata_folder (Path): Folder for storing Excel files
         """
         self.metadata_folder = metadata_folder
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        self.metadata_folder.mkdir(parents=True, exist_ok=True)
+        runtime_files.make_dirs(self.metadata_folder)
         
     def setup_folders_and_files(self, images_folder: Path, metadata_file: str, 
                                results_file: str, api_history_file: str) -> Tuple[Path, Path, Path, Path]:

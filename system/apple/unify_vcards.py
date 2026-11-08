@@ -11,6 +11,7 @@ import datetime
 import logging
 import os
 import re
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
@@ -18,6 +19,9 @@ from typing import List, Optional, Set, Tuple
 
 from _vcard_fields import has_type_param
 from _vcard_model import Contact, ContactAddress, VCardParser, longest_common_substring
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -358,8 +362,7 @@ class VCardWriter:
             vcard_lines.append("")  # Empty line between contacts
 
         # Write to file with proper line endings
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        with open(file_path, 'w', encoding='utf-8', newline='\r\n') as f:
+        with runtime_files.open_for_write(file_path, 'w', encoding='utf-8', newline='\r\n') as f:
             f.write('\n'.join(vcard_lines))
 
         logger.info(f"✅ Successfully wrote contacts to {file_path}")
@@ -541,8 +544,7 @@ class UnificationReport:
             ])
 
         # Write report
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with runtime_files.open_for_write(output_file, 'w', encoding='utf-8') as f:
             f.write('\n'.join(report_lines))
 
         logger.info(f"✅ Report generated: {output_file}")

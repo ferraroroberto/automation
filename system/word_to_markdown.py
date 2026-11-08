@@ -10,10 +10,12 @@ Automatically tests conversion by processing all Word documents found in the pro
 import argparse
 import logging
 import re
-import shutil
 import sys
 from pathlib import Path
 from typing import List, Optional
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 try:
     from docx import Document
@@ -48,10 +50,9 @@ class WordToMarkdownConverter:
     
     def __init__(self):
         self.project_root = self._find_project_root()
-        # Project-root-relative (not cwd-relative), so running from anywhere
-        # other than the repo root doesn't scatter test folders under the
-        # wrong CWD.
-        self.test_folder = self.project_root / "system/test-word-to-markdown"
+        # The test copies are scratch output, so they live in the machine's runtime
+        # folder, not beside the code.
+        self.test_folder = runtime_files.runtime_data_dir() / "test-word-to-markdown"
         
     def _find_project_root(self) -> Path:
         """Find the project root directory by looking for .git folder."""
@@ -64,8 +65,7 @@ class WordToMarkdownConverter:
     
     def _create_test_folder(self):
         """Create the test folder if it doesn't exist."""
-        # runtime-write-exempt: scratch folder for the converter's test copies, under system/ by design
-        self.test_folder.mkdir(parents=True, exist_ok=True)
+        runtime_files.make_dirs(self.test_folder)
         logger.info(f"📁 Test folder created/verified: {self.test_folder}")
     
     def _find_word_documents(self) -> List[Path]:
@@ -85,8 +85,7 @@ class WordToMarkdownConverter:
     def _copy_to_test_folder(self, doc_path: Path) -> Path:
         """Copy document to test folder."""
         dest_path = self.test_folder / doc_path.name
-        # runtime-write-exempt: destination is the converter's scratch test folder under system/
-        shutil.copy2(doc_path, dest_path)
+        runtime_files.copy_file(doc_path, dest_path)
         logger.debug(f"📋 Copied {doc_path.name} to test folder")
         return dest_path
     
@@ -213,8 +212,7 @@ class WordToMarkdownConverter:
     def save_markdown(self, content: str, output_path: Path):
         """Save Markdown content to file."""
         try:
-            # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with runtime_files.open_for_write(output_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             logger.info(f"💾 Markdown saved to: {output_path}")
         except Exception as e:

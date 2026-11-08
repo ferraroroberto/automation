@@ -32,13 +32,18 @@ import json
 import logging
 import os
 import shutil
+import sys
 import time
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Dict, Iterable
 
 import numpy as np
 import pandas as pd
 from PIL import Image
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 
 # Set up logging
@@ -211,8 +216,7 @@ def _prepare_subscriber_folders(
     for name in names:
         # Create or clean subscriber folders
         subscriber_folder = os.path.join(config["metadata_archive_folder"], name)
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        os.makedirs(subscriber_folder, exist_ok=True)  # Create the folder if it does not exist
+        runtime_files.make_dirs(subscriber_folder)  # Create the folder if it does not exist
         
         # Check if there are any subfolders
         subfolders = [f.path for f in os.scandir(subscriber_folder) if f.is_dir()]
@@ -220,8 +224,7 @@ def _prepare_subscriber_folders(
             user_input = input(f"Do you want to delete the existing subfolders in {subscriber_folder}? (y/n): ").strip().lower()
             if user_input == 'y':
                 shutil.rmtree(subscriber_folder)  # Remove existing folder and its contents
-                # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-                os.makedirs(subscriber_folder)  # Create a new clean folder
+                runtime_files.make_dirs(subscriber_folder)  # Create a new clean folder
                 logger.info(f"Cleaned existing folder: {subscriber_folder}")
             else:
                 logger.info(f"Skipping deletion of subfolders in {subscriber_folder}.")
@@ -311,8 +314,7 @@ def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
             # Copy the file to each subscriber's folder
             for name in filtered_subscribers_df['name']:
                 destination_file = os.path.join(config["metadata_archive_folder"], name, f"{de_illustration}.png")
-                # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-                shutil.copy2(source_file, destination_file)
+                runtime_files.copy_file(source_file, destination_file)
             total_copied += 1
             total_files_processed += 1
         else:
@@ -330,8 +332,7 @@ def process_subscribers(config: Dict[str, Any], logger: logging.Logger) -> None:
             for matched_file in matched_files:
                 for name in filtered_subscribers_df['name']:
                     destination_file = os.path.join(config["metadata_archive_folder"], name, os.path.basename(matched_file))
-                    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-                    shutil.copy2(matched_file, destination_file)
+                    runtime_files.copy_file(matched_file, destination_file)
             total_files_processed += len(matched_files)
             total_unique_illustrations += 1
         else:

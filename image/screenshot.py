@@ -8,6 +8,9 @@ from typing import List, Optional
 from mss import mss
 from PIL import Image
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 log = logging.getLogger(__name__)
 
 def list_monitors() -> List[dict]:
@@ -26,8 +29,7 @@ def capture_specific_monitor(monitor_index: int, output_folder: Optional[str] = 
 
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        os.makedirs(output_folder)
+        runtime_files.make_dirs(output_folder)
 
     # Generate a filename with the current timestamp
     timestamp = datetime.now().strftime("%Y-%m-%d, %H_%M_%S")

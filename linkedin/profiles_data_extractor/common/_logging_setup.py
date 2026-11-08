@@ -10,23 +10,23 @@ Kept dependency-free (no imports of sibling modules) so it can be imported by
 
 import logging
 import os
+import sys
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[3]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # Tests point this at a temp file so importing the package never writes into the tree.
 LOG_FILE_ENV = "LINKEDIN_EXTRACTOR_LOG_FILE"
 
 
 def setup_logging(name: str) -> logging.Logger:
-    """Configure a logger that writes INFO+ to the package's shared logging.log
-    and WARNING+ to the console.
+    """Configure a logger that writes INFO+ to the package's shared log in the
+    runtime folder (``runtime_files.runtime_data_dir()``) and WARNING+ to the console.
     """
     override = os.environ.get(LOG_FILE_ENV)
-    log_file = Path(override) if override else Path(__file__).parent.parent / "logging.log"
-    # runtime-write-exempt: the shared package log; tests redirect it to a temp file via LOG_FILE_ENV
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-
-    # runtime-write-exempt: the shared package log; tests redirect it to a temp file via LOG_FILE_ENV
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    log_file = Path(override) if override else runtime_files.runtime_data_dir() / "linkedin_profiles_data_extractor.log"
+    file_handler = runtime_files.file_handler(log_file, encoding='utf-8')
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 

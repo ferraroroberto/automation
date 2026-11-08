@@ -162,7 +162,7 @@ class IllustrationsFormatterGUI:
 
         config_path = Path(__file__).parent / self.CONFIG_FILE
         try:
-            # runtime-write-exempt: per-user GUI settings saved beside the script, which the GUI reads at start
+            # runtime-write-exempt: gitignored per-user settings file the GUI reloads at start and the user also edits by hand
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=4)
         except IOError as e:

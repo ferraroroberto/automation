@@ -356,9 +356,10 @@ MAC_OUI_DATABASE = {
     "e6:0a:7d": "Microsoft Xbox",
     "f8:2f:5b": "Microsoft Xbox",
 
-    # Disambiguated prefixes (formerly duplicate dict keys - later definitions
-    # silently overrode earlier ones). Audited against the IEEE OUI registry via
-    # api.maclookup.app on 2026-07-03; one canonical owner per prefix.
+    # Disambiguated prefixes: a repeated dict key lets the later definition
+    # silently override the earlier one, so each prefix appears once. Audited
+    # against the IEEE OUI registry via api.maclookup.app on 2026-07-03; one
+    # canonical owner per prefix.
     "00:03:ff": "Microsoft Corporation",
     "00:15:5d": "Microsoft Corporation",
     "06:0e:2b": "AWS EC2",  # locally-administered prefix, no IEEE owner; AWS EC2 heuristic

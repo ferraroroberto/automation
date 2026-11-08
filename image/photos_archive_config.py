@@ -13,8 +13,13 @@ the caller's error handling instead of as a bare import-time traceback.
 import json
 import logging
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Optional
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 CONFIG_FILENAME = 'photos_archive.json'
 
@@ -75,8 +80,7 @@ def setup_logging(log_folder: str) -> None:
     timestamp = datetime.now().strftime('%Y%m%d-%H%M')
     log_file = os.path.join(log_folder, f'photo_processing_{timestamp}.log')
 
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    os.makedirs(log_folder, exist_ok=True)
+    runtime_files.make_dirs(log_folder)
 
     # Set logging level from config
     log_level = getattr(logging, config['logging']['level'].upper(), logging.INFO)
@@ -84,8 +88,7 @@ def setup_logging(log_folder: str) -> None:
     fmt = '%(asctime)s - %(levelname)s - %(message)s'
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    file_handler = logging.FileHandler(log_file, mode='w')
+    file_handler = runtime_files.file_handler(log_file, mode='w')
     file_handler.setFormatter(logging.Formatter(fmt))
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter(fmt))

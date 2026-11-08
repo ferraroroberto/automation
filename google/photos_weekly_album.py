@@ -45,6 +45,9 @@ from google.photos_weekly_counts import (
     settled_value,
 )
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 logger = logging.getLogger("photos_weekly_album")
 
 HERE = Path(__file__).resolve().parent
@@ -286,8 +289,7 @@ class PhotosWeb:
 
     def __enter__(self) -> "PhotosWeb":
         from playwright.sync_api import sync_playwright
-        # runtime-write-exempt: browser profile folder defaults under the home folder and is overridable in the config
-        self.profile_dir.mkdir(parents=True, exist_ok=True)
+        runtime_files.make_dirs(self.profile_dir)
         self._pw = sync_playwright().start()
         # Hidden or covered windows stop rendering the grid; keep Chrome from treating a covered
         # window as hidden. A minimised one still is, so the flow checks visibility itself.
@@ -677,10 +679,8 @@ class PhotosWeb:
 # -- run ------------------------------------------------------------------------------------------
 
 def append_run_log(path: Path, record: dict) -> None:
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    with path.open("a", encoding="utf-8") as handle:
+    runtime_files.make_dirs(path.parent)
+    with runtime_files.open_for_write(path, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 

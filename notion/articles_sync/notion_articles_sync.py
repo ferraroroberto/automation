@@ -22,6 +22,7 @@ import sys
 import time
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,6 +32,9 @@ from change_detection import ChangeDetectionMixin
 from dotenv import load_dotenv
 from property_mapping import PropertyMappingMixin
 from sync_logger import logger
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # Load environment variables from root .env file
 load_dotenv()
@@ -220,12 +224,8 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
         
         # File handler for debug mode
         if debug:
-            # Get log file path (same directory as config, same name as script)
-            config_dir = os.path.dirname(os.path.abspath(config_path))
-            log_file = os.path.join(config_dir, "notion_articles_sync.log")
-            
-            # runtime-write-exempt: log sits beside the sync config the caller passes in
-            file_handler = logging.FileHandler(log_file, encoding='utf-8')
+            log_file = runtime_files.runtime_data_dir() / "notion_articles_sync.log"
+            file_handler = runtime_files.file_handler(log_file, encoding='utf-8')
             file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
             file_handler.setFormatter(file_formatter)
             logger.addHandler(file_handler)
@@ -472,7 +472,7 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
         """Save the current sync time to file."""
         try:
             if self.last_sync_time:
-                # runtime-write-exempt: last-sync marker sits beside the sync config the caller passes in; the next run reads it
+                # runtime-write-exempt: gitignored last-sync marker the next run reads; moving it would reset incremental sync to a full resync
                 with open(self.sync_time_file, 'w') as f:
                     f.write(self.last_sync_time.isoformat())
                 logger.debug(f"📅 Saved sync time to file: {self.last_sync_time.isoformat()}")

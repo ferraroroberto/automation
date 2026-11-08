@@ -25,7 +25,7 @@ The sync process:
 - `notion_articles_sync_last_time.txt` - Tracks last successful sync time
 - `notion_articles_sync_readme.md` - This comprehensive documentation
 - `.env` - Environment variables file (located in project root)
-- `notion_articles_sync.log` - Created when `--debug` is enabled
+- `notion_articles_sync.log` - Written to the runtime folder (`%LOCALAPPDATA%utomation`) when `--debug` is enabled
 
 ## 🔧 Setup
 
@@ -83,7 +83,7 @@ python notion_articles_sync.py --config notion_articles_sync.json --debug
 - `--full-sync` - Force a full comparison (also detects deletions)
 - `--reset-sync-time` - Reset the last sync time to force a full sync on next run
 - `--status` - Show current sync status and exit
-- `--debug` - Enable debug logging and write `notion_articles_sync.log`
+- `--debug` - Enable debug logging and write `notion_articles_sync.log` in the runtime folder
 
 ## ⚙️ Configuration
 
@@ -197,7 +197,7 @@ The module properly tracks when the last sync actually occurred:
 
 ### Debug Mode Features
 When `--debug` is enabled:
-- **File Logging**: Creates `notion_articles_sync.log` file
+- **File Logging**: Writes `notion_articles_sync.log` in the runtime folder (`%LOCALAPPDATA%utomation`)
 - **API Details**: Logs all API requests and responses
 - **Schema Information**: Shows database schema usage
 - **Performance Metrics**: Tracks API call counts and timing
@@ -256,7 +256,7 @@ python notion_articles_sync.py --config notion_articles_sync.json --debug
 ```
 
 #### Check Log Files
-- Review `notion_articles_sync.log` for detailed information
+- Review `notion_articles_sync.log` in the runtime folder for detailed information
 - Look for API request/response details
 - Check for schema validation errors
 

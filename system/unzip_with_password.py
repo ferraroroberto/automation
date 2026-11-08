@@ -14,6 +14,9 @@ import zipfile
 from pathlib import Path
 from tkinter import filedialog
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from no_window import NO_WINDOW  # noqa: E402
@@ -169,8 +172,7 @@ def extract_archive(archive_path, password=None):
     
     try:
         # Create output directory
-        # runtime-write-exempt: extraction folder is created beside the archive the user picked
-        archive_dir.mkdir(exist_ok=True)
+        runtime_files.make_dirs(archive_dir)
         logger.info(f"Created output directory: {archive_dir}")
         
         # Try Python-based extraction first

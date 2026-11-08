@@ -52,6 +52,9 @@ baseline = ".structure-ratchet-baseline.json"
 [instruction_ratchet]
 enabled  = true
 baseline = ".instruction-ratchet-baseline.json"
+ci_expectations = true
+agents_pointer = true
+repeated_text_words = 12
 
 # [doc_refs_ratchet] -- the scaffold's baseline-and-ratchet stage over documentation
 # references. The gate runs scripts/doc_refs_ratchet.py, which fails when README.md,
@@ -109,6 +112,8 @@ include  = ["README.md", "docs/", "audio/", "excel/", "git-housekeeping/", "goog
 [comment_ratchet]
 enabled  = true
 baseline = ".comment-ratchet-baseline.json"
+docstrings = true
+history_phrases = true
 
 # [conventions_ratchet] -- the scaffold's baseline-and-ratchet stage over fleet conventions
 # held as stdlib `ast` rules, counted per file and rule. The gate runs

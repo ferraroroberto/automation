@@ -7,9 +7,11 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
 
 from _ffmpeg_utils import (
@@ -19,6 +21,9 @@ from _ffmpeg_utils import (
     run_ffmpeg_with_progress,
 )
 from _tk_widgets import build_progress_section, set_progress
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -198,8 +203,7 @@ def cut_middle_video(
         # Concatenate
         abs1 = os.path.abspath(temp1).replace("\\", "/")
         abs2 = os.path.abspath(temp2).replace("\\", "/")
-        # runtime-write-exempt: writes a temp file the OS cleans up, outside the checkout
-        with open(list_file, "w") as f:
+        with runtime_files.open_for_write(list_file, "w") as f:
             f.write(f"file '{abs1}'\n")
             f.write(f"file '{abs2}'\n")
 

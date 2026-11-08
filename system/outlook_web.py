@@ -21,12 +21,16 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Iterator, Optional
 
 from browser_stealth import launch_persistent
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 logger = logging.getLogger("outlook_web")
 
@@ -119,8 +123,7 @@ class OutlookWeb:
 
     def __enter__(self) -> "OutlookWeb":
         from playwright.sync_api import sync_playwright
-        # runtime-write-exempt: browser profile defaults under the home folder and is overridable by env var
-        profile_dir().mkdir(parents=True, exist_ok=True)
+        runtime_files.make_dirs(profile_dir())
         self._pw = sync_playwright().start()
         self._context = launch_persistent(self._pw, str(profile_dir()), self.headless)
         self.page = self._context.pages[0] if self._context.pages else self._context.new_page()
@@ -230,8 +233,7 @@ class OutlookWeb:
 
     def screenshot(self, label: str) -> Optional[Path]:
         folder = profile_dir() / "failures"
-        # runtime-write-exempt: browser profile defaults under the home folder and is overridable by env var
-        folder.mkdir(parents=True, exist_ok=True)
+        runtime_files.make_dirs(folder)
         target = folder / f"{datetime.now():%Y%m%d-%H%M%S}-{label}.png"
         try:
             self.page.screenshot(path=str(target))

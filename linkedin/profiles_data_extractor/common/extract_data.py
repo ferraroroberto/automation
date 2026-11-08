@@ -6,6 +6,9 @@ from pathlib import Path
 
 import streamlit as st
 
+sys.path.append(str(Path(__file__).resolve().parents[3]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 from no_window import NO_WINDOW  # noqa: E402
@@ -24,8 +27,7 @@ def _start_chrome_debug() -> None:
             debug_profile_dir = os.path.join(user_profile, r'AppData\Local\Google\Chrome\User Data\DebugProfile')
 
             # Create debug profile directory if it doesn't exist
-            # runtime-write-exempt: Chrome debug profile lives under the user's AppData, outside the checkout
-            os.makedirs(debug_profile_dir, exist_ok=True)
+            runtime_files.make_dirs(debug_profile_dir)
 
             # Launch Chrome with remote debugging
             chrome_cmd = [

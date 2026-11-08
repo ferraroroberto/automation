@@ -1,9 +1,13 @@
 import base64
 import logging
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Iterable
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 LOG_FORMAT = "%(levelname)s | %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
@@ -13,16 +17,14 @@ logger = logging.getLogger(__name__)
 def encode_path(source: Path, target: Path) -> None:
     with source.open("rb") as binary_file:
         encoded = base64.b64encode(binary_file.read()).decode("utf-8")
-    # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-    with target.open("w", encoding="utf-8") as text_file:
+    with runtime_files.open_for_write(target, "w", encoding="utf-8") as text_file:
         text_file.write(encoded)
 
 
 def decode_path(source: Path, target: Path) -> None:
     with source.open("r", encoding="utf-8") as text_file:
         data = text_file.read()
-    # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-    with target.open("wb") as binary_file:
+    with runtime_files.open_for_write(target, "wb") as binary_file:
         binary_file.write(base64.b64decode(data))
 
 
@@ -50,8 +52,7 @@ def encode_and_split_path(source: Path, target_base: Path, chunk_size_mb: int) -
     for idx, chunk in enumerate(chunks, 1):
         chunk_filename = f"{target_base.stem}_{idx:03d}.txt"
         chunk_path = target_base.with_name(chunk_filename)
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        with chunk_path.open("w", encoding="utf-8") as text_file:
+        with runtime_files.open_for_write(chunk_path, "w", encoding="utf-8") as text_file:
             text_file.write(chunk)
         logger.info("✅ Created chunk %d: %s", idx, chunk_path.name)
 
@@ -103,8 +104,7 @@ def join_and_decode_path(selected_file: Path, target: Path) -> None:
         logger.info("✅ Read chunk %d: %s", num, file_path.name)
 
     # Decode and write to target
-    # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-    with target.open("wb") as binary_file:
+    with runtime_files.open_for_write(target, "wb") as binary_file:
         binary_file.write(base64.b64decode(encoded_data))
 
 

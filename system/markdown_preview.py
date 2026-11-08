@@ -26,6 +26,7 @@ Usage:
 import argparse
 import ctypes
 import logging
+import sys
 import tempfile
 import threading
 import time
@@ -38,6 +39,9 @@ import pystray
 import webview
 from PIL import Image, ImageDraw
 from pygments.formatters import HtmlFormatter
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -254,8 +258,7 @@ applyGlyph();
 
 def write_handoff(path: Path, handoff: Path = HANDOFF_FILE) -> None:
     """Leave ``path`` for the running instance to pick up."""
-    # runtime-write-exempt: hand-off file defaults to the OS temp dir
-    handoff.write_text(str(path), encoding="utf-8")
+    runtime_files.save_text(handoff, str(path), encoding="utf-8")
 
 
 def take_handoff(handoff: Path = HANDOFF_FILE) -> Optional[Path]:

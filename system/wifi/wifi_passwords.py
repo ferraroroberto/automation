@@ -23,6 +23,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 # _netsh.py is a sibling; make it importable when this file is run as a script.
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -165,8 +168,7 @@ def save_json(rows: List[Dict[str, Any]], output_file: str, config: Dict[str, An
         }
     
     try:
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        with open(output_file, "w", encoding="utf-8") as f:
+        with runtime_files.open_for_write(output_file, "w", encoding="utf-8") as f:
             json.dump(
                 output_data, 
                 f, 
