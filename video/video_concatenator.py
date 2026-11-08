@@ -7,14 +7,19 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import List, Optional
 
 from _ffmpeg_utils import NO_WINDOW, get_video_duration, run_ffmpeg_with_progress
 from _tk_widgets import build_progress_section, set_progress
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -77,8 +82,7 @@ class VideoConcatenator:
         try:
             abs_paths = [os.path.abspath(p).replace("\\", "/") for p in paths]
             # ffmpeg reads the list as UTF-8, whatever the locale encoding is.
-            # runtime-write-exempt: writes a temp file the OS cleans up, outside the checkout
-            with open(list_file, "w", encoding="utf-8", newline="\n") as f:
+            with runtime_files.open_for_write(list_file, "w", encoding="utf-8", newline="\n") as f:
                 f.write(_concat_list_text(abs_paths))
 
             if status_callback:

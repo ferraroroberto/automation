@@ -35,7 +35,7 @@ class QuickDeckConfig:
 
     def _write_config(self) -> None:
         """Persist the in-memory config back to its JSON file."""
-        # runtime-write-exempt: config_path is the deck's config file beside the script; the deck reads it
+        # runtime-write-exempt: gitignored quickdeck.json the user edits by hand and the deck reloads
         with open(self.qd.config_path, 'w', encoding='utf-8') as f:
             json.dump(self.qd.config, f, indent=2, ensure_ascii=False)
 

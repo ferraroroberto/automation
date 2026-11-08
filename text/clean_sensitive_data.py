@@ -4,6 +4,10 @@ import os
 import re
 import sys
 from datetime import datetime
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +80,7 @@ class DataCleanerBase:
                     return json.load(f)
             else:
                 # Create the default file if it doesn't exist
-                # runtime-write-exempt: default patterns file beside the script, which the cleaner reads
+                # runtime-write-exempt: default patterns file the user edits by hand and the cleaner reads
                 with open(patterns_file, 'w') as f:
                     json.dump(default_patterns, f, indent=4)
                 return default_patterns
@@ -219,8 +223,7 @@ class CLIDataCleaner(DataCleanerBase):
             cleaned = self.clean_sensitive_data(text)
             
             if output_path:
-                # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-                with open(output_path, 'w', encoding='utf-8') as f:
+                with runtime_files.open_for_write(output_path, 'w', encoding='utf-8') as f:
                     f.write(cleaned)
                 log.info("Cleaned text saved to: %s", output_path)
             else:

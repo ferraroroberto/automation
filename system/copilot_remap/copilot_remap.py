@@ -196,7 +196,7 @@ def detect() -> None:
         "_human_chord": [vk_name(vk) for vk, _ in chord],
         "_human_target": vk_name(DEFAULT_TARGET_VK),
     }
-    # runtime-write-exempt: remap config saved beside the script; the running remapper reads it
+    # runtime-write-exempt: remap config the running remapper reloads and the user edits by hand
     CONFIG.write_text(json.dumps(cfg, indent=2))
     chord_str = " + ".join(cfg["_human_chord"])
     log.info("Saved -> %s", CONFIG)

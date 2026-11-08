@@ -22,9 +22,10 @@ logging), `photos_archive_metadata.py` (date extraction + scanning),
 
 import logging
 import os
-import shutil
+import sys
 import tkinter as tk
 from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog
 from typing import Optional, Tuple
 
@@ -40,6 +41,9 @@ from photos_archive_duplicates import (
     recalculate_metadata,
 )
 from photos_archive_metadata import is_inside_folder, process_files
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # How often the copy/delete passes report progress, in files.
 _FILE_OP_PROGRESS_INTERVAL = 1000
@@ -180,8 +184,7 @@ def copy_files(df: pd.DataFrame) -> None:
                 continue
 
             try:
-                # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-                shutil.copy2(row['file_path'], dest_path)
+                runtime_files.copy_file(row['file_path'], dest_path)
                 df.at[index, 'copy_success'] = 1
                 copied_files_count += 1
             except Exception as e:

@@ -88,6 +88,9 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, List, Optional
 
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 try:
     from scapy.all import ARP, Ether, srp
     SCAPY_AVAILABLE = True
@@ -583,8 +586,7 @@ def save_json(devices: List[Dict[str, str]], output_file: str, config: Dict[str,
         }
 
     try:
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        with open(output_file, "w", encoding="utf-8") as f:
+        with runtime_files.open_for_write(output_file, "w", encoding="utf-8") as f:
             json.dump(
                 output_data,
                 f,

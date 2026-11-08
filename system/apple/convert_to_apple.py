@@ -8,11 +8,15 @@ It automatically adds the _apple suffix to the output filename.
 
 import logging
 import os
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from _vcard_fields import extract_type_label, has_type_param
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -427,8 +431,7 @@ class AppleConverterGUI:
             
             # Write output file
             self._log_status("Writing output file...", "info")
-            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
-            with open(self.output_file_path, 'w', encoding='utf-8', newline='\r\n') as f:
+            with runtime_files.open_for_write(self.output_file_path, 'w', encoding='utf-8', newline='\r\n') as f:
                 f.write(converted_content)
             
             self._log_status(f"✅ File converted successfully!", "success")

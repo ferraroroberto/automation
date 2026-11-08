@@ -1,9 +1,14 @@
 import logging
 import os
+import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
 
 from PIL import Image, ImageChops, ImageStat
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,8 +41,7 @@ def unpack_gif() -> None:
         
         # Create a specific directory for the frames to avoid clutter
         output_dir = os.path.join(base_dir, f"{name_no_ext}_frames")
-        # runtime-write-exempt: frames folder is created beside the GIF the user picked
-        os.makedirs(output_dir, exist_ok=True)
+        runtime_files.make_dirs(output_dir)
 
         with Image.open(file_path) as im:
             n_frames = getattr(im, 'n_frames', 1)

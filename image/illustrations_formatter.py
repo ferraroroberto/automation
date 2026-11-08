@@ -34,6 +34,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from dotenv import load_dotenv
 from PIL import Image
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 load_dotenv()
 
 
@@ -318,8 +321,7 @@ class IllustrationsFormatter:
             if extend_border:
                 self._extend_edges(canvas, x_off, y_off, orig_w, orig_h)
 
-            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+            runtime_files.make_dirs(output_path.parent)
             canvas.save(output_path, 'PNG')
             self.logger.info(
                 f"Saved: {output_path.name} "
@@ -391,8 +393,7 @@ class IllustrationsFormatter:
             if extend_border:
                 self._extend_edges(canvas, x_off, y_off, scaled_w, scaled_h)
 
-            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+            runtime_files.make_dirs(output_path.parent)
             canvas.save(output_path, 'PNG')
             self.logger.info(
                 f"Saved: {output_path.name} "
@@ -481,8 +482,7 @@ class IllustrationsFormatter:
         if not source_path.is_dir():
             raise ValueError(f"Source path is not a directory: {source_folder}")
 
-        # runtime-write-exempt: destination is the path the user picks in the tool's own UI
-        dest_path.mkdir(parents=True, exist_ok=True)
+        runtime_files.make_dirs(dest_path)
 
         image_files: List[Path] = []
         for ext in self.SUPPORTED_FORMATS:

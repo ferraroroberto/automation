@@ -32,6 +32,9 @@ import pandas as pd
 import utils as notion_utils
 from dotenv import load_dotenv
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 load_dotenv()
 
 logging.basicConfig(
@@ -126,8 +129,7 @@ def extract_topic(title: str, visualtype: str) -> str:
 def wipe_contents(folder: Path) -> None:
     """Remove everything inside folder (but keep the folder itself)."""
     if not folder.exists():
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        folder.mkdir(parents=True, exist_ok=True)
+        runtime_files.make_dirs(folder)
         return
     for entry in folder.iterdir():
         if entry.is_dir():
@@ -206,14 +208,10 @@ def _copy_samples(rows: List[Dict[str, Any]]) -> int:
         src = Path(r["source_path"])
         flat = Path(r["dest_path_flat"])
         nested = Path(r["dest_path_nested"])
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        flat.parent.mkdir(parents=True, exist_ok=True)
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        nested.parent.mkdir(parents=True, exist_ok=True)
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        shutil.copy2(src, flat)
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        shutil.copy2(src, nested)
+        runtime_files.make_dirs(flat.parent)
+        runtime_files.make_dirs(nested.parent)
+        runtime_files.copy_file(src, flat)
+        runtime_files.copy_file(src, nested)
         copied += 1
     return copied
 
@@ -270,15 +268,13 @@ def main() -> int:
 
     logging.info(f"Wiping {dest_folder} …")
     wipe_contents(dest_folder)
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    (dest_folder / "all").mkdir(parents=True, exist_ok=True)
+    runtime_files.make_dirs(dest_folder / "all")
 
     copied = _copy_samples(rows)
 
     logging.info(f"Copied {copied} illustration(s) to flat + nested layouts")
 
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    xls_output.parent.mkdir(parents=True, exist_ok=True)
+    runtime_files.make_dirs(xls_output.parent)
     df = pd.DataFrame(rows)
     df.to_excel(xls_output, index=False, engine="openpyxl")
     logging.info(f"Wrote XLS: {xls_output} ({len(df)} rows)")

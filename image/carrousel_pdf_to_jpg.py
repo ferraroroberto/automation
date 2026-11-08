@@ -15,11 +15,15 @@ import logging
 import os
 import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog
 from typing import List, Tuple
 
 from dotenv import load_dotenv
 from pdf2image import convert_from_path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 load_dotenv()
 
@@ -74,8 +78,7 @@ def pdf_to_images(pdf_files: List[str]) -> None:
             # Create the output folder if it doesn't exist
             if not os.path.exists(output_folder):
                 try:
-                    # runtime-write-exempt: destination is the path the user picks in the tool's own UI
-                    os.makedirs(output_folder)
+                    runtime_files.make_dirs(output_folder)
                     log.info("Created output folder: %s", output_folder)
                 except Exception as e:
                     log.error("Error creating output folder %s: %s", output_folder, e)

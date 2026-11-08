@@ -26,6 +26,9 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Dict, List, Optional
 
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
+
 # Reuse the saved-profile exporter and the shared netsh runner from the siblings.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _netsh import CurrentSsid, current_ssid  # noqa: E402
@@ -303,8 +306,7 @@ class WifiBatApp(tk.Tk):
         if not target:
             return
         try:
-            # runtime-write-exempt: destination is the path the user picks in the tool's own UI
-            Path(target).write_text(self._generate_bat_for(profile), encoding="utf-8")
+            runtime_files.save_text(Path(target), self._generate_bat_for(profile), encoding="utf-8")
         except OSError as exc:
             messagebox.showerror("Wi-Fi BAT Generator", f"Failed to write BAT:\n{exc}")
             return

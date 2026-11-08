@@ -6,11 +6,15 @@ sorted by date descending, and saves results to JSON.
 
 import json
 import logging
+import sys
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Dict, List, Optional
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -104,8 +108,7 @@ def save_to_json(data: List[Dict[str, str]], output_path: str) -> None:
         output_path: Path where to save the JSON file
     """
     try:
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with runtime_files.open_for_write(output_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         logger.info(f"💾 JSON saved to: {output_path}")

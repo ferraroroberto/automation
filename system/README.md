@@ -49,7 +49,7 @@ Converts a `.docx` Word document to Markdown, preserving heading levels (`Headin
 
 - **How to run:** `python system/word_to_markdown.py [file_path] [--test] [--gui] [--debug]`
   - `file_path`: optional positional path to a single `.docx` file; converts it and writes a sibling file with the same name and a `.md` extension.
-  - `--test`: finds every `.docx` under the project root (detected by walking up from the current directory to the first ancestor containing `.git`), copies each into `system/test-word-to-markdown/`, converts them all, and writes the `.md` output alongside the copies in that same test folder.
+  - `--test`: finds every `.docx` under the project root (detected by walking up from the current directory to the first ancestor containing `.git`), copies each into a `test-word-to-markdown` folder in the machine's runtime folder (`runtime_files.runtime_data_dir()`, `%LOCALAPPDATA%utomation` by default), converts them all, and writes the `.md` output alongside the copies in that same test folder.
   - `--gui`: launches a small Tkinter window with "Select File" and "Run Test Conversion" buttons (requires Tkinter).
   - `--debug`: enables debug-level logging (verbose per-paragraph style tracing).
   - With no arguments at all: launches the Tkinter GUI if available, otherwise prints `--help`.

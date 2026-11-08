@@ -6,9 +6,13 @@ Launch the tool, select an image file, enter transparency % (0=opaque, 100=fully
 then create a copy with "_transp_xx" suffix (saved as PNG for alpha support).
 """
 
+import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 try:
     from PIL import Image
@@ -38,8 +42,7 @@ def make_transparent_variant(source_path: Path, transparency_pct: int, out_path:
     new_alpha = alpha.point(lambda x: int(x * opacity))
     img.putalpha(new_alpha)
 
-    # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    runtime_files.make_dirs(out_path.parent)
     img.save(out_path, "PNG")
     return True
 

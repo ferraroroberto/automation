@@ -19,10 +19,14 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pandas as pd
 from pynput import keyboard
+
+sys.path.append(str(Path(__file__).resolve().parents[3]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -105,7 +109,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             True if file is accessible, False otherwise.
         """
         try:
-            # runtime-write-exempt: opens the file read/write only to test it is not locked; writes nothing
+            # runtime-write-exempt: r+b open is a lock probe on a user-named workbook; it writes nothing, so the ratchet's write detection is a false positive
             with open(file_path, 'r+b'):
                 pass
             return True
@@ -330,8 +334,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
             return
 
         # Ensure destination directory exists
-        # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-        os.makedirs(os.path.dirname(destination_file), exist_ok=True)
+        runtime_files.make_dirs(os.path.dirname(destination_file))
 
         # Create paths to common directory files (same as in main())
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -375,8 +378,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
 
             # Ensure destination directory exists
             destination_dir = os.path.dirname(destination_file)
-            # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-            os.makedirs(destination_dir, exist_ok=True)
+            runtime_files.make_dirs(destination_dir)
 
             inserted_count, skipped_count, total_records = self.merge_to_excel(profiles, destination_file)
 

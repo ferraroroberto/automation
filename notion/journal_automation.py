@@ -4,10 +4,14 @@ import logging
 import os
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 
 import utils as notion_utils
 from utils import load_env_variables, load_json_config
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -278,14 +282,12 @@ def process_journal_consolidated(config: dict[str, Any], env_vars: dict[str, str
     )
     
     # Ensure output directory exists
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    os.makedirs(output_dir, exist_ok=True)
+    runtime_files.make_dirs(output_dir)
     
     output_path = os.path.join(output_dir, output_filename)
     logger.info("📝 Writing consolidated output: %s", output_filename)
 
-    # runtime-write-exempt: destination comes from the tool's config, not a fixed spot beside the code
-    with open(output_path, "w", encoding="utf-8") as f:
+    with runtime_files.open_for_write(output_path, "w", encoding="utf-8") as f:
         f.write(consolidated_output)
 
     logger.info("✅ Saved: %s", output_path)

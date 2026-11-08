@@ -182,7 +182,7 @@ def load_config(config_file: str, structure_file: str) -> FolderSearcherConfig:
 
 def save_config(config_file: str, config: FolderSearcherConfig) -> None:
     """Write the config back to disk."""
-    # runtime-write-exempt: config path is the user's, passed in by the caller
+    # runtime-write-exempt: config the user edits by hand; its default sits in the tool folder
     with open(config_file, "w", encoding="utf-8") as handle:
         json.dump(config.to_dict(), handle, indent=2)
     logger.info("Configuration saved to %s", config_file)
@@ -246,7 +246,7 @@ class FolderIndex:
 
     def save(self, structure_file: str) -> None:
         """Write the index as explicit ``Root:`` sections."""
-        # runtime-write-exempt: index path is the user's, passed in by the caller
+        # runtime-write-exempt: index file the user opens by hand; its default sits in the tool folder (gitignored folder_structure.txt)
         with open(structure_file, "w", encoding="utf-8") as handle:
             for root in self.roots:
                 handle.write(f"{_ROOT_PREFIX}{root}\n")

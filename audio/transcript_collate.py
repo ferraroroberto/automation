@@ -1,7 +1,12 @@
 import logging
 import os
 import re
+import sys
+from pathlib import Path
 from tkinter import Tk, filedialog
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from system._lib import runtime_files  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -59,8 +64,7 @@ def save_combined_file(directory, content):
     )
 
     if output_filename:
-        # runtime-write-exempt: destination is the path the caller passes in, not a fixed spot beside the code
-        with open(output_filename, 'w', encoding='utf-8') as file:
+        with runtime_files.open_for_write(output_filename, 'w', encoding='utf-8') as file:
             file.writelines(content)
         log.info("Combined file saved as: %s", output_filename)
     else:
