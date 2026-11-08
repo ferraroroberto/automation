@@ -45,6 +45,7 @@ def capture_all(centers: List[str], site_url: str, out_dir: Path, profile_dir: P
     navigation failure, or any Playwright error returns whatever was captured
     so far (possibly nothing).
     """
+    # runtime-write-exempt: out_dir is chosen by the caller under parking/state; parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     out_dir.mkdir(parents=True, exist_ok=True)
     captured: List[Path] = []
     try:

@@ -40,6 +40,7 @@ def _read_token(context) -> Optional[str]:
 
 
 def grab_token(site_url: str, headless: bool, wait_seconds: int) -> Optional[str]:
+    # runtime-write-exempt: parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
         context = launch_persistent(pw, str(PROFILE_DIR), headless)

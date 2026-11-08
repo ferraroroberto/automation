@@ -1,25 +1,4 @@
 {
   "version": 1,
-  "entries": [
-    {"key": "google/_auth.py", "counts": {"unresolved": 1}},
-    {"key": "image/illustrations_formatter_gui.py", "counts": {"code-folder": 1}},
-    {"key": "notion/articles_sync/notion_articles_sync.py", "counts": {"unresolved": 2}},
-    {"key": "notion/build_newsletter.py", "counts": {"code-folder": 1}},
-    {"key": "parking/burst.py", "counts": {"unresolved": 2}},
-    {"key": "parking/burst_worker.py", "counts": {"unresolved": 3}},
-    {"key": "parking/config.py", "counts": {"unresolved": 1}},
-    {"key": "parking/login.py", "counts": {"unresolved": 1}},
-    {"key": "parking/notify.py", "counts": {"unresolved": 2}},
-    {"key": "parking/poller.py", "counts": {"unresolved": 2}},
-    {"key": "parking/screenshot.py", "counts": {"unresolved": 1}},
-    {"key": "parking/state.py", "counts": {"unresolved": 2}},
-    {"key": "smart_life/light_control.py", "counts": {"unresolved": 1}},
-    {"key": "system/copilot_remap/copilot_remap.py", "counts": {"code-folder": 1}},
-    {"key": "system/foldersearcher/foldersearcher_core.py", "counts": {"unresolved": 2}},
-    {"key": "system/quickdeck/quickdeck.py", "counts": {"unresolved": 1}},
-    {"key": "system/quickdeck/quickdeck_config_gui.py", "counts": {"unresolved": 1}},
-    {"key": "system/textexpander/text_expander_core.py", "counts": {"unresolved": 2}},
-    {"key": "system/word_to_markdown.py", "counts": {"unresolved": 2}},
-    {"key": "text/clean_sensitive_data.py", "counts": {"code-folder": 1}}
-  ]
+  "entries": []
 }

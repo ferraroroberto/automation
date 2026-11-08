@@ -112,8 +112,10 @@ class FleetNotifier:
         return [i for i in raw.get("disposable", []) if isinstance(i, int)]
 
     def _write_ledger(self, ids: List[int]) -> None:
+        # runtime-write-exempt: ledger path is passed in by the caller (parking/state); parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
         self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._ledger_path.with_suffix(".tmp")
+        # runtime-write-exempt: ledger path is passed in by the caller (parking/state); parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
         tmp.write_text(json.dumps({"disposable": ids}), encoding="utf-8")
         tmp.replace(self._ledger_path)
 

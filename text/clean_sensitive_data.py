@@ -76,6 +76,7 @@ class DataCleanerBase:
                     return json.load(f)
             else:
                 # Create the default file if it doesn't exist
+                # runtime-write-exempt: default patterns file beside the script, which the cleaner reads
                 with open(patterns_file, 'w') as f:
                     json.dump(default_patterns, f, indent=4)
                 return default_patterns

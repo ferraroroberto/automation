@@ -482,7 +482,7 @@ Examples:
         # Save to HTML file in the same directory as this script
         script_dir = os.path.dirname(os.path.abspath(__file__))
         html_filename = os.path.join(script_dir, "build_newsletter.html")
-        with open(html_filename, 'w', encoding='utf-8') as f:
+        with open(html_filename, 'w', encoding='utf-8') as f:  # runtime-write-exempt: gitignored preview HTML beside the script, where the author opens it
             f.write(complete_html)
         
         logging.info(f"💾 HTML file saved to: {html_filename}")

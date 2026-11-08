@@ -121,6 +121,7 @@ def authenticate(config: Dict[str, Any], script_dir: Path, scopes: List[str]) ->
             logger.info(f"Granted scopes from token: {creds.scopes}")
 
         # Save credentials for next run
+        # runtime-write-exempt: token path is the config's auth.token_file, resolved by the caller
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
 

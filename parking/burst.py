@@ -248,11 +248,11 @@ def run_burst(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifie
         return RunResult("nothing-pending")
 
     run_dir = run_dir or RUN_DIR
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir.mkdir(parents=True, exist_ok=True)  # runtime-write-exempt: parking/ is its own ROOT; state lives there, a live job reads it (owner-gated)
     for stale in [*run_dir.glob("*.jsonl"), *run_dir.glob("*.log")]:
         stale.unlink(missing_ok=True)
     marker = run_dir / "running.json"
-    marker.write_text(json.dumps({"started": now.isoformat(), "rehearsal": rehearsal}), encoding="utf-8")
+    marker.write_text(json.dumps({"started": now.isoformat(), "rehearsal": rehearsal}), encoding="utf-8")  # runtime-write-exempt: parking/ is its own ROOT; state lives there, a live job reads it (owner-gated)
     kind = "rehearsal" if rehearsal else ("Thursday" if now.weekday() == WEEKDAYS.index("thu") else "trial")
     logger.info("⚡ %s burst armed for %s: one worker per day %s", kind, target.isoformat(), days)
     try:

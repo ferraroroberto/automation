@@ -194,8 +194,10 @@ def _run(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, st
 
 
 def _setup_logging() -> None:
+    # runtime-write-exempt: parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # runtime-write-exempt: parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     handlers = [RotatingFileHandler(LOG_DIR / "poller.log", maxBytes=1_000_000, backupCount=3,
                                     encoding="utf-8"),
                 logging.StreamHandler(sys.stdout)]

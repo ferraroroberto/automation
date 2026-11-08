@@ -46,7 +46,9 @@ def load_state(path: Path) -> State:
 
 
 def save_state(path: Path, state: State) -> None:
+    # runtime-write-exempt: path is STATE_PATH passed in by the caller; parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     path.parent.mkdir(parents=True, exist_ok=True)
+    # runtime-write-exempt: path is STATE_PATH passed in by the caller; parking/ is its own ROOT, so its state, logs and browser profile sit under it by design and a live job reads them; moving them is owner-gated
     path.write_text(
         json.dumps(
             {"failures": state.failures,
