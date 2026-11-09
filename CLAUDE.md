@@ -44,7 +44,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m pytest -q tests/parking
 ```
 
-All twenty-seven must exit 0 / report `OK`.
+All twenty-seven must exit 0 / report `OK`. The gate's last stdout line is `GATE-RESULT: PASS` or `GATE-RESULT: FAIL`, also after an early terminating error, so a caller that must pipe it asserts on that line; a run without one is not a pass.
 
 Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
