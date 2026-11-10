@@ -23,7 +23,7 @@ import requests
 
 from parking import booking, burst, planner, report
 from parking.api import ApiError, AuthError, ParkingApi, RateLimited, ServerError
-from parking.booking import RunResult
+from parking.booking import RunResult, RunStatus
 from parking.config import (
     CONFIG_PATH,
     LOG_DIR,
@@ -79,7 +79,7 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
     if not pending:
         logger.info("ℹ️ every released target day is already booked")
         say("Every released target day already has a parking. Nothing to do.")
-        return RunResult("nothing-pending")
+        return RunResult(RunStatus.NOTHING_PENDING)
     logger.info("ℹ️ %d target day(s) without a booking: %s", len(pending), pending)
     say(f"Checked my bookings: {len(pending)} day(s) still without a parking: {', '.join(pending)}.")
     say("Looking for free slots on the site...")
@@ -95,14 +95,12 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
     found = planner.candidates_by_day(pending, slots)
     if not found:
         say("No free slot for those days yet.")
-        return RunResult("no-slots", pending=pending)
+        return RunResult(RunStatus.NO_SLOTS, pending=pending)
     say(f"Free slot found for: {', '.join(sorted(found))}.")
 
-    result = RunResult("checked", pending=pending)
     outcomes = [booking.book_day(api, day, found[day], plate, cfg.type, cfg.dry_run, say)
                 for day in pending if day in found]
-    result.booked = [o.day for o in outcomes if o.status == "booked"]
-    result.would_book = [o.day for o in outcomes if o.status == "would-book"]
+    result = booking.result_from_outcomes(pending, outcomes)
     # Only now, with every day tried: screenshots between two bookings cost the 09-24 burst two days.
     report.report_outcomes(outcomes, cfg, state, notifier, now, site_url)
     return result
@@ -111,20 +109,25 @@ def _cycle(cfg: Config, api: ParkingApi, plate: str, now: datetime, notifier: No
 def sweep_summary(result: RunResult, now: datetime) -> str:
     """One line saying how a sweep ended, for the `sweep_report_until` trial."""
     head = f"Parking sweep {now:%a %H:%M}"
-    if result.status == "nothing-pending":
+    if result.status == RunStatus.NOTHING_PENDING:
         return f"{head} ✅ every target day already booked."
-    if result.status in ("no-token", "token-expired"):
+    if result.status in (RunStatus.NO_TOKEN, RunStatus.TOKEN_EXPIRED):
         return f"{head} ❌ login needed ({result.status}), site not checked."
-    if result.status == "error":
+    if result.status == RunStatus.ERROR:
         return f"{head} ❌ failed ({result.error}), will retry."
     open_days = f"{len(result.pending)} open day(s)"
     if result.booked:
         return f"{head} ✅ {open_days}, booked: {', '.join(result.booked)}."
     if result.would_book:
         return f"{head} ✅ {open_days}, free (dry-run): {', '.join(result.would_book)}."
-    if result.status == "no-slots":
+    if result.status == RunStatus.NO_SLOTS:
         return f"{head} ✅ {open_days}, no free slot for them."
-    return f"{head} ⚠️ {open_days}, a slot was free but booking failed - check the site."
+    if result.unconfirmed:
+        return (f"{head} ⚠️ {open_days}, booking sent but not confirmed: "
+                f"{', '.join(result.unconfirmed)} - check the site.")
+    if result.failed:
+        return f"{head} ⚠️ {open_days}, a slot was free but booking failed: {', '.join(result.failed)} - check the site."
+    return f"{head} ⚠️ {open_days}, nothing booked - check the site."
 
 
 def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, state: State,
@@ -134,7 +137,7 @@ def run_once(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier
     result = _run(cfg, env, now, notifier, state, api_factory, sleep, rng or random.Random())
     reporting = cfg.sweep_report_until is not None and now < cfg.sweep_report_until
     # Skipped runs are not sweeps; verbose windows already end with their own "Poll finished".
-    if reporting and result.status not in ("backoff", "inactive") and not is_verbose(cfg, now):
+    if reporting and result.status not in (RunStatus.BACKOFF, RunStatus.INACTIVE) and not is_verbose(cfg, now):
         report.notify(notifier, cfg, env.get("PARKING_URL", ""), sweep_summary(result, now), disposable=True)
     return result
 
@@ -144,11 +147,11 @@ def _run(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, st
          rng: random.Random) -> RunResult:
     if state.in_backoff(now):
         logger.info("ℹ️ not due until %s", state.next_allowed.isoformat())
-        return RunResult("backoff")
+        return RunResult(RunStatus.BACKOFF)
     interval = poll_interval(cfg, now)
     if not interval:
         logger.info("ℹ️ polling is off in this time window")
-        return RunResult("inactive")
+        return RunResult(RunStatus.INACTIVE)
 
     say: Callable[[str], object] = ((lambda text: notifier.send(text, disposable=True))
                                     if is_verbose(cfg, now) else (lambda _text: None))
@@ -170,7 +173,7 @@ def _run(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, st
         report.alert(state, notifier, "login-needed",
                      "Parking: the site rejected the token. Run: python -m parking.login", now)
         _backoff(cfg, state, now, MAX_BACKOFF_MINUTES)
-        return RunResult("error", error="token rejected")
+        return RunResult(RunStatus.ERROR, error="token rejected")
     except (RateLimited, ServerError, requests.RequestException, ApiError) as exc:
         state.failures += 1
         logger.error("❌ %s (failure #%d)", type(exc).__name__, state.failures)
@@ -178,9 +181,9 @@ def _run(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifier, st
             notifier.send(f"Parking: {state.failures} consecutive errors ({type(exc).__name__}); backing off")
         _backoff(cfg, state, now)
         say(f"Poll failed ({type(exc).__name__}); will retry.")
-        return RunResult("error", error=type(exc).__name__)
+        return RunResult(RunStatus.ERROR, error=type(exc).__name__)
     state.failures = 0
-    if result.status == "nothing-pending":
+    if result.status == RunStatus.NOTHING_PENDING:
         # Every released day is booked, and nothing new can appear before the next release:
         # no site calls until then (a day cancelled by hand is one the owner no longer needs).
         state.next_allowed = planner.next_release(now, booking.release_time(cfg))
@@ -225,7 +228,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.rehearse_burst:
         result = burst.rehearse(cfg, env, now_fn)
         logger.info("ℹ️ rehearsal finished: %s (would_book=%s)", result.status, result.would_book)
-        return 1 if result.status == "error" else 0
+        return 1 if result.status == RunStatus.ERROR else 0
     logger.info("ℹ️ mode: %s", "dry-run (no bookings)" if cfg.dry_run else "LIVE (will book)")
 
     state = load_state(STATE_PATH)
@@ -253,7 +256,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     save_state(STATE_PATH, state)
     logger.info("ℹ️ run finished: %s (booked=%s, would_book=%s)", result.status, result.booked,
                 result.would_book)
-    return 1 if result.status == "error" else 0
+    return 1 if result.status == RunStatus.ERROR else 0
 
 
 if __name__ == "__main__":

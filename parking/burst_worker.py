@@ -30,7 +30,7 @@ import requests
 
 from parking import auth, booking, planner
 from parking.api import ApiError, ParkingApi
-from parking.booking import DayOutcome
+from parking.booking import DayOutcome, DayStatus
 from parking.burst import sleep_until_precise
 from parking.config import LOG_DIR, Config, apply_env_overrides, load_config, load_env
 
@@ -59,11 +59,12 @@ def _scan_and_book(api: ParkingApi, cfg: Config, day: str, plate: str, dry_run: 
         logger.info("ℹ️ %s / %s: free", combo.center_name, combo.size_name)
         outcome = booking.book_day(api, day, [planner.Candidate(day, free[0], combo)], plate, cfg.type,
                                    dry_run)
-        if outcome.status != "failed":
+        if outcome.status != DayStatus.FAILED:
             return outcome
         refused.add(combo)
         rejected.append(outcome.error)
-    return DayOutcome(day, "failed", error="; ".join(rejected)) if rejected else DayOutcome(day, "no-slot")
+    return DayOutcome(day, DayStatus.FAILED, error="; ".join(rejected)) if rejected \
+        else DayOutcome(day, DayStatus.NO_SLOT)
 
 
 def work_day(api: ParkingApi, cfg: Config, day: str, plate: str, target: datetime, deadline: datetime,
@@ -78,7 +79,7 @@ def work_day(api: ParkingApi, cfg: Config, day: str, plate: str, target: datetim
     if day in covered:
         if not dry_run:
             logger.info("ℹ️ %s already has an ACTIVE booking; nothing to do", day)
-            return DayOutcome(day, "covered")
+            return DayOutcome(day, DayStatus.COVERED)
         logger.info("ℹ️ %s already has a booking - dry-run, so scanning anyway (nothing is booked)", day)
     logger.info("⚡ waiting for %s", target.isoformat())
     sleep_until_precise(target, sleep, now_fn)
@@ -89,13 +90,14 @@ def work_day(api: ParkingApi, cfg: Config, day: str, plate: str, target: datetim
         checks += 1
         at = now_fn()
         outcome = _scan_and_book(api, cfg, day, plate, dry_run, sleep, rng, refused)
-        line = {"no-slot": "nothing free", "booked": f"✅ booked {outcome.label}",
-                "would-book": f"🟢 free (dry-run): {outcome.label}",
-                "failed": f"⚠️ {outcome.error}", "unconfirmed": f"⚠️ sent, not confirmed: {outcome.label}"}
+        line = {DayStatus.NO_SLOT: "nothing free", DayStatus.BOOKED: f"✅ booked {outcome.label}",
+                DayStatus.WOULD_BOOK: f"🟢 free (dry-run): {outcome.label}",
+                DayStatus.FAILED: f"⚠️ {outcome.error}",
+                DayStatus.UNCONFIRMED: f"⚠️ sent, not confirmed: {outcome.label}"}
         emit(f"#{checks} {at:%H:%M:%S}.{at.microsecond // 10000:02d} {line[outcome.status]}")
-        if outcome.status in ("booked", "would-book", "unconfirmed"):
+        if outcome.status in (DayStatus.BOOKED, DayStatus.WOULD_BOOK, DayStatus.UNCONFIRMED):
             return outcome
-        if outcome.status == "failed":
+        if outcome.status == DayStatus.FAILED:
             failed = outcome  # later scans skip the refused slots; the rejection is still the result
         if now_fn() + timedelta(seconds=interval) >= deadline:
             return failed or outcome
@@ -157,12 +159,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     except (requests.RequestException, ApiError) as exc:
         # Auth, rate limit or server trouble: stop this day rather than push through.
         logger.error("❌ %s: %s - stopping", type(exc).__name__, exc)
-        outcome = DayOutcome(args.day, "error", error=type(exc).__name__)
+        outcome = DayOutcome(args.day, DayStatus.ERROR, error=type(exc).__name__)
     write({"done": True, "status": outcome.status, "label": outcome.label, "error": outcome.error})
     logger.info("🏁 %s: %s %s", args.day, outcome.status, outcome.label or outcome.error)
     logger.info("ℹ️ this window closes in %.0fs", args.hold_seconds)
     time_module.sleep(args.hold_seconds)
-    return 0 if outcome.status != "error" else 1
+    return 0 if outcome.status != DayStatus.ERROR else 1
 
 
 if __name__ == "__main__":

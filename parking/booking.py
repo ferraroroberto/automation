@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, time
+from enum import StrEnum
 from typing import Callable, Iterable, List, Mapping, Optional, Sequence, Set
 
 from parking import planner
@@ -55,23 +56,94 @@ def pending_days(cfg: Config, bookings: Sequence[Mapping], now: datetime,
     return planner.pending_dates(targets, covered)
 
 
-@dataclass
-class RunResult:
+class DayStatus(StrEnum):
+    """How one day's booking attempt ended. The values are the JSONL wire words of a burst worker."""
+
+    BOOKED = "booked"  # confirmed ACTIVE on the site
+    WOULD_BOOK = "would-book"  # dry-run: a slot was free, nothing was sent
+    FAILED = "failed"  # slots were free but every booking was refused or errored
+    UNCONFIRMED = "unconfirmed"  # a booking was sent and the site never showed it ACTIVE
+    NO_SLOT = "no-slot"  # nothing free for the day
+    COVERED = "covered"  # the day already had an ACTIVE booking (burst worker only)
+    ERROR = "error"  # the attempt itself broke: auth, rate limit, server, or a worker that died
+    UNKNOWN = "unknown"  # no result arrived in time; never counted as booked or as nothing free
+
+    @property
+    def is_covered(self) -> bool:
+        """The day ends with a parking: booked now or already booked."""
+        return self in (DayStatus.BOOKED, DayStatus.COVERED)
+
+    @property
+    def is_broken(self) -> bool:
+        """The attempt did not run to an answer, so the run it belongs to is an error."""
+        return self in (DayStatus.ERROR, DayStatus.UNKNOWN)
+
+
+class RunStatus(StrEnum):
     """How one poll or burst ended."""
 
-    status: str  # inactive | backoff | no-token | token-expired | nothing-pending | no-slots | checked | error
+    INACTIVE = "inactive"  # polling is off in this time window
+    BACKOFF = "backoff"  # not due yet
+    NO_TOKEN = "no-token"  # no login token in the environment
+    TOKEN_EXPIRED = "token-expired"  # the login token is past its expiry
+    NOTHING_PENDING = "nothing-pending"  # every released target day already has a booking
+    NO_SLOTS = "no-slots"  # days are open but no day had a free slot
+    CHECKED = "checked"  # at least one day was tried; the per-day lists say how each ended
+    ERROR = "error"  # the run broke before or while trying
+
+
+@dataclass
+class RunResult:
+    """How one poll or burst ended; `status` is closed, so a word outside `RunStatus` is refused."""
+
+    status: RunStatus
     pending: List[str] = field(default_factory=list)
     booked: List[str] = field(default_factory=list)
     would_book: List[str] = field(default_factory=list)
+    failed: List[str] = field(default_factory=list)  # days where slots were free but booking failed
+    unconfirmed: List[str] = field(default_factory=list)  # days where a sent booking was never confirmed
     error: str = ""
+
+    def __post_init__(self) -> None:
+        self.status = RunStatus(self.status)
 
 
 @dataclass(frozen=True)
 class DayOutcome:
     day: str
-    status: str  # booked | would-book | failed | unconfirmed | no-slot | covered | error | unknown
+    status: DayStatus  # closed: a word outside `DayStatus` is refused
     label: str = ""  # the slot booked / would book / left unconfirmed
     error: str = ""  # why the last attempt failed, for the booking-failed alert
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "status", DayStatus(self.status))
+
+
+def derive_run_status(outcomes: Sequence[DayOutcome]) -> RunStatus:
+    """The one mapping from per-day outcomes to how the run ended.
+
+    A broken day (`error`/`unknown`) makes the run an error; every day without a
+    free slot is `no-slots`; anything else tried at least one day, so `checked`.
+    No outcomes means no day was tried: `nothing-pending`, never `no-slots`.
+    """
+    if not outcomes:
+        return RunStatus.NOTHING_PENDING
+    if any(o.status.is_broken for o in outcomes):
+        return RunStatus.ERROR
+    if all(o.status == DayStatus.NO_SLOT for o in outcomes):
+        return RunStatus.NO_SLOTS
+    return RunStatus.CHECKED
+
+
+def result_from_outcomes(pending: List[str], outcomes: Sequence[DayOutcome]) -> RunResult:
+    """The run result for `pending` days once every one was tried: status from `derive_run_status`."""
+    def days(status: DayStatus) -> List[str]:
+        return [o.day for o in outcomes if o.status == status]
+
+    broken = "; ".join(f"{o.day}: {o.error}" for o in outcomes if o.status.is_broken)
+    return RunResult(derive_run_status(outcomes), pending=pending, booked=days(DayStatus.BOOKED),
+                     would_book=days(DayStatus.WOULD_BOOK), failed=days(DayStatus.FAILED),
+                     unconfirmed=days(DayStatus.UNCONFIRMED), error=broken)
 
 
 def slot_label(candidate: planner.Candidate) -> str:
@@ -110,7 +182,7 @@ def book_day(api: ParkingApi, day: str, candidates: List[planner.Candidate], pla
         label = slot_label(candidate)
         if dry_run:
             logger.info("ℹ️ [dry-run] would book %s", label)
-            return DayOutcome(day, "would-book", label)
+            return DayOutcome(day, DayStatus.WOULD_BOOK, label)
         say(f"Booking {label}...")
         try:
             created = api.create_booking(candidate.combo.center_id, candidate.combo.size_id, type_,
@@ -129,11 +201,11 @@ def book_day(api: ParkingApi, day: str, candidates: List[planner.Candidate], pla
             state = _state_for_day(api.my_bookings(), day, ids)
         if state == ACTIVE:
             logger.info("✅ booked %s", label)
-            return DayOutcome(day, "booked", label)
+            return DayOutcome(day, DayStatus.BOOKED, label)
         if state == REJECTED:
             logger.warning("⚠️ %s was REJECTED by the site; trying the next slot", label)
             error = f"{label} was rejected"
             continue
         logger.error("❌ createBooking returned but %s is not confirmed in my bookings", day)
-        return DayOutcome(day, "unconfirmed", label)
-    return DayOutcome(day, "failed", error=error) if error else DayOutcome(day, "no-slot")
+        return DayOutcome(day, DayStatus.UNCONFIRMED, label)
+    return DayOutcome(day, DayStatus.FAILED, error=error) if error else DayOutcome(day, DayStatus.NO_SLOT)

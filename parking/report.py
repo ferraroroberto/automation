@@ -13,7 +13,7 @@ from typing import Dict, Iterable, Optional, Tuple
 
 from parking import auth
 from parking import screenshot as site_screenshot
-from parking.booking import DayOutcome, RunResult
+from parking.booking import DayOutcome, DayStatus, RunResult, RunStatus
 from parking.config import LOG_DIR, PROFILE_DIR, Config
 from parking.notify import Notifier
 from parking.state import State
@@ -67,21 +67,21 @@ def report_outcomes(outcomes: Iterable[DayOutcome], cfg: Config, state: State, n
     (dry-run: one alert per free day). Each message with screenshots costs a browser
     capture - slow while the site is busy - so the bookings share one."""
     outcomes = list(outcomes)
-    booked = [o.label for o in outcomes if o.status == "booked"]
+    booked = [o.label for o in outcomes if o.status == DayStatus.BOOKED]
     if booked:
         notify(notifier, cfg, site_url, "Parking booked: " + "; ".join(booked))
     for outcome in outcomes:
-        if outcome.status == "would-book":
+        if outcome.status == DayStatus.WOULD_BOOK:
             alert(state, notifier, f"dry-run:{outcome.day}:{now.date().isoformat()}",
                   f"[dry-run] a slot is free: {outcome.label}", now, timedelta(days=1))
-        elif outcome.status == "unconfirmed":
+        elif outcome.status == DayStatus.UNCONFIRMED:
             notify(notifier, cfg, site_url,
                    f"Parking: booking {outcome.label} was sent but not confirmed - check the site")
-        elif outcome.status == "failed":
+        elif outcome.status == DayStatus.FAILED:
             alert(state, notifier, f"book-failed:{outcome.day}",
                   f"Parking: a slot was free for {outcome.day} but booking failed ({outcome.error}). "
                   "Check the site.", now, timedelta(hours=1), cfg=cfg, site_url=site_url)
-        elif outcome.status in ("error", "unknown"):
+        elif outcome.status.is_broken:
             notifier.send(f"Parking burst: {outcome.day} ended {outcome.status} ({outcome.error}) - check the site")
 
 
@@ -95,12 +95,12 @@ def check_token(env: Dict[str, str], state: State, notifier: Notifier, now: date
     if not token:
         alert(state, notifier, "login-needed",
               "Parking: login needed (no token). Run: python -m parking.login", now)
-        return "", RunResult("no-token")
+        return "", RunResult(RunStatus.NO_TOKEN)
     left = auth.time_left(token, now)
     if left is not None and left <= timedelta(0):
         alert(state, notifier, "login-needed",
               "Parking: the login token has expired. Run: python -m parking.login", now)
-        return "", RunResult("token-expired")
+        return "", RunResult(RunStatus.TOKEN_EXPIRED)
     if warning_days is not None and left is not None and left <= timedelta(days=warning_days):
         alert(state, notifier, "token-expiring",
               f"Parking: login token expires in {left.days}d {left.seconds // 3600}h. "
