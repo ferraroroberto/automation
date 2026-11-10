@@ -32,7 +32,7 @@ import requests
 
 from parking import booking, planner, report
 from parking.api import ApiError, AuthError, ParkingApi, RateLimited, ServerError
-from parking.booking import DayOutcome, RunResult
+from parking.booking import DayOutcome, DayStatus, RunResult, RunStatus
 from parking.config import PROFILE_DIR, ROOT, STATE_PATH, Config, ThursdayBurst
 from parking.notify import LogNotifier, Notifier
 from parking.observer import Observers
@@ -141,13 +141,24 @@ def _read_events(path: Path, offset: int) -> Tuple[List[dict], int]:
     return events, offset + len(complete)
 
 
+def decode_outcome(day: str, event: dict) -> DayOutcome:
+    """A worker's final JSONL line as an outcome; a status outside `DayStatus` is an error, not a pass-through."""
+    word = event.get("status")
+    label, error = event.get("label", ""), event.get("error", "")
+    try:
+        return DayOutcome(day, DayStatus(word), label, error)
+    except ValueError:
+        logger.error("❌ worker %s reported an unknown status %r", day, word)
+        return DayOutcome(day, DayStatus.ERROR, label, f"unknown worker status {word!r}; {error}".rstrip("; "))
+
+
 def follow_workers(workers: Dict[str, "subprocess.Popen"], run_dir: Path, until: datetime,
                    notifier: Notifier, observers: Optional[Observers], sleep: Callable[[float], None],
                    now_fn: Callable[[], datetime]) -> Dict[str, DayOutcome]:
     """Relay each worker's progress as pings until every one has reported its result.
 
-    A worker that exits without a result is an "error"; one still silent at
-    `until` is "unknown" - never counted as booked or as nothing-free.
+    A worker that exits without a result is `DayStatus.ERROR`; one still silent at
+    `until` is `DayStatus.UNKNOWN` - never counted as booked or as nothing-free.
     """
     offsets = {day: 0 for day in workers}
     outcomes: Dict[str, DayOutcome] = {}
@@ -158,17 +169,16 @@ def follow_workers(workers: Dict[str, "subprocess.Popen"], run_dir: Path, until:
             events, offsets[day] = _read_events(run_dir / f"{day}.jsonl", offsets[day])
             for event in events:
                 if event.get("done"):
-                    outcomes[day] = DayOutcome(day, event["status"], event.get("label", ""),
-                                               event.get("error", ""))
-                    logger.info("ℹ️ worker %s finished: %s %s", day, event["status"],
-                                event.get("label") or event.get("error", ""))
+                    outcomes[day] = decode_outcome(day, event)
+                    logger.info("ℹ️ worker %s finished: %s %s", day, outcomes[day].status,
+                                outcomes[day].label or outcomes[day].error)
                     if observers is not None:
                         observers.refresh(day)
                 else:
                     logger.info("ℹ️ worker %s: %s", day, event.get("text", ""))
                     notifier.ping(f"⚡ {_short(day)} {event.get('text', '')}")
             if day not in outcomes and worker.poll() is not None:
-                outcomes[day] = DayOutcome(day, "error", error=f"worker exited ({worker.returncode}) "
+                outcomes[day] = DayOutcome(day, DayStatus.ERROR, error=f"worker exited ({worker.returncode}) "
                                                                "without a result")
                 logger.error("❌ worker %s exited (%s) without a result", day, worker.returncode)
         if len(outcomes) == len(workers):
@@ -176,17 +186,17 @@ def follow_workers(workers: Dict[str, "subprocess.Popen"], run_dir: Path, until:
         if now_fn() > until:
             for day in workers:
                 if day not in outcomes:
-                    outcomes[day] = DayOutcome(day, "unknown", error="no result from its worker in time")
+                    outcomes[day] = DayOutcome(day, DayStatus.UNKNOWN, error="no result from its worker in time")
                     logger.error("❌ worker %s: no result by %s - outcome unknown", day, until.isoformat())
             return outcomes
         sleep(FOLLOW_POLL_SECONDS)
 
 
 def _summary(outcomes: List[DayOutcome]) -> str:
-    words = {"booked": "✅ booked", "covered": "✅ already booked", "would-book": "🟢 free (dry-run)",
-             "no-slot": "nothing free",
-             "failed": "⚠️ rejected/failed", "unconfirmed": "⚠️ unconfirmed", "error": "❌ error",
-             "unknown": "❓ unknown"}
+    words = {DayStatus.BOOKED: "✅ booked", DayStatus.COVERED: "✅ already booked",
+             DayStatus.WOULD_BOOK: "🟢 free (dry-run)", DayStatus.NO_SLOT: "nothing free",
+             DayStatus.FAILED: "⚠️ rejected/failed", DayStatus.UNCONFIRMED: "⚠️ unconfirmed",
+             DayStatus.ERROR: "❌ error", DayStatus.UNKNOWN: "❓ unknown"}
     return "; ".join(f"{_short(o.day)} {words.get(o.status, o.status)}" for o in outcomes)
 
 
@@ -235,17 +245,17 @@ def run_burst(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifie
         logger.error("❌ burst: token rejected (401/403)")
         report.alert(state, notifier, "login-needed",
                      "Parking: the site rejected the token. Run: python -m parking.login", now)
-        return RunResult("error", error="token rejected")
+        return RunResult(RunStatus.ERROR, error="token rejected")
     except (RateLimited, ServerError, requests.RequestException, ApiError) as exc:
         logger.error("❌ burst: reading my bookings failed (%s); not arming", type(exc).__name__)
-        return RunResult("error", error=type(exc).__name__)
+        return RunResult(RunStatus.ERROR, error=type(exc).__name__)
     # All covered after this release -> no site calls until the next one.
     quiet_until = planner.next_release(target + timedelta(seconds=1), booking.release_time(cfg))
     days = _released_days(cfg, bookings, now, target, rehearsal)
     if not days:
         logger.info("ℹ️ burst: every day released at %s is already booked; nothing to do", target.isoformat())
         state.next_allowed = quiet_until
-        return RunResult("nothing-pending")
+        return RunResult(RunStatus.NOTHING_PENDING)
 
     run_dir = run_dir or RUN_DIR
     run_dir.mkdir(parents=True, exist_ok=True)  # runtime-write-exempt: parking/ is its own ROOT; state lives there, a live job reads it (owner-gated)
@@ -276,15 +286,8 @@ def run_burst(cfg: Config, env: Dict[str, str], now: datetime, notifier: Notifie
         # Only now: a tick during the report would fight it for the browser profile, state.json and the chat.
         marker.unlink(missing_ok=True)
 
-    result = RunResult("checked", pending=days,
-                       booked=[o.day for o in outcomes if o.status == "booked"],
-                       would_book=[o.day for o in outcomes if o.status == "would-book"])
-    broken = [o for o in outcomes if o.status in ("error", "unknown")]
-    if broken:
-        result.status, result.error = "error", "; ".join(f"{o.day}: {o.error}" for o in broken)
-    elif all(o.status == "no-slot" for o in outcomes):
-        result.status = "no-slots"
-    if not rehearsal and all(o.status in ("booked", "covered") for o in outcomes):
+    result = booking.result_from_outcomes(days, outcomes)
+    if not rehearsal and all(o.status.is_covered for o in outcomes):
         state.next_allowed = quiet_until
         logger.info("ℹ️ all covered: no site calls until the %s release", state.next_allowed.isoformat())
     return result
@@ -297,10 +300,10 @@ def rehearse(cfg: Config, env: Dict[str, str], now_fn: Callable[[], datetime]) -
     now = now_fn()
     if is_running(now):
         logger.error("❌ a burst is running right now; not rehearsing on top of it")
-        return RunResult("error", error="a burst is running")
+        return RunResult(RunStatus.ERROR, error="a burst is running")
     if cfg.thursday_burst is None:
         logger.error("❌ no thursday_burst in config.json; nothing to rehearse")
-        return RunResult("error", error="no thursday_burst config")
+        return RunResult(RunStatus.ERROR, error="no thursday_burst config")
     logger.info("ℹ️ rehearsal: dry-run forced, nothing will be booked, cancelled or sent")
     return run_burst(replace(cfg, dry_run=True), env, now, LogNotifier(), State(), now_fn=now_fn,
                      rehearsal=True)

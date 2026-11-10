@@ -145,3 +145,17 @@ baseline = ".runtime-write-ratchet-baseline.json"
 # The tool folders are this repo's code (the extra_roots above), alongside scripts/.
 code_folders = ["scripts", "audio", "excel", "git-housekeeping", "google", "html", "image", "linkedin",
                 "notion", "parking", "smart_life", "system", "text", "video"]
+
+# [[state_machines]] -- the lifecycles this repo declares in one module each, so the
+# conventions ratchet's state rules stop reporting that module and keep reporting any
+# other module that re-spells them. Why and who reads them: docs/parking-outcome-state.md.
+[[state_machines]]
+name   = "parking-day"
+module = "parking/booking.py"
+type   = "DayStatus"
+
+[[state_machines]]
+name   = "parking-run"
+module = "parking/booking.py"
+type   = "RunStatus"
+derive = "derive_run_status"
