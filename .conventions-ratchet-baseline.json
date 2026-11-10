@@ -1,9 +1,4 @@
 {
   "version": 1,
-  "entries": [
-    {"key": "system/mouse_mover.py", "counts": {"state-write": 2}},
-    {"key": "system/textexpander/main.py", "counts": {"state-write": 3}},
-    {"key": "video/screen_recorder.py", "counts": {"state-write": 3}},
-    {"key": "video/video_download.py", "counts": {"state-literal": 1}}
-  ]
+  "entries": []
 }

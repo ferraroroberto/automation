@@ -29,6 +29,7 @@ Usage:
 
 import argparse
 import ctypes
+import enum
 import logging
 import threading
 import time
@@ -65,12 +66,23 @@ def prevent_sleep() -> None:
     )
 
 
+class MoverState(enum.Enum):
+    """The mover's lifecycle; STOPPED is final, so a quit mover cannot be resumed."""
+
+    RUNNING = "running"  # moving the pointer
+    PAUSED = "paused"    # thread alive, pointer left alone until resumed
+    STOPPED = "stopped"  # the thread loop exits; nothing leaves this state
+
+
+class IllegalTransition(Exception):
+    """A state change the lifecycle does not allow (resuming a stopped mover)."""
+
+
 class MouseMover(threading.Thread):
     def __init__(self, click_on_turn: bool = False):
         super().__init__()
         self.daemon = True  # Thread will exit when main program does
-        self.running = True
-        self.paused = False
+        self._state = MoverState.RUNNING
         # Instance variables instead of dict
         self.up = 5
         self.right = 5
@@ -78,6 +90,22 @@ class MouseMover(threading.Thread):
         self.left = 5
         self.speed = 0.005
         self.click_on_turn = click_on_turn
+
+    @property
+    def state(self) -> MoverState:
+        return self._state
+
+    def toggle_pause(self) -> MoverState:
+        """Flip RUNNING and PAUSED; a STOPPED mover refuses."""
+        if self._state is MoverState.STOPPED:
+            raise IllegalTransition("a stopped mover cannot be paused or resumed")
+        self._state = (MoverState.PAUSED if self._state is MoverState.RUNNING
+                       else MoverState.RUNNING)
+        return self._state
+
+    def stop(self) -> None:
+        """End the loop from any state; stopping twice is harmless."""
+        self._state = MoverState.STOPPED
 
     def create_controls(self, parent):
         """Create parameter control panel"""
@@ -121,36 +149,36 @@ class MouseMover(threading.Thread):
 
     def run(self):
         """Main loop that moves the mouse"""
-        while self.running:
-            if not self.paused:
+        while self._state is not MoverState.STOPPED:
+            if self._state is MoverState.RUNNING:
                 try:
                     prevent_sleep()
                     # Move UP pixel by pixel
                     for _ in range(int(self.up)):
-                        if not self.running or self.paused: break
+                        if self._state is not MoverState.RUNNING: break
                         pyautogui.moveRel(0, -1, duration=self.speed)
-                    if self.click_on_turn and not self.paused and self.running:
+                    if self.click_on_turn and self._state is MoverState.RUNNING:
                         pyautogui.click()
 
                     # Move RIGHT pixel by pixel
                     for _ in range(int(self.right)):
-                        if not self.running or self.paused: break
+                        if self._state is not MoverState.RUNNING: break
                         pyautogui.moveRel(1, 0, duration=self.speed)
-                    if self.click_on_turn and not self.paused and self.running:
+                    if self.click_on_turn and self._state is MoverState.RUNNING:
                         pyautogui.click()
 
                     # Move DOWN pixel by pixel
                     for _ in range(int(self.down)):
-                        if not self.running or self.paused: break
+                        if self._state is not MoverState.RUNNING: break
                         pyautogui.moveRel(0, 1, duration=self.speed)
-                    if self.click_on_turn and not self.paused and self.running:
+                    if self.click_on_turn and self._state is MoverState.RUNNING:
                         pyautogui.click()
 
                     # Move LEFT pixel by pixel
                     for _ in range(int(self.left)):
-                        if not self.running or self.paused: break
+                        if self._state is not MoverState.RUNNING: break
                         pyautogui.moveRel(-1, 0, duration=self.speed)
-                    if self.click_on_turn and not self.paused and self.running:
+                    if self.click_on_turn and self._state is MoverState.RUNNING:
                         pyautogui.click()
                 except Exception:
                     pass
@@ -236,8 +264,7 @@ class MouseMoverApp:
 
     def _shutdown(self) -> None:
         logger.info("Shutting down Mouse Mover")
-        self.mover.running = False
-        self.mover.paused = True
+        self.mover.stop()
         try:
             self._icon.stop()
         except Exception:
@@ -270,9 +297,9 @@ class MouseMoverApp:
         self.mover.create_controls(win)
 
         def toggle():
-            self.mover.paused = not self.mover.paused
+            state = self.mover.toggle_pause()
             if self.btn_stop is not None:
-                self.btn_stop.config(text="RESUME" if self.mover.paused else "STOP")
+                self.btn_stop.config(text="RESUME" if state is MoverState.PAUSED else "STOP")
 
         self.btn_stop = tk.Button(win, text="STOP", width=12, command=toggle)
         self.btn_stop.pack(side=tk.LEFT, padx=10, pady=20)

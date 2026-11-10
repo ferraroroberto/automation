@@ -57,6 +57,7 @@ def _yt_progress_hook(d, status_callback, progress_callback):
                 progress_callback(value)
         except (TypeError, ZeroDivisionError):
             pass
+    # state-literal-exempt: 'finished' is yt-dlp's own progress-hook status, not a lifecycle this repo owns
     elif d['status'] == 'finished':
         if progress_callback:
             progress_callback(100)

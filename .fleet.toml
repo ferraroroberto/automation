@@ -148,7 +148,7 @@ code_folders = ["scripts", "audio", "excel", "git-housekeeping", "google", "html
 
 # [[state_machines]] -- the lifecycles this repo declares in one module each, so the
 # conventions ratchet's state rules stop reporting that module and keep reporting any
-# other module that re-spells them. Why and who reads them: docs/parking-outcome-state.md.
+# other module that re-spells them. Why and who reads them: docs/parking-outcome-state.md and system/mouse_mover.md.
 [[state_machines]]
 name   = "parking-day"
 module = "parking/booking.py"
@@ -159,3 +159,8 @@ name   = "parking-run"
 module = "parking/booking.py"
 type   = "RunStatus"
 derive = "derive_run_status"
+
+[[state_machines]]
+name   = "mouse-mover"
+module = "system/mouse_mover.py"
+type   = "MoverState"
