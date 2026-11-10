@@ -63,6 +63,7 @@ The application provides a simple GUI with:
 ### Main Components
 
 1. **MouseMover Class**: A threaded class that handles the mouse movement logic.
+   Its lifecycle is one `MoverState` (`RUNNING`, `PAUSED`, `STOPPED`): STOP/RESUME toggles the first two, Quit ends in `STOPPED`, and a stopped mover refuses to resume.
 2. **System-Level Sleep Prevention**: Uses Windows API to prevent the system from sleeping.
 3. **GUI Controls**: Tkinter-based interface for runtime configuration.
 
