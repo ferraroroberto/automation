@@ -14,12 +14,16 @@ Usage:
 import argparse
 import logging
 import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import requests
 import utils as notion_utils
 from dotenv import load_dotenv
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from pooled_http import pooled_request  # noqa: E402
 
 # Load environment variables
 load_dotenv()
@@ -101,11 +105,11 @@ class NotionURLNormalizer:
             }
             
             # Try HEAD request first (faster)
-            response = requests.head(url, headers=headers, allow_redirects=True, timeout=10)
+            response = pooled_request("HEAD", url, headers=headers, allow_redirects=True, timeout=10)
             
             # If Method Not Allowed (405), try GET (stream=True to download only headers/start)
             if response.status_code == 405:
-                response = requests.get(url, headers=headers, stream=True, timeout=10)
+                response = pooled_request("GET", url, headers=headers, stream=True, timeout=10)
             
             if 200 <= response.status_code < 400:
                 return True, f"OK ({response.status_code})"

@@ -14,6 +14,7 @@ flowchart TB
   VENVMGR["system/venv_manager.py\ncreates/monitors the shared .venv"]
   REQ --> VENVMGR
   NOWIN["no_window.py\nrepo-root shared NO_WINDOW creationflags constant —\nevery subprocess spawn in the domain folders imports it"]
+  POOLED["pooled_http.py\nrepo-root vendored keep-alive session: every outbound requests call in the\ndomain folders goes through pooled_request (the must_use ratchet holds it)"]
   RTFILES["system/_lib/runtime_files.py\nshared writers: refuse paths inside the checkout,\nplus runtime_data_dir() for logs and scratch output"]
   STEALTH["browser_stealth.py\nrepo-root shared human-looking Chrome launch for Playwright\n(stealth kwargs + init script + busy-profile backoff)"]
 
@@ -32,6 +33,7 @@ flowchart TB
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains
   NOWIN -.->|imported by| domains
+  POOLED -.->|imported by| domains
   RTFILES -.->|imported by| domains
   STEALTH -.->|imported by| PARKING
   STEALTH -.->|imported by| SYSTEM

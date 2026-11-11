@@ -32,6 +32,7 @@ import requests
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
 from system._lib import runtime_files  # noqa: E402
+from pooled_http import pooled_request  # noqa: E402
 
 API_TEMPLATE = "https://view.genially.com/api/view/{genially_id}"
 USER_AGENT = (
@@ -130,7 +131,7 @@ def parse_genially_id(value: str) -> str:
 def fetch_view_json(genially_id: str, timeout: int = 30) -> dict[str, Any]:
     url = API_TEMPLATE.format(genially_id=genially_id)
     logger.info("ℹ️ Fetching %s", url)
-    resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
+    resp = pooled_request("GET", url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 

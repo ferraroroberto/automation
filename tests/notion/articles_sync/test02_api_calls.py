@@ -51,7 +51,7 @@ class TestApiCalls(unittest.TestCase):
             }
         }
 
-    @patch('notion_articles_sync.requests.get')
+    @patch('notion_articles_sync.pooled_request')
     def test_api_call_success(self, mock_get):
         """Test successful API call."""
         mock_response = Mock()
@@ -72,7 +72,7 @@ class TestApiCalls(unittest.TestCase):
         self.assertEqual(result, {"test": "data"})
         mock_get.assert_called_once()
 
-    @patch('notion_articles_sync.requests.get')
+    @patch('notion_articles_sync.pooled_request')
     def test_api_call_retry_on_failure(self, mock_get):
         """Test API call retry logic."""
         # First two calls fail, third succeeds
@@ -98,7 +98,7 @@ class TestApiCalls(unittest.TestCase):
         self.assertEqual(result, {"success": True})
         self.assertEqual(mock_get.call_count, 3)
 
-    @patch('notion_articles_sync.requests.get')
+    @patch('notion_articles_sync.pooled_request')
     @patch('notion_articles_sync.time.sleep')
     def test_api_call_max_retries_exceeded(self, mock_sleep, mock_get):
         """Test API call when max retries exceeded."""
@@ -130,7 +130,7 @@ class TestApiCalls(unittest.TestCase):
         sync.api_call_lock = threading.Lock()
 
         # Mock successful response
-        with patch('notion_articles_sync.requests.get') as mock_get:
+        with patch('notion_articles_sync.pooled_request') as mock_get:
             mock_response = Mock()
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = {"test": "data"}
@@ -151,7 +151,7 @@ class TestApiCalls(unittest.TestCase):
             # Should have taken at least 1 second due to rate limiting
             self.assertGreaterEqual(elapsed, 0.9)
 
-    @patch('notion_articles_sync.requests.get')
+    @patch('notion_articles_sync.pooled_request')
     def test_concurrent_api_calls_no_deadlock(self, mock_get):
         """Test concurrent API calls don't cause deadlocks.
 
@@ -196,7 +196,7 @@ class TestApiCalls(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(len(results), 5)
 
-    @patch('notion_articles_sync.requests.post')
+    @patch('notion_articles_sync.pooled_request')
     def test_database_query_call(self, mock_post):
         """Test the specific database query call that might be hanging."""
         mock_response = Mock()

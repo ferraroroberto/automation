@@ -1,8 +1,13 @@
 import logging
 import os
+import sys
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from pooled_http import pooled_request  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +30,7 @@ def check_imgur_rate_limit():
 
     headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
     try:
-        response = requests.get("https://api.imgur.com/3/credits", headers=headers, timeout=REQUEST_TIMEOUT_S)
+        response = pooled_request("GET", "https://api.imgur.com/3/credits", headers=headers, timeout=REQUEST_TIMEOUT_S)
     except requests.exceptions.RequestException as e:
         log.error("❌ Failed to fetch rate limits: %s", e)
         return

@@ -27,12 +27,12 @@ class ImgurCheckRateTimeout(unittest.TestCase):
 
     def test_credits_request_passes_a_timeout(self):
         response = mock.Mock(status_code=500, text="boom")
-        with mock.patch.object(self.script.requests, "get", return_value=response) as get:
+        with mock.patch.object(self.script, "pooled_request", return_value=response) as get:
             self.script.check_imgur_rate_limit()
         self.assertGreater(get.call_args.kwargs.get("timeout", 0), 0)
 
     def test_timeout_is_logged_not_raised(self):
-        with mock.patch.object(self.script.requests, "get", side_effect=requests.exceptions.Timeout("stalled")):
+        with mock.patch.object(self.script, "pooled_request", side_effect=requests.exceptions.Timeout("stalled")):
             with self.assertLogs(self.script.log, level="ERROR"):
                 self.script.check_imgur_rate_limit()
 

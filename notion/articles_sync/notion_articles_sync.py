@@ -35,6 +35,7 @@ from sync_logger import logger
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
 from system._lib import runtime_files  # noqa: E402
+from pooled_http import pooled_request  # noqa: E402
 
 # Load environment variables from root .env file
 load_dotenv()
@@ -336,13 +337,13 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
                 logger.debug(f"📦 Request data: {json.dumps(data, indent=2)}")
             
             if method == "GET":
-                response = requests.get(url, headers=self.headers, timeout=30)
+                response = pooled_request("GET", url, headers=self.headers, timeout=30)
             elif method == "POST":
-                response = requests.post(url, headers=self.headers, json=data, timeout=30)
+                response = pooled_request("POST", url, headers=self.headers, json=data, timeout=30)
             elif method == "PATCH":
-                response = requests.patch(url, headers=self.headers, json=data, timeout=30)
+                response = pooled_request("PATCH", url, headers=self.headers, json=data, timeout=30)
             elif method == "DELETE":
-                response = requests.delete(url, headers=self.headers, timeout=30)
+                response = pooled_request("DELETE", url, headers=self.headers, timeout=30)
             else:
                 raise ValueError(f"Unsupported method: {method}")
             

@@ -22,7 +22,7 @@ def _timeout_of(call) -> float:
 
 class PaginatedQueryTimeout(unittest.TestCase):
     def test_post_passes_a_timeout_and_the_error_propagates(self):
-        with mock.patch.object(notion_utils.requests, "post", side_effect=TIMEOUT) as post:
+        with mock.patch.object(notion_utils, "pooled_request", side_effect=TIMEOUT) as post:
             with self.assertRaises(requests.exceptions.Timeout):
                 notion_utils.paginated_database_query({}, "db")
         self.assertGreater(_timeout_of(post.call_args), 0)
@@ -37,13 +37,13 @@ class NormalizerPatchTimeouts(unittest.TestCase):
 
     def test_name_update_passes_a_timeout_and_reports_failure(self):
         normalizer = self._normalizer(normalize_names.NotionNameNormalizer)
-        with mock.patch.object(notion_utils.requests, "patch", side_effect=TIMEOUT) as patch:
+        with mock.patch.object(notion_utils, "pooled_request", side_effect=TIMEOUT) as patch:
             self.assertFalse(normalizer._update_page_property("p" * 32, "Name", "value"))
         self.assertGreater(_timeout_of(patch.call_args), 0)
 
     def test_url_update_passes_a_timeout_and_reports_failure(self):
         normalizer = self._normalizer(normalize_url.NotionURLNormalizer)
-        with mock.patch.object(notion_utils.requests, "patch", side_effect=TIMEOUT) as patch:
+        with mock.patch.object(notion_utils, "pooled_request", side_effect=TIMEOUT) as patch:
             self.assertFalse(normalizer._update_page_url("p" * 32, "https://example.test"))
         self.assertGreater(_timeout_of(patch.call_args), 0)
 

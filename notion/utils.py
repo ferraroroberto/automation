@@ -2,14 +2,19 @@
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from pathlib import Path
 from zipfile import BadZipFile
 
 import openpyxl
 import requests
 from dotenv import load_dotenv
 from openpyxl.utils.exceptions import InvalidFileException
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
+from pooled_http import pooled_request  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -202,7 +207,7 @@ def paginated_database_query(
             payload['start_cursor'] = start_cursor
 
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_S)
+            response = pooled_request("POST", url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_S)
             response.raise_for_status()
 
             data = response.json()
@@ -325,7 +330,8 @@ def patch_page_properties(headers: Dict[str, str], page_id: str, properties: Dic
     """PATCH `properties` onto a Notion page; returns False (and logs why) on failure."""
     page_short = f"{page_id[:8]}...{page_id[-2:]}"
     try:
-        response = requests.patch(
+        response = pooled_request(
+            "PATCH",
             f"https://api.notion.com/v1/pages/{page_id}",
             headers=headers,
             json={"properties": properties},
