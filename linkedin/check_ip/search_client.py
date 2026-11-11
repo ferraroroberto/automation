@@ -23,7 +23,7 @@ import pandas as pd
 import requests
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
-from pooled_http import pooled_request  # noqa: E402
+from system._lib.pooled_http import pooled_request  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

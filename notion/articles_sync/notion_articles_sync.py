@@ -35,7 +35,7 @@ from sync_logger import logger
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
 from system._lib import runtime_files  # noqa: E402
-from pooled_http import pooled_request  # noqa: E402
+from system._lib.pooled_http import pooled_request  # noqa: E402
 
 # Load environment variables from root .env file
 load_dotenv()

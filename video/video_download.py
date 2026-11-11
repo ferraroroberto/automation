@@ -23,7 +23,7 @@ from system._lib import runtime_files  # noqa: E402
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from no_window import NO_WINDOW  # noqa: E402
-from pooled_http import pooled_request  # noqa: E402
+from system._lib.pooled_http import pooled_request  # noqa: E402
 
 # An HLS stream is copied without re-encoding, but a long recording over a slow link can
 # take hours; 4 h bounds a stalled ffmpeg, not a long stream.

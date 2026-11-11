@@ -12,7 +12,7 @@ from system._lib import runtime_files  # noqa: E402
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 from no_window import NO_WINDOW  # noqa: E402
-from pooled_http import pooled_request  # noqa: E402
+from system._lib.pooled_http import pooled_request  # noqa: E402
 
 # `start` only asks the shell to open the file and returns at once; 30 s means it is wedged.
 _OPEN_FILE_TIMEOUT_S = 30
