@@ -9,7 +9,7 @@ shape       = "pipeline-cli"
 depends_on  = ["fleet-config"]
 # One folder per tool domain; docs/layout.md says what each holds. Tests live under
 # tests/<domain>/, never beside the code.
-extra_roots = ["audio", "excel", "git-housekeeping", "google", "html", "image", "linkedin", "notion", "parking", "smart_life", "system", "text", "video"]
+extra_roots = ["audio", "excel", "google", "html", "image", "linkedin", "notion", "parking", "smart_life", "system", "text", "video"]
 
 # [vendored] -- components copied byte-for-byte from project-scaffolding, with the
 # scaffold commit each came from. Re-vendor through /propagate-vendored, never by hand.
@@ -101,7 +101,7 @@ baseline = ".static-ratchet-baseline.json"
 [docs_ratchet]
 enabled  = true
 baseline = ".docs-ratchet-baseline.json"
-include  = ["README.md", "docs/", "audio/", "excel/", "git-housekeeping/", "google/", "html/", "image/", "linkedin/", "notion/", "parking/", "smart_life/", "system/", "text/", "video/"]
+include  = ["README.md", "docs/", "audio/", "excel/", "google/", "html/", "image/", "linkedin/", "notion/", "parking/", "smart_life/", "system/", "text/", "video/"]
 
 # [comment_ratchet] -- the scaffold's baseline-and-ratchet stage over issue references
 # (#NNN) in product-code comments (.py, .js, .css, .ps1), counted per file. The gate runs
@@ -143,7 +143,7 @@ rules    = ["no-window", "no-drive-path", "subprocess-timeout", "state-literal",
 enabled  = true
 baseline = ".runtime-write-ratchet-baseline.json"
 # The tool folders are this repo's code (the extra_roots above), alongside scripts/.
-code_folders = ["scripts", "audio", "excel", "git-housekeeping", "google", "html", "image", "linkedin",
+code_folders = ["scripts", "audio", "excel", "google", "html", "image", "linkedin",
                 "notion", "parking", "smart_life", "system", "text", "video"]
 
 # [[state_machines]] -- the lifecycles this repo declares in one module each, so the

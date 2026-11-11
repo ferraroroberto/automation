@@ -13,7 +13,6 @@ automation/
 ├── 📁 audio/           # Audio recording, transcription, and conversion tools
 ├── 📁 docs/            # Durable reference docs (see architecture.mmd below)
 ├── 📁 excel/           # Excel automation (e.g. Stripe accounting)
-├── 📁 git-housekeeping/ # Git author-email policy and history-rewrite recipes
 ├── 📁 google/          # Gmail, Drive, and Google Photos automation
 ├── 📁 html/            # HTML utilities (e.g. countdown timer)
 ├── 📁 image/           # Image processing, formatting, and Instagram tools
@@ -311,7 +310,7 @@ python -m venv .venv
 
 - API keys, tokens, and machine-local paths live in the root `.env` (git-ignored); `.env.sample` documents the keys.
 - `client_secret.json` and `token.json` under `google/` are credentials — never commit them.
-- Git author email is pinned to the GitHub noreply address; see [`git-housekeeping/email-policy.md`](git-housekeeping/email-policy.md).
+- Git author email is pinned to the GitHub noreply address; see [`docs/git-author-email.md`](docs/git-author-email.md).
 
 ## 🧪 Conventions
 
