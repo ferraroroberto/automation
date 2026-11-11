@@ -25,6 +25,7 @@ import win32gui
 # (not inserted) so none of its sibling modules can shadow a devtools one.
 sys.path.append(str(Path(__file__).resolve().parent.parent / "common"))
 from _logging_setup import setup_logging  # noqa: E402
+
 sys.path.append(str(Path(__file__).resolve().parents[3]))  # repo root, so the shared helper imports when run as a script
 from system._lib.pooled_http import pooled_request  # noqa: E402
 
