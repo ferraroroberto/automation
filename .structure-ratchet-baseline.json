@@ -1,7 +1,7 @@
 {
   "version": 1,
   "band": {"files": 1, "functions": 14},
-  "root_extras": ["audio", "excel", "git-housekeeping", "google", "html", "image", "linkedin", "notion", "parking", "smart_life", "system", "text", "video"],
+  "root_extras": ["audio", "excel", "google", "html", "image", "linkedin", "notion", "parking", "smart_life", "system", "text", "video"],
   "shape_contract": {
     "root_files": [".env.sample", "browser_stealth.py", "no_window.py"],
     "redundant": [],

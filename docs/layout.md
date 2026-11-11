@@ -10,7 +10,7 @@ A multi-tool `pipeline-cli` repo: each top-level folder is a tool domain holding
 | `no_window.py` | Shared `NO_WINDOW` subprocess flag for Windows spawns |
 | `requirements.txt` | The one dependency list for every tool |
 | `scripts/` | `verify-before-ship.ps1` (the gate) and the vendored `structure_ratchet.py`, `instruction_ratchet.py`, `doc_refs_ratchet.py`, `dead_code_ratchet.py`, `static_ratchet.py`, `docs_ratchet.py`, `comment_ratchet.py`, `conventions_ratchet.py` and its sibling `conventions_readers.py` |
-| `docs/` | Durable reference: this file and `architecture.mmd` |
+| `docs/` | Durable reference: this file, `architecture.mmd`, `parking-outcome-state.md` and `git-author-email.md` (the git author-email policy and history-rewrite recipes) |
 | `tests/` | Every test, under `tests/<domain>/` (see below) |
 
 ## Tool domains
@@ -22,7 +22,6 @@ Each of these is declared in `extra_roots` because the repo is a grab-bag of too
 | `audio/` | Audio extraction, normalisation, trimming, OGG→MP3 conversion, transcript collation |
 | `excel/` | Excel automation |
 | `excel/accounting_stripe/` | Stripe accounting CSV structure comparison |
-| `git-housekeeping/` | Git author-email policy and history-rewrite recipes (docs only) |
 | `google/` | Gmail, Drive and Google Photos automation, with the shared `_auth.py` |
 | `html/` | Standalone HTML utilities (countdown timer, settings demo) |
 | `html/assets/` | Images the HTML pages use |
