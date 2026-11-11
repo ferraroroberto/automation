@@ -39,7 +39,7 @@ Each of these is declared in `extra_roots` because the repo is a grab-bag of too
 | `parking/` | Parking reservation poller: a deterministic poller that books free slots (a package; its `config.json` and `.env` live inside it) |
 | `smart_life/` | Smart Life / IoT device automation |
 | `system/` | Windows utilities: Outlook web mail, Word→Markdown, venv manager, mouse mover, markdown preview |
-| `system/_lib/` | Helpers shared across the tool domains: console decoding, single-instance lock, and `runtime_files.py` (writers for operator-named paths that raise when a path is inside the checkout, plus `runtime_data_dir()`, the machine-local folder for logs and scratch output) |
+| `system/_lib/` | Helpers shared across the tool domains: console decoding, single-instance lock, `pooled_http.py` (the vendored keep-alive `requests` session; every outbound HTTP call goes through its `pooled_request`) and `runtime_files.py` (writers for operator-named paths that raise when a path is inside the checkout, plus `runtime_data_dir()`, the machine-local folder for logs and scratch output) |
 | `system/apple/` | vCard unification and conversion for Apple Contacts |
 | `system/copilot_remap/` | Copilot key remap with autostart scripts |
 | `system/foldersearcher/` | Folder index, CLI and tray search (retired; folder-explorer replaces it, task-os vendors the core) |

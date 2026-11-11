@@ -11,11 +11,15 @@ Date: March 2025
 """
 
 import logging
+import sys
 import time
 from pathlib import Path
 from typing import Optional
 
 import requests
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib.pooled_http import pooled_request  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +63,8 @@ class ImgurClient:
                 logger.info(f"🚀 Attempt {attempt}/{retries}: Uploading {image_path.name}")
                 
                 with open(image_path, "rb") as file:
-                    response = requests.post(
+                    response = pooled_request(
+                        "POST",
                         self.api_url,
                         headers=self.headers,
                         files={"image": file},
@@ -102,7 +107,8 @@ class ImgurClient:
         """
         try:
             # Make a simple request to validate credentials
-            response = requests.get(
+            response = pooled_request(
+                "GET",
                 "https://api.imgur.com/3/account/me",
                 headers=self.headers,
                 timeout=CHECK_TIMEOUT_S

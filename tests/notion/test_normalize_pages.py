@@ -59,7 +59,7 @@ class PatchPagePropertiesTests(unittest.TestCase):
         response._content = b'{"message": "bad"}'
         error = requests.exceptions.HTTPError("400", response=response)
         self.assertFalse(response)
-        with mock.patch.object(notion_utils.requests, "patch", side_effect=error):
+        with mock.patch.object(notion_utils, "pooled_request", side_effect=error):
             with self.assertLogs(notion_utils.log, level="ERROR") as logs:
                 self.assertFalse(notion_utils.patch_page_properties({}, "p" * 32, {}))
         self.assertTrue(any("Status: 400" in line for line in logs.output))
@@ -90,7 +90,7 @@ class PaginatedQueryErrorLoggingTests(unittest.TestCase):
         response.status_code = 400
         response._content = b'{"message": "bad filter"}'
         error = requests.exceptions.HTTPError("400", response=response)
-        with mock.patch.object(notion_utils.requests, "post", side_effect=error):
+        with mock.patch.object(notion_utils, "pooled_request", side_effect=error):
             with self.assertLogs(notion_utils.log, level="ERROR") as logs:
                 with self.assertRaises(requests.exceptions.HTTPError):
                     notion_utils.paginated_database_query({}, "db")

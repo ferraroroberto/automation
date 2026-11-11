@@ -12,6 +12,7 @@ from system._lib import runtime_files  # noqa: E402
 # Repo-root shared helper (scripts run from their own folder, so add the root).
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 from no_window import NO_WINDOW  # noqa: E402
+from system._lib.pooled_http import pooled_request  # noqa: E402
 
 # `start` only asks the shell to open the file and returns at once; 30 s means it is wedged.
 _OPEN_FILE_TIMEOUT_S = 30
@@ -51,7 +52,7 @@ def _start_chrome_debug() -> None:
             # Check if Chrome is running by testing the debug port
             try:
                 import requests
-                response = requests.get("http://localhost:9222/json/version", timeout=3)
+                response = pooled_request("GET", "http://localhost:9222/json/version", timeout=3)
                 if response.status_code == 200:
                     st.success("✅ Chrome started successfully with remote debugging enabled!")
                     st.info("🔍 Chrome should now be open. Navigate to LinkedIn and open the profiles you want to extract.")
@@ -68,8 +69,7 @@ def _check_chrome_status() -> None:
     """Report whether Chrome answers on the remote-debugging port."""
     try:
         # Try to connect to Chrome debug port
-        import requests
-        response = requests.get("http://localhost:9222/json/version", timeout=2)
+        response = pooled_request("GET", "http://localhost:9222/json/version", timeout=2)
 
         if response.status_code == 200:
             st.success("✅ Chrome is running with remote debugging enabled!")

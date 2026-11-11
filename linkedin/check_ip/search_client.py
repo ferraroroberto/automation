@@ -14,11 +14,15 @@ import datetime
 import json
 import logging
 import os
+import sys
 import urllib.parse
+from pathlib import Path
 from typing import Optional, Tuple
 
 import pandas as pd
-import requests
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from system._lib.pooled_http import pooled_request  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +68,7 @@ class SearchClient:
         }
         
         try:
-            response = requests.get(self.search_endpoint, params=params, timeout=SEARCH_TIMEOUT_S)
+            response = pooled_request("GET", self.search_endpoint, params=params, timeout=SEARCH_TIMEOUT_S)
             
             logger.info(f"🔍 Response Status for {search_type}: {response.status_code}")
             
@@ -181,7 +185,7 @@ class SearchClient:
                 "api_key": self.api_key
             }
             
-            response = requests.get("https://serpapi.com/search", params=test_params, timeout=CHECK_TIMEOUT_S)
+            response = pooled_request("GET", "https://serpapi.com/search", params=test_params, timeout=CHECK_TIMEOUT_S)
             
             if response.status_code == 200:
                 logger.info("✅ SerpAPI key validated successfully")

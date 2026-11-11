@@ -26,6 +26,9 @@ import win32gui
 sys.path.append(str(Path(__file__).resolve().parent.parent / "common"))
 from _logging_setup import setup_logging  # noqa: E402
 
+sys.path.append(str(Path(__file__).resolve().parents[3]))  # repo root, so the shared helper imports when run as a script
+from system._lib.pooled_http import pooled_request  # noqa: E402
+
 logger = setup_logging(__name__)
 
 
@@ -86,7 +89,7 @@ class ChromeDevToolsClient:
             List of tab dictionaries for LinkedIn search pages
         """
         try:
-            response = requests.get(f"http://localhost:{self.debug_port}/json", timeout=5)
+            response = pooled_request("GET", f"http://localhost:{self.debug_port}/json", timeout=5)
             response.raise_for_status()
             tabs = response.json()
 
@@ -124,7 +127,7 @@ class ChromeDevToolsClient:
         """
         try:
             # Get list of available tabs
-            response = requests.get(f"http://localhost:{self.debug_port}/json", timeout=5)
+            response = pooled_request("GET", f"http://localhost:{self.debug_port}/json", timeout=5)
             response.raise_for_status()
             tabs = response.json()
 
