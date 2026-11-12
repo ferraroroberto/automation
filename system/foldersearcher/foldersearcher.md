@@ -114,7 +114,7 @@ Set it to `false` (or untick the Folders-tab checkbox) to get every matching bra
 foldersearcher.py                # Tray + Tkinter UI only
 foldersearcher_core.py           # All logic: scan, persist, search, prune (no GUI imports)
 foldersearcher_cli.py            # Headless `scan` subcommand (atomic write, strict roots)
-run-scan-nightly.bat             # Foreground launcher for the nightly app-launcher job
+run-scan-nightly.bat             # Foreground launcher for a manual scan
 foldersearcher.json              # Configuration
 folder_structure.txt             # Index (auto-generated)
 foldersearcher.md                # This documentation
@@ -163,7 +163,7 @@ Covers root normalization, legacy config migration, sectioned round-trip, legacy
 | "No index found" on open | Add roots on the **Folders** tab, then **Scan All Roots**. |
 | "No index loaded" when searching | Same — the index file is missing or empty. |
 | A root's folders are missing after a scan | The root was unreachable at scan time; the log records `Skipping missing root: …`. Reconnect the drive and rescan. |
-| Nightly job `foldersearcher-scan-nightly` failed with exit 4 | A configured root was unreachable; the run's `output.log` names it. The previous index was kept. |
+| `run-scan-nightly.bat` exits 4 | A configured root was unreachable; the console output names it. The previous index was kept. |
 | Results show too many rows per item | `prune_email_branches` is off, or the item has no direct email-named child. |
 | Result rows are unreadably long | Raise `skip_depth` on the Folders tab and **Save Config**. |
 | "Folder does not exist" on double-click | The index is stale — rescan. |
@@ -171,7 +171,7 @@ Covers root normalization, legacy config migration, sectioned round-trip, legacy
 
 ## Logging
 
-Startup, config load/save, scan progress, search result counts, and errors are logged to the console. The headless CLI logs to stdout, which the nightly job captures in its `output.log`. Raise verbosity by changing the `logging.basicConfig` level in `foldersearcher.py`.
+Startup, config load/save, scan progress, search result counts, and errors are logged to the console. The headless CLI logs to stdout. Raise verbosity by changing the `logging.basicConfig` level in `foldersearcher.py`.
 
 ## License
 

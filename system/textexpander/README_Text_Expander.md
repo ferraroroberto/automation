@@ -29,7 +29,7 @@ The Text Expander module provides a Windows-native text expansion utility that m
    cd .\automation\system\textexpander
 
    # Install dependencies
-   .\..\..\..\.venv\Scripts\python.exe -m pip install -r requirements_text_expander.txt
+   ..\..\.venv\Scripts\python.exe -m pip install -r requirements_text_expander.txt
    ```
 
 2. **Launch Application**
@@ -172,7 +172,7 @@ When enabled, the application shows Windows notifications for:
 ### Common Issues
 
 **❌ "pynput library is required"**
-- Install dependencies: `.\..\..\..\.venv\Scripts\python.exe -m pip install -r requirements_text_expander.txt`
+- Install dependencies: `..\..\.venv\Scripts\python.exe -m pip install -r requirements_text_expander.txt`
 
 **❌ "Virtual environment not found"**
 - Ensure `.venv` exists in automation root

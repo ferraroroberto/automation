@@ -33,7 +33,7 @@ Extracts a password-protected (or plain) `.zip`, `.7z`, or `.rar` archive to a n
 
 Walks a directory tree and strips a trailing version tag (`v01`, `V02`, … any `[vV]` + 2 digits right before the extension) from every filename that has one, e.g. `report_v02.docx` → `report.docx`. If the de-versioned name already exists, the file is skipped (logged) rather than overwritten.
 
-- **How to run:** `python system/rename_files.py` — no command-line flags. The script prompts for the directory path with a plain `input('Enter the directory path: ')` call, and that call runs at module level (not inside a `main()`/`__main__` guard), so it fires as soon as the file is executed or imported.
+- **How to run:** `python system/rename_files.py` — no command-line flags. The script prompts for the directory path with a plain `input('Enter the directory path: ')` call inside its `if __name__ == "__main__":` block, so importing the file does not prompt.
 - **Requirements:** standard library only (`os`, `re`, `logging`).
 
 ## 📁 copy_git_project.py
