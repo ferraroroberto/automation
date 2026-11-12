@@ -16,6 +16,7 @@ from utils import (
     apply_column_widths,
     get_column_widths,
     read_params_from_txt_file,
+    require_notion_api_token,
 )
 
 
@@ -151,8 +152,7 @@ def main():
     params = read_params_from_txt_file(params_file_path)
     log.info("✅ Parameters loaded")
 
-    # Get the api_token
-    api_token = params['api_token']
+    api_token = require_notion_api_token()
 
     # Set the Excel file path and the dump path
     excel_path = params['excel_path']

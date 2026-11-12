@@ -2,7 +2,11 @@ import logging
 
 import pandas as pd
 from notion_client import APIResponseError, Client
-from utils import DEFAULT_PARAMS_FILE, read_params_from_txt_file
+from utils import (
+    DEFAULT_PARAMS_FILE,
+    read_params_from_txt_file,
+    require_notion_api_token,
+)
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +77,7 @@ def main():
     params = read_params_from_txt_file(params_file_path)
 
     sync_path = params['sync_path']
-    api_token = params['api_token']
+    api_token = require_notion_api_token()
     verbose = params['verbose'] == 'True'
 
     log.info("Loading Excel file...")

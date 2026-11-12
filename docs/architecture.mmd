@@ -60,7 +60,7 @@ flowchart TB
   GMWEB --> GMAILWEB["Gmail web UI"]
 
   subgraph notionbox["notion/"]
-    NUTILS["utils.py\nshared Notion client + legacy notion-params helper"]
+    NUTILS["utils.py\nshared Notion helpers + .env token reader + legacy notion-params (paths) helper"]
     NBUILD["build_newsletter.py"]
     NDB["notion_databases_dump/query/clean/\nadd_editorial/editorial.py"]
     NSYNC["notion_excel_sync.py · articles_sync/"]

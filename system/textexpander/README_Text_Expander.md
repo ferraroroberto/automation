@@ -25,11 +25,11 @@ The Text Expander module provides a Windows-native text expansion utility that m
 
 1. **Setup Environment**
    ```powershell
-   # Navigate to automation directory
-   cd .\automation\system\textexpander
+   # Navigate to the repo root
+   cd .\automation
 
    # Install dependencies
-   ..\..\.venv\Scripts\python.exe -m pip install -r requirements_text_expander.txt
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 
 2. **Launch Application**
@@ -172,7 +172,7 @@ When enabled, the application shows Windows notifications for:
 ### Common Issues
 
 **❌ "pynput library is required"**
-- Install dependencies: `..\..\.venv\Scripts\python.exe -m pip install -r requirements_text_expander.txt`
+- Install dependencies: `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` (from the repo root)
 
 **❌ "Virtual environment not found"**
 - Ensure `.venv` exists in automation root
@@ -272,6 +272,6 @@ core.add_abbreviation("mysig", "My Custom Signature")
 ---
 
 **Module Location**: `automation/system/textexpander/`
-**Dependencies**: See `requirements_text_expander.txt`
+**Dependencies**: See the root `requirements.txt`
 **Configuration**: `text_expander_config.json`
 **Launcher**: `run_text_expander.bat`

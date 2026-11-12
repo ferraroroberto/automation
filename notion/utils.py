@@ -26,7 +26,19 @@ DEFAULT_PARAMS_FILE = os.getenv("NOTION_PARAMS_FILE", "")
 # Seconds a Notion request may stall before it raises; shared with the normalizers' page updates.
 REQUEST_TIMEOUT_S = 30
 
-# Function to read the parameters from the txt file (legacy support)
+def require_notion_api_token() -> str:
+    """Return NOTION_API_TOKEN from the environment (loading `.env`), or raise ValueError.
+
+    Secrets live in `.env`; the legacy params file carries only paths and flags.
+    """
+    load_dotenv()
+    token = os.getenv("NOTION_API_TOKEN")
+    if not token:
+        raise ValueError("NOTION_API_TOKEN is not set; add it to .env.")
+    return token
+
+
+# Function to read the parameters from the txt file (legacy support: paths and flags only)
 def read_params_from_txt_file(file_path: str) -> Dict[str, str]:
     params = {}
     with open(file_path, 'r') as f:

@@ -2,15 +2,13 @@
 
 import argparse
 import logging
-import os
 import sys
 from calendar import monthrange
 from datetime import datetime, timedelta
 from typing import Optional
 
-from dotenv import load_dotenv
 from notion_client import Client
-from utils import DEFAULT_PARAMS_FILE, read_params_from_txt_file
+from utils import require_notion_api_token
 
 
 def setup_logging(debug: bool = False):
@@ -40,21 +38,10 @@ def editorial_date_range(now: Optional[datetime] = None) -> tuple[str, str]:
     return start.strftime(fmt), end.strftime(fmt)
 
 
-# Initialize Notion Client using parameters file or NOTION_API_TOKEN env var
-def init_notion_client(params_file_path, timeout_ms=180_000):
-    if params_file_path:
-        params = read_params_from_txt_file(params_file_path)
-        api_token = params["api_token"]
-    else:
-        load_dotenv()
-        api_token = os.getenv("NOTION_API_TOKEN")
-        if not api_token:
-            raise ValueError(
-                "No params file configured and NOTION_API_TOKEN is not set. "
-                "Set NOTION_PARAMS_FILE or add NOTION_API_TOKEN to .env."
-            )
+# Initialize Notion Client from the NOTION_API_TOKEN env var (.env)
+def init_notion_client(timeout_ms=180_000):
     # Default SDK timeout is 60s; large DBs or slow links often need more.
-    return Client(auth=api_token, timeout_ms=timeout_ms)
+    return Client(auth=require_notion_api_token(), timeout_ms=timeout_ms)
 
 
 # Format database ID with hyphens
@@ -203,12 +190,6 @@ def main():
         description="Add missing editorial calendar rows for the current and next calendar month."
     )
     parser.add_argument(
-        "--params",
-        type=str,
-        default=DEFAULT_PARAMS_FILE,
-        help="Path to notion-params.txt (api_token)",
-    )
-    parser.add_argument(
         "--database-id",
         type=str,
         default="ee23dec3222e4412baaf0d129d0bda9c",
@@ -223,7 +204,7 @@ def main():
     logging.info("✅ Editorial DB sync starting (current month + next month)")
 
     try:
-        notion = init_notion_client(args.params)
+        notion = init_notion_client()
         add_missing_dates(notion, args.database_id, start_date, end_date)
     except Exception as e:
         logging.error(f"❌ Fatal error: {e}")

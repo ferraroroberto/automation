@@ -5,7 +5,11 @@ import pandas as pd
 from notion_client import Client
 
 # requirements: custom functions
-from utils import DEFAULT_PARAMS_FILE, read_params_from_txt_file
+from utils import (
+    DEFAULT_PARAMS_FILE,
+    read_params_from_txt_file,
+    require_notion_api_token,
+)
 
 log = logging.getLogger(__name__)
 
@@ -34,11 +38,8 @@ if __name__ == "__main__":
     params_file_path = DEFAULT_PARAMS_FILE
     params = read_params_from_txt_file(params_file_path)
 
-    # Get the api_token
-    api_token = params['api_token']
-
     # Authenticate
-    notion = Client(auth=api_token)
+    notion = Client(auth=require_notion_api_token())
 
     # Get the Excel file path and the Notion workspace URL
     db_excel_path = params['db_excel_path']
