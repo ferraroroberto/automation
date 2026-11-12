@@ -49,7 +49,7 @@ Each category can be toggled independently — the toggle state lives on the `Da
 
 ## 📄 convert_pdf_to_txt.py
 
-Extracts all text from a PDF (page by page, via `PyPDF2.PdfReader`) and writes it to a `.txt` file with the same base name, next to the source PDF. Logs the input path, any extraction/save errors, and the final word count.
+Extracts all text from a PDF (page by page, via `pypdf.PdfReader`) and writes it to a `.txt` file with the same base name, next to the source PDF. Logs the input path, any extraction/save errors, and the final word count.
 
 ```bash
 python text/convert_pdf_to_txt.py [path/to/file.pdf]
@@ -62,7 +62,7 @@ Output is always `<input-basename>.txt` written next to the input file, UTF-8 en
 
 ### Requirements
 
-- `PyPDF2` — PDF parsing and text extraction
+- `pypdf` — PDF parsing and text extraction
 - `tkinter` (stdlib) — file-picker dialog when no path is passed on the command line
 
 ### Packaging

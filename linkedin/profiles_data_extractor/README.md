@@ -73,9 +73,9 @@ Edit `common/excel_format_spec.json` to customize:
 
 The system expects and produces Excel files with these standard columns:
 - `name`: Full profile name (string)
-- `date connected`: Connection date (datetime)
-- `answered`: Response status (0/1 integer)
-- `chat_url`: LinkedIn chat URL (string, auto-converted to hyperlinks)
+- `date_connected`: Connection date (datetime)
+- `ind_answered`: Response status (0/1 integer)
+- `url_chat`: LinkedIn chat URL (string, auto-converted to hyperlinks)
 
 ## 🔧 Dependencies
 
@@ -96,7 +96,7 @@ pip install pandas pynput requests websocket-client streamlit openpyxl
 - **Configuration Centralization**: All settings managed through `common/` folder
 - **Relative Imports**: Maintain modularity and portability
 - **Error Handling**: Comprehensive logging and user feedback
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Windows only**: The DevTools version finds the Chrome window through `win32gui`
 
 ## 🔍 Workflow Overview
 
