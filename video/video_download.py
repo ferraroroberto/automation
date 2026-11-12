@@ -156,13 +156,18 @@ def download_direct_url(url, output_path, filename, status_callback=None, progre
         try:
             with pooled_request("GET", url, stream=True, headers=headers, timeout=30) as response:
                 response.raise_for_status()
+                # Only a 206 continues the partial file; a server that ignores Range answers
+                # 200 with the whole body, which must replace the file, not be appended to it.
+                resuming = existing_file_size > 0 and response.status_code == 206
+                if not resuming:
+                    existing_file_size = 0
                 total_size = int(response.headers.get('content-length', 0)) + existing_file_size
                 if total_size == 0:
                     total_size = existing_file_size
                 block_size = 8192
                 if status_callback:
                     status_callback(f"Downloading: {url[:50]}...")
-                with runtime_files.open_for_write(output_file, 'ab') as f:
+                with runtime_files.open_for_write(output_file, 'ab' if resuming else 'wb') as f:
                     for data in response.iter_content(block_size):
                         f.write(data)
                         if total_size > 0 and progress_callback:

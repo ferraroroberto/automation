@@ -384,7 +384,8 @@ class NotionArticlesSync(PropertyMappingMixin, ChangeDetectionMixin):
         
         if start_cursor:
             data["start_cursor"] = start_cursor
-        elif filter_after:
+        # A cursor only continues the query that produced it, so every page repeats the filter.
+        if filter_after:
             data["filter"] = {
                 "timestamp": "last_edited_time",
                 "last_edited_time": {

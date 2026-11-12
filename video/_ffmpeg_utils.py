@@ -103,17 +103,25 @@ def run_ffmpeg_with_progress(
     process = subprocess.Popen(
         cmd,
         stderr=subprocess.PIPE,
-        universal_newlines=True,
+        # ffmpeg writes UTF-8 paths; the locale codec (cp1252) raises on bytes it cannot map.
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,
         creationflags=NO_WINDOW,
     )
-    for line in process.stderr:
-        if not progress_callback or "time=" not in line:
-            continue
-        elapsed = parse_ffmpeg_time(line)
-        if elapsed is None:
-            continue
-        percent = 100.0 * elapsed / total_seconds if total_seconds else elapsed * 2
-        progress_callback(min(max_percent, percent))
-    process.wait()
+    try:
+        for line in process.stderr:
+            if not progress_callback or "time=" not in line:
+                continue
+            elapsed = parse_ffmpeg_time(line)
+            if elapsed is None:
+                continue
+            percent = 100.0 * elapsed / total_seconds if total_seconds else elapsed * 2
+            progress_callback(min(max_percent, percent))
+    finally:
+        # A raising callback must not orphan ffmpeg.
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        process.stderr.close()
     return process.returncode

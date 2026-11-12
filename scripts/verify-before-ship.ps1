@@ -208,6 +208,14 @@ try {
     & $python -m unittest discover -s tests/video -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "gpu_recovery console decoding unittest suite failed." }
 
+    Write-Host "==> unittest (tests/text)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/text -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "text redaction unittest suite failed." }
+
+    Write-Host "==> unittest (tests/smart_life)..." -ForegroundColor Cyan
+    & $python -m unittest discover -s tests/smart_life -p "test_*.py"
+    if ($LASTEXITCODE -ne 0) { Fail "smart_life unittest suite failed." }
+
     Write-Host "==> pytest (tests/parking)..." -ForegroundColor Cyan
     & $python -m pytest -q tests/parking
     if ($LASTEXITCODE -ne 0) { Fail "parking pytest suite failed." }

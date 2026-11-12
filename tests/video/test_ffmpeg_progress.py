@@ -1,8 +1,10 @@
 """The shared ffmpeg progress runner parses `time=` lines and reports percent."""
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "video"))
 
@@ -54,6 +56,38 @@ class RunFfmpegWithProgressTests(unittest.TestCase):
     def test_nonzero_exit_code_is_returned(self):
         code = _ffmpeg_utils.run_ffmpeg_with_progress(_fake_ffmpeg([], exit_code=3), 10.0)
         self.assertEqual(code, 3)
+
+    def test_utf8_bytes_cp1252_cannot_map_do_not_crash_the_runner(self):
+        # "Ángel.mp4" in UTF-8 starts 0xC3 0x81; 0x81 is undefined in cp1252.
+        script = (
+            "import sys\n"
+            "sys.stderr.buffer.write('Input #0, Ángel.mp4\\n'.encode('utf-8'))\n"
+            "sys.stderr.buffer.write(b'time=00:00:05.00\\n')\n"
+        )
+        seen = []
+        # Pinned explicitly: under PYTHONUTF8=1 the locale codec is already UTF-8 and would hide the bug.
+        with mock.patch.object(_ffmpeg_utils.subprocess, "Popen", wraps=subprocess.Popen) as popen:
+            code = _ffmpeg_utils.run_ffmpeg_with_progress([sys.executable, "-c", script], 10.0, seen.append)
+        self.assertEqual(popen.call_args.kwargs["encoding"], "utf-8")
+        self.assertEqual(code, 0)
+        self.assertEqual(seen, [50.0])
+
+    def test_failing_callback_does_not_orphan_ffmpeg(self):
+        script = "import sys, time\nsys.stderr.write('time=00:00:05.00\\n')\nsys.stderr.flush()\ntime.sleep(60)\n"
+        spawned = []
+        real_popen = subprocess.Popen
+
+        def capture(*args, **kwargs):
+            spawned.append(real_popen(*args, **kwargs))
+            return spawned[-1]
+
+        def boom(_percent):
+            raise RuntimeError("callback failed")
+
+        with mock.patch.object(_ffmpeg_utils.subprocess, "Popen", side_effect=capture):
+            with self.assertRaises(RuntimeError):
+                _ffmpeg_utils.run_ffmpeg_with_progress([sys.executable, "-c", script], 10.0, boom)
+        self.assertIsNotNone(spawned[0].poll())
 
 
 if __name__ == "__main__":
