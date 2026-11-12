@@ -42,6 +42,7 @@ from pygments.formatters import HtmlFormatter
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
 from system._lib import runtime_files  # noqa: E402
+from system._lib.single_instance import acquire_named_mutex  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -288,7 +289,6 @@ class MarkdownPreviewApp:
     # wakes and shows its window. Lives alongside the mutex so "already running"
     # becomes "raise window" rather than a dead-end error box.
     _SHOW_EVENT_NAME = "markdown_preview_show_v1"
-    _ERROR_ALREADY_EXISTS = 183
 
     def __init__(self, initial_file: Optional[Path]):
         self.current_file: Optional[Path] = initial_file
@@ -440,12 +440,10 @@ class MarkdownPreviewApp:
         """Take the named mutex. If another instance already holds it, signal
         it to raise its window and return False so this process exits cleanly.
         """
-        k = ctypes.windll.kernel32
-        k.CreateMutexW.restype = wintypes.HANDLE
-        k.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
-        self._mutex = k.CreateMutexW(None, True, self._MUTEX_NAME)
-        if k.GetLastError() != self._ERROR_ALREADY_EXISTS:
+        self._mutex, acquired = acquire_named_mutex(self._MUTEX_NAME)
+        if acquired:
             return True
+        k = ctypes.windll.kernel32
         # Another instance is running — hand it the file, then ask it to show its window.
         if self.current_file is not None:
             write_handoff(self.current_file.resolve())

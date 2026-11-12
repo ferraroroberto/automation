@@ -42,20 +42,14 @@ class NotionNewsletterBuilder:
         self.config = self._load_config(config_path)
         
         # Get config values
-        self.notion_api_key = os.getenv('NOTION_API_TOKEN') or self.config.get('notion_api_key')
         self.articles_db_id = self.config.get('articles_database_id')
         self.newsletter_db_id = self.config.get('newsletter_database_id')
-        
+
         # Validate required config values
-        if not all([self.notion_api_key, self.articles_db_id, self.newsletter_db_id]):
+        if not all([self.articles_db_id, self.newsletter_db_id]):
             raise ValueError("Missing required configuration values")
-        
-        # Set up Notion API headers
-        self.headers = {
-            'Authorization': f'Bearer {self.notion_api_key}',
-            'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json'
-        }
+
+        self.headers = notion_utils.build_notion_headers(notion_utils.require_notion_api_token())
         
         # Define the three topic categories
         self.topics = [

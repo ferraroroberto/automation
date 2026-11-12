@@ -7,7 +7,7 @@ PIL load -> RGB convert -> save JPG -> count/skip -> completion messagebox"
 scaffolding for heic_to_jpg_converter.py and png_to_jpg_converter.py.
 
 The two callers differ meaningfully in how they make an image JPEG-safe
-(HEIC: naive RGB convert; PNG: alpha-composite onto a white background),
+(HEIC: naive RGB convert; PNG: `flatten_to_rgb`, alpha-composite onto white),
 whether they protect an existing same-named .jpg from being overwritten
 (HEIC: yes; PNG: no - preserved as-is, not fixed here), and their JPEG
 save quality kwargs - so only the genuinely identical scaffolding lives
@@ -21,6 +21,19 @@ from tkinter import filedialog, messagebox
 from typing import Callable, Dict, Iterable
 
 from PIL import Image, UnidentifiedImageError
+
+
+def flatten_to_rgb(img: "Image.Image") -> "Image.Image":
+    """Return an RGB image, compositing any transparency onto white (JPEG and PDF pages have no alpha)."""
+    if img.mode in ("RGBA", "LA", "P"):
+        if img.mode == "P":
+            img = img.convert("RGBA")
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[-1])  # the alpha band is last in RGBA and LA
+        return background
+    if img.mode != "RGB":
+        return img.convert("RGB")
+    return img
 
 
 def select_folder(dialog_title: str) -> str:

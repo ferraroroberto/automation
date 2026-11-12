@@ -62,8 +62,9 @@ STAND_IN_SOURCE = (
 class DecoderPromotionTests(unittest.TestCase):
     """#106's decoder moved to system/_lib - it must not have forked."""
 
-    def test_gpu_recovery_uses_the_shared_decoder(self) -> None:
-        self.assertIs(gpu_recovery.decode_console_bytes, console_output.decode_console_bytes)
+    def test_gpu_recovery_uses_the_shared_runner(self) -> None:
+        self.assertIs(gpu_recovery._run_console, console_output.run_console)
+        self.assertIs(gpu_recovery.ConsoleRun, console_output.ConsoleRun)
 
     def test_netsh_still_exposes_the_same_decoder_object(self) -> None:
         sys.path.insert(0, str(REPO_ROOT / "system" / "wifi"))
@@ -85,34 +86,38 @@ class NoInheritedDecodingTests(unittest.TestCase):
 
     @staticmethod
     def _spawn_calls(source: str) -> list[str]:
-        """Return the argument text of every `subprocess.run(...)` in a source."""
-        calls = []
-        for chunk in source.split("subprocess.run(")[1:]:
-            depth, end = 1, 0
-            for end, char in enumerate(chunk):
-                depth += (char == "(") - (char == ")")
-                if depth == 0:
-                    break
-            calls.append(chunk[:end])
-        return calls
+        """Return the source text of every `subprocess.run(...)` call in a module."""
+        return [
+            ast.get_source_segment(source, node) or ""
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "run"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "subprocess"
+        ]
 
-    def test_gpu_recovery_spawns_once_through_the_shared_runner(self) -> None:
+    def test_gpu_recovery_never_spawns_itself(self) -> None:
         source = (VIDEO_DIR / "gpu_recovery.py").read_text(encoding="utf-8")
         self.assertEqual(
-            len(self._spawn_calls(source)), 1, "every console tool must go through _run_console"
+            len(self._spawn_calls(source)), 0, "every console tool must go through run_console"
         )
 
+    def test_the_shared_runner_spawns_once(self) -> None:
+        source = (REPO_ROOT / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
+        self.assertEqual(len(self._spawn_calls(source)), 1)
+
     def test_the_spawn_never_decodes_with_the_parent_locale(self) -> None:
-        source = (VIDEO_DIR / "gpu_recovery.py").read_text(encoding="utf-8")
+        source = (REPO_ROOT / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
         for call in self._spawn_calls(source):
             self.assertNotIn("text=", call, "the spawn decodes with the parent's locale")
             self.assertNotIn("encoding=", call, "the spawn pins a decode instead of capturing bytes")
 
     def test_the_spawn_captures_bytes_and_suppresses_the_console_window(self) -> None:
-        source = (VIDEO_DIR / "gpu_recovery.py").read_text(encoding="utf-8")
+        source = (REPO_ROOT / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
         for call in self._spawn_calls(source):
             self.assertIn("capture_output=True", call)
-            self.assertIn("creationflags=_NO_WINDOW", call)
+            self.assertIn("creationflags=NO_WINDOW", call)
 
 
 class TriStateTests(unittest.TestCase):
@@ -209,7 +214,7 @@ def _read_smi_in_child(utf8_mode: str, stand_in: Path) -> subprocess.CompletedPr
         capture_output=True,
         env=env,
         cwd=str(VIDEO_DIR),
-        creationflags=gpu_recovery._NO_WINDOW,
+        creationflags=console_output.NO_WINDOW,
     )
 
 

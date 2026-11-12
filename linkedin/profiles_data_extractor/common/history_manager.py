@@ -1,10 +1,9 @@
-import json
 import os
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import pandas as pd
 from _logging_setup import setup_logging
+from profiles_config import load_profiles_config
 
 logger = setup_logging(__name__)
 
@@ -16,26 +15,13 @@ HISTORY_COLUMNS = [
     'date_discarded'
 ]
 
-def load_config():
-    """Load configuration from the JSON file in the same directory."""
-    config_path = Path(__file__).parent / "linkedin_profiles_data.json"
-    if not config_path.exists():
-        logger.error(f"Config file not found at {config_path}")
-        return None
-    
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Error loading config: {e}")
-        return None
-
 def get_history_file_path():
     """Get the path to the history file from config."""
-    config = load_config()
-    if config:
-        return config.get("history_file")
-    return None
+    try:
+        return load_profiles_config().get("history_file")
+    except (OSError, ValueError) as e:
+        logger.error(f"Error loading config: {e}")
+        return None
 
 def migrate_history_columns(history_df):
     """Migrate existing history file to new column structure."""

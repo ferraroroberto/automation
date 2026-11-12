@@ -330,6 +330,35 @@ def apply_format_from_json(excel_path: str, json_path: str) -> bool:
         return False
 
 
+def apply_excel_formatting(excel_path: str, json_path: str) -> bool:
+    """Turn URL columns into hyperlinks, then apply the JSON format spec.
+
+    Every entry point (the Streamlit button and the devtools orchestrator) goes
+    through this order, so the workbook looks the same whichever saved it.
+    """
+    try:
+        logger.info("🔗 Converting URL columns to hyperlinks...")
+        url_success = convert_url_columns_to_hyperlinks(excel_path)
+        if url_success:
+            logger.info("✅ URL hyperlinks conversion completed")
+        else:
+            logger.error("❌ URL hyperlinks conversion failed")
+
+        logger.info("🎨 Applying formatting from JSON specification...")
+        format_success = apply_format_from_json(excel_path, json_path)
+        if format_success:
+            logger.info("✅ JSON formatting applied successfully")
+        else:
+            logger.error("❌ JSON formatting application failed")
+
+        overall_success = url_success and format_success
+        logger.info("🎯 Excel formatting process %s", 'completed successfully' if overall_success else 'failed')
+        return overall_success
+    except Exception as e:
+        logger.error("❌ Error applying Excel formatting: %s", e)
+        return False
+
+
 def _convert_color_string(color_str: Optional[str]) -> Optional[str]:
     """Convert color string to aRGB hex format if needed.
     

@@ -6,6 +6,7 @@ import time
 
 import pandas as pd
 from notion_client import Client
+from notion_client.helpers import iterate_paginated_api
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -38,17 +39,6 @@ def update_last_download_in_excel(database, excel_path, n_rows, output_path):
     log.info("💾 Updating metadata for database '%s'", database['name'])
     df.to_excel(excel_path, index=False, engine='openpyxl')
 
-def query_database_rows(notion_client, data_source_id, start_cursor=None):
-    """
-    Wrapper to query a database via its data source (required in notion-client 2.7.0+).
-    """
-    response = notion_client.data_sources.query(
-        data_source_id,
-        start_cursor=start_cursor,
-    )
-    return response
-
-
 def download_database_data(database, output_folder, api_token, excel_path):
     # Authenticate
     log.info("🔐 Authenticating with Notion API...")
@@ -62,9 +52,6 @@ def download_database_data(database, output_folder, api_token, excel_path):
         raise ValueError(f"❌ No data sources associated with database {database['name']}")
     data_source_id = data_sources[0]["id"]
 
-    # Initialize variables for pagination
-    has_more = True
-    start_cursor = None
     data = []
     id_list = []  # variable to store the internal IDs of the rows
     rows_processed = 0
@@ -72,36 +59,23 @@ def download_database_data(database, output_folder, api_token, excel_path):
 
     log.info("🚀 Starting to save database '%s'", database['name'])
     log.info("📥 Fetching data from database '%s'...", database['name'])
-    while has_more:
-        # Query the database data with a start cursor if provided
-        response = query_database_rows(
-            notion_client=notion,
-            data_source_id=data_source_id,
-            start_cursor=start_cursor,
-        )
-        results = response.get("results")
-        start_cursor = response.get("next_cursor")
+    # Transform the data into a DataFrame
+    for row in iterate_paginated_api(notion.data_sources.query, data_source_id=data_source_id):
+        record = {}
+        id_list.append(row['id'])  # Add the internal ID of the row to the id_list
+        for key, value in row["properties"].items():
+            prop_type = value.get("type")
+            if prop_type:
+                record[key] = value.get(prop_type)
+            else:
+                record[key] = None
+        data.append(record)
+        rows_processed += 1
 
-        # Transform the data into a DataFrame
-        for row in results:
-            record = {}
-            id_list.append(row['id'])  # Add the internal ID of the row to the id_list
-            for key, value in row["properties"].items():
-                prop_type = value.get("type")
-                if prop_type:
-                    record[key] = value.get(prop_type)
-                else:
-                    record[key] = None
-            data.append(record)
-            rows_processed += 1
-
-            # Print progress every 100 rows
-            if rows_processed % 100 == 0:
-                elapsed_time = datetime.datetime.now() - start_time
-                log.info("📊 %s - Processed %d rows - Time elapsed: %s", datetime.datetime.now(), rows_processed, elapsed_time)
-
-        # Check if there are more pages to be fetched
-        has_more = start_cursor is not None
+        # Print progress every 100 rows
+        if rows_processed % 100 == 0:
+            elapsed_time = datetime.datetime.now() - start_time
+            log.info("📊 %s - Processed %d rows - Time elapsed: %s", datetime.datetime.now(), rows_processed, elapsed_time)
 
     log.info("🔨 Creating DataFrame from %d records...", len(data))
     df = pd.DataFrame(data)

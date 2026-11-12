@@ -14,10 +14,8 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from excel_format_manager import (
-    apply_format_from_json,
-    convert_url_columns_to_hyperlinks,
-)
+from excel_format_manager import apply_excel_formatting
+from history_manager import log_history
 
 log = logging.getLogger(__name__)
 
@@ -227,31 +225,41 @@ def update_existing_record(df, original_name, record_data):
         return df, "not_found"
 
 
-def apply_excel_formatting(excel_path, json_path):
-    """Apply Excel formatting: convert URLs to hyperlinks and apply format from JSON."""
-    try:
-        log.info("🔗 Converting URL columns to hyperlinks...")
-        # Convert URL columns to hyperlinks
-        url_success = convert_url_columns_to_hyperlinks(excel_path)
-        if url_success:
-            log.info("✅ URL hyperlinks conversion completed")
-        else:
-            log.error("❌ URL hyperlinks conversion failed")
+def reach_out_type_options(df, current=''):
+    """Selectbox options: an empty choice, the distinct reach-out types in the data, and the record's own."""
+    types = set(df['reach_out_type'].dropna().unique()) if 'reach_out_type' in df.columns else set()
+    if current:
+        types.add(current)
+    return ['', *sorted(types)]
 
-        log.info("🎨 Applying formatting from JSON specification...")
-        # Apply formatting from JSON
-        format_success = apply_format_from_json(excel_path, json_path)
-        if format_success:
-            log.info("✅ JSON formatting applied successfully")
-        else:
-            log.error("❌ JSON formatting application failed")
 
-        overall_success = url_success and format_success
-        log.info("🎯 Excel formatting process %s", 'completed successfully' if overall_success else 'failed')
-        return overall_success
-    except Exception as e:
-        log.error("❌ Error applying Excel formatting: %s", e)
-        return False
+def apply_recontact_rule(new_contact_day, original_contact_day, revocation_date):
+    """Return the revocation date to save: a new contact date clears it, with a notice when one was set."""
+    is_new_day = pd.notna(new_contact_day) and (
+        pd.isna(original_contact_day) or pd.Timestamp(new_contact_day) != pd.Timestamp(original_contact_day)
+    )
+    if not is_new_day:
+        return revocation_date
+    if pd.notna(revocation_date):
+        st.info("ℹ️ Revocation date automatically cleared because a new contact date was set.")
+    return None
+
+
+def save_record_edit(df, data_path, original_name, record_data, original_record, success_message, action="update"):
+    """Update the named record, write the workbook and log the edit to history under ``action``.
+
+    Returns "saved", "not_found" or "failed"; the caller owns resetting its page state.
+    """
+    updated_df, result = update_existing_record(df, original_name, record_data)
+    if result == "not_found":
+        st.error("❌ Original record not found. It may have been deleted.")
+        return "not_found"
+    if not save_to_excel(updated_df, data_path):
+        st.error("❌ Failed to save changes!")
+        return "failed"
+    st.success(success_message)
+    log_history(record_data, action=action, original_data=original_record)
+    return "saved"
 
 
 def render_excel_formatting_section(data_path, button_key):

@@ -46,5 +46,22 @@ class SecretSourceTests(unittest.TestCase):
         self.assertEqual(offenders, [], "read NOTION_API_TOKEN via utils.require_notion_api_token")
 
 
+class NotionSharedHelperTests(unittest.TestCase):
+    """The Notion tools share one token resolver and one header builder in `notion/utils.py`."""
+
+    # A direct token read or a hand-built API-version header: the copies that had drifted apart.
+    HAND_ROLLED = re.compile(r"""getenv\(\s*['"]NOTION_API_TOKEN['"]|['"]Notion-Version['"]""")
+
+    def test_tools_use_the_utils_token_resolver_and_header_builder(self) -> None:
+        offenders = [
+            p.relative_to(REPO_ROOT).as_posix()
+            for p in (REPO_ROOT / "notion").glob("*.py")
+            if p.name != "utils.py" and self.HAND_ROLLED.search(p.read_text(encoding="utf-8", errors="replace"))
+        ]
+        self.assertEqual(
+            offenders, [], "use utils.require_notion_api_token and utils.build_notion_headers"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

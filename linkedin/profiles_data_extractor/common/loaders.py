@@ -5,13 +5,12 @@ All Streamlit pages inside this package import ``load_config`` and
 ``load_excel_data`` from here so the loading logic lives in exactly one place.
 """
 
-import json
 import os
-from pathlib import Path
 from typing import Optional
 
 import pandas as pd
 import streamlit as st
+from profiles_config import CONFIG_PATH, load_profiles_config
 
 
 def load_config() -> Optional[dict]:
@@ -20,17 +19,13 @@ def load_config() -> Optional[dict]:
     Returns the parsed JSON dict, or ``None`` on any error (displays
     ``st.error`` in the Streamlit UI before returning).
     """
-    config_path = Path(__file__).parent / "linkedin_profiles_data.json"
-    if not config_path.exists():
-        st.error(f"Config file not found at {config_path}")
-        return None
-
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
+        return load_profiles_config()
+    except FileNotFoundError:
+        st.error(f"Config file not found at {CONFIG_PATH}")
+    except (OSError, ValueError) as e:
         st.error(f"Error loading config: {e}")
-        return None
+    return None
 
 
 def load_excel_data(file_path: str) -> Optional[pd.DataFrame]:

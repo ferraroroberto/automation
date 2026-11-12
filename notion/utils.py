@@ -71,31 +71,6 @@ def load_json_config(config_path: str) -> Dict[str, Any]:
         log.error("❌ Error parsing JSON configuration: %s", e)
         raise
 
-# Function to load environment variables from .env file
-def load_env_variables(env_path: Optional[str] = None) -> Dict[str, Optional[str]]:
-    """
-    Load environment variables from .env file.
-
-    Parameters:
-    - env_path: Optional path to .env file. If None, searches in current directory
-
-    Returns:
-    - Dictionary containing environment variables
-    """
-    if env_path:
-        load_dotenv(env_path)
-    else:
-        load_dotenv()
-
-    env_vars = {
-        'notion_api_token': os.getenv('NOTION_API_TOKEN'),
-        'notion_token_v2': os.getenv('NOTION_TOKEN_V2'),
-        'notion_workspace_url': os.getenv('NOTION_WORKSPACE_URL')
-    }
-
-    log.info("✅ Environment variables loaded")
-    return env_vars
-
 # Get the column widths from the existing Excel file, initializing column_widths as an empty list first
 def get_column_widths(excel_path: str) -> List[Any]:
     column_widths = []
@@ -157,11 +132,11 @@ def resolve_notion_credentials(config: Dict[str, Any]) -> Tuple[str, str, Dict[s
     normalize_names.py and normalize_url.py. Raises ValueError if either the
     API key or the database_id can't be resolved.
     """
-    api_key = os.getenv('NOTION_API_TOKEN') or config.get('notion_api_key')
+    api_key = require_notion_api_token()
     database_id = config.get('database_id')
 
-    if not all([api_key, database_id]):
-        raise ValueError("Missing required configuration values: notion_api_key and database_id")
+    if not database_id:
+        raise ValueError("Missing required configuration value: database_id")
 
     return api_key, database_id, build_notion_headers(api_key)
 
