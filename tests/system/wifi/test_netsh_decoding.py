@@ -206,10 +206,10 @@ class NoInheritedDecodingTests(unittest.TestCase):
             self.assertNotIn("text=True", source, f"{name} decodes with the parent's locale")
             self.assertNotIn("encoding='utf-8'", source, f"{name} pins a strict utf-8 decode")
 
-    def test_helper_captures_bytes_and_suppresses_the_console_window(self) -> None:
+    def test_helper_runs_netsh_through_the_shared_console_runner(self) -> None:
         source = (WIFI_DIR / "_netsh.py").read_text(encoding="utf-8")
-        self.assertIn("capture_output=True", source)
-        self.assertIn("creationflags=NO_WINDOW", source)
+        self.assertNotIn("import subprocess", source, "run_netsh must reuse console_output.run_console")
+        self.assertIn("run_console(", source)
 
 
 if __name__ == "__main__":

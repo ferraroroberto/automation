@@ -5,6 +5,7 @@ from tkinter import filedialog, messagebox
 from typing import Optional
 
 import pillow_heif
+from _image_to_jpg_converter import flatten_to_rgb
 from PIL import Image
 
 pillow_heif.register_heif_opener()
@@ -26,15 +27,7 @@ def images_to_pdf(image_paths: list[Path], output_path: Path) -> None:
     pages: list[Image.Image] = []
     for path in image_paths:
         img = Image.open(path)
-        if img.mode in ("RGBA", "LA", "P"):
-            bg = Image.new("RGB", img.size, (255, 255, 255))
-            if img.mode == "P":
-                img = img.convert("RGBA")
-            bg.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
-            img = bg
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
-        pages.append(img)
+        pages.append(flatten_to_rgb(img))
 
     if not pages:
         raise ValueError("No valid images to save.")

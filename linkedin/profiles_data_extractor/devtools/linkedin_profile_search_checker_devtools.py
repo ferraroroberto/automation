@@ -5,14 +5,22 @@ Uses Chrome DevTools Protocol to directly query DOM elements for profile names
 and pagination information, eliminating the need for text copy-paste operations.
 """
 
-import json
 import os
+import sys
 import time
 from typing import Dict, List, Optional, Set
 
 import pandas as pd
 from _chrome_client import ChromeDevToolsClient, activate_chrome, setup_logging
 from pynput import keyboard
+
+# The sibling common/ package holds the shared config loader; it bare-imports its own helpers.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "common"))
+from profiles_config import (  # noqa: E402
+    CONFIG_PATH,
+    existing_contact_names,
+    load_profiles_config,
+)
 
 logger = setup_logging(__name__)
 
@@ -28,26 +36,9 @@ class LinkedInProfileSearchCheckerDevTools:
             debug_port: Chrome remote debugging port.
         """
         self.keyboard_controller = keyboard.Controller()
-        self.config = self.load_config(config_path)
+        self.config = load_profiles_config(config_path)
+        logger.info(f"✅ Configuration loaded from {config_path}")
         self.chrome = ChromeDevToolsClient(debug_port)
-
-    def load_config(self, config_path: str) -> Dict:
-        """Load configuration from JSON file.
-
-        Args:
-            config_path: Path to the configuration file.
-
-        Returns:
-            Configuration dictionary.
-        """
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            logger.info(f"✅ Configuration loaded from {config_path}")
-            return config
-        except Exception as e:
-            logger.error(f"❌ Failed to load configuration: {e}")
-            raise
 
     def extract_profile_names_from_dom(self) -> List[str]:
         """Extract profile names directly from DOM using DevTools.
@@ -289,13 +280,7 @@ class LinkedInProfileSearchCheckerDevTools:
             df = pd.read_excel(destination_file, engine='openpyxl')
             logger.info(f"📖 Read existing Excel file with {len(df)} rows")
 
-            existing_names = set()
-            if 'name' in df.columns:
-                existing_names = set(
-                    name.lower().strip()
-                    for name in df['name'].dropna()
-                    if isinstance(name, str) and name.strip()
-                )
+            existing_names = existing_contact_names(df)
 
             logger.info(f"✅ Loaded {len(existing_names)} existing contact names")
             return existing_names
@@ -396,19 +381,13 @@ class LinkedInProfileSearchCheckerDevTools:
 
 def main() -> None:
     """Main execution function."""
-    # Load configuration from the common directory
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    common_dir = os.path.join(os.path.dirname(script_dir), "common")
-    config_path = os.path.join(common_dir, "linkedin_profiles_data.json")
-
-    if not os.path.exists(config_path):
-        logger.error(f"❌ Configuration file not found: {config_path}")
+    if not CONFIG_PATH.exists():
+        logger.error(f"❌ Configuration file not found: {CONFIG_PATH}")
         logger.error(f"   Current working directory: {os.getcwd()}")
-        logger.error(f"   Script directory: {script_dir}")
         return
 
     # Initialize and run DevTools checker
-    checker = LinkedInProfileSearchCheckerDevTools(config_path)
+    checker = LinkedInProfileSearchCheckerDevTools(CONFIG_PATH)
     checker.run_check()
 
 

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from _image_to_jpg_converter import (
     convert_folder_to_jpg,
+    flatten_to_rgb,
     select_folder,
     show_completion_messagebox,
 )
@@ -21,27 +22,13 @@ def validate_image_file(file_path: Path) -> bool:
         logger.error("Cannot identify image file '%s': %s", file_path, e)
         return False
 
-def _png_to_rgb(img: "Image.Image") -> "Image.Image":
-    """Convert to RGB if necessary (JPG doesn't support transparency)."""
-    if img.mode in ('RGBA', 'LA', 'P'):
-        # Create white background for transparent images
-        background = Image.new('RGB', img.size, (255, 255, 255))
-        if img.mode == 'P':
-            img = img.convert('RGBA')
-        background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
-        img = background
-    elif img.mode != 'RGB':
-        img = img.convert('RGB')
-    return img
-
-
 def convert_png_to_jpg(folder_path: str) -> None:
     """Convert all PNG images in the folder to JPG format with improved error handling"""
     convert_folder_to_jpg(
         folder_path,
         source_extensions=['.png'],
         validate_fn=validate_image_file,
-        convert_to_rgb_fn=_png_to_rgb,
+        convert_to_rgb_fn=flatten_to_rgb,
         save_kwargs={'quality': 95, 'optimize': True},
         # Note: unlike heic_to_jpg_converter.py, this does NOT protect an
         # existing same-named .jpg from being overwritten - preserved as-is

@@ -2,6 +2,7 @@ import logging
 
 import pandas as pd
 from notion_client import APIResponseError, Client
+from notion_client.helpers import collect_paginated_api
 from utils import (
     DEFAULT_PARAMS_FILE,
     read_params_from_txt_file,
@@ -11,33 +12,12 @@ from utils import (
 log = logging.getLogger(__name__)
 
 
-def _count_rows(client: Client, data_source_id: str) -> int:
-    """Count the pages of a data source, paginating fully."""
-    total_rows = 0
-    start_cursor = None
-    while True:
-        page = client.data_sources.query(data_source_id, start_cursor=start_cursor)
-        total_rows += len(page['results'])
-        if not page.get('has_more'):
-            break
-        start_cursor = page.get('next_cursor')
-    return total_rows
-
-
 def _list_page_ids(client: Client, data_source_id: str) -> list:
-    """Collect every page id of a data source, paginating via next_cursor."""
-    # Collect every page id first (paginating via next_cursor); archiving
-    # mutates the query result set, so gather ids before archiving to avoid
-    # skipping pages that shift out of later pages.
-    page_ids = []
-    start_cursor = None
-    while True:
-        response = client.data_sources.query(data_source_id, start_cursor=start_cursor)
-        page_ids.extend(page['id'] for page in response['results'])
-        if not response.get('has_more'):
-            break
-        start_cursor = response.get('next_cursor')
-    return page_ids
+    """Collect every page id of a data source, paginating fully."""
+    # Gather ids before archiving: archiving mutates the query result set, so
+    # paging while archiving would skip pages that shift out of later pages.
+    pages = collect_paginated_api(client.data_sources.query, data_source_id=data_source_id)
+    return [page['id'] for page in pages]
 
 
 def _build_page_data(row: pd.Series, columns, metadata_dict: dict, notion_db_id: str) -> dict:
@@ -113,7 +93,7 @@ def main():
             return
         data_source_id = data_sources[0]["id"]
 
-        total_rows = _count_rows(client, data_source_id)
+        total_rows = len(_list_page_ids(client, data_source_id))
 
         log.info("Database Name: %s", database_name)
         log.info("Total Rows in Notion: %d", total_rows)
@@ -133,9 +113,8 @@ def main():
     if clean_db:
         log.info("Archiving all pages in the Notion database...")
         try:
-            page_ids = _list_page_ids(client, data_source_id)
-
-            for page_id in page_ids:
+            # Re-list after the confirmation prompt so rows added while it waited are archived too.
+            for page_id in _list_page_ids(client, data_source_id):
                 # archived is a top-level page field in the Notion API, not a property
                 client.pages.update(page_id, archived=True)
                 archived_pages_counter += 1

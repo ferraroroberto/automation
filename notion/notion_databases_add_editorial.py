@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from notion_client import Client
+from notion_client.helpers import iterate_paginated_api
 from utils import require_notion_api_token
 
 
@@ -128,39 +129,23 @@ def get_existing_dates(notion, database_id, range_start, range_end):
 
         logging.info("Loading database records...")
         existing_dates = set()
-        has_more = True
-        start_cursor = None
-        cumulative_count = 0
+        fetched = 0
 
-        while has_more:
-            response = notion.data_sources.query(
-                data_source_id,
-                filter=date_filter,
-                page_size=100,
-                start_cursor=start_cursor,
-            )
+        for item in iterate_paginated_api(
+            notion.data_sources.query,
+            data_source_id=data_source_id,
+            filter=date_filter,
+            page_size=100,
+        ):
+            fetched += 1
+            date_property = item["properties"].get("date", {}).get("date")
+            if date_property and date_property.get("start"):
+                date_value = date_property["start"]
+                if "T" in date_value:
+                    date_value = date_value.split("T")[0]
+                existing_dates.add(date_value)
 
-            if response is None or "results" not in response:
-                logging.error("No results returned. Check database permissions and structure.")
-                return None
-
-            results = response.get("results", [])
-            start_cursor = response.get("next_cursor")
-
-            records_in_batch = len(results)
-            cumulative_count += records_in_batch
-            logging.info(f"📥 Fetched {records_in_batch} records (cumulative: {cumulative_count})")
-
-            for item in results:
-                date_property = item["properties"].get("date", {}).get("date")
-                if date_property and date_property.get("start"):
-                    date_value = date_property["start"]
-                    if "T" in date_value:
-                        date_value = date_value.split("T")[0]
-                    existing_dates.add(date_value)
-
-            has_more = start_cursor is not None
-
+        logging.info(f"📥 Fetched {fetched} records")
         return existing_dates
 
     except Exception as e:

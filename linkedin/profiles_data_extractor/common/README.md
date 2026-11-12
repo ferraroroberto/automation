@@ -16,8 +16,8 @@ The common components provide the core infrastructure and user interface for the
 | `extract_data.py` | Extract Data tab — launches Chrome with remote debugging and the DevTools orchestrator batch file |
 | `history.py` | History tab — search, view, and delete audit rows written by `history_manager.py` |
 | `history_manager.py` | History tracking and audit logging for all record changes |
-| `excel_format_manager.py` | Excel formatting, hyperlink conversion, and styling utilities |
-| `loaders.py` | Shared config/Excel loading helpers (`load_config`, `load_excel_data`) used by every tab |
+| `excel_format_manager.py` | Excel formatting, hyperlink conversion, and styling utilities; `apply_excel_formatting` is the one hyperlinks-then-format entry point |
+| `loaders.py` | Shared config/Excel loading helpers (`load_config`, `load_excel_data`) used by every tab |\n| `profiles_config.py` | Streamlit-free config reader and existing-names helper shared by the tabs, `history_manager.py` and the devtools scripts |
 | `_lib.py` | Shared fuzzy-search, formatting, and color-gradient helpers used by every tab |
 | `linkedin_profiles_data.json` | Configuration file with extraction settings and paths |
 | `excel_format_spec.json` | Excel formatting specifications and styling rules |

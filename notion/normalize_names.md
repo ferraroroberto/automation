@@ -33,7 +33,6 @@ The tool uses a JSON configuration file (`normalize_names.json`) with the follow
 
 ```json
 {
-  "notion_api_key": "${NOTION_API_TOKEN}",
   "database_id": "your-database-id",
   "use_spacy": false,
   "proper_name_whitelist": [
@@ -51,7 +50,6 @@ The tool uses a JSON configuration file (`normalize_names.json`) with the follow
 
 ### Configuration Fields
 
-- **notion_api_key**: Notion API token (can use `${NOTION_API_TOKEN}` env variable)
 - **database_id**: Notion database ID to process
 - **use_spacy**: Enable spaCy NLP for entity detection (optional, requires spaCy installation)
 - **proper_name_whitelist**: List of proper names to preserve (companies, people, products)
@@ -185,7 +183,7 @@ Output: "Adam Grant writes about leadership"  (if "Adam Grant" in whitelist)
 ### Common Issues
 
 **Issue**: "Missing required configuration values"
-- **Solution**: Ensure `NOTION_API_TOKEN` is set or `notion_api_key` is in config
+- **Solution**: Ensure `NOTION_API_TOKEN` is set in `.env` and `database_id` is in the config
 
 **Issue**: "Page missing or invalid article property"
 - **Solution**: Ensure your database has an "article" property of type "title"

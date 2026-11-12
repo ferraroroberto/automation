@@ -15,7 +15,6 @@ Options:
 """
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -52,10 +51,15 @@ excel_format_spec = importlib.util.spec_from_file_location("excel_format_manager
 excel_format_manager = importlib.util.module_from_spec(excel_format_spec)
 excel_format_spec.loader.exec_module(excel_format_manager)
 
+from profiles_config import (  # noqa: E402  (common_dir is on sys.path from above)
+    CONFIG_PATH,
+    existing_contact_names,
+    load_profiles_config,
+)
+
 # Import the functions we need
 save_excel_format_to_json = excel_format_manager.save_excel_format_to_json
-apply_format_from_json = excel_format_manager.apply_format_from_json
-convert_url_columns_to_hyperlinks = excel_format_manager.convert_url_columns_to_hyperlinks
+apply_excel_formatting = excel_format_manager.apply_excel_formatting
 
 logger = setup_logging(__name__)
 
@@ -75,29 +79,12 @@ class LinkedInProfilesDataOrchestratorDevTools:
             debug_port: Chrome remote debugging port
             save_format: Whether to save Excel format to JSON before extraction
         """
-        self.config = self.load_config(config_path)
+        self.config = load_profiles_config(config_path)
+        logger.info(f"✅ Configuration loaded from {config_path}")
         self.extractor = LinkedInProfileExtractorDevTools(debug_port)
         self.exit_requested = False  # Flag to track if 'x' key was pressed
         self.keyboard_listener = None  # Keyboard listener for 'x' keypress
         self.save_format = save_format
-
-    def load_config(self, config_path: str) -> Dict:
-        """Load configuration from JSON file.
-
-        Args:
-            config_path: Path to the configuration file.
-
-        Returns:
-            Configuration dictionary.
-        """
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-            logger.info(f"✅ Configuration loaded from {config_path}")
-            return config
-        except Exception as e:
-            logger.error(f"❌ Failed to load configuration: {e}")
-            raise
 
     def check_file_accessible(self, file_path: str) -> bool:
         """Check if file is accessible for reading/writing.
@@ -162,13 +149,7 @@ class LinkedInProfilesDataOrchestratorDevTools:
     def _drop_existing_profiles(filtered_profiles: List[Dict[str, str]], df_existing: pd.DataFrame) -> Tuple[List[Dict[str, str]], int]:
         """Split off the profiles whose name is not yet in the sheet; returns (new profiles, skipped count)."""
         # Get existing names (case-insensitive comparison)
-        existing_names = set()
-        if 'name' in df_existing.columns:
-            existing_names = set(
-                name.lower().strip()
-                for name in df_existing['name'].dropna()
-                if isinstance(name, str) and name.strip()
-            )
+        existing_names = existing_contact_names(df_existing)
 
         # Filter out profiles that already exist
         new_profiles_filtered = []
@@ -299,26 +280,11 @@ class LinkedInProfilesDataOrchestratorDevTools:
         logger.info("=" * 80)
 
     def _apply_format_and_links(self, destination_file: str, format_json_path: str) -> None:
-        """Apply the saved Excel format (when present) and turn URL columns into hyperlinks."""
+        """Turn URL columns into hyperlinks and apply the saved Excel format, in the shared order."""
         self._log_step_banner("STEP 3: Applying format and converting URLs...")
 
-        if os.path.exists(format_json_path):
-            logger.info("📋 Applying format from JSON...")
-            success = apply_format_from_json(destination_file, format_json_path)
-            if success:
-                logger.info("✅ Format applied successfully")
-            else:
-                logger.warning("⚠️  Failed to apply format")
-        else:
-            logger.warning(f"⚠️  Format JSON not found: {format_json_path} - skipping format application")
-
-        logger.info("")
-        logger.info("📎 Converting URL columns to hyperlinks...")
-        success = convert_url_columns_to_hyperlinks(destination_file)
-        if success:
-            logger.info("✅ URLs converted successfully")
-        else:
-            logger.warning("⚠️  Failed to convert URLs")
+        if not apply_excel_formatting(destination_file, format_json_path):
+            logger.warning("⚠️  Formatting did not complete cleanly - see the messages above")
 
     def run_extraction_and_merge(self) -> None:
         """Run the complete extraction and merge process using DevTools."""
@@ -464,19 +430,13 @@ Examples:
     if not args.run and not args.test:
         args.run = True
     
-    # Load configuration from the common directory
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    common_dir = os.path.join(os.path.dirname(script_dir), "common")
-    config_path = os.path.join(common_dir, "linkedin_profiles_data.json")
-
-    if not os.path.exists(config_path):
-        logger.error(f"❌ Configuration file not found: {config_path}")
+    if not CONFIG_PATH.exists():
+        logger.error(f"❌ Configuration file not found: {CONFIG_PATH}")
         logger.error(f"   Current working directory: {os.getcwd()}")
-        logger.error(f"   Script directory: {script_dir}")
         return
 
     # Initialize orchestrator with save_format option
-    orchestrator = LinkedInProfilesDataOrchestratorDevTools(config_path, save_format=args.save_format)
+    orchestrator = LinkedInProfilesDataOrchestratorDevTools(CONFIG_PATH, save_format=args.save_format)
 
     try:
         if args.run:

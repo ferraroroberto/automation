@@ -1,9 +1,9 @@
 """
 Shared Windows single-instance guard.
 
-``mouse_mover.py`` and ``foldersearcher/foldersearcher.py`` both import
-``acquire_named_mutex`` from here instead of each defining their own
-byte-for-byte identical mutex-acquisition helper.
+``mouse_mover.py``, ``markdown_preview.py`` and
+``foldersearcher/foldersearcher.py`` import ``acquire_named_mutex`` from here
+instead of each defining their own mutex-acquisition helper.
 
 Uses a named mutex rather than a fixed loopback TCP port: Windows reserves
 large high-port ranges (Hyper-V/WSL), so ``bind()`` can fail with

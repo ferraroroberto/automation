@@ -21,7 +21,6 @@ Usage:
 
 import argparse
 import logging
-import os
 import re
 import shutil
 import sys
@@ -43,24 +42,11 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-NOTION_VERSION = "2022-06-28"
 WINDOWS_ILLEGAL = re.compile(r'[<>:"/\\|?*]')
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
     return notion_utils.load_json_config_with_fallback(config_path, __file__)
-
-
-def resolve_token(config: Dict[str, Any]) -> str:
-    raw = config.get("notion_api_key", "")
-    if isinstance(raw, str) and raw.startswith("${") and raw.endswith("}"):
-        env_name = raw[2:-1]
-        token = os.getenv(env_name)
-    else:
-        token = raw or os.getenv("NOTION_API_TOKEN")
-    if not token:
-        raise ValueError("NOTION_API_TOKEN not available (env var or config)")
-    return token
 
 
 # Thin aliases onto the shared notion/utils.py extractors.
@@ -223,12 +209,7 @@ def main() -> int:
     args = parser.parse_args()
 
     config = load_config(args.config)
-    token = resolve_token(config)
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Notion-Version": NOTION_VERSION,
-        "Content-Type": "application/json",
-    }
+    headers = notion_utils.build_notion_headers(notion_utils.require_notion_api_token())
 
     source_folder = Path(config["source_folder"])
     dest_folder = Path(config["dest_folder"])

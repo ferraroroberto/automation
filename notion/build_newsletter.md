@@ -5,7 +5,7 @@ Builds **Substack-ready HTML** from a Notion **newsletter** record and related *
 ## Requirements
 
 - **Python**: Repo virtual environment (`.venv`) with `requests`, `python-dotenv` (see root `requirements.txt`).
-- **Notion**: Integration token in **`.env`** as `NOTION_API_TOKEN` (the script also reads `notion_api_key` from JSON if present; env wins for the token in practice).
+- **Notion**: Integration token in **`.env`** as `NOTION_API_TOKEN`.
 - **Config**: `notion/build_newsletter.json` — `articles_database_id`, `newsletter_database_id`.
 
 ## Notion shape

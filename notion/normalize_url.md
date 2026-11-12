@@ -34,7 +34,6 @@ The tool uses a JSON configuration file (`normalize_url.json`) with the followin
 
 ```json
 {
-  "notion_api_key": "${NOTION_API_TOKEN}",
   "database_id": "your-database-id",
   "domains_preserving_params": [
     "youtube.com",
@@ -49,7 +48,6 @@ The tool uses a JSON configuration file (`normalize_url.json`) with the followin
 
 ### Configuration Fields
 
-- **notion_api_key**: Notion API token (can use `${NOTION_API_TOKEN}` env variable)
 - **database_id**: Notion database ID to process
 - **domains_preserving_params**: List of domains where query parameters should NOT be removed (e.g., video platforms where `?v=id` is required)
 

@@ -2,12 +2,12 @@
 import pandas as pd
 import streamlit as st
 from _lib import (
+    apply_recontact_rule,
     fuzzy_search_names,
+    reach_out_type_options,
     render_excel_formatting_section,
-    save_to_excel,
-    update_existing_record,
+    save_record_edit,
 )
-from history_manager import log_history
 from loaders import load_config, load_excel_data
 
 
@@ -219,29 +219,13 @@ def _render_contact_details(df, record_key):
         )
 
     with col_reachout:
-        # Reachout Type dropdown
-        # Get distinct reach out types from the full dataframe
-        reachout_types = ['']  # Start with empty option
-        if 'reach_out_type' in df.columns:
-            distinct_types = df['reach_out_type'].dropna().unique().tolist()
-            reachout_types.extend(sorted(distinct_types))
-
-        # Ensure current record's reachout type is in the options list
         current_reachout_type = st.session_state.selected_record.get('reach_out_type', '')
-        if current_reachout_type and current_reachout_type not in reachout_types:
-            reachout_types.append(current_reachout_type)
-            reachout_types.sort()  # Keep sorted after adding
-
-        # Find the index of the current value
-        try:
-            reachout_index = reachout_types.index(current_reachout_type) if current_reachout_type else 0
-        except ValueError:
-            reachout_index = 0
+        reachout_types = reach_out_type_options(df, current_reachout_type)
 
         reach_out_type = st.selectbox(
             "Reachout Type",
             options=reachout_types,
-            index=reachout_index,
+            index=reachout_types.index(current_reachout_type) if current_reachout_type else 0,
             help="Type of reachout made to this profile",
             key=f"dataentry_reach_out_type_{record_key}"
         )
@@ -294,13 +278,9 @@ def _save_edit(df, data_path, fields):
     final_revocation_date = None if clear_revocation else (pd.Timestamp(revocation_date) if revocation_date else None)
     final_date_discarded = None if clear_discarded else (pd.Timestamp(date_discarded) if date_discarded else None)
 
-    # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
-    original_day = st.session_state.selected_record.get('date_contacted')
-    # Check if day has changed to a new valid date (re-contact logic)
-    if final_day_contacted is not None and (pd.isna(original_day) or final_day_contacted != original_day):
-         final_revocation_date = None
-         if revocation_date is not None or clear_revocation:
-             st.info("ℹ️ Revocation date automatically cleared because a new contact date was set.")
+    final_revocation_date = apply_recontact_rule(
+        final_day_contacted, st.session_state.selected_record.get('date_contacted'), final_revocation_date
+    )
 
     record_data = {
         'name': name.strip(),
@@ -316,26 +296,17 @@ def _save_edit(df, data_path, fields):
         'reach_out_type': reach_out_type.strip() if reach_out_type else None
     }
 
-    # Update existing record
-    updated_df, action = update_existing_record(df, st.session_state.original_name, record_data)
-
-    if action == "not_found":
-        st.error("❌ Original record not found. It may have been deleted.")
+    outcome = save_record_edit(
+        df, data_path, st.session_state.original_name, record_data,
+        st.session_state.selected_record, "✅ Record updated successfully!",
+    )
+    if outcome == "not_found":
         return False
-
-    # Save to Excel
-    if save_to_excel(updated_df, data_path):
-        st.success("✅ Record updated successfully!")
-        
-        # Log history with original data for initial record
-        log_history(record_data, action="update", original_data=st.session_state.selected_record)
-
+    if outcome == "saved":
         # Clear selection and rerun
         st.session_state.selected_record = None
         st.session_state.original_name = None
         st.rerun()
-    else:
-        st.error("❌ Failed to save changes!")
     return True
 
 

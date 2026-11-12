@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import utils as notion_utils
-from utils import load_env_variables, load_json_config
+from utils import load_json_config
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))  # repo root, so the shared helper imports when run as a script
 from system._lib import runtime_files  # noqa: E402
@@ -200,7 +200,7 @@ def _open_folder_in_explorer(folder_path: str) -> None:
     os.startfile(path)
 
 
-def process_journal_consolidated(config: dict[str, Any], env_vars: dict[str, str]) -> Optional[str]:
+def process_journal_consolidated(config: dict[str, Any]) -> Optional[str]:
     """Process Notion journal entries and write consolidated output file. Returns output path or None."""
     current_date = get_adjusted_date()
     start_date, end_date = calculate_week_range(current_date)
@@ -211,15 +211,7 @@ def process_journal_consolidated(config: dict[str, Any], env_vars: dict[str, str
         end_date.strftime("%Y-%m-%d"),
     )
     
-    notion_api_key = env_vars.get("notion_api_token")
-    if not notion_api_key:
-        raise ValueError("NOTION_API_TOKEN not found in environment variables")
-    
-    headers = {
-        "Authorization": f"Bearer {notion_api_key}",
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-    }
+    headers = notion_utils.build_notion_headers(notion_utils.require_notion_api_token())
 
     database_id = config["input"]["database_id"]
     date_property = config["input"].get("date_property", "Date")
@@ -308,11 +300,8 @@ if __name__ == "__main__":
     logger.info("📂 Loading configuration...")
     config = load_json_config(config_path)
 
-    logger.info("🔐 Loading environment variables...")
-    env_vars = load_env_variables()
-
     logger.info("🚀 Processing journal entries...")
-    output_path = process_journal_consolidated(config, env_vars)
+    output_path = process_journal_consolidated(config)
 
     if output_path:
         logger.info("✅ Journal processing completed!")

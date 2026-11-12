@@ -1,9 +1,7 @@
 """Characterization tests for ``update_existing_record`` (in-memory frames only).
 
-Both Streamlit pages edit a record through this function. It used to exist as
-two diverging copies (``dataentry`` and ``reachout``); the cases below pin the
-results every real caller sees, and run against whichever object each page
-exposes.
+Both Streamlit pages edit a record through this one function (via
+``save_record_edit``); the cases below pin the results every real caller sees.
 """
 
 import datetime
@@ -19,13 +17,6 @@ os.environ.setdefault("LINKEDIN_EXTRACTOR_LOG_FILE", os.path.join(tempfile.gette
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "linkedin/profiles_data_extractor/common"))
 
 import _lib  # noqa: E402
-import dataentry  # noqa: E402
-import reachout  # noqa: E402
-
-PAGE_IMPLEMENTATIONS = {
-    "dataentry": dataentry.update_existing_record,
-    "reachout": reachout.update_existing_record,
-}
 
 
 def make_frame():
@@ -40,9 +31,7 @@ def make_frame():
 
 class UpdateExistingRecordTests(unittest.TestCase):
     def each_page(self):
-        for page, function in PAGE_IMPLEMENTATIONS.items():
-            with self.subTest(page=page):
-                yield function
+        yield _lib.update_existing_record
 
     def test_updates_the_row_matched_case_insensitively(self):
         for update in self.each_page():
@@ -103,10 +92,6 @@ class UpdateExistingRecordTests(unittest.TestCase):
         update = _lib.update_existing_record
         df, _ = update(make_frame(), "ana sample", {"date_contacted": datetime.date(2025, 3, 4)})
         self.assertEqual(df.at[0, "date_contacted"], pd.Timestamp("2025-03-04"))
-
-    def test_both_pages_share_the_lib_implementation(self):
-        self.assertIs(dataentry.update_existing_record, _lib.update_existing_record)
-        self.assertIs(reachout.update_existing_record, _lib.update_existing_record)
 
 
 if __name__ == "__main__":

@@ -61,9 +61,13 @@ helpers here are reached - put `system/` on `sys.path` and import::
 
 from __future__ import annotations
 
+import logging
+import subprocess
 import sys
 from pathlib import Path
-from typing import Tuple
+from typing import NamedTuple, Optional, Sequence, Tuple
+
+logger = logging.getLogger(__name__)
 
 # Ordered decode candidates - see the module docstring for why each is here.
 # "oem"/"mbcs" are Windows-only codec aliases, so POSIX gets UTF-8 alone.
@@ -91,3 +95,80 @@ def decode_console_bytes(raw: bytes) -> Tuple[str, str]:
         except (UnicodeDecodeError, LookupError):
             continue
     return raw.decode("utf-8", errors="replace"), "utf-8/replace"
+
+
+class ConsoleRun(NamedTuple):
+    """Outcome of one native-console-tool invocation.
+
+    `ran` is the state that must never be folded into a negative answer: a
+    query that could not run, or whose output could not be read, is
+    *unknown* - not "the device is gone". `error` says why it did not run.
+    """
+
+    ran: bool
+    returncode: int
+    stdout: str
+    stderr: str
+    encoding: Optional[str]
+    error: Optional[str] = None
+
+    @property
+    def succeeded(self) -> bool:
+        """True when the tool ran and reported success."""
+        return self.ran and self.returncode == 0
+
+    @property
+    def has_output(self) -> bool:
+        """True when stdout carries something to parse."""
+        return bool(self.stdout.strip())
+
+
+def run_console(
+    command: Sequence[str], *, timeout: int, label: str, strict: bool = False
+) -> ConsoleRun:
+    """Run a native Windows console tool and decode its output explicitly.
+
+    Captures raw bytes - never `text=`, never `encoding=` - because those
+    decode with the *parent's* locale rather than the child's console code
+    page (see the module docstring). Never raises: every failure path logs
+    and comes back as a `ConsoleRun`, so an unreadable result leaves a
+    breadcrumb instead of a silent negative.
+
+    `strict` is for a tool that always prints on success (netsh): a non-zero
+    exit then logs a warning and blank output on exit 0 logs an error. Left
+    off, a non-zero exit is debug-level (the caller treats it as an answer)
+    and only unreadable output - raw bytes that decode to nothing - is an
+    error, since a PowerShell snippet may legitimately print nothing.
+    """
+    try:
+        proc = subprocess.run(
+            command,
+            capture_output=True,
+            creationflags=NO_WINDOW,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        message = f"timed out after {timeout}s"
+        logger.error("❌ %s %s", label, message)
+        return ConsoleRun(False, -1, "", "", None, message)
+    except (subprocess.SubprocessError, OSError) as exc:
+        logger.error("❌ Could not run %s: %s", label, exc)
+        return ConsoleRun(False, -1, "", "", None, str(exc))
+
+    stdout, encoding = decode_console_bytes(proc.stdout or b"")
+    stderr, _ = decode_console_bytes(proc.stderr or b"")
+
+    if proc.returncode != 0:
+        log_nonzero = logger.warning if strict else logger.debug
+        log_nonzero("ℹ️ %s exited %d: %s", label, proc.returncode, (stderr or stdout).strip())
+    elif not stdout.strip() and (strict or proc.stdout):
+        # The answer was not established - never treat it as a real "none".
+        logger.error(
+            "❌ %s exited 0 but produced no readable output "
+            "(%d raw bytes, decoded as %s) - result is unknown, not empty.",
+            label,
+            len(proc.stdout or b""),
+            encoding,
+        )
+
+    return ConsoleRun(True, proc.returncode, stdout, stderr, encoding)

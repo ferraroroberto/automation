@@ -3,11 +3,13 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from _lib import (
+    apply_recontact_rule,
     fuzzy_search_profiles,
     generate_color_gradient,
+    reach_out_type_options,
     render_excel_formatting_section,
+    save_record_edit,
     save_to_excel,
-    update_existing_record,
 )
 from history_manager import log_history
 from loaders import load_config
@@ -176,27 +178,17 @@ def _discard_profile(df_all, data_path):
     record_data = st.session_state.reachout_selected_record.copy()
     record_data['date_discarded'] = pd.Timestamp.now()
     
-    # Update existing record in the dataframe
-    updated_df, action = update_existing_record(df_all, st.session_state.reachout_original_name, record_data)
-    
-    if action == "not_found":
-        st.error("❌ Original record not found. It may have been deleted.")
-    else:
-        # Save to Excel
-        if save_to_excel(updated_df, data_path):
-            st.success("✅ Profile discarded successfully!")
-            
-            # Log history with action "discard"
-            log_history(record_data, action="discard", original_data=st.session_state.reachout_selected_record)
-            
-            # Clear selection and rerun
-            st.session_state.reachout_selected_record = None
-            st.session_state.reachout_original_name = None
-            st.session_state.reachout_editing = False
-            st.rerun()
-        else:
-            st.error("❌ Failed to save changes!")
-
+    outcome = save_record_edit(
+        df_all, data_path, st.session_state.reachout_original_name, record_data,
+        st.session_state.reachout_selected_record, "✅ Profile discarded successfully!",
+        action="discard",
+    )
+    if outcome == "saved":
+        # Clear selection and rerun
+        st.session_state.reachout_selected_record = None
+        st.session_state.reachout_original_name = None
+        st.session_state.reachout_editing = False
+        st.rerun()
 
 def _as_date_or_none(value):
     """Normalise a stored date (Timestamp, string, NaT or empty) to a date for st.date_input."""
@@ -212,15 +204,6 @@ def _as_date_or_none(value):
     else:
         value = None
     return value
-
-
-def _reachout_type_options(df_all):
-    """Selectbox options: an empty choice plus the distinct reachout types in the full data."""
-    reachout_types = ['']  # Start with empty option
-    if 'reach_out_type' in df_all.columns:
-        distinct_types = df_all['reach_out_type'].dropna().unique().tolist()
-        reachout_types.extend(sorted(distinct_types))
-    return reachout_types
 
 
 def _render_reachout_fields(record, record_key, df_all):
@@ -257,7 +240,7 @@ def _render_reachout_fields(record, record_key, df_all):
         key=f"reachout_date_discarded_{record_key}"
     )
 
-    reachout_types = _reachout_type_options(df_all)
+    reachout_types = reach_out_type_options(df_all, record.get('reach_out_type', ''))
 
     reach_out_type = st.selectbox(
         "Reachout Type",
@@ -339,17 +322,8 @@ def _save_reachout_edit(df_all, data_path, fields):
     final_day = pd.Timestamp(day) if day else pd.NaT
     final_date_discarded = pd.Timestamp(date_discarded) if date_discarded else pd.NaT
     
-    # Reset Logic: If contact date is updated (and not just cleared), reset revocation date
-    original_day = st.session_state.reachout_selected_record.get('date_contacted')
-    # Handle NaT comparison
-    original_day_ts = pd.Timestamp(original_day) if pd.notna(original_day) else pd.NaT
-
-    # Check if day has changed to a new valid date (re-contact logic)
-    revocation_update = st.session_state.reachout_selected_record.get('date_revocation')
-    if day and (pd.isna(original_day_ts) or final_day != original_day_ts):
-         revocation_update = None
-         # We don't need to show a message here as the save success message is enough,
-         # but we ensure the dict sends None for date_revocation
+    record = st.session_state.reachout_selected_record
+    revocation_update = apply_recontact_rule(final_day, record.get('date_contacted'), record.get('date_revocation'))
 
     record_data = {
         'name': name.strip(),
@@ -365,27 +339,18 @@ def _save_reachout_edit(df_all, data_path, fields):
         'date_discarded': final_date_discarded
     }
 
-    # Update existing record
-    updated_df, action = update_existing_record(df_all, st.session_state.reachout_original_name, record_data)
-
-    if action == "not_found":
-        st.error("❌ Original record not found. It may have been deleted.")
+    outcome = save_record_edit(
+        df_all, data_path, st.session_state.reachout_original_name, record_data,
+        record, "✅ Profile updated successfully!",
+    )
+    if outcome == "not_found":
         return False
-
-    # Save to Excel
-    if save_to_excel(updated_df, data_path):
-        st.success("✅ Profile updated successfully!")
-        
-        # Log history with original data for initial record
-        log_history(record_data, action="update", original_data=st.session_state.reachout_selected_record)
-
+    if outcome == "saved":
         # Clear selection and rerun
         st.session_state.reachout_selected_record = None
         st.session_state.reachout_original_name = None
         st.session_state.reachout_editing = False
         st.rerun()
-    else:
-        st.error("❌ Failed to save changes!")
     return True
 
 

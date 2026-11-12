@@ -7,6 +7,7 @@ from pathlib import Path
 from tkinter import filedialog
 from typing import Optional
 
+from _image_to_jpg_converter import flatten_to_rgb
 from PIL import Image
 
 # Create logger at module level
@@ -51,10 +52,8 @@ def resize_image_to_max_size(
         img = Image.open(image_path)
 
         # Convert RGBA to RGB if necessary for JPEG
-        if img.mode == 'RGBA' and image_path.suffix.lower() in ['.jpg', '.jpeg']:
-            rgb_img = Image.new('RGB', img.size, (255, 255, 255))
-            rgb_img.paste(img, mask=img.split()[3])
-            img = rgb_img
+        if img.mode in ('RGBA', 'LA', 'P') and image_path.suffix.lower() in ['.jpg', '.jpeg']:
+            img = flatten_to_rgb(img)
 
         # Convert HEIC to RGB for better compatibility when saving
         if image_path.suffix.lower() in ['.heic', '.heif'] and img.mode != 'RGB':

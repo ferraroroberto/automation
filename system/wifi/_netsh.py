@@ -26,8 +26,6 @@ its test suite still reach `decode_console_bytes`, `NO_WINDOW` and
 
 from __future__ import annotations
 
-import logging
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,9 +37,8 @@ from _lib.console_output import (  # noqa: E402
     CONSOLE_ENCODINGS,
     NO_WINDOW,
     decode_console_bytes,
+    run_console,
 )
-
-logger = logging.getLogger(__name__)
 
 # A wlan scan or profile connect takes seconds; 60 s means netsh is wedged.
 NETSH_TIMEOUT_S = 60
@@ -105,62 +102,15 @@ def run_netsh(args: Sequence[str]) -> NetshResult:
     not establish this" apart from "established, and the answer is nothing".
     """
     command = ["netsh", *args]
-    printable = " ".join(command)
-    try:
-        proc = subprocess.run(
-            command,
-            capture_output=True,
-            creationflags=NO_WINDOW,
-            timeout=NETSH_TIMEOUT_S,
-        )
-    except subprocess.TimeoutExpired:
-        message = f"timed out after {NETSH_TIMEOUT_S}s"
-        logger.error("❌ '%s' %s", printable, message)
-        return NetshResult(
-            args=tuple(command),
-            returncode=-1,
-            stdout="",
-            stderr="",
-            encoding=None,
-            error=message,
-        )
-    except (FileNotFoundError, OSError) as exc:
-        logger.error("❌ Could not run '%s': %s", printable, exc)
-        return NetshResult(
-            args=tuple(command),
-            returncode=-1,
-            stdout="",
-            stderr="",
-            encoding=None,
-            error=str(exc),
-        )
-
-    stdout, encoding = decode_console_bytes(proc.stdout or b"")
-    stderr, _ = decode_console_bytes(proc.stderr or b"")
-
-    if proc.returncode != 0:
-        logger.warning(
-            "⚠️ '%s' exited %d: %s", printable, proc.returncode, (stderr or stdout).strip()
-        )
-    elif not stdout.strip():
-        # netsh always prints something on success, so an empty stdout means
-        # the answer was not established — never treat it as a real "none".
-        logger.error(
-            "❌ '%s' exited 0 but produced no readable output "
-            "(%d raw bytes, decoded as %s) - result is unknown, not empty.",
-            printable,
-            len(proc.stdout or b""),
-            encoding,
-        )
-    else:
-        logger.debug("ℹ️ '%s' decoded %d chars as %s", printable, len(stdout), encoding)
-
+    # netsh always prints something on success, so strict: blank output is "unknown", not "none".
+    run = run_console(command, timeout=NETSH_TIMEOUT_S, label=f"'{' '.join(command)}'", strict=True)
     return NetshResult(
         args=tuple(command),
-        returncode=proc.returncode,
-        stdout=stdout,
-        stderr=stderr,
-        encoding=encoding,
+        returncode=run.returncode,
+        stdout=run.stdout,
+        stderr=run.stderr,
+        encoding=run.encoding,
+        error=run.error,
     )
 
 
