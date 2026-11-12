@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional, Tuple
 
 log = logging.getLogger(__name__)
 from google.auth.transport.requests import Request
@@ -23,6 +24,23 @@ from no_window import NO_WINDOW as _NO_WINDOW  # noqa: E402
 
 # gcloud starts a Python runtime per call and can take several seconds; 60 s means it is wedged.
 _GCLOUD_TIMEOUT_S = 60
+
+_GOOGLE_DIR = Path(__file__).resolve().parent
+
+
+def _auth_files() -> Tuple[Path, Path]:
+    """Credentials and token paths exactly as gmail_drive_automation resolves them.
+
+    The live config is config.json; the sample is the fallback so the diagnostic
+    still names the files a fresh setup will create.
+    """
+    for name in ("config.json", "config_gmail_drive.json.sample"):
+        config_path = _GOOGLE_DIR / name
+        if config_path.exists():
+            auth = json.loads(config_path.read_text(encoding="utf-8"))["auth"]
+            return _GOOGLE_DIR / auth["credentials_file"], _GOOGLE_DIR / auth["token_file"]
+    raise FileNotFoundError(f"no config.json or config_gmail_drive.json.sample in {_GOOGLE_DIR}")
+
 
 def check_gcloud_config():
     """Check current gcloud configuration"""
@@ -93,15 +111,14 @@ def check_credentials_file():
     """Check the credentials file configuration"""
     print("\n🔑 Checking credentials file...")
     
-    script_dir = Path(__file__).parent
-    creds_path = script_dir / "client_secret.json"
-    
+    creds_path, _ = _auth_files()
+
     if not creds_path.exists():
         print(f"   ❌ Credentials file not found at {creds_path}")
         return None
-    
+
     try:
-        with open(creds_path, 'r') as f:
+        with open(creds_path, 'r', encoding='utf-8') as f:
             creds_data = json.load(f)
         
         project_id = creds_data.get('installed', {}).get('project_id')
@@ -120,15 +137,14 @@ def check_token_file():
     """Check the token file and its scopes"""
     print("\n🎫 Checking token file...")
     
-    script_dir = Path(__file__).parent
-    token_path = script_dir / "token.json"
-    
+    _, token_path = _auth_files()
+
     if not token_path.exists():
         print(f"   ❌ Token file not found at {token_path}")
         return None
-    
+
     try:
-        with open(token_path, 'r') as f:
+        with open(token_path, 'r', encoding='utf-8') as f:
             token_data = json.load(f)
         
         scopes = token_data.get('scopes', [])
@@ -146,10 +162,8 @@ def test_authentication():
     """Test authentication with current credentials"""
     print("\n🧪 Testing authentication...")
     
-    script_dir = Path(__file__).parent
-    creds_path = script_dir / "client_secret.json"
-    token_path = script_dir / "token.json"
-    
+    creds_path, token_path = _auth_files()
+
     if not creds_path.exists():
         print("   ❌ Credentials file not found")
         return False
@@ -172,14 +186,6 @@ def test_authentication():
         
         print("   ✅ Credentials loaded successfully")
         print(f"   🔑 Token scopes: {creds.scopes}")
-        
-        # Test Photos API
-        try:
-            photos_service = build('photoslibrary', 'v1', credentials=creds, static_discovery=False)
-            photos_service.mediaItems().list(pageSize=1).execute()
-            print("   ✅ Photos API: Authentication successful")
-        except Exception as e:
-            print(f"   ❌ Photos API: {e}")
         
         # Test Gmail API
         try:
@@ -209,39 +215,44 @@ def test_authentication():
         print(f"   ❌ Authentication error: {e}")
         return False
 
-def check_project_alignment():
-    """Check if gcloud project matches credentials project"""
+def check_project_alignment() -> Tuple[bool, Optional[str]]:
+    """Check if gcloud project matches credentials project.
+
+    Returns whether they match and the credentials file's project id.
+    """
     print("\n🔗 Checking project alignment...")
-    
+
     gcloud_project = check_gcloud_config()
     creds_project = check_credentials_file()
-    
+
     if gcloud_project and creds_project:
         if gcloud_project == creds_project:
             print(f"   ✅ Projects match: {gcloud_project}")
-            return True
+            return True, creds_project
         else:
             print(f"   ❌ Project mismatch!")
             print(f"      gcloud project: {gcloud_project}")
             print(f"      Credentials project: {creds_project}")
             print(f"   💡 This could be causing your authentication issues!")
-            return False
+            return False, creds_project
     else:
         print("   ⚠️ Could not determine project alignment")
-        return False
+        return False, creds_project
 
-def provide_solutions():
+def provide_solutions(creds_project: Optional[str]) -> None:
     """Provide solutions for common issues"""
+    _, token_path = _auth_files()
+    project = creds_project or "<the credentials file's project_id>"
     print("\n💡 Solutions:")
-    print("   1. If projects don't match, switch gcloud to the correct project:")
-    print(f"      gcloud config set project automation-469306")
+    print("   1. If projects don't match, switch gcloud to the credentials project:")
+    print(f"      gcloud config set project {project}")
     print("   2. Re-authenticate with the correct project:")
     print("      gcloud auth login")
-    print("   3. Delete token.json and re-run authentication to get fresh tokens")
-    print("   4. Ensure the Google Cloud project 'automation-469306' has the required APIs enabled:")
-    print("      - Google Photos Library API")
+    print(f"   3. Delete {token_path.name} and re-run authentication to get fresh tokens")
+    print(f"   4. Ensure the Google Cloud project {project} has the required APIs enabled:")
     print("      - Gmail API")
     print("      - Google Drive API")
+    print("      - Google Sheets API")
     print("   5. Check that your OAuth consent screen includes the required scopes")
 
 def main():
@@ -250,7 +261,7 @@ def main():
     print("=" * 50)
     
     # Check project alignment
-    project_aligned = check_project_alignment()
+    project_aligned, creds_project = check_project_alignment()
     
     # Check token file
     check_token_file()
@@ -259,7 +270,7 @@ def main():
     auth_works = test_authentication()
     
     # Provide solutions
-    provide_solutions()
+    provide_solutions(creds_project)
     
     print("\n📊 Summary:")
     print(f"   Project alignment: {'✅' if project_aligned else '❌'}")

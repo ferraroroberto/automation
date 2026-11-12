@@ -208,17 +208,12 @@ def load_config() -> Dict[str, Any]:
         "default_output": "wifi_export.json",
         "temp_dir_prefix": "wifi_export_",
         "logging": {
-            "level": "INFO",
-            "format": "%(asctime)s - %(levelname)s - %(message)s"
+            "level": "INFO"
         },
         "output_format": {
             "include_metadata": True,
             "pretty_print": True,
             "ensure_ascii": False
-        },
-        "xml_parsing": {
-            "namespace": "http://www.microsoft.com/networking/WLAN/profile/v1",
-            "fallback_to_filename": True
         }
     }
 
