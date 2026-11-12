@@ -5,8 +5,7 @@ Fills a Notion database with **one row per calendar day** for a **fixed rolling 
 ## Requirements
 
 - **Python**: Use this repo’s virtual environment (`.venv`), which should include `notion-client` (2.x).
-- **Notion integration**: A [Notion integration](https://www.notion.so/my-integrations) with the token stored in your params file, and **access to the target database** (share the database with the integration).
-- **Params file**: Same pattern as other `notion/` scripts — a text file readable by `utils.read_params_from_txt_file` with an `api_token` key (see your existing `notion-params.txt` layout).
+- **Notion integration**: A [Notion integration](https://www.notion.so/my-integrations) with its token in `NOTION_API_TOKEN` in `.env`, and **access to the target database** (share the database with the integration).
 
 ## Notion database shape
 
@@ -40,7 +39,6 @@ Or double-click / run **`notion_databases_add_editorial.bat`** (same layout as `
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--params` | Machine-specific path in script | Path to `notion-params.txt` |
 | `--database-id` | Value in script | 32-char or UUID database ID |
 | `--debug` | off | `logging` at DEBUG; full traceback on failure |
 
@@ -50,7 +48,6 @@ Logging uses the same style as `normalize_url.py`: timestamp, level, message on 
 
 Defaults are the `argparse` defaults (override on the command line):
 
-- **`--params`** — Path to your Notion API token file.
 - **`--database-id`** — 32-character Notion database ID (no hyphens), or the same ID with hyphens. You can copy it from the database URL: the segment before `?` after the last `/`, e.g.  
   `https://www.notion.so/workspace/<database_id>?v=...`
 

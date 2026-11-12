@@ -20,17 +20,14 @@ if not exist "%VENV_PY%" (
     exit /b 1
 )
 
-REM Check if requirements are installed
+REM Dependencies come from the repo root requirements.txt
 echo Checking dependencies...
-"%VENV_PY%" -m pip show google-auth >nul 2>&1
+"%VENV_PY%" -c "import google.auth, googleapiclient" 2>nul
 if errorlevel 1 (
-    echo Installing requirements...
-    "%VENV_PY%" -m pip install -r requirements_gmail_drive.txt
-    if errorlevel 1 (
-        echo Error: Failed to install requirements
-        pause
-        exit /b 1
-    )
+    echo Error: Google libraries missing from the venv
+    echo Install once from the repo root: .venv\Scripts\python.exe -m pip install -r requirements.txt
+    pause
+    exit /b 1
 )
 
 REM Run the automation

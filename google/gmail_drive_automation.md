@@ -161,12 +161,12 @@ activated. `run_gmail_drive.bat` invokes `..\.venv\Scripts\python.exe` by path.
 
 **Windows PowerShell (from the repo root):**
 ```powershell
-& .\.venv\Scripts\python.exe -m pip install -r google\requirements_gmail_drive.txt
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 **Unix/Linux/macOS (from the repo root):**
 ```bash
-./.venv/bin/python -m pip install -r google/requirements_gmail_drive.txt
+./.venv/bin/python -m pip install -r requirements.txt
 ```
 
 ### Step 3: Setup Configuration

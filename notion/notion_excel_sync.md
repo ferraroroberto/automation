@@ -20,7 +20,7 @@ There are no command-line arguments. The script prompts once for confirmation be
 Press Enter to continue...
 ```
 
-Everything else — the workbook to sync, the API token, and the verbosity flag — comes from the params file described below.
+Everything else — the workbook to sync and the verbosity flag — comes from the params file described below; the API token comes from `NOTION_API_TOKEN` in `.env`.
 
 ## 🔧 Configuration
 
@@ -28,14 +28,12 @@ The script has no JSON config file. It loads a legacy `key = value` text file vi
 
 ```
 sync_path = E:\automation\notion-automation-files\excel-sync.xlsx
-api_token = secret_xxx
 verbose = True
 ```
 
 ### Configuration Fields
 
 - **sync_path**: Path to the Excel workbook to sync. Must contain three sheets: `data`, `metadata`, `db`.
-- **api_token**: Notion integration token used to authenticate `notion_client.Client`.
 - **verbose**: When the literal string `"True"` (compared with `== True`, so any other value is treated as off), logs the full `page_data` payload for every page before creating it.
 
 ### Workbook sheets (`sync_path`)
@@ -48,7 +46,7 @@ verbose = True
 
 ### Processing Flow
 
-1. **Load params and workbook**: Reads `sync_path`, `api_token`, `verbose`, then loads the `data`, `metadata`, and `db` sheets.
+1. **Load params and workbook**: Reads `sync_path` and `verbose` from the params file and the token from `NOTION_API_TOKEN` in `.env`, then loads the `data`, `metadata`, and `db` sheets.
 2. **Resolve target database**: Reads `notion_db_id` and `clean_db` from the first row of `db`; builds `metadata_dict` keyed by `excelColumn`.
 3. **Confirm database**: Calls `client.databases.retrieve()` and `client.databases.query()` to log the database name and current row count, then blocks on `input("Press Enter to continue...")`.
 4. **Optional archive**: If `clean_db` is truthy, queries all pages in the database and calls `client.pages.update()` on each, setting a checkbox property literally named `archived` to `True`.

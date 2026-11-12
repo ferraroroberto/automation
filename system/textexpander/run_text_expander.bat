@@ -14,7 +14,7 @@ if not exist ".venv\Scripts\python.exe" (
     echo Virtual environment not found at %CD%\.venv\Scripts\python.exe
     echo Please ensure the virtual environment is set up correctly
     echo Run: py -m venv .venv
-    echo Then install dependencies: .venv\Scripts\python.exe -m pip install -r system\textexpander\requirements_text_expander.txt
+    echo Then install dependencies: .venv\Scripts\python.exe -m pip install -r requirements.txt
     pause
     exit /b 1
 )
@@ -23,8 +23,8 @@ REM Check if requirements are installed
 echo Checking dependencies...
 .venv\Scripts\python.exe -c "import pystray, pynput, pyperclip" 2>nul
 if errorlevel 1 (
-    echo Some dependencies may be missing. Installing...
-    .venv\Scripts\python.exe -m pip install -r system\textexpander\requirements_text_expander.txt
+    echo Some dependencies may be missing. Installing from the root requirements.txt...
+    .venv\Scripts\python.exe -m pip install -r requirements.txt
     if errorlevel 1 (
         echo Failed to install dependencies
         pause
