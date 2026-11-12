@@ -34,10 +34,10 @@ from parking import booking, planner, report
 from parking.api import ApiError, AuthError, ParkingApi, RateLimited, ServerError
 from parking.booking import DayOutcome, DayStatus, RunResult, RunStatus
 from parking.config import PROFILE_DIR, ROOT, STATE_PATH, Config, ThursdayBurst
-from parking.notify import LogNotifier, Notifier
 from parking.observer import Observers
 from parking.planner import WEEKDAYS
 from parking.state import State, save_state
+from system._lib.notifier import LogNotifier, Notifier
 
 logger = logging.getLogger("parking.burst")
 

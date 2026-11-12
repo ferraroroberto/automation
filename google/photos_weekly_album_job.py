@@ -26,7 +26,7 @@ from typing import Callable, Optional
 from dotenv import dotenv_values
 
 from google import photos_weekly_album as album
-from parking.notify import FleetNotifier
+from system._lib.notifier import FleetNotifier
 
 logger = logging.getLogger("photos_weekly_album_job")
 

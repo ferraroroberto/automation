@@ -15,8 +15,8 @@ from parking import auth
 from parking import screenshot as site_screenshot
 from parking.booking import DayOutcome, DayStatus, RunResult, RunStatus
 from parking.config import LOG_DIR, PROFILE_DIR, Config
-from parking.notify import Notifier
 from parking.state import State
+from system._lib.notifier import Notifier
 
 logger = logging.getLogger("parking.report")
 

@@ -1,7 +1,7 @@
-"""Telegram notifications through the fleet notifier (notify_send.py).
+"""Telegram notifications through the fleet notifier (notify_send.py), shared by the tool domains.
 
-The bot token and chat routing live in fleet-config; this project only needs
-the interpreter + script path (both in .env) and, optionally, a category.
+The bot token and chat routing live in fleet-config; a caller only needs
+the interpreter + script path (both in its env) and, optionally, a category.
 Without them a notification degrades to a log line.
 
 Chat cleanup: with a `ledger_path`, the ids of every *disposable* message
@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Protocol
 
 from no_window import NO_WINDOW
 
-logger = logging.getLogger("parking.notify")
+logger = logging.getLogger("notifier")
 
 # Telegram allows a bot ~20 messages a minute in a group; pings stay under it
 # by batching whatever queued up while waiting into one message.
@@ -165,7 +165,7 @@ class FleetNotifier:
         waits on the network.
         """
         if self._ping_thread is None:
-            self._ping_thread = threading.Thread(target=self._ping_worker, name="parking-pings", daemon=True)
+            self._ping_thread = threading.Thread(target=self._ping_worker, name="notifier-pings", daemon=True)
             self._ping_thread.start()
         self._pings.put(text)
 

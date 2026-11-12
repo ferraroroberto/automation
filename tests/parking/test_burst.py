@@ -270,7 +270,7 @@ def test_rehearsal_never_books_and_writes_no_state(cfg, env, tmp_path, monkeypat
 
 
 def test_rehearse_forces_dry_run_and_stays_out_of_the_chat(cfg, env, monkeypatch, tmp_path):
-    from parking.notify import LogNotifier
+    from system._lib.notifier import LogNotifier
 
     seen = {}
     monkeypatch.setattr(burst, "RUN_DIR", tmp_path)
