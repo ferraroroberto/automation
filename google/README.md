@@ -8,7 +8,7 @@ This folder holds two Google automations — Gmail→Drive email tracking (Googl
 
 - [`gmail_drive_automation.md`](gmail_drive_automation.md) — monitors Gmail for emails matching a search query and logs new ones (subject, date, from, content preview) into a Google Sheet in Drive, skipping ones already recorded.
 - [`photos_weekly_album.md`](photos_weekly_album.md) — builds the week's (Saturday–Friday) Google Photos album by driving the Photos web UI with Playwright in real Chrome, leaving screenshots out, then shares it by link and saves a Gmail draft to the configured list (sent only with `--send`; Gmail helper: `gmail_web.py`); run as `python -m google.photos_weekly_album` from the repo root, or on Saturday mornings by the app-launcher job `run_photos_weekly_album.bat` (`photos_weekly_album_job.py`), which sends a Telegram message with the outcome. Replaces the earlier Photos Library API script, which stopped working in March 2025 when the API could no longer see the whole library.
-- [`diag_check_google_config.md`](diag_check_google_config.md) — describes `diag_check_google_config.py`, a diagnostic that checks gcloud project/account, `client_secret.json`, `token.json` scopes, and live Photos/Gmail/Drive auth in one pass.
+- [`diag_check_google_config.md`](diag_check_google_config.md) — describes `diag_check_google_config.py`, a diagnostic that checks gcloud project/account, the credentials and token files named in the gmail_drive config, and live Gmail/Drive auth in one pass.
 
 ## 🔧 Setup & diagnostic helpers
 

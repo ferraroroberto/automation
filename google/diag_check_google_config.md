@@ -12,19 +12,21 @@ The `diag_check_google_config.py` script is a diagnostic tool that helps trouble
 - Lists active authentication accounts
 - Handles Windows-specific gcloud detection
 
+The credentials and token file names come from the `auth` block of `config.json` (the sample, `config_gmail_drive.json.sample`, when no live config exists), the same place `gmail_drive_automation.py` reads them from.
+
 ### 🔑 Credentials File Check
-- Validates `client_secret.json` file exists and is readable
+- Validates the configured credentials file (`credentials.json` by default) exists and is readable
 - Extracts project ID and client ID from credentials
 - Ensures OAuth2 credentials are properly configured
 
 ### 🎫 Token File Check
-- Verifies `token.json` file exists
+- Verifies the configured token file (`token.json` by default) exists
 - Lists granted OAuth scopes
 - Checks token validity and expiration
 
 ### 🧪 Authentication Testing
-- Tests authentication with Google Photos API
 - Tests authentication with Gmail API
+- Tests authentication with Google Drive API
 - Attempts token refresh if expired
 - Provides detailed error messages for failed API calls
 
@@ -36,12 +38,13 @@ The `diag_check_google_config.py` script is a diagnostic tool that helps trouble
 ## Prerequisites
 
 ### Required Files
-- `client_secret.json` - OAuth2 credentials from Google Cloud Console
+- `credentials.json` - OAuth2 credentials from Google Cloud Console
 - `token.json` - Generated authentication tokens (created on first run)
 
 ### Required APIs
-- Google Photos Library API
 - Gmail API
+- Google Drive API
+- Google Sheets API
 
 ## Installation and Setup
 
@@ -107,22 +110,22 @@ The script will output a comprehensive diagnostic report:
 🎫 Checking token file...
    ✅ Token file found
    🔐 Granted scopes (3):
-      • https://www.googleapis.com/auth/photoslibrary.readonly
+      • https://www.googleapis.com/auth/drive
       • https://www.googleapis.com/auth/gmail.readonly
 
 🧪 Testing authentication...
    ✅ Credentials loaded successfully
-   🔑 Token scopes: ['https://www.googleapis.com/auth/photoslibrary.readonly', ...]
-   ✅ Photos API: Authentication successful
+   🔑 Token scopes: ['https://www.googleapis.com/auth/drive', ...]
    ✅ Gmail API: Authentication successful (Email: user@example.com)
+   ✅ Drive API: Authentication successful (User: Your Name)
 
 💡 Solutions:
-   1. If projects don't match, switch gcloud to the correct project:
-      gcloud config set project automation-469306
+   1. If projects don't match, switch gcloud to the credentials project:
+      gcloud config set project your-project-id
    2. Re-authenticate with the correct project:
       gcloud auth login
    3. Delete token.json and re-run authentication to get fresh tokens
-   4. Ensure the Google Cloud project has the required APIs enabled
+   4. Ensure the Google Cloud project your-project-id has the required APIs enabled
    5. Check that your OAuth consent screen includes the required scopes
 
 📊 Summary:
@@ -143,8 +146,8 @@ The script will output a comprehensive diagnostic report:
 **Problem**: gcloud project differs from credentials project
 **Solution**:
 ```powershell
-# Switch to correct project
-gcloud config set project automation-469306
+# Switch to the project named in the credentials file
+gcloud config set project your-project-id
 
 # Re-authenticate
 gcloud auth login
@@ -167,8 +170,9 @@ python your_auth_script.py
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
 2. Navigate to APIs & Services > Library
 3. Enable:
-   - Google Photos Library API
    - Gmail API
+   - Google Drive API
+   - Google Sheets API
 
 ## Windows-Specific Notes
 
@@ -234,14 +238,14 @@ gcloud components install COMPONENT_NAME
 automation/google/
 ├── diag_check_google_config.py # Main diagnostic script
 ├── diag_check_google_config.md # This documentation
-├── client_secret.json          # OAuth2 credentials (required)
+├── credentials.json            # OAuth2 credentials (required)
 ├── token.json                  # Authentication tokens (generated)
 └── README.md                   # General project documentation
 ```
 
 ## Security Notes
 
-- **Never commit** `client_secret.json` or `token.json` to version control
+- **Never commit** `credentials.json` or `token.json` to version control
 - Keep credentials secure and restrict access
 - Rotate credentials regularly
 - Use service accounts for production applications

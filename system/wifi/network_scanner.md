@@ -181,13 +181,16 @@ The script uses `network_scanner.json` for configuration:
 {
   "default_subnet": "192.168.0.0/24",
   "default_output": "network_scan.json",
-  "scan_timeout": 2,
   "logging": {
     "level": "INFO"
   },
   "output_format": {
     "include_metadata": true,
-    "pretty_print": true
+    "pretty_print": true,
+    "ensure_ascii": false
+  },
+  "arp_scan": {
+    "timeout": 2
   }
 }
 ```

@@ -626,10 +626,8 @@ def load_config() -> Dict[str, Any]:
     return {
         "default_subnet": "192.168.0.0/24",
         "default_output": "network_scan.json",
-        "scan_timeout": 2,
         "logging": {
-            "level": "INFO",
-            "format": "%(asctime)s - %(levelname)s - %(message)s"
+            "level": "INFO"
         },
         "output_format": {
             "include_metadata": True,
@@ -637,9 +635,7 @@ def load_config() -> Dict[str, Any]:
             "ensure_ascii": False
         },
         "arp_scan": {
-            "timeout": 2,
-            "retry_count": 2,
-            "verbose_output": True
+            "timeout": 2
         }
     }
 
