@@ -213,29 +213,34 @@ def _set_switch_via_cloud(cloud_ctx: Dict[str, Any], value: bool) -> bool:
     return bool(resp and resp.get("success"))
 
 
+def _set_power(dev, name: str, status: Dict[str, Any], cloud_ctx: Optional[Dict[str, Any]], value: bool) -> None:
+    """Send the switch command on whichever path connected; exit 1 if it did not take.
+
+    tinytuya returns an error dict instead of raising when a local command fails,
+    so the result is checked here just as the cloud response is.
+    """
+    if cloud_ctx:
+        if not _set_switch_via_cloud(cloud_ctx, value):
+            logger.error("❌ Cloud command failed for '%s'", name)
+            sys.exit(1)
+        return
+    result = dev.set_value(_detect_switch_dps(status), value)
+    if isinstance(result, dict) and ("Error" in result or "Err" in result):
+        logger.error("❌ Local command failed for '%s': %s", name, _format_status_error(result))
+        sys.exit(1)
+
+
 def turn_on(device_info: Dict[str, Any]) -> None:
     """Turn a light/device ON."""
     dev, name, status, cloud_ctx = _connect_and_status(device_info)
-    if cloud_ctx:
-        if not _set_switch_via_cloud(cloud_ctx, True):
-            logger.error("❌ Cloud command failed for '%s'", name)
-            sys.exit(1)
-    else:
-        dps_key = _detect_switch_dps(status)
-        dev.set_value(dps_key, True)
+    _set_power(dev, name, status, cloud_ctx, True)
     logger.info(f"✅ '{name}' turned ON")
 
 
 def turn_off(device_info: Dict[str, Any]) -> None:
     """Turn a light/device OFF."""
     dev, name, status, cloud_ctx = _connect_and_status(device_info)
-    if cloud_ctx:
-        if not _set_switch_via_cloud(cloud_ctx, False):
-            logger.error("❌ Cloud command failed for '%s'", name)
-            sys.exit(1)
-    else:
-        dps_key = _detect_switch_dps(status)
-        dev.set_value(dps_key, False)
+    _set_power(dev, name, status, cloud_ctx, False)
     logger.info(f"✅ '{name}' turned OFF")
 
 
@@ -258,12 +263,7 @@ def switch_toggle(device_info: Dict[str, Any]) -> None:
     dps_key = _detect_switch_dps(status)
     is_on = dps.get(dps_key, False)
     new_state = not is_on
-    if cloud_ctx:
-        if not _set_switch_via_cloud(cloud_ctx, new_state):
-            logger.error("❌ Cloud command failed for '%s'", name)
-            sys.exit(1)
-    else:
-        dev.set_value(dps_key, new_state)
+    _set_power(dev, name, status, cloud_ctx, new_state)
     state_label = "ON" if new_state else "OFF"
     logger.info(f"✅ '{name}' switched to {state_label}")
 

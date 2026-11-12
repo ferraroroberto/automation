@@ -56,7 +56,8 @@ def setup_logging(log_level: str = "INFO") -> logging.Logger:
     logging.basicConfig(
         level=numeric_level,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,  # main() reconfigures once the config file's level is known
     )
     return logging.getLogger(__name__)
 
@@ -140,9 +141,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--source", type=str, help="Path to source illustrations folder")
     parser.add_argument("--archive", type=str, help="Path to archive folder")
     parser.add_argument("--encode", choices=["y", "n"], help="Whether to encode messages")
-    parser.add_argument("--log-level", type=str, default="INFO", 
+    parser.add_argument("--log-level", type=str, default=None,
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                        help="Logging level")
+                        help="Logging level (default: the config file's log_level, else INFO)")
     return parser.parse_args()
 
 def load_config(config_path: str, args: argparse.Namespace, logger: logging.Logger) -> Dict[str, Any]:
@@ -351,8 +352,9 @@ def main() -> None:
     """Main entry point for the script."""
     args = parse_arguments()
     
-    # Setup logging with default level
-    logger = setup_logging(args.log_level)
+    # Setup logging with the flag's level until the config file is read
+    initial_level = args.log_level or "INFO"
+    logger = setup_logging(initial_level)
     
     # Determine config file path (absolute or relative to script)
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -364,9 +366,10 @@ def main() -> None:
     # Load configuration
     config = load_config(config_path, args, logger)
     
-    # Update logging level if specified in config
-    if config.get("log_level") != args.log_level:
-        logger = setup_logging(config["log_level"])
+    # The flag (already merged into config) wins, then the config file's level, then INFO
+    config_level = config.get("log_level") or "INFO"
+    if config_level != initial_level:
+        logger = setup_logging(config_level)
     
     # Process subscribers
     process_subscribers(config, logger)

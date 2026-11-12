@@ -32,8 +32,12 @@ def calculate_time_intervals(df: pd.DataFrame) -> pd.DataFrame:
     # Convert to datetime objects
     df['datetime'] = df['unified_name'].apply(lambda x: datetime.strptime(x[:15], '%Y%m%d-%H%M%S'))
 
-    # Calculate seconds between consecutive files per day
-    df['time_interval'] = df.groupby('unified_day')['datetime'].diff().dt.total_seconds().fillna(0)
+    # Seconds between consecutive files per day, in time order (scan order interleaves
+    # source folders and yields negative gaps). Each day's first file has no gap: NaN.
+    # Positional index so a frame with repeated index labels maps back row for row.
+    ordered = df[['unified_day', 'datetime']].reset_index(drop=True).sort_values('datetime', kind='stable')
+    gaps = ordered.groupby('unified_day')['datetime'].diff().dt.total_seconds().sort_index()
+    df['time_interval'] = gaps.to_numpy()
 
     return df
 

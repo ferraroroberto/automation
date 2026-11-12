@@ -92,18 +92,20 @@ class DataCleanerBase:
         """Clean sensitive data from the text"""
         cleaned = text
         
-        if self.clean_paths:
-            cleaned = re.sub(self.patterns["paths"], '[REDACTED_PATH]', cleaned)
-        
-        if self.clean_emails:
-            cleaned = re.sub(self.patterns["emails"], '[REDACTED_EMAIL]', cleaned)
-        
-        if self.clean_ips:
-            cleaned = re.sub(self.patterns["ips"], '[REDACTED_IP]', cleaned)
-        
+        # URLs and emails go before paths: the path pattern's optional drive letter would
+        # otherwise match the `s:` of `https:` and leave the URL's query string unredacted.
         if self.clean_urls:
             cleaned = re.sub(self.patterns["urls"], '[REDACTED_URL]', cleaned)
-        
+
+        if self.clean_emails:
+            cleaned = re.sub(self.patterns["emails"], '[REDACTED_EMAIL]', cleaned)
+
+        if self.clean_paths:
+            cleaned = re.sub(self.patterns["paths"], '[REDACTED_PATH]', cleaned)
+
+        if self.clean_ips:
+            cleaned = re.sub(self.patterns["ips"], '[REDACTED_IP]', cleaned)
+
         if self.clean_secrets:
             cleaned = re.sub(self.patterns["secrets"], r'\1=[REDACTED_SECRET]', cleaned)
         
