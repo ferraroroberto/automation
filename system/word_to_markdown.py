@@ -4,7 +4,6 @@ Word to Markdown Converter
 
 A dual-interface application that converts Word documents to Markdown format.
 Supports both command-line and Tkinter file picker interfaces.
-Automatically tests conversion by processing all Word documents found in the project.
 """
 
 import argparse
@@ -47,47 +46,6 @@ logger = logging.getLogger(__name__)
 
 class WordToMarkdownConverter:
     """Converts Word documents to Markdown format."""
-    
-    def __init__(self):
-        self.project_root = self._find_project_root()
-        # The test copies are scratch output, so they live in the machine's runtime
-        # folder, not beside the code.
-        self.test_folder = runtime_files.runtime_data_dir() / "test-word-to-markdown"
-        
-    def _find_project_root(self) -> Path:
-        """Find the project root directory by looking for .git folder."""
-        current = Path.cwd()
-        while current != current.parent:
-            if (current / ".git").exists():
-                return current
-            current = current.parent
-        return Path.cwd()
-    
-    def _create_test_folder(self):
-        """Create the test folder if it doesn't exist."""
-        runtime_files.make_dirs(self.test_folder)
-        logger.info(f"📁 Test folder created/verified: {self.test_folder}")
-    
-    def _find_word_documents(self) -> List[Path]:
-        """Find all Word documents in the project."""
-        pattern = "**/*.docx"
-        documents = []
-        
-        for doc_path in self.project_root.glob(pattern):
-            # Skip the test folder itself
-            if self.test_folder in doc_path.parents:
-                continue
-            documents.append(doc_path)
-        
-        logger.info(f"🔍 Found {len(documents)} Word documents in project")
-        return documents
-    
-    def _copy_to_test_folder(self, doc_path: Path) -> Path:
-        """Copy document to test folder."""
-        dest_path = self.test_folder / doc_path.name
-        runtime_files.copy_file(doc_path, dest_path)
-        logger.debug(f"📋 Copied {doc_path.name} to test folder")
-        return dest_path
     
     def _extract_paragraphs_and_tables(self, doc: DocumentType) -> List:
         """Extract paragraphs and tables in document order."""
@@ -244,43 +202,6 @@ class WordToMarkdownConverter:
         
         return True
     
-    def run_test_conversion(self):
-        """Run automatic test conversion of all Word documents in project."""
-        logger.info("🧪 Starting automatic test conversion...")
-        
-        # Create test folder
-        self._create_test_folder()
-        
-        # Find all Word documents
-        documents = self._find_word_documents()
-        
-        if not documents:
-            logger.info("ℹ️  No Word documents found in project")
-            return
-        
-        # Process each document
-        success_count = 0
-        for doc_path in documents:
-            try:
-                # Copy to test folder
-                test_doc_path = self._copy_to_test_folder(doc_path)
-                
-                # Convert to Markdown
-                markdown_content = self.convert_document(test_doc_path)
-                
-                # Save Markdown with same name + .md extension
-                output_path = self.test_folder / f"{doc_path.stem}.md"
-                self.save_markdown(markdown_content, output_path)
-                
-                success_count += 1
-                
-            except Exception as e:
-                logger.error(f"❌ Failed to process {doc_path.name}: {str(e)}")
-        
-        logger.info(f"🎉 Test conversion completed: {success_count}/{len(documents)} documents processed")
-        logger.info(f"📁 Results saved in: {self.test_folder}")
-
-
 class TkinterInterface:
     """Simple Tkinter interface for file selection."""
     
@@ -320,13 +241,6 @@ class TkinterInterface:
                                 width=15, height=2)
         select_button.pack(pady=(0, 10))
         
-        # Test conversion button
-        test_button = tk.Button(main_frame, text="Run Test Conversion", 
-                               command=self.run_test_conversion, 
-                               font=("Arial", 10), 
-                               width=15, height=1)
-        test_button.pack()
-        
         # Status label
         self.status_label = tk.Label(main_frame, text="", fg="blue")
         self.status_label.pack(pady=(10, 0))
@@ -354,19 +268,6 @@ class TkinterInterface:
                 self.status_label.config(text="❌ Error occurred", fg="red")
                 messagebox.showerror("Error", f"An error occurred: {str(e)}")
     
-    def run_test_conversion(self):
-        """Run the automatic test conversion."""
-        self.status_label.config(text="Running test conversion...", fg="orange")
-        self.root.update()
-        
-        try:
-            self.converter.run_test_conversion()
-            self.status_label.config(text="✅ Test conversion completed!", fg="green")
-            messagebox.showinfo("Success", "Test conversion completed successfully!")
-        except Exception as e:
-            self.status_label.config(text="❌ Test conversion failed", fg="red")
-            messagebox.showerror("Error", f"Test conversion failed: {str(e)}")
-    
     def run(self):
         """Start the Tkinter interface."""
         self.root.mainloop()
@@ -381,11 +282,6 @@ def main():
         "file_path", 
         nargs='?', 
         help="Path to the Word document to convert"
-    )
-    parser.add_argument(
-        "--test", 
-        action="store_true", 
-        help="Run automatic test conversion of all Word documents in project"
     )
     parser.add_argument(
         "--gui", 
@@ -414,10 +310,6 @@ def main():
         logger.info("🖥️  Launching Tkinter interface...")
         interface = TkinterInterface(converter)
         interface.run()
-        
-    elif args.test:
-        logger.info("🧪 Running automatic test conversion...")
-        converter.run_test_conversion()
         
     elif args.file_path:
         logger.info(f"🔄 Converting single document: {args.file_path}")

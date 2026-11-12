@@ -182,15 +182,12 @@ class StorageManager:
         standard_columns = [
             'search_type', 'local_image', 'imgur_url', 'search_date',
             'api_id', 'api_status', 'json_endpoint', 'created_at', 'processed_at',
-            'total_time_taken', 'engine', 'url', 'page_token', 'raw_json',
+            'total_time_taken', 'engine', 'url', 'raw_json',
             'search_engine_query', 'raw_html_file'
         ]
         
         # Optional columns that might be present depending on API response
-        optional_columns = [
-            'user', 'requester_ip', 'rtt', 'device', 'source_user_agent', 
-            'used_user_agent', 'proxy_provider', 'playground_link'
-        ]
+        optional_columns = ['user', 'playground_link']
         
         if history_path.exists():
             try:
