@@ -95,7 +95,6 @@ class SearchClient:
     
     def _add_to_api_history(self, history_df: pd.DataFrame, search_type: str, 
                            local_image: str, imgur_url: str, response_data: dict,
-                           page_token: Optional[str] = None, 
                            search_type_param: Optional[str] = None) -> pd.DataFrame:
         """
         Add an API call record to the API history database.
@@ -106,7 +105,6 @@ class SearchClient:
             local_image (str): Filename of the local image
             imgur_url (str): Imgur URL of the uploaded image
             response_data (dict): API response data
-            page_token (Optional[str]): Page token for legacy searches (deprecated)
             search_type_param (Optional[str]): The actual 'type' parameter used in the API call
             
         Returns:
@@ -137,16 +135,9 @@ class SearchClient:
                 # Search parameters
                 'engine': search_parameters.get('engine'),
                 'url': search_parameters.get('url'),
-                'page_token': page_token,  # Keep for backward compatibility, will be None for new searches
                 
-                # Additional SerpAPI-specific fields
+                # Supplied or derived here, not read from the API response
                 'user': os.environ.get("CHECK_IP_OWNER_EMAIL"),  # User email is not in the API response; supplied via env
-                'requester_ip': None,  # Not available in API response
-                'rtt': 1,  # Not available in API response, default to 1
-                'device': 'desktop',  # Not available in API response, default to desktop
-                'source_user_agent': 'python-requests/2.28.2',  # Not available in API response
-                'used_user_agent': None,  # Not available in API response
-                'proxy_provider': None,  # Not available in API response
                 'playground_link': None,  # We'll construct this below
                 
                 # Store the complete response for future reference

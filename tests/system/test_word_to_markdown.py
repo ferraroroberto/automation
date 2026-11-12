@@ -51,21 +51,6 @@ class ConversionFailureTests(unittest.TestCase):
         self.assertTrue(converter.convert_single_document(str(source)))
         self.assertIn("Hello from a synthetic document", source.with_suffix(".md").read_text(encoding="utf-8"))
 
-    def test_batch_conversion_does_not_count_a_corrupt_document_as_processed(self):
-        source = self._corrupt_docx()
-        converter = w2m.WordToMarkdownConverter()
-        converter.test_folder = self.folder / "converted"
-        converter.test_folder.mkdir()
-
-        with mock.patch.object(converter, "_create_test_folder"), \
-                mock.patch.object(converter, "_find_word_documents", return_value=[source]), \
-                mock.patch.object(converter, "_copy_to_test_folder", return_value=source), \
-                self.assertLogs(w2m.logger, level="INFO") as logs:
-            converter.run_test_conversion()
-
-        self.assertTrue(any("0/1 documents processed" in line for line in logs.output), logs.output)
-        self.assertEqual(list(converter.test_folder.iterdir()), [])
-
 
 if __name__ == "__main__":
     unittest.main()

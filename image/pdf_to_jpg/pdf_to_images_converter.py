@@ -26,7 +26,6 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from threading import Lock
 from typing import List, Optional, Tuple
 
 # Try to import PyMuPDF
@@ -49,9 +48,6 @@ except ImportError:
 # Default settings
 DEFAULT_DPI = 150
 DEFAULT_WORKERS = 4
-
-# Thread-safe logging lock
-_log_lock = Lock()
 
 def setup_logging():
     """Setup console-only logging."""
@@ -177,9 +173,8 @@ def convert_pdf_to_images(pdf_path: Path, dpi: int = DEFAULT_DPI, delete_after: 
         doc = fitz.open(pdf_path)
         total_pages = len(doc)
         
-        with _log_lock:
-            progress_info = f" ({pdf_index}/{total_pdfs})" if pdf_index is not None and total_pdfs is not None else ""
-            logging.info(f"📄 Converting PDF: {pdf_path.name} ({total_pages} pages){progress_info}")
+        progress_info = f" ({pdf_index}/{total_pdfs})" if pdf_index is not None and total_pdfs is not None else ""
+        logging.info(f"📄 Converting PDF: {pdf_path.name} ({total_pages} pages){progress_info}")
         
         for i in range(total_pages):
             page = doc.load_page(i)
@@ -192,52 +187,27 @@ def convert_pdf_to_images(pdf_path: Path, dpi: int = DEFAULT_DPI, delete_after: 
             pix.save(str(out_path))
             generated_images.append(out_path)
             
-            with _log_lock:
-                logging.info(f"✓ Page {i+1}/{total_pages} converted: {out_name}")
+            logging.info(f"✓ Page {i+1}/{total_pages} converted: {out_name}")
         
         doc.close()
         
         # Log completion with progress information if available
         progress_info = f" ({pdf_index}/{total_pdfs})" if pdf_index is not None and total_pdfs is not None else ""
-        with _log_lock:
-            logging.info(f"✅ PDF conversion {pdf_path.name} done: {len(generated_images)} images generated{progress_info}")
+        logging.info(f"✅ PDF conversion {pdf_path.name} done: {len(generated_images)} images generated{progress_info}")
         
         # Delete source PDF file if requested
         if delete_after and generated_images:
             try:
                 os.remove(pdf_path)
-                with _log_lock:
-                    logging.info(f"🗑️ Deleted source PDF: {pdf_path.name}")
+                logging.info(f"🗑️ Deleted source PDF: {pdf_path.name}")
             except Exception as e:
-                with _log_lock:
-                    logging.warning(f"⚠️ Failed to delete source PDF {pdf_path.name}: {e}")
+                logging.warning(f"⚠️ Failed to delete source PDF {pdf_path.name}: {e}")
         
         return generated_images
     
     except Exception as e:
-        with _log_lock:
-            logging.error(f"❌ Failed to convert PDF {pdf_path.name}: {e}")
+        logging.error(f"❌ Failed to convert PDF {pdf_path.name}: {e}")
         return []
-
-def _process_single_pdf_wrapper(args: Tuple[Path, int, bool, Optional[int], Optional[int]]) -> Tuple[int, List[Path]]:
-    """
-    Wrapper for convert_pdf_to_images to handle parallel processing.
-    
-    Args:
-        args: Tuple of (pdf_path, dpi, delete_after, pdf_index, total_pdfs)
-        
-    Returns:
-        Tuple of (1 if processed, list of generated image paths)
-    """
-    pdf_path, dpi, delete_after, pdf_index, total_pdfs = args
-    
-    try:
-        images = convert_pdf_to_images(pdf_path, dpi, delete_after, pdf_index, total_pdfs)
-        return (1 if images else 0, images)
-    except Exception as e:
-        with _log_lock:
-            logging.error(f"❌ Error processing PDF {pdf_path.name}: {e}")
-        return (0, [])
 
 def process_pdf_files(folder_path: Path, dpi: int = DEFAULT_DPI, delete_after: bool = False, 
                      num_workers: int = DEFAULT_WORKERS) -> Tuple[int, int]:
@@ -286,32 +256,17 @@ def process_pdf_files(folder_path: Path, dpi: int = DEFAULT_DPI, delete_after: b
         logging.info(f"⚡ {optimization_reason}")
         logging.info(f"🚀 Using parallel PDF processing with {effective_workers} workers")
         
-        # Prepare arguments for each PDF
-        processing_args = [
-            (pdf_file, dpi, delete_after, idx, total_pdfs)
-            for idx, pdf_file in enumerate(pdf_files, 1)
-        ]
-        
-        # Process PDFs in parallel
         with ThreadPoolExecutor(max_workers=effective_workers) as executor:
-            # Submit all tasks
-            future_to_args = {
-                executor.submit(_process_single_pdf_wrapper, args): args
-                for args in processing_args
-            }
-            
-            # Process completed tasks
-            for future in as_completed(future_to_args):
-                args = future_to_args[future]
-                pdf_path = args[0]
-                
-                try:
-                    processed, images = future.result()
-                    pdf_count += processed
-                    image_count += len(images)
-                except Exception as e:
-                    with _log_lock:
-                        logging.error(f"❌ Failed to process {pdf_path.name}: {e}")
+            futures = [
+                executor.submit(convert_pdf_to_images, pdf_file, dpi, delete_after, idx, total_pdfs)
+                for idx, pdf_file in enumerate(pdf_files, 1)
+            ]
+            # convert_pdf_to_images reports its own failures and returns [], so a
+            # future never raises.
+            for future in as_completed(futures):
+                images = future.result()
+                pdf_count += 1 if images else 0
+                image_count += len(images)
     else:
         # Sequential processing mode
         logging.info("🚀 Using sequential PDF processing")
