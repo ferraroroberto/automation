@@ -35,8 +35,8 @@ from parking.config import (
     load_config,
     load_env,
 )
-from parking.notify import FleetNotifier, Notifier
 from parking.state import State, load_state, save_state
+from system._lib.notifier import FleetNotifier, Notifier
 
 logger = logging.getLogger("parking.poller")
 

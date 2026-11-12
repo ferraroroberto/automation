@@ -20,8 +20,8 @@ from zoneinfo import ZoneInfo
 
 from parking import planner, poller
 from parking.config import Config, apply_env_overrides, load_config, load_env
-from parking.notify import FleetNotifier, Notifier
 from parking.state import State
+from system._lib.notifier import FleetNotifier, Notifier
 
 logger = logging.getLogger("parking.demo")
 
