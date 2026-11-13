@@ -28,12 +28,12 @@ A self-contained Python application that converts PDF files to JPG images. Can b
 
 1. Install required packages:
 ```bash
-pip install -r requirements.txt
+..\..\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 2. Run the application:
 ```bash
-python pdf_to_images_converter.py
+..\..\.venv\Scripts\python.exe pdf_to_images_converter.py
 ```
 
 ### Option 2: Build Executable (Recommended)
@@ -125,10 +125,10 @@ pdf_to_jpg/
    - **Solution**: 
      ```bash
      # Remove conflicting packages
-     pip uninstall -y fitz frontend
+     .\.venv\Scripts\python.exe -m pip uninstall -y fitz frontend
      
      # Install the correct PyMuPDF
-     pip install --upgrade --force-reinstall PyMuPDF==1.23.8
+     .\.venv\Scripts\python.exe -m pip install --upgrade --force-reinstall PyMuPDF==1.23.8
      ```
 
 3. **"No module named 'ast'" error during build**

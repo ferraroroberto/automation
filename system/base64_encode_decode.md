@@ -20,7 +20,7 @@ A comprehensive GUI tool for Base64 encoding and decoding files, with advanced s
 Run the script to launch the tkinter-based GUI:
 
 ```bash
-python base64_encode_decode.py
+..\.venv\Scripts\python.exe base64_encode_decode.py
 ```
 
 The interface provides buttons for all operations with intuitive file selection dialogs.

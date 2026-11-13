@@ -12,10 +12,10 @@ Scans a folder for `*.afdesign` and `*.png` files and reports whether every Affi
 
 ```bash
 # Uses source_folder from Illustrations_check.json
-python image/illustrations_check.py
+.\.venv\Scripts\python.exe image/illustrations_check.py
 
 # Or pass the folder explicitly (overrides the config)
-python image/illustrations_check.py "C:/path/to/folder"
+.\.venv\Scripts\python.exe image/illustrations_check.py "C:/path/to/folder"
 ```
 
 If no folder is given on the command line and the config has no `source_folder`, the script prompts interactively (`Enter source folder path:`).
@@ -39,7 +39,7 @@ Distributes archived illustrations to subscriber folders based on two Excel meta
 ### Usage
 
 ```bash
-python image/illustrations_subscribers.py [options]
+.\.venv\Scripts\python.exe image/illustrations_subscribers.py [options]
 ```
 
 ### Command-line arguments
@@ -83,7 +83,7 @@ Tkinter GUI app: pick a folder and collate every image inside it into a single P
 ### Usage
 
 ```bash
-python image/image_to_pdf_collate.py
+.\.venv\Scripts\python.exe image/image_to_pdf_collate.py
 ```
 
 There are no command-line arguments — it opens a small window titled "Image → PDF Collate" with a single "Choose Folder & Create PDF" button. The `image_to_pdf_collate.bat` launcher activates the repo's `.venv` (`E:\automation\automation\.venv\Scripts\activate.bat`) and runs the script with no arguments.
@@ -105,7 +105,7 @@ Tkinter GUI app: pick a folder and convert every `.heic`/`.heif` file in it (top
 ### Usage
 
 ```bash
-python image/heic_to_jpg_converter.py
+.\.venv\Scripts\python.exe image/heic_to_jpg_converter.py
 ```
 
 No command-line arguments — it opens a folder-picker dialog ("Select folder containing HEIC images") and then processes that folder.
@@ -129,7 +129,7 @@ Prints the current Imgur API rate-limit status for the configured account.
 ### Usage
 
 ```bash
-python image/imgur_check_rate.py
+.\.venv\Scripts\python.exe image/imgur_check_rate.py
 ```
 
 No command-line arguments.
@@ -150,7 +150,7 @@ Tkinter GUI app: pick a folder and recursively list every file in it (name + mod
 ### Usage
 
 ```bash
-python image/files_list.py
+.\.venv\Scripts\python.exe image/files_list.py
 ```
 
 No command-line arguments — opens a folder-picker dialog ("Select folder to list files").

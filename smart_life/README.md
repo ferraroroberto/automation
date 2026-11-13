@@ -16,7 +16,7 @@ You need this to get device keys and (optionally) to use cloud control. Create a
 ### 2. Discover Devices & Get Local Keys
 
 ```bash
-python -m tinytuya wizard
+.\.venv\Scripts\python.exe -m tinytuya wizard
 ```
 
 The wizard will ask for your **Access ID** and **Access Secret**, then pull every device linked to your Smart Life account and write a `devices.json` file.
@@ -32,7 +32,7 @@ cp devices.json smart_life/devices.json
 `devices.json` uses the same format as tinytuya’s snapshot (top-level `timestamp` and `devices` array). To refresh IPs and live status from the network, run:
 
 ```bash
-python smart_life/light_control.py update
+.\.venv\Scripts\python.exe smart_life/light_control.py update
 ```
 
 This runs `tinytuya snapshot` (feeding it a temporary list of devices so it works with our snapshot-format file) and overwrites `devices.json` with the result. You can also run `python -m tinytuya scan` to discover devices; add new ones to `devices.json` (id, key, name, ip, ver) as needed.
@@ -41,25 +41,25 @@ This runs `tinytuya snapshot` (feeding it a temporary list of devices so it work
 
 ```bash
 # Turn a light ON
-python smart_life/light_control.py on --light "luz despacho"
+.\.venv\Scripts\python.exe smart_life/light_control.py on --light "luz despacho"
 
 # Turn a light OFF
-python smart_life/light_control.py off --light "luz despacho"
+.\.venv\Scripts\python.exe smart_life/light_control.py off --light "luz despacho"
 
 # Check current status
-python smart_life/light_control.py status --light despacho
+.\.venv\Scripts\python.exe smart_life/light_control.py status --light despacho
 
 # List all configured devices
-python smart_life/light_control.py list
+.\.venv\Scripts\python.exe smart_life/light_control.py list
 
 # Scan network for Tuya devices
-python smart_life/light_control.py scan
+.\.venv\Scripts\python.exe smart_life/light_control.py scan
 
 # Refresh devices.json from snapshot (update IPs and status; same format as snapshot.json)
-python smart_life/light_control.py update
+.\.venv\Scripts\python.exe smart_life/light_control.py update
 
 # Debug mode (verbose output)
-python smart_life/light_control.py status --light despacho --debug
+.\.venv\Scripts\python.exe smart_life/light_control.py status --light despacho --debug
 ```
 
 The `--light` parameter accepts a **device name** (partial, case-insensitive) or **full device ID**. Examples: `--light despacho`, `--light "luz despacho"`, `--light bfc158aece14a52035diwf`.

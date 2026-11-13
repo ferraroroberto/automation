@@ -23,14 +23,14 @@ The `venv_manager.py` script helps you manage your Python environments, both glo
 Run the script from the command line:
 
 ```
-python venv_manager.py
+..\.venv\Scripts\python.exe venv_manager.py
 ```
 
 ### Environment Detection
 
 The script will automatically detect and display information about your current Python environment:
 
-```
+```text
 ==================================================
 Current Python Environment: [environment name]
 Status: [VIRTUAL ENVIRONMENT or GLOBAL PYTHON]
@@ -96,11 +96,13 @@ If you encounter permission errors like `PermissionError: [WinError 5] Access is
    ```
 
 4. **Manual Package Management**: For stubborn packages, try:
+   <!-- bare-command-exempt: --user installs into the global interpreter on purpose, which is the interpreter this tool diagnoses, not the repo .venv -->
    ```
    pip uninstall --user packagename
    ```
 
 5. **Alternative Global Package Location**: Install packages with the `--user` flag to avoid permission issues:
+   <!-- bare-command-exempt: --user installs into the global interpreter on purpose, which is the interpreter this tool diagnoses, not the repo .venv -->
    ```
    pip install --user packagename
    ```

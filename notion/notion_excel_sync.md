@@ -11,7 +11,7 @@ The script reads a three-sheet workbook (`data`, `metadata`, `db`), looks up the
 ### Basic Usage
 
 ```bash
-python notion_excel_sync.py
+..\.venv\Scripts\python.exe notion_excel_sync.py
 ```
 
 There are no command-line arguments. The script prompts once for confirmation before making any changes:

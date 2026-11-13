@@ -32,13 +32,13 @@ Builds **Substack-ready HTML** from a Notion **newsletter** record and related *
 From the repo root (with `.venv` activated):
 
 ```bash
-python notion/build_newsletter.py --newsletter 057 --config notion/build_newsletter.json
+.\.venv\Scripts\python.exe notion/build_newsletter.py --newsletter 057 --config notion/build_newsletter.json
 ```
 
 Or from `notion/`:
 
 ```bash
-python build_newsletter.py --newsletter 057
+..\.venv\Scripts\python.exe build_newsletter.py --newsletter 057
 ```
 
 **Batch file**: `notion/build_newsletter.bat` — prompts for the number, then runs the script.

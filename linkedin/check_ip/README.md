@@ -136,34 +136,34 @@ Install the repo's root `requirements.txt` into `.venv` (`pandas`, `numpy`, `req
 
 ```bash
 # Use defaults from linkedin_search_image.json
-python main.py
+..\..\.venv\Scripts\python.exe main.py
 ```
 
 ### Configuration File Override
 
 ```bash
 # Use a different configuration file
-python main.py --config "path/to/custom_config.json"
+..\..\.venv\Scripts\python.exe main.py --config "path/to/custom_config.json"
 ```
 
 ### Command Line Overrides
 
 ```bash
 # Override specific settings
-python main.py --images-folder "C:\\custom\\images" --standard-days 20
+..\..\.venv\Scripts\python.exe main.py --images-folder "C:\\custom\\images" --standard-days 20
 ```
 
 ### Enable Similar Matches
 
 ```bash
 # Enable similar matches search (in addition to exact matches)
-python main.py --enable-similar-search
+..\..\.venv\Scripts\python.exe main.py --enable-similar-search
 ```
 
 ### Full Example
 
 ```bash
-python main.py \
+..\..\.venv\Scripts\python.exe main.py \
     --config "custom_config.json" \
     --images-folder "C:\\Users\\rober\\custom_images" \
     --linkedin-high-threshold 30 \

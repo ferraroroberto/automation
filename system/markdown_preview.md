@@ -19,7 +19,7 @@ A self-contained, tray-resident Markdown previewer. It renders a `.md` file as G
 Install from the project requirements:
 
 ```
-pip install -r ../../requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 ## Usage

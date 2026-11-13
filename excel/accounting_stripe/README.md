@@ -40,7 +40,7 @@ Perfect for financial data reconciliation, automated reporting, and data quality
 1. **Clone the repository** (if not already done)
 2. **Install dependencies**:
    ```bash
-   pip install -r requirements.txt
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 3. **Navigate to the tool directory**:
    ```bash
@@ -89,23 +89,23 @@ Edit `csv_compare_config.json` to customize behavior:
 
 ```bash
 # Double-click launcher.bat or run:
-python csv_structure_compare.py
+..\..\.venv\Scripts\python.exe csv_structure_compare.py
 ```
 
 ### Command Line Options
 
 ```bash
 # Use default directory
-python csv_structure_compare.py
+..\..\.venv\Scripts\python.exe csv_structure_compare.py
 
 # Specify custom directory
-python csv_structure_compare.py "C:\path\to\your\data"
+..\..\.venv\Scripts\python.exe csv_structure_compare.py "C:\path\to\your\data"
 
 # Custom date range (overrides quarter filtering)
-python csv_structure_compare.py --start-date 2024-01-01 --end-date 2024-03-31
+..\..\.venv\Scripts\python.exe csv_structure_compare.py --start-date 2024-01-01 --end-date 2024-03-31
 
 # Combined options
-python csv_structure_compare.py "C:\data" --start-date 2024-07-01 --end-date 2024-09-30
+..\..\.venv\Scripts\python.exe csv_structure_compare.py "C:\data" --start-date 2024-07-01 --end-date 2024-09-30
 ```
 
 ### Date Filtering Logic

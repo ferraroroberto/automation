@@ -89,13 +89,13 @@ One row per sampled visual type. Text fields are paired with their Notion IDs so
 
 ```bash
 # Default run (wipes + rebuilds)
-python sample_illustrations.py
+..\.venv\Scripts\python.exe sample_illustrations.py
 
 # Dry run — prints planned sample count + first 5 targets, no filesystem writes
-python sample_illustrations.py --dry-run
+..\.venv\Scripts\python.exe sample_illustrations.py --dry-run
 
 # Custom config path
-python sample_illustrations.py --config path/to/config.json
+..\.venv\Scripts\python.exe sample_illustrations.py --config path/to/config.json
 ```
 
 Auth: reads `NOTION_API_TOKEN` from `E:\automation\automation\.env` (same env as the other Notion scripts in this folder).

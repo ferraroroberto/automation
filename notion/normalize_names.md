@@ -10,13 +10,13 @@ Automatically normalizes article names in a Notion database to sentence case whi
 
 ```bash
 # Normalize articles from the last 14 days
-python normalize_names.py --days 14 --config normalize_names.json
+..\.venv\Scripts\python.exe normalize_names.py --days 14 --config normalize_names.json
 
 # Preview changes without updating (dry run)
-python normalize_names.py --days 7 --dry-run
+..\.venv\Scripts\python.exe normalize_names.py --days 7 --dry-run
 
 # Test normalization on a specific string
-python normalize_names.py --test "TEST ALL CAPS"
+..\.venv\Scripts\python.exe normalize_names.py --test "TEST ALL CAPS"
 ```
 
 ### Command Line Arguments

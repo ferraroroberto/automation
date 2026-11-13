@@ -26,7 +26,7 @@ A Tkinter tray app that indexes folder *names* across one or more root folders a
 Install from the main project requirements:
 
 ```bash
-pip install -r ../../requirements.txt
+..\..\.venv\Scripts\python.exe -m pip install -r ../../requirements.txt
 ```
 
 ## Usage

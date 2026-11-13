@@ -63,27 +63,27 @@ sudo ./.venv/bin/python system/wifi/network_scanner.py
 
 ### Basic Scan (Default: 192.168.0.0/24)
 ```bash
-python network_scanner.py
+..\..\.venv\Scripts\python.exe network_scanner.py
 ```
 
 ### Custom Subnet
 ```bash
-python network_scanner.py --subnet 192.168.1.0/24
+..\..\.venv\Scripts\python.exe network_scanner.py --subnet 192.168.1.0/24
 ```
 
 ### Custom Output File
 ```bash
-python network_scanner.py --output my_network_scan.json
+..\..\.venv\Scripts\python.exe network_scanner.py --output my_network_scan.json
 ```
 
 ### Debug Mode
 ```bash
-python network_scanner.py --debug
+..\..\.venv\Scripts\python.exe network_scanner.py --debug
 ```
 
 ### Combined Options
 ```bash
-python network_scanner.py --subnet 192.168.10.0/24 --output office_scan.json --timeout 3
+..\..\.venv\Scripts\python.exe network_scanner.py --subnet 192.168.10.0/24 --output office_scan.json --timeout 3
 ```
 
 ## 📄 Output Format
@@ -235,7 +235,7 @@ The script uses `network_scanner.json` for configuration:
 ### "scapy library not installed" Error
 **Solution**: Install scapy
 ```bash
-pip install scapy
+.\.venv\Scripts\python.exe -m pip install scapy
 ```
 
 ### No devices found

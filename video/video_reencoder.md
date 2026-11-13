@@ -20,7 +20,7 @@ Re-encode videos to a target file size using FFmpeg. Useful for reducing file si
 
 **GUI:**
 ```bash
-python video/video_reencoder.py
+.\.venv\Scripts\python.exe video/video_reencoder.py
 ```
 
 **Double-click:** `video_reencoder.bat`

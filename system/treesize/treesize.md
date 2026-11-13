@@ -20,7 +20,7 @@ A simple GUI application to analyze folder sizes, similar to TreeSize Profession
 
 1. Run the application:
    ```bash
-   python treesize.py
+   ..\..\.venv\Scripts\python.exe treesize.py
    ```
 
 2. Click "Select Folder" to choose a folder to analyze
