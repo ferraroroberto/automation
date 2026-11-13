@@ -1,8 +1,8 @@
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from parking import auth, planner
-from parking.planner import Combo
+from tools.parking import auth, planner
+from tools.parking.planner import Combo
 
 
 def make_token(exp: datetime) -> str:

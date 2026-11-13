@@ -20,7 +20,7 @@ from pathlib import Path
 from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "video"))
+sys.path.insert(0, str(REPO_ROOT / "tools" / "video"))
 
 import screen_recorder  # noqa: E402
 

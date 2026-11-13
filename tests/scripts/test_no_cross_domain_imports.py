@@ -1,9 +1,9 @@
-"""A tool domain may import `system._lib` and the repo-root helpers, never another domain.
+"""A tool domain may import `tools.system._lib` and the repo-root helpers, never another domain.
 
-The domains (`google/`, `parking/`, `notion/`, ...) are independent scheduled
-jobs and tools. A helper two of them need belongs in `system/_lib/`
+The domains (`tools/google/`, `tools/parking/`, `tools/notion/`, ...) are independent scheduled
+jobs and tools. A helper two of them need belongs in `tools/system/_lib/`
 (`docs/layout.md`); importing it from a sibling domain's package couples their
-release behaviour, so a change to one silently changes the other. `html/` is
+release behaviour, so a change to one silently changes the other. `tools/html/` is
 left out because its name is also the stdlib module `html`.
 """
 
@@ -14,25 +14,35 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SKIPPED_DIRS = {"tests", "scripts", "docs", "node_modules", "html"}
+TOOLS_DIR = REPO_ROOT / "tools"
+SKIPPED_DIRS = {"html"}
 SHARED_DOMAIN = "system"
 
 
 def _domains() -> list[str]:
     return sorted(
-        p.name for p in REPO_ROOT.iterdir()
+        p.name for p in TOOLS_DIR.iterdir()
         if p.is_dir() and not p.name.startswith((".", "_")) and p.name not in SKIPPED_DIRS
         and any(p.rglob("*.py"))
     )
+
+
+def _domain_of(module: str) -> str:
+    """The tool domain a dotted module names: `tools.google.x` -> `google`; any other module -> its first segment."""
+    parts = module.split(".")
+    return parts[1] if parts[0] == "tools" and len(parts) > 1 else parts[0]
 
 
 def _imported_roots(tree: ast.Module) -> set[str]:
     roots: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            roots.update(alias.name.split(".")[0] for alias in node.names)
+            roots.update(_domain_of(alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            roots.add(node.module.split(".")[0])
+            if node.module == "tools":
+                roots.update(alias.name for alias in node.names)
+            else:
+                roots.add(_domain_of(node.module))
     return roots
 
 
@@ -43,13 +53,13 @@ class NoCrossDomainImports(unittest.TestCase):
         offenders = []
         for domain in domains:
             allowed = {domain, SHARED_DOMAIN}
-            for path in sorted((REPO_ROOT / domain).rglob("*.py")):
+            for path in sorted((TOOLS_DIR / domain).rglob("*.py")):
                 if ".venv" in path.parts:
                     continue
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
                 for other in sorted(_imported_roots(tree) & set(domains) - allowed):
                     offenders.append(f"{path.relative_to(REPO_ROOT).as_posix()} imports {other}")
-        self.assertEqual(offenders, [], "move the shared helper into system/_lib/ and import it from there")
+        self.assertEqual(offenders, [], "move the shared helper into tools/system/_lib/ and import it from there")
 
 
 if __name__ == "__main__":

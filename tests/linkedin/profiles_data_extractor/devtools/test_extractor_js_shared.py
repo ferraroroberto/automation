@@ -8,7 +8,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[4]
 os.environ.setdefault("LINKEDIN_EXTRACTOR_LOG_FILE", os.path.join(tempfile.gettempdir(), "linkedin_extractor_tests.log"))
-sys.path.insert(0, str(_ROOT / "linkedin/profiles_data_extractor/devtools"))
+sys.path.insert(0, str(_ROOT / "tools/linkedin/profiles_data_extractor/devtools"))
 
 import linkedin_profiles_data_extractor_devtools as extractor  # noqa: E402
 

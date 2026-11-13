@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "system/apple"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/system/apple"))
 
 from unify_vcards import ContactMerger, VCardParser, VCardWriter  # noqa: E402
 

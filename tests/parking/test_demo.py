@@ -1,8 +1,8 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from parking import demo
-from parking.config import CONFIG_PATH, load_config
+from tools.parking import demo
+from tools.parking.config import CONFIG_PATH, load_config
 
 
 class Recorder:

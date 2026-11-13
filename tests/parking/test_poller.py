@@ -5,10 +5,10 @@ from zoneinfo import ZoneInfo
 import pytest
 from test_planner_auth import make_token
 
-from parking import poller, report
-from parking.api import ApiError, AuthError
-from parking.config import load_config
-from parking.state import State
+from tools.parking import poller, report
+from tools.parking.api import ApiError, AuthError
+from tools.parking.config import load_config
+from tools.parking.state import State
 
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=ZoneInfo("Europe/Madrid"))  # Sunday; next Mon = 21st
 
@@ -80,7 +80,7 @@ def cfg(tmp_path):
     import json
     from pathlib import Path
 
-    raw = json.loads((Path(__file__).resolve().parents[2] / "parking" / "config.json").read_text())
+    raw = json.loads((Path(__file__).resolve().parents[2] / "tools" / "parking" / "config.json").read_text())
     # Centre order pinned here: config.json's order is the owner's preference and may change.
     raw.update({"centers": [{"id": 1, "name": "22@"}, {"id": 2, "name": "CINC"}],
                 "weekdays": ["mon"], "horizon_days": 7, "dry_run": False,
@@ -375,7 +375,7 @@ def test_sweep_report_sends_one_line_per_sweep_until_the_end_time(cfg, env):
 def test_sweep_report_says_when_a_sweep_fails_and_skips_early_runs(cfg, env):
     from dataclasses import replace
 
-    from parking.api import ServerError
+    from tools.parking.api import ServerError
 
     class Broken(FakeApi):
         def my_bookings(self):

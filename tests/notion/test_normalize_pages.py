@@ -7,7 +7,7 @@ from unittest import mock
 
 import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "notion"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "notion"))
 
 import utils as notion_utils  # noqa: E402
 

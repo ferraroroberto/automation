@@ -6,11 +6,11 @@
 # =============================================================================
 
 # Interactive web apps for data science
-# Source: linkedin/profiles_data_extractor/common/dashboard.py
+# Source: tools/linkedin/profiles_data_extractor/common/dashboard.py
 streamlit>=1.30.0
 
 # Interactive graphing library
-# Source: linkedin/profiles_data_extractor/common/dashboard.py
+# Source: tools/linkedin/profiles_data_extractor/common/dashboard.py
 plotly>=5.18.0
 
 # =============================================================================
@@ -18,11 +18,11 @@ plotly>=5.18.0
 # =============================================================================
 
 # Audio file manipulation and processing
-# Source: audio/audio_normalize.py, audio/audio_trim.py
+# Source: tools/audio/audio_normalize.py, tools/audio/audio_trim.py
 scipy>=1.10.0
 
 # Audio format conversion (OGG to MP3)
-# Source: audio/convert_ogg_mp3.py
+# Source: tools/audio/convert_ogg_mp3.py
 imageio-ffmpeg>=0.5.0  # bundled ffmpeg binary resolved at runtime via get_ffmpeg_exe()
 
 # =============================================================================
@@ -30,15 +30,15 @@ imageio-ffmpeg>=0.5.0  # bundled ffmpeg binary resolved at runtime via get_ffmpe
 # =============================================================================
 
 # Core image manipulation (PIL/Pillow)
-# Source: image/illustrations_formatter.py, image/photos_archive.py, image/png_to_jpg_converter.py
+# Source: tools/image/illustrations_formatter.py, tools/image/photos_archive.py, tools/image/png_to_jpg_converter.py
 Pillow>=9.0.0
 
 # HEIF image format support
-# Source: image/photos_archive.py
+# Source: tools/image/photos_archive.py
 pillow-heif>=0.13.0
 
 # Media information extraction
-# Source: image/photos_archive.py
+# Source: tools/image/photos_archive.py
 pymediainfo>=6.0.0
 
 # =============================================================================
@@ -46,23 +46,23 @@ pymediainfo>=6.0.0
 # =============================================================================
 
 # Computer vision and video processing
-# Source: video/screen_recorder.py
+# Source: tools/video/screen_recorder.py
 opencv-python>=4.8.0
 
 # Screen capture and recording
-# Source: video/screen_recorder.py, image/screenshot.py, system/snap/snap_tool.py
+# Source: tools/video/screen_recorder.py, tools/image/screenshot.py, tools/system/snap/snap_tool.py
 mss>=10.2.0
 
 # Mouse and keyboard automation
-# Source: video/screen_recorder.py
+# Source: tools/video/screen_recorder.py
 pyautogui>=0.9.54
 
 # Monitor information
-# Source: video/screen_recorder.py
+# Source: tools/video/screen_recorder.py
 screeninfo>=0.8.1
 
 # YouTube and video site downloads
-# Source: video/video_download.py
+# Source: tools/video/video_download.py
 yt-dlp>=2024.1.0
 
 # =============================================================================
@@ -70,11 +70,11 @@ yt-dlp>=2024.1.0
 # =============================================================================
 
 # PDF text extraction
-# Source: text/convert_pdf_to_txt.py
+# Source: tools/text/convert_pdf_to_txt.py
 pypdf>=3.0.0
 
 # Excel file handling
-# Source: notion/notion_databases_dump.py
+# Source: tools/notion/notion_databases_dump.py
 openpyxl>=3.1.0
 
 # =============================================================================
@@ -82,11 +82,11 @@ openpyxl>=3.1.0
 # =============================================================================
 
 # Data manipulation and analysis
-# Source: notion/notion_databases_dump.py, image/photos_archive.py
+# Source: tools/notion/notion_databases_dump.py, tools/image/photos_archive.py
 pandas>=2.0.0
 
 # Numerical operations
-# Source: linkedin/check_ip/storage.py
+# Source: tools/linkedin/check_ip/storage.py
 numpy>=1.20.0
 
 # =============================================================================
@@ -94,11 +94,11 @@ numpy>=1.20.0
 # =============================================================================
 
 # Official Notion API client
-# Source: notion/notion_databases_dump.py, notion/notion_databases_clean.py
+# Source: tools/notion/notion_databases_dump.py, tools/notion/notion_databases_clean.py
 notion-client>=2.0.0
 
 # Natural language processing for entity detection
-# Source: notion/normalize_names.py
+# Source: tools/notion/normalize_names.py
 spacy>=3.7.0
 # spaCy English model — install via direct wheel URL since it's not on PyPI
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
@@ -108,14 +108,14 @@ en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_
 # =============================================================================
 
 # Gmail and Drive API authentication and services
-# Source: google/gmail_drive_automation.py
+# Source: tools/google/gmail_drive_automation.py
 google-auth==2.23.4  # Authentication for Google services
 google-auth-oauthlib==1.1.0  # OAuth2 flow for Google APIs
 google-auth-httplib2==0.1.1  # HTTP transport for Google auth
 google-api-python-client==2.108.0  # Google API client library
 
 # Timezone handling for Google API operations
-# Source: google/gmail_drive_automation.py
+# Source: tools/google/gmail_drive_automation.py
 pytz==2023.3.post1  # Timezone calculations
 
 # =============================================================================
@@ -123,16 +123,16 @@ pytz==2023.3.post1  # Timezone calculations
 # =============================================================================
 
 # Windows COM interfaces (Outlook automation)
-# Source: system/open_file_latency_diag.py,
-#         linkedin/profiles_data_extractor/devtools/ (win32gui)
+# Source: tools/system/open_file_latency_diag.py,
+#         tools/linkedin/profiles_data_extractor/devtools/ (win32gui)
 pywin32>=306
 
 # Windows GUI automation (included in pywin32)
-# Source: linkedin/profiles_data_extractor/devtools/ (win32gui/win32con)
+# Source: tools/linkedin/profiles_data_extractor/devtools/ (win32gui/win32con)
 # Note: win32gui functionality is provided by pywin32 package above
 
 # Process and system utilities
-# Source: system/venv_manager.py
+# Source: tools/system/venv_manager.py
 psutil>=5.9.0
 
 # =============================================================================
@@ -140,16 +140,16 @@ psutil>=5.9.0
 # =============================================================================
 
 # Keyboard and mouse monitoring
-# Source: system/textexpander/text_expander_gui.py, system/textexpander/text_expander_monitor.py,
-#         linkedin/profiles_data_extractor/devtools/
+# Source: tools/system/textexpander/text_expander_gui.py, tools/system/textexpander/text_expander_monitor.py,
+#         tools/linkedin/profiles_data_extractor/devtools/
 pynput>=1.7.0
 
 # Clipboard operations
-# Source: text/clean_sensitive_data.py, system/quickdeck/quickdeck.py, system/textexpander/text_expander_monitor.py
+# Source: tools/text/clean_sensitive_data.py, tools/system/quickdeck/quickdeck.py, tools/system/textexpander/text_expander_monitor.py
 pyperclip>=1.8.0
 
 # Simple GUI dialogs
-# Source: linkedin/open_profiles/linkedin_open.py
+# Source: tools/linkedin/open_profiles/linkedin_open.py
 easygui>=0.98.3
 
 # Text Expander functionality
@@ -157,7 +157,7 @@ pystray>=0.19.4
 keyboard>=0.13.5
 
 # Markdown preview tray app (renders via Edge WebView2)
-# Source: system/markdown_preview.py
+# Source: tools/system/markdown_preview.py
 pywebview>=5.0
 markdown>=3.5
 Pygments>=2.17
@@ -171,15 +171,15 @@ Pygments>=2.17
 requests>=2.31.0
 
 # WebSocket client for Chrome DevTools Protocol
-# Source: linkedin/profiles_data_extractor/devtools/linkedin_profile_search_checker_devtools.py
+# Source: tools/linkedin/profiles_data_extractor/devtools/linkedin_profile_search_checker_devtools.py
 websocket-client>=1.6.0
 
 # Network packet manipulation and analysis
-# Source: system/wifi/network_scanner.py
+# Source: tools/system/wifi/network_scanner.py
 scapy>=2.5.0
 
 # Tuya / Smart Life device control over local network
-# Source: smart_life/light_control.py
+# Source: tools/smart_life/light_control.py
 tinytuya>=1.14.0
 
 # =============================================================================
@@ -200,11 +200,11 @@ py7zr>=0.20.0
 rarfile>=4.0
 
 # Word document processing
-# Source: system/word_to_markdown.py
+# Source: tools/system/word_to_markdown.py
 python-docx>=0.8.11
 
-# Parking poller (parking/): browser login helper, timezone data, holiday calendar, tests
-# Source: parking/login.py, parking/poller.py, tests/parking
+# Parking poller (tools/parking/): browser login helper, timezone data, holiday calendar, tests
+# Source: tools/parking/login.py, tools/parking/poller.py, tests/parking
 playwright>=1.48
 tzdata>=2024.1
 holidays>=0.50

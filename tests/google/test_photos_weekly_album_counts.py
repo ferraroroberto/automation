@@ -4,7 +4,7 @@
 import unittest
 from datetime import date
 
-from google import photos_weekly_album as pwa
+from tools.google import photos_weekly_album as pwa
 
 
 class SettledValueTests(unittest.TestCase):

@@ -4,7 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "text"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "text"))
 
 import clean_sensitive_data  # noqa: E402
 

@@ -1,0 +1,61 @@
+@echo off
+REM ============================================================================
+REM LINKEDIN PROFILES DATA ORCHESTRATOR - DEVTOOLS VERSION
+REM ============================================================================
+REM Description: This batch file runs the DevTools-based profile data orchestrator.
+REM Make sure Chrome is running with remote debugging enabled first!
+REM
+REM Usage: Run start_chrome_debug.bat first, then this script.
+REM ============================================================================
+
+echo ========================================
+echo LinkedIn Profiles Data Orchestrator
+echo DevTools Version
+echo ========================================
+echo.
+
+REM Check if Chrome is running with debugging
+echo Checking if Chrome debug port is accessible...
+powershell -Command "try { $response = Invoke-WebRequest -Uri 'http://localhost:9222/json' -UseBasicParsing -TimeoutSec 5; if ($response.StatusCode -eq 200) { Write-Host '[OK] Chrome debug port accessible' -ForegroundColor Green } } catch { Write-Host '[ERROR] Chrome debug port not accessible' -ForegroundColor Red; Write-Host 'Please run start_chrome_debug.bat first!' -ForegroundColor Yellow; exit 1 }"
+
+echo.
+echo Starting DevTools-based profile orchestrator...
+echo.
+
+for %%I in ("%~dp0..\..\..\..") do set "REPO_ROOT=%%~fI"
+
+REM Use the repo's own virtual environment (resolved relative to this file)
+set "VENV_DIR=%REPO_ROOT%\.venv"
+
+REM Get the directory where this batch file is located
+set "SCRIPT_DIR=%~dp0"
+
+set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
+if not exist "%VENV_PY%" (
+    echo [ERROR] Virtual environment interpreter not found at "%VENV_PY%"
+    pause
+    exit /b 1
+)
+
+echo [INFO] Changing to script directory: "%SCRIPT_DIR%"
+cd /d "%SCRIPT_DIR%"
+if errorlevel 1 (
+    echo [ERROR] Failed to change directory.
+    exit /b 1
+)
+
+REM Run the Python script
+echo [INFO] Running linkedin_profiles_data_orchestrator_devtools.py...
+"%VENV_PY%" "%SCRIPT_DIR%linkedin_profiles_data_orchestrator_devtools.py"
+
+if errorlevel 1 (
+    echo [ERROR] Script failed with error code %errorlevel%
+    echo [INFO] Press any key to see error details...
+    pause >nul
+    goto :eof
+)
+
+echo.
+echo [INFO] DevTools orchestration completed!
+echo.
+pause

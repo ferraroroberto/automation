@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "system/quickdeck"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/system/quickdeck"))
 
 from quickdeck_actions import ActionContext, execute_shell_action  # noqa: E402
 

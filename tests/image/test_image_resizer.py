@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "image"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "image"))
 
 import image_resizer  # noqa: E402
 

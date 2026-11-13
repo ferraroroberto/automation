@@ -38,12 +38,12 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-VIDEO_DIR = REPO_ROOT / "video"
+VIDEO_DIR = REPO_ROOT / "tools" / "video"
 sys.path.insert(0, str(VIDEO_DIR))
 
 import gpu_recovery  # noqa: E402
 
-sys.path.insert(0, str(REPO_ROOT / "system"))
+sys.path.insert(0, str(REPO_ROOT / "tools" / "system"))
 from _lib import console_output  # noqa: E402
 
 # The cp850 encoding of "ó" (0xa2) - deliberately *not* valid UTF-8, which is
@@ -60,14 +60,14 @@ STAND_IN_SOURCE = (
 
 
 class DecoderPromotionTests(unittest.TestCase):
-    """#106's decoder moved to system/_lib - it must not have forked."""
+    """#106's decoder moved to tools/system/_lib - it must not have forked."""
 
     def test_gpu_recovery_uses_the_shared_runner(self) -> None:
         self.assertIs(gpu_recovery._run_console, console_output.run_console)
         self.assertIs(gpu_recovery.ConsoleRun, console_output.ConsoleRun)
 
     def test_netsh_still_exposes_the_same_decoder_object(self) -> None:
-        sys.path.insert(0, str(REPO_ROOT / "system" / "wifi"))
+        sys.path.insert(0, str(REPO_ROOT / "tools" / "system" / "wifi"))
         import _netsh  # noqa: PLC0415
 
         self.assertIs(_netsh.decode_console_bytes, console_output.decode_console_bytes)
@@ -104,17 +104,17 @@ class NoInheritedDecodingTests(unittest.TestCase):
         )
 
     def test_the_shared_runner_spawns_once(self) -> None:
-        source = (REPO_ROOT / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
+        source = (REPO_ROOT / "tools" / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
         self.assertEqual(len(self._spawn_calls(source)), 1)
 
     def test_the_spawn_never_decodes_with_the_parent_locale(self) -> None:
-        source = (REPO_ROOT / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
+        source = (REPO_ROOT / "tools" / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
         for call in self._spawn_calls(source):
             self.assertNotIn("text=", call, "the spawn decodes with the parent's locale")
             self.assertNotIn("encoding=", call, "the spawn pins a decode instead of capturing bytes")
 
     def test_the_spawn_captures_bytes_and_suppresses_the_console_window(self) -> None:
-        source = (REPO_ROOT / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
+        source = (REPO_ROOT / "tools" / "system" / "_lib" / "console_output.py").read_text(encoding="utf-8")
         for call in self._spawn_calls(source):
             self.assertIn("capture_output=True", call)
             self.assertIn("creationflags=NO_WINDOW", call)
@@ -228,7 +228,7 @@ class LiveReadUnderUtf8ModeTests(unittest.TestCase):
     """
 
     def setUp(self) -> None:
-        # Outside the repo: a stray .py in video/ would land in compileall.
+        # Outside the repo: a stray .py in tools/video/ would land in compileall.
         tmp = tempfile.mkdtemp(prefix="gpu_recovery_test_")
         self.addCleanup(shutil.rmtree, tmp, True)
         self.stand_in = Path(tmp) / "stand_in_smi.py"

@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from parking.config import apply_env_overrides, load_config
+from tools.parking.config import apply_env_overrides, load_config
 
 
 @pytest.fixture
 def cfg():
-    return load_config(Path(__file__).resolve().parents[2] / "parking" / "config.json")
+    return load_config(Path(__file__).resolve().parents[2] / "tools" / "parking" / "config.json")
 
 
 def test_shipped_config_is_dry_run(cfg):
@@ -27,7 +27,7 @@ def test_shipped_config_parses_thursday_burst(cfg):
 
 
 def test_missing_thursday_burst_block_is_none(tmp_path):
-    raw = json.loads((Path(__file__).resolve().parents[2] / "parking" / "config.json").read_text())
+    raw = json.loads((Path(__file__).resolve().parents[2] / "tools" / "parking" / "config.json").read_text())
     del raw["thursday_burst"]
     path = tmp_path / "config.json"
     path.write_text(json.dumps(raw))

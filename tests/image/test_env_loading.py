@@ -17,30 +17,30 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # (script, variable, how to read the value the script derived from it)
 CASES = [
-    ("image/carrousel_pdf_to_jpg.py", "CARROUSEL_SOURCE_FOLDER", lambda m: m.HARDCODED_SOURCE_FOLDER),
-    ("image/carrousel_pdf_to_jpg.py", "POPPLER_PATH", lambda m: m.POPPLER_PATH),
-    ("image/collage_image.py", "COLLAGE_SOURCE_FOLDER", lambda m: m.source_folder),
+    ("tools/image/carrousel_pdf_to_jpg.py", "CARROUSEL_SOURCE_FOLDER", lambda m: m.HARDCODED_SOURCE_FOLDER),
+    ("tools/image/carrousel_pdf_to_jpg.py", "POPPLER_PATH", lambda m: m.POPPLER_PATH),
+    ("tools/image/collage_image.py", "COLLAGE_SOURCE_FOLDER", lambda m: m.source_folder),
     (
-        "image/illustrations_formatter.py",
+        "tools/image/illustrations_formatter.py",
         "ILLUSTRATIONS_DEST_INSTAGRAM",
         lambda m: m.default_illustrations_config()["destination_folder_instagram"],
     ),
     (
-        "image/illustrations_formatter.py",
+        "tools/image/illustrations_formatter.py",
         "ILLUSTRATIONS_DEST_1920X1080",
         lambda m: m.default_illustrations_config()["destination_folder_1920x1080"],
     ),
     (
-        "image/illustrations_formatter_gui.py",
+        "tools/image/illustrations_formatter_gui.py",
         "ILLUSTRATIONS_DEST_INSTAGRAM",
         lambda m: m.IllustrationsFormatterGUI.DEFAULT_INSTAGRAM_FOLDER,
     ),
     (
-        "image/illustrations_formatter_gui.py",
+        "tools/image/illustrations_formatter_gui.py",
         "ILLUSTRATIONS_DEST_1920X1080",
         lambda m: m.IllustrationsFormatterGUI.DEFAULT_1920X1080_FOLDER,
     ),
-    ("notion/todoist_migration.py", "TODOIST_SOURCE_FOLDER", lambda m: m.HARDCODED_SOURCE_FOLDER),
+    ("tools/notion/todoist_migration.py", "TODOIST_SOURCE_FOLDER", lambda m: m.HARDCODED_SOURCE_FOLDER),
 ]
 
 

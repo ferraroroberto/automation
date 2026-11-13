@@ -1,0 +1,501 @@
+#!/usr/bin/env python3
+"""
+Newsletter Builder for Notion
+
+This script fetches articles from a Notion database based on a newsletter number,
+groups them by topic, and outputs HTML lists ready for Substack.
+
+Usage:
+    python build_newsletter.py --newsletter 057
+    python build_newsletter.py --newsletter 001 --debug
+"""
+
+import argparse
+import logging
+import os
+import re
+import sys
+import webbrowser
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import requests
+import utils as notion_utils
+from dotenv import load_dotenv
+
+# Repo-root shared helper.
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from no_window import NO_WINDOW  # noqa: E402
+
+# clip.exe copies one short line instantly; 30 s means it is wedged.
+_CLIP_TIMEOUT_S = 30
+
+# Load environment variables
+load_dotenv()
+
+
+class NotionNewsletterBuilder:
+    """Main class for building newsletters from Notion data."""
+    
+    def __init__(self, config_path: str):
+        """Initialize the builder with configuration."""
+        self.config = self._load_config(config_path)
+        
+        # Get config values
+        self.articles_db_id = self.config.get('articles_database_id')
+        self.newsletter_db_id = self.config.get('newsletter_database_id')
+
+        # Validate required config values
+        if not all([self.articles_db_id, self.newsletter_db_id]):
+            raise ValueError("Missing required configuration values")
+
+        self.headers = notion_utils.build_notion_headers(notion_utils.require_notion_api_token())
+        
+        # Define the three topic categories
+        self.topics = [
+            'personal development',
+            'innovation',
+            'leadership and management'
+        ]
+        
+        logging.info("✅ Newsletter builder initialized")
+        logging.info(f"📊 Articles database: {self.articles_db_id}")
+        logging.info(f"📊 Newsletter database: {self.newsletter_db_id}")
+    
+    def _load_config(self, config_path: str) -> Dict:
+        """Load and parse the JSON configuration file."""
+        return notion_utils.load_json_config_with_fallback(config_path, __file__)
+
+    def _query_notion_database(self, database_id: str, filter_data: Optional[Dict] = None) -> List[Dict]:
+        """Query a Notion database with optional filtering."""
+        payload = {}
+        if filter_data:
+            payload['filter'] = filter_data
+        return notion_utils.paginated_database_query(self.headers, database_id, payload)
+    
+    def find_newsletter_by_title(self, newsletter_title: str) -> Optional[Dict]:
+        """Find a newsletter record by its number."""
+        logging.info(f"🔍 Searching for newsletter: {newsletter_title}")
+        
+        filter_data = {
+            "property": "number",
+            "title": {
+                "equals": newsletter_title
+            }
+        }
+        
+        results = self._query_notion_database(self.newsletter_db_id, filter_data)
+        
+        if not results:
+            logging.error(f"❌ No newsletter found with number: {newsletter_title}")
+            return None
+        
+        logging.info(f"✅ Found newsletter: {newsletter_title}")
+        return results[0]
+    
+    def get_related_articles(self, newsletter_id: str) -> List[Dict]:
+        """Get all articles related to a specific newsletter."""
+        logging.info(f"📥 Fetching articles for newsletter: {newsletter_id}")
+        
+        filter_data = {
+            "property": "news",
+            "relation": {
+                "contains": newsletter_id
+            }
+        }
+        
+        results = self._query_notion_database(self.articles_db_id, filter_data)
+        logging.info(f"📊 Found {len(results)} articles")
+        return results
+    
+    def extract_article_data(self, article: Dict) -> Optional[Tuple[str, str, str, bool, List[str]]]:
+        """Extract name, URL, topic, star, and niche from an article record."""
+        try:
+            properties = article.get('properties', {})
+
+            # Extract title. Note: unlike notion_utils.extract_title_text (which joins
+            # every rich-text segment), this intentionally keeps only the FIRST segment's
+            # plain_text, so a multi-segment title is cut at the first segment.
+            title_prop = properties.get('article', {})
+            if title_prop.get('type') != 'title':
+                return None
+            title_content = title_prop.get('title', [])
+            if not title_content:
+                return None
+            name = title_content[0].get('plain_text', '').strip()
+
+            # Extract URL
+            url_prop = properties.get('link', {})
+            if url_prop.get('type') != 'url':
+                return None
+            url = notion_utils.extract_url(url_prop).strip()
+            if not url:
+                return None
+
+            # Extract topic
+            topic_prop = properties.get('topic', {})
+            if topic_prop.get('type') != 'select':
+                return None
+            topic = notion_utils.extract_select_name(topic_prop).strip()
+            if not topic:
+                return None
+
+            # Extract star (checkbox)
+            star_prop = properties.get('star', {})
+            star = notion_utils.extract_checkbox(star_prop) if star_prop.get('type') == 'checkbox' else False
+
+            # Extract niche (multi_select)
+            niche_prop = properties.get('niche', {})
+            if niche_prop.get('type') == 'multi_select':
+                niche = [n.strip() for n in notion_utils.extract_multi_select_names(niche_prop) if n]
+            else:
+                niche = []
+
+            return name, url, topic, star, niche
+
+        except Exception as e:
+            logging.error(f"❌ Error extracting data from article: {e}")
+            return None
+    
+    def group_articles_by_topic(self, articles: List[Dict]) -> Dict[str, List[Tuple[str, str]]]:
+        """Group articles by topic and sort them according to specified criteria."""
+        grouped = {topic: [] for topic in self.topics}
+        
+        for article in articles:
+            article_data = self.extract_article_data(article)
+            if article_data:
+                name, url, topic, star, niche = article_data
+                if topic in self.topics:
+                    grouped[topic].append((name, url, star, niche))
+        
+        # Sort articles within each topic group
+        for topic in self.topics:
+            # Sort by: 1) star (descending), 2) niche (ascending), 3) article title (ascending)
+            grouped[topic].sort(key=lambda x: (
+                -x[2],  # star (descending, so negative for reverse sort)
+                sorted(x[3])[0] if x[3] else '',  # niche (ascending, first niche value)
+                x[0].lower()  # article title (ascending, case-insensitive)
+            ))
+            
+            # Log the sorted order for this topic
+            if grouped[topic]:
+                logging.info(f"📋 Topic '{topic}' sorted order:")
+                for i, (name, url, star, niche) in enumerate(grouped[topic], 1):
+                    niche_str = ', '.join(sorted(niche)) if niche else 'none'
+                    star_str = '⭐' if star else '⚪'
+                    logging.info(f"  {i}. {star_str} {name} (niche: {niche_str})")
+            
+            # Remove star and niche from the final output, keeping only name and url
+            grouped[topic] = [(name, url) for name, url, star, niche in grouped[topic]]
+        
+        # Log grouping results
+        for topic in self.topics:
+            count = len(grouped[topic])
+            logging.info(f"📋 Topic '{topic}': {count} articles")
+        
+        return grouped
+    
+    def generate_html_lists(self, grouped_articles: Dict[str, List[Tuple[str, str]]]) -> str:
+        """Generate HTML output with three topic sections."""
+        output = []
+        
+        for topic in self.topics:
+            articles = grouped_articles[topic]
+            
+            # Add topic header with capitalized first letter
+            capitalized_topic = topic[0].upper() + topic[1:]
+            output.append(f'<h2>{capitalized_topic}</h2>')
+            
+            # Generate HTML list
+            if articles:
+                output.append('<ul>')
+                for name, url in articles:
+                    output.append(f'  <li><a href="{url}">{name}</a></li>')
+                output.append('</ul>')
+            else:
+                output.append('<ul></ul>')
+            
+            # Add spacing between sections
+            output.append('')
+        
+        return '\n'.join(output)
+    
+    def generate_complete_html(self, grouped_articles: Dict[str, List[Tuple[str, str]]]) -> str:
+        """Generate complete HTML document with proper structure."""
+        html_content = self.generate_html_lists(grouped_articles)
+
+        html_document = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newsletter Content</title>
+    <style>
+        body {{
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }}
+        h2 {{
+            color: #ffffff;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }}
+        a {{
+            color: #4a9eff;
+            text-decoration: none;
+        }}
+        a:hover {{
+            text-decoration: underline;
+        }}
+        ul {{
+            margin: 0;
+            padding-left: 20px;
+        }}
+        li {{
+            margin: 8px 0;
+        }}
+    </style>
+</head>
+<body>
+{html_content}
+</body>
+</html>"""
+
+        return html_document
+    
+    def build_newsletter(self, newsletter_title: str) -> Tuple[str, Dict[str, List[Tuple[str, str]]]]:
+        """Main method to build a complete newsletter."""
+        logging.info(f"🚀 Building newsletter: {newsletter_title}")
+        
+        # Find the newsletter record
+        newsletter = self.find_newsletter_by_title(newsletter_title)
+        if not newsletter:
+            raise ValueError(f"Newsletter '{newsletter_title}' not found")
+        
+        # Get related articles
+        articles = self.get_related_articles(newsletter['id'])
+        if not articles:
+            raise ValueError(f"No articles found for newsletter '{newsletter_title}'")
+        
+        # Group articles by topic and generate HTML
+        grouped_articles = self.group_articles_by_topic(articles)
+        html_output = self.generate_html_lists(grouped_articles)
+        
+        logging.info("✅ Newsletter build completed successfully")
+        return html_output, grouped_articles
+
+
+def setup_logging(debug: bool = False):
+    """Set up logging configuration."""
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
+
+
+# Order when must-read is topic 1, 2, or 3 (indices into [topic1, topic2, topic3] tops).
+_MUST_READ_PERM: Dict[int, Tuple[int, int, int]] = {
+    1: (0, 1, 2),
+    2: (1, 0, 2),
+    3: (2, 0, 1),
+}
+
+_TOPIC_HEADINGS = [
+    "Personal development",
+    "Innovation",
+    "Leadership and management",
+]
+
+
+def top_article_names_by_topic(
+    topics: Sequence[str], grouped: Dict[str, List[Tuple[str, str]]]
+) -> Optional[List[str]]:
+    """First article title per topic, or None if any topic has no articles."""
+    names: List[str] = []
+    for topic in topics:
+        articles = grouped.get(topic) or []
+        if not articles:
+            return None
+        names.append(articles[0][0])
+    return names
+
+
+def format_must_read_line(three_names: Sequence[str], must_read: int) -> str:
+    """Join three titles with '. ' and a final period; order follows must-read choice."""
+    perm = _MUST_READ_PERM[must_read]
+    ordered = [three_names[i] for i in perm]
+    return ". ".join(ordered) + "."
+
+
+def copy_to_clipboard(text: str) -> None:
+    """Put text on the system clipboard (Windows: clip.exe with UTF-8; else tkinter)."""
+    if sys.platform == "win32":
+        import subprocess
+
+        # UTF-16LE bytes break clip; tkinter's clipboard is cleared when the root is destroyed.
+        try:
+            subprocess.run(
+                ["clip"],
+                input=text,
+                text=True,
+                encoding="utf-8",
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=NO_WINDOW,
+                timeout=_CLIP_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"clip.exe did not finish within {_CLIP_TIMEOUT_S}s; the clipboard was not set") from None
+        return
+
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    root.clipboard_clear()
+    root.clipboard_append(text)
+    root.update_idletasks()
+    root.update()
+    root.after(100, root.destroy)
+    root.mainloop()
+
+
+def prompt_must_read_line(
+    topics: Sequence[str], grouped: Dict[str, List[Tuple[str, str]]]
+) -> None:
+    """Ask which topic is must-read, build ordered line, copy to clipboard, log."""
+    top_names = top_article_names_by_topic(topics, grouped)
+    if not top_names:
+        for topic in topics:
+            if not (grouped.get(topic) or []):
+                logging.warning(
+                    f'⚠️ Skipping must-read line: no articles in "{topic}"'
+                )
+        return
+
+    logging.info(
+        '📌 Top article per topic (must-read choice: 1=Personal development, '
+        "2=Innovation, 3=Leadership and management):"
+    )
+    for i, (heading, name) in enumerate(zip(_TOPIC_HEADINGS, top_names), 1):
+        logging.info(f"  {i}. [{heading}] {name}")
+
+    try:
+        raw = input('Which is the "must read"? (1/2/3): ')
+    except (EOFError, KeyboardInterrupt):
+        logging.info("⏭️ Skipping must-read line (no input)")
+        return
+
+    choice = raw.strip()
+    if choice not in ("1", "2", "3"):
+        logging.error('❌ Must read must be 1, 2, or 3')
+        sys.exit(2)
+
+    must_read = int(choice)
+    line = format_must_read_line(top_names, must_read)
+    try:
+        copy_to_clipboard(line)
+    except RuntimeError as exc:
+        logging.error(f"❌ {exc}. Must-read line: {line}")
+        return
+    logging.info(f"📋 Must-read line (copied to clipboard): {line}")
+
+
+def main():
+    """Main entry point for the script."""
+    parser = argparse.ArgumentParser(
+        description="Build newsletters from Notion data",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python build_newsletter.py --newsletter 057
+  python build_newsletter.py --newsletter 001 --debug
+        """
+    )
+    
+    parser.add_argument(
+        '--newsletter',
+        type=str,
+        help='Newsletter number (3 digits, e.g. 057). Optional N prefix still accepted. If omitted, you will be prompted.'
+    )
+    
+    parser.add_argument(
+        '--config',
+        type=str,
+        default="build_newsletter.json",
+        help='Path to JSON config file (default: "build_newsletter.json")'
+    )
+    
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug logging'
+    )
+    
+    args = parser.parse_args()
+    
+    # Set up logging
+    setup_logging(args.debug)
+    
+    try:
+        # Determine newsletter number: CLI arg or prompt via input()
+        newsletter_number = args.newsletter
+        if not newsletter_number:
+            try:
+                newsletter_number = input("Enter newsletter number (e.g. 057): ")
+            except (EOFError, KeyboardInterrupt):
+                logging.error("❌ Newsletter number input cancelled")
+                sys.exit(2)
+
+        if not newsletter_number:
+            logging.error("❌ Newsletter number is required (3 digits, e.g. 057)")
+            sys.exit(2)
+
+        newsletter_number = newsletter_number.strip().upper()
+
+        if re.fullmatch(r'\d{3}', newsletter_number):
+            newsletter_number = f"N{newsletter_number}"
+        elif not re.fullmatch(r'N\d{3}', newsletter_number):
+            logging.error("❌ Newsletter number must be 3 digits (e.g. 057) or N + 3 digits (e.g. N057)")
+            sys.exit(2)
+
+        # Initialize the newsletter builder
+        builder = NotionNewsletterBuilder(args.config)
+        
+        # Build the newsletter
+        html_output, grouped_articles = builder.build_newsletter(newsletter_number)
+        
+        # Generate complete HTML document
+        complete_html = builder.generate_complete_html(grouped_articles)
+        
+        # Save to HTML file in the same directory as this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        html_filename = os.path.join(script_dir, "build_newsletter.html")
+        with open(html_filename, 'w', encoding='utf-8') as f:  # runtime-write-exempt: gitignored preview HTML the author opens by hand from the tool folder
+            f.write(complete_html)
+        
+        logging.info(f"💾 HTML file saved to: {html_filename}")
+        
+        # Open the HTML file with default browser
+        webbrowser.open(f'file://{html_filename}')
+        logging.info(f"🌐 Opened HTML file with default browser: {html_filename}")
+
+        prompt_must_read_line(builder.topics, grouped_articles)
+
+    except (ValueError, FileNotFoundError, requests.exceptions.RequestException) as e:
+        logging.error(f"❌ Failed to build newsletter: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logging.error(f"❌ Unexpected error: {e}")
+        if args.debug:
+            logging.exception("Full traceback:")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

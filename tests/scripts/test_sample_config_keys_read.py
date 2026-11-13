@@ -27,12 +27,12 @@ SOURCE_SUFFIXES = (".py", ".ps1", ".js")
 
 # Sample files whose keys are user data or a device dump, not settings.
 DATA_SAMPLES = {
-    "smart_life/devices.sample.json",
-    "system/textexpander/text_expander_config.example.json",
+    "tools/smart_life/devices.sample.json",
+    "tools/system/textexpander/text_expander_config.example.json",
 }
 
 # Keys that are user-chosen names (counter labels used as {placeholders}), not settings.
-USER_NAMED_KEYS = {"google/photos_weekly_album.json.sample": {"first", "second"}}
+USER_NAMED_KEYS = {"tools/google/photos_weekly_album.json.sample": {"first", "second"}}
 
 # Self-describing metadata no code is expected to read.
 METADATA_KEYS = {"_comment", "author", "created_at", "description", "module_name", "version"}
@@ -99,7 +99,7 @@ class SampleConfigKeysAreReadTests(unittest.TestCase):
 
 # docs/layout.md names requirements.txt the one dependency list; this converter
 # is the documented standalone exception.
-STANDALONE_REQUIREMENTS = {"image/pdf_to_jpg/requirements.txt"}
+STANDALONE_REQUIREMENTS = {"tools/image/pdf_to_jpg/requirements.txt"}
 
 
 class NoOrphanRequirementsTests(unittest.TestCase):

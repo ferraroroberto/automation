@@ -7,7 +7,7 @@ from unittest import mock
 
 import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "notion"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "notion"))
 
 import normalize_names  # noqa: E402
 import normalize_url  # noqa: E402

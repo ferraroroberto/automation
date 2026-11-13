@@ -7,7 +7,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "system" / "snap"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "system" / "snap"))
 
 from snap_core import (  # noqa: E402
     MIN_SELECTION_SIDE,
@@ -157,7 +157,7 @@ class ConfigTests(unittest.TestCase):
                 load_config(path)
 
     def test_sample_config_is_valid(self):
-        sample = Path(__file__).resolve().parents[3] / "system" / "snap" / "config.sample.json"
+        sample = Path(__file__).resolve().parents[3] / "tools" / "system" / "snap" / "config.sample.json"
         self.assertEqual(load_config(sample).hotkey, "ctrl+shift+a")
 
 

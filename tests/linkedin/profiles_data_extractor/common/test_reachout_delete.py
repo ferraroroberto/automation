@@ -9,7 +9,7 @@ from unittest import mock
 
 from streamlit.testing.v1 import AppTest
 
-COMMON = Path(__file__).resolve().parents[4] / "linkedin/profiles_data_extractor/common"
+COMMON = Path(__file__).resolve().parents[4] / "tools/linkedin/profiles_data_extractor/common"
 os.environ.setdefault("LINKEDIN_EXTRACTOR_LOG_FILE", os.path.join(tempfile.gettempdir(), "linkedin_extractor_tests.log"))
 sys.path.insert(0, str(COMMON))
 

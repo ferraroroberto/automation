@@ -1,6 +1,6 @@
 # Parking outcome state
 
-How a parking run and each day inside it ended is a closed set of states declared in `parking/booking.py`, not a free-text word each module interprets for itself. The method is in project-scaffolding's `docs/implicit-state-machines.md`; this page records the two machines that follow it here.
+How a parking run and each day inside it ended is a closed set of states declared in `tools/parking/booking.py`, not a free-text word each module interprets for itself. The method is in project-scaffolding's `docs/implicit-state-machines.md`; this page records the two machines that follow it here.
 
 ## Why it is declared
 
@@ -57,10 +57,10 @@ How a whole poll or burst ended. `RunResult.status` is coerced through `RunStatu
 
 | Reader | What it does with the states |
 |---|---|
-| `parking/burst_worker.py` | produces day outcomes, writes the final JSONL line, exits non-zero on `ERROR` |
-| `parking/burst.py` | `decode_outcome` turns a worker line into an outcome (an unknown word becomes `ERROR` with the word in `error`); builds the run result; decides the quiet period from `is_covered` |
-| `parking/poller.py` | builds the run result; `sweep_summary` gives `UNCONFIRMED` and `FAILED` days their own sentences |
-| `parking/report.py` | one Telegram message per state: booked, dry-run, unconfirmed, failed, broken |
+| `tools/parking/burst_worker.py` | produces day outcomes, writes the final JSONL line, exits non-zero on `ERROR` |
+| `tools/parking/burst.py` | `decode_outcome` turns a worker line into an outcome (an unknown word becomes `ERROR` with the word in `error`); builds the run result; decides the quiet period from `is_covered` |
+| `tools/parking/poller.py` | builds the run result; `sweep_summary` gives `UNCONFIRMED` and `FAILED` days their own sentences |
+| `tools/parking/report.py` | one Telegram message per state: booked, dry-run, unconfirmed, failed, broken |
 
 A new reader calls `derive_run_status` or asks the state; it does not re-spell a word or re-derive the run from the outcomes. A new mode is a new member plus a handler in every reader above.
 

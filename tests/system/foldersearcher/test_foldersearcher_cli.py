@@ -2,7 +2,7 @@
 """Tests for the headless scan CLI (foldersearcher_cli).
 
 Run from the repo root:
-    & .\\.venv\\Scripts\\python.exe -m unittest discover -s system/foldersearcher -p "test_*.py"
+    & .\\.venv\\Scripts\\python.exe -m unittest discover -s tools/system/foldersearcher -p "test_*.py"
 """
 
 import json
@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "system/foldersearcher"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/system/foldersearcher"))
 
 import foldersearcher_cli as cli  # noqa: E402
 import foldersearcher_core as core  # noqa: E402

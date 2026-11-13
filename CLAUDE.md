@@ -8,7 +8,7 @@ Personal automation monorepo on Windows + PowerShell: independent Python scripts
 
 ## Streamlit
 
-This repo's only Streamlit surface is `linkedin/profiles_data_extractor/common/`. The conventions are owned by `project-scaffolding`'s `CLAUDE.md` § "Streamlit conventions" — read it before touching that code, and never fork a local copy (the copy formerly kept here had already gone stale on tabs-vs-multipage nav). Two that bite existing code here: never introduce new `use_container_width=True` (deprecated — migrate existing uses when you touch them), and never import `streamlit` from non-UI code.
+This repo's only Streamlit surface is `tools/linkedin/profiles_data_extractor/common/`. The conventions are owned by `project-scaffolding`'s `CLAUDE.md` § "Streamlit conventions" — read it before touching that code, and never fork a local copy (the copy formerly kept here had already gone stale on tabs-vs-multipage nav). Two that bite existing code here: never introduce new `use_container_width=True` (deprecated — migrate existing uses when you touch them), and never import `streamlit` from non-UI code.
 
 ## Verification (before declaring a task done)
 
@@ -49,7 +49,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 
 All thirty must exit 0 / report `OK`. The gate's last stdout line is `GATE-RESULT: PASS` or `GATE-RESULT: FAIL`, also after an early terminating error, so a caller that must pipe it asserts on that line; a run without one is not a pass.
 
-Conditional: after changing `google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
+Conditional: after changing `tools/google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd google && ..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `tools/google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
 ## Where code goes
 
@@ -57,7 +57,7 @@ Conditional: after changing `google/gmail_drive_automation.py`, also run its off
 
 Eight ratchets gate the verification run, in the order listed above. Each `scripts/<name>_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored <name>_ratchet`, never edit) and fails when a measure rises above its entry in `.<name>-ratchet-baseline.json`. Every baseline is empty, so a new hit fails by name: fix it rather than raising the baseline. Shrink one with `--update-baseline`; only `--allow-additions` adds, and it shows in review. Exit 3 (could not measure) is NOT CONFIRMED and fails the gate. Config is the `[<name>_ratchet]` table in `.fleet.toml`.
 
-- **Structure:** fails when a file passes 1,000 lines, a function 100 lines or a flat directory 40 modules and is new or above its baseline entry, or when the root folders do not match `shape = "pipeline-cli"` plus `extra_roots`. A file near 1,000 lines is split by stage into a module beside it (`notion/articles_sync/` keeps its change detection and property mapping that way), never recorded. A new tool folder is declared in `extra_roots` and gets a line in `docs/layout.md`.
+- **Structure:** fails when a file passes 1,000 lines, a function 100 lines or a flat directory 40 modules and is new or above its baseline entry, or when the root folders do not match `shape = "pipeline-cli"` plus the `tools/` root. A file near 1,000 lines is split by stage into a module beside it (`tools/notion/articles_sync/` keeps its change detection and property mapping that way), never recorded. A new tool folder is declared in `extra_roots` and gets a line in `docs/layout.md`.
 - **Instruction:** lints this file and `AGENTS.md` with the weekly prompt audit's deterministic rules; fails when a rule's hit count rises or this file passes its 200-line cap. Reword the line.
 - **Doc refs:** reads `README.md`, this file and `docs/**/*.md`; fails when one names a repo path, `python -m` module or relative link that does not exist. Point a stale reference at what exists, or list an intentional pointer in `allow_refs`. No port is declared in `.fleet.toml`, so ports are not checked.
 - **Dead code:** fails when a new function, class or method has no reference anywhere in the tracked tree. Call or delete it; a hook something outside Python calls goes in `allow` or `entry_decorators`.
@@ -68,4 +68,4 @@ Eight ratchets gate the verification run, in the order listed above. Each `scrip
 
 ## Internal architecture
 
-[`docs/architecture.mmd`](docs/architecture.mmd) is a hand-authored Mermaid diagram of this repo's internal structure — the domain folders, shared per-domain helpers (`google/_auth.py`, `notion/utils.py`), and the external services each domain talks to. Update it in the same PR as any material structural change: a new domain folder, a shared helper added/moved, a script relocated. Not auto-generated, not covered by any test suite.
+[`docs/architecture.mmd`](docs/architecture.mmd) is a hand-authored Mermaid diagram of this repo's internal structure — the domain folders, shared per-domain helpers (`tools/google/_auth.py`, `tools/notion/utils.py`), and the external services each domain talks to. Update it in the same PR as any material structural change: a new domain folder, a shared helper added/moved, a script relocated. Not auto-generated, not covered by any test suite.

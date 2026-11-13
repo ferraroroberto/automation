@@ -11,27 +11,27 @@
 flowchart TB
   ENV[".env / .env.sample\nroot secrets + shared config (API keys, folder paths)"]
   REQ["requirements.txt\nshared Python deps, source-commented per script"]
-  VENVMGR["system/venv_manager.py\ncreates/monitors the shared .venv"]
+  VENVMGR["tools/system/venv_manager.py\ncreates/monitors the shared .venv"]
   REQ --> VENVMGR
   NOWIN["no_window.py\nrepo-root shared NO_WINDOW creationflags constant —\nevery subprocess spawn in the domain folders imports it"]
-  POOLED["system/_lib/pooled_http.py\nvendored keep-alive session: every outbound requests call in the\ndomain folders goes through pooled_request (the must_use ratchet holds it)"]
-  RTFILES["system/_lib/runtime_files.py\nshared writers: refuse paths inside the checkout,\nplus runtime_data_dir() for logs and scratch output"]
-  NOTIFIER["system/_lib/notifier.py\nFleetNotifier: Telegram through the fleet notify_send.py,\nshared by parking and the Photos weekly job"]
+  POOLED["tools/system/_lib/pooled_http.py\nvendored keep-alive session: every outbound requests call in the\ndomain folders goes through pooled_request (the must_use ratchet holds it)"]
+  RTFILES["tools/system/_lib/runtime_files.py\nshared writers: refuse paths inside the checkout,\nplus runtime_data_dir() for logs and scratch output"]
+  NOTIFIER["tools/system/_lib/notifier.py\nFleetNotifier: Telegram through the fleet notify_send.py,\nshared by parking and the Photos weekly job"]
   STEALTH["browser_stealth.py\nrepo-root shared human-looking Chrome launch for Playwright\n(stealth kwargs + init script + busy-profile backoff)"]
 
   subgraph domains["Domain folders — mostly independent scripts, each usually paired\nwith a .bat launcher, a per-script .md doc, and/or a JSON config"]
-    AUDIO["audio/\naudio_extractor_core/gui · audio_normalize · audio_trim ·\nconvert_ogg_mp3 · transcript_collate"]
-    IMAGE["image/\nillustrations_formatter(_gui) · image_resizer ·\ncarrousel_pdf_to_jpg · pdf_to_jpg/ · screenshot · imgur_check_rate ·\nphotos_archive (CLI) + photos_archive_config/_metadata/_duplicates\n(config+logging / date extraction+scan / duplicate analysis)"]
-    VIDEO["video/\nscreen_recorder · video_download · video_reencoder ·\nvideo_trim/concatenator · _ffmpeg_utils.py (shared ffmpeg/ffprobe helpers) ·\ngpu_recovery (reads powershell/nvidia-smi/pnputil via _lib/console_output)"]
-    TEXT["text/\nconvert_pdf_to_txt · clean_sensitive_data"]
-    TESTS["tests/\none folder per domain, mirroring the tool path it covers\n(tests/system/wifi/ tests system/wifi/)"]
-    EXCEL["excel/\naccounting_stripe/"]
-    HTML["html/\ncountdown_timer.html"]
-    SMARTLIFE["smart_life/\ndevice automation (despacho_switch.bat, devices.sample.json)"]
-    PARKING["parking/\npoller: 15-min heartbeat books a free parking slot (deterministic, no LLM) ·\napi · auth · planner · booking · poller · report · login ·\nburst + burst_worker: Thursday 16:00 one console worker per day, observer Chrome windows · own parking/.env · dry_run on by default ·\nscheduled by the app-launcher Jobs entry parking-poll"]
-    SYSTEM["system/\nkeycaster · textexpander/ · apple/ ·\nmarkdown_preview · mouse_mover ·\noutlook_web_mail (CLI) over outlook_web.py (reusable Playwright\nOutlook-on-the-web library: drafts, optional send) ·\nwifi/ (_netsh.py = shared netsh runner: byte capture + explicit decoding,\nused by wifi_connect.py + wifi_passwords.py + wifi_bat_generator.py) ·\nsnap/ (snap_core.py = GUI-free naming, crop maths and config; snap_tool.py = RegisterHotKey thread,
+    AUDIO["tools/audio/\naudio_extractor_core/gui · audio_normalize · audio_trim ·\nconvert_ogg_mp3 · transcript_collate"]
+    IMAGE["tools/image/\nillustrations_formatter(_gui) · image_resizer ·\ncarrousel_pdf_to_jpg · pdf_to_jpg/ · screenshot · imgur_check_rate ·\nphotos_archive (CLI) + photos_archive_config/_metadata/_duplicates\n(config+logging / date extraction+scan / duplicate analysis)"]
+    VIDEO["tools/video/\nscreen_recorder · video_download · video_reencoder ·\nvideo_trim/concatenator · _ffmpeg_utils.py (shared ffmpeg/ffprobe helpers) ·\ngpu_recovery (reads powershell/nvidia-smi/pnputil via _lib/console_output)"]
+    TEXT["tools/text/\nconvert_pdf_to_txt · clean_sensitive_data"]
+    TESTS["tests/\none folder per domain, mirroring the tool path it covers\n(tests/system/wifi/ tests tools/system/wifi/)"]
+    EXCEL["tools/excel/\naccounting_stripe/"]
+    HTML["tools/html/\ncountdown_timer.html"]
+    SMARTLIFE["tools/smart_life/\ndevice automation (despacho_switch.bat, devices.sample.json)"]
+    PARKING["tools/parking/\npoller: 15-min heartbeat books a free parking slot (deterministic, no LLM) ·\napi · auth · planner · booking · poller · report · login ·\nburst + burst_worker: Thursday 16:00 one console worker per day, observer Chrome windows · own tools/parking/.env · dry_run on by default ·\nscheduled by the app-launcher Jobs entry parking-poll"]
+    SYSTEM["tools/system/\nkeycaster · textexpander/ · apple/ ·\nmarkdown_preview · mouse_mover ·\noutlook_web_mail (CLI) over outlook_web.py (reusable Playwright\nOutlook-on-the-web library: drafts, optional send) ·\nwifi/ (_netsh.py = shared netsh runner: byte capture + explicit decoding,\nused by wifi_connect.py + wifi_passwords.py + wifi_bat_generator.py) ·\nsnap/ (snap_core.py = GUI-free naming, crop maths and config; snap_tool.py = RegisterHotKey thread,
 Tk overlay, tray; saves via _lib/runtime_files) ·
-quickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsettings editor; quickdeck_render.py = GUI-free PIL button images;\nquickdeck_actions.py = GUI-free action executors) ·\nfoldersearcher/ (retired; code kept for task-os and life-os; foldersearcher.py = tray UI;\nfoldersearcher_core.py = GUI-free logic;\nfoldersearcher_cli.py = headless scan, run by hand) ·\n_lib/ = the repo's shared-helper package:\nsingle_instance.py (Windows-mutex single-instance guard, used by\nmouse_mover.py + markdown_preview.py + foldersearcher.py) and console_output.py\n(run_console: native-console-tool byte capture + ordered explicit decode, used by\nwifi/_netsh.py + video/gpu_recovery.py)"]
+quickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsettings editor; quickdeck_render.py = GUI-free PIL button images;\nquickdeck_actions.py = GUI-free action executors) ·\nfoldersearcher/ (retired; code kept for task-os and life-os; foldersearcher.py = tray UI;\nfoldersearcher_core.py = GUI-free logic;\nfoldersearcher_cli.py = headless scan, run by hand) ·\n_lib/ = the repo's shared-helper package:\nsingle_instance.py (Windows-mutex single-instance guard, used by\nmouse_mover.py + markdown_preview.py + foldersearcher.py) and console_output.py\n(run_console: native-console-tool byte capture + ordered explicit decode, used by\nwifi/_netsh.py + tools/video/gpu_recovery.py)"]
   end
   ENV --> domains
   VENVMGR -.->|shared runtime for| domains
@@ -42,7 +42,7 @@ quickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsetti
   STEALTH -.->|imported by| PARKING
   STEALTH -.->|imported by| SYSTEM
 
-  subgraph googlebox["google/"]
+  subgraph googlebox["tools/google/"]
     GAUTH["_auth.py\nshared OAuth token/config loader"]
     GMAIL["gmail_drive_automation.py"]
     GALBUM["photos_weekly_album.py\nweekly album, share link + Gmail draft via the web UIs (Playwright)"]
@@ -61,7 +61,7 @@ quickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsetti
   GJOB -->|FleetNotifier| NOTIFIER
   GMWEB --> GMAILWEB["Gmail web UI"]
 
-  subgraph notionbox["notion/"]
+  subgraph notionbox["tools/notion/"]
     NUTILS["utils.py\nshared Notion helpers + .env token reader + request-header builder + legacy notion-params (paths) helper"]
     NBUILD["build_newsletter.py"]
     NDB["notion_databases_dump/query/clean/\nadd_editorial/editorial.py"]
@@ -77,7 +77,7 @@ quickdeck/ (quickdeck.py = window + event loop; quickdeck_config_gui.py =\nsetti
   NDB --> NOTIONAPI
   NSYNC --> NOTIONAPI
 
-  subgraph linkedinbox["linkedin/"]
+  subgraph linkedinbox["tools/linkedin/"]
     CHECKIP["check_ip/\nreverse-image search (config.py holds Imgur + SerpAPI keys)"]
     OPENPROF["open_profiles/\nExcel-driven profile/company page opener"]
     PROFEXTRACT["profiles_data_extractor/\nDevTools extraction + common/dashboard.py\n(Streamlit + Plotly dashboard) + Excel formatting"]

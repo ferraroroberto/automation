@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+"""
+Inspiration Samples — One Illustration Per Visual Type
+
+Queries the Notion illustrations / visual types / concepts databases, picks the
+most-recently-created illustration per visual type, and copies the matching .png
+from the Affinity Designer archive into a curated 'inspiration samples' folder.
+
+Each sample is placed in two locations (big-picture → detail):
+  - Flat:   {dest}/all/{concept_type} - {concept} - {visualtype} - {topic}.png
+  - Nested: {dest}/{concept_type}/{concept}/{visualtype} - {topic}.png
+
+Also writes an XLS index with text fields paired with their Notion IDs for
+traceability.
+
+Usage:
+    python sample_illustrations.py
+    python sample_illustrations.py --dry-run
+    python sample_illustrations.py --config sample_illustrations.json
+"""
+
+import argparse
+import logging
+import re
+import shutil
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+import utils as notion_utils
+from dotenv import load_dotenv
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from tools.system._lib import runtime_files  # noqa: E402
+
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
+
+WINDOWS_ILLEGAL = re.compile(r'[<>:"/\\|?*]')
+
+
+def load_config(config_path: str) -> Dict[str, Any]:
+    return notion_utils.load_json_config_with_fallback(config_path, __file__)
+
+
+# Thin aliases onto the shared tools/notion/utils.py extractors.
+extract_title = notion_utils.extract_title_text
+extract_rich_text = notion_utils.extract_rich_text_value
+extract_relation_ids = notion_utils.extract_relation_ids
+extract_multi_select = notion_utils.extract_multi_select_names
+
+
+def extract_select(prop: Dict[str, Any]) -> Optional[str]:
+    """Selected option's name, or None if unset (this caller's convention)."""
+    return notion_utils.extract_select_name(prop) or None
+
+
+def build_concepts_map(pages: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for p in pages:
+        props = p.get("properties", {})
+        types = extract_multi_select(props.get("type", {}))
+        out[p["id"]] = {
+            "concept": extract_title(props.get("concept", {})),
+            "types": types,
+            "concept_type": "+".join(types) if types else "untyped",
+        }
+    return out
+
+
+def build_visual_types_map(pages: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for p in pages:
+        props = p.get("properties", {})
+        concept_ids = extract_relation_ids(props.get("concept", {}))
+        out[p["id"]] = {
+            "visualtype": extract_title(props.get("visualtype", {})),
+            "concept_id": concept_ids[0] if concept_ids else None,
+            "illustration_ids": extract_relation_ids(props.get("illustrations", {})),
+        }
+    return out
+
+
+def build_illustrations_map(pages: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for p in pages:
+        props = p.get("properties", {})
+        out[p["id"]] = {
+            "title": extract_title(props.get("illustration", {})),
+            "theme": extract_multi_select(props.get("theme", {})),
+            "tags": extract_select(props.get("Tags", {})),
+            "created": p.get("created_time") or props.get("Created", {}).get("created_time"),
+        }
+    return out
+
+
+def sanitize(segment: str) -> str:
+    cleaned = WINDOWS_ILLEGAL.sub("", segment or "").strip().rstrip(".")
+    return cleaned or "_"
+
+
+def extract_topic(title: str, visualtype: str) -> str:
+    prefix = f"{visualtype} - "
+    if title.startswith(prefix):
+        return title[len(prefix):].strip()
+    return title
+
+
+def wipe_contents(folder: Path) -> None:
+    """Remove everything inside folder (but keep the folder itself)."""
+    if not folder.exists():
+        runtime_files.make_dirs(folder)
+        return
+    for entry in folder.iterdir():
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
+
+
+def _build_sample_row(
+    vt_id: str,
+    vt: Dict[str, Any],
+    concepts: Dict[str, Any],
+    illustrations: Dict[str, Any],
+    source_folder: Path,
+    dest_folder: Path,
+) -> Optional[Dict[str, Any]]:
+    """Plan the sample row for one visual type, or None when it has no known illustrations."""
+    valid_ids = [i for i in vt["illustration_ids"] if i in illustrations]
+    if not valid_ids:
+        return None
+
+    # Most recently created first
+    valid_ids.sort(key=lambda i: illustrations[i].get("created") or "", reverse=True)
+    sample_id = valid_ids[0]
+    sample = illustrations[sample_id]
+
+    concept_id = vt["concept_id"]
+    concept_info = concepts.get(concept_id, {}) if concept_id else {}
+    concept_name = concept_info.get("concept", "")
+    concept_type = concept_info.get("concept_type", "untyped")
+
+    visualtype_name = vt["visualtype"]
+    title = sample["title"]
+    topic = extract_topic(title, visualtype_name)
+
+    ct_s = sanitize(concept_type)
+    c_s = sanitize(concept_name or "_no_concept_")
+    vt_s = sanitize(visualtype_name)
+    topic_s = sanitize(topic)
+
+    flat_name = f"{ct_s} - {c_s} - {vt_s} - {topic_s}.png"
+    nested_name = f"{vt_s} - {topic_s}.png"
+
+    source_path = source_folder / f"{title}.png"
+    dest_flat = dest_folder / "all" / flat_name
+    dest_nested = dest_folder / ct_s / c_s / nested_name
+
+    missing = not source_path.exists()
+
+    return {
+        "concept_type": concept_type,
+        "concept": concept_name,
+        "concept_id": concept_id,
+        "visual_type": visualtype_name,
+        "visual_type_id": vt_id,
+        "illustration_title": title,
+        "illustration_id": sample_id,
+        "topic": topic,
+        "theme": ";".join(sample.get("theme") or []),
+        "tags": sample.get("tags") or "",
+        "created": sample.get("created") or "",
+        "source_path": str(source_path),
+        "dest_path_flat": str(dest_flat),
+        "dest_path_nested": str(dest_nested),
+        "n_total_in_visual_type": len(vt["illustration_ids"]),
+        "missing_source_file": missing,
+    }
+
+
+def _copy_samples(rows: List[Dict[str, Any]]) -> int:
+    """Copy each present source file to its flat and nested destinations; returns the count."""
+    copied = 0
+    for r in rows:
+        if r["missing_source_file"]:
+            continue
+        src = Path(r["source_path"])
+        flat = Path(r["dest_path_flat"])
+        nested = Path(r["dest_path_nested"])
+        runtime_files.make_dirs(flat.parent)
+        runtime_files.make_dirs(nested.parent)
+        runtime_files.copy_file(src, flat)
+        runtime_files.copy_file(src, nested)
+        copied += 1
+    return copied
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Sample illustrations from Notion into folders + XLS.")
+    parser.add_argument("--config", default="sample_illustrations.json")
+    parser.add_argument("--dry-run", action="store_true", help="Don't copy or write XLS")
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    headers = notion_utils.build_notion_headers(notion_utils.require_notion_api_token())
+
+    source_folder = Path(config["source_folder"])
+    dest_folder = Path(config["dest_folder"])
+    xls_output = Path(config["xls_output"])
+
+    if not source_folder.exists():
+        logging.error(f"Source folder not found: {source_folder}")
+        return 1
+
+    logging.info("Querying Notion…")
+    concepts = build_concepts_map(notion_utils.paginated_database_query(headers, config["concepts_db_id"], {"page_size": 100}))
+    visual_types = build_visual_types_map(notion_utils.paginated_database_query(headers, config["visual_types_db_id"], {"page_size": 100}))
+    illustrations = build_illustrations_map(notion_utils.paginated_database_query(headers, config["illustrations_db_id"], {"page_size": 100}))
+
+    rows: List[Dict[str, Any]] = []
+    skipped_no_illustrations = 0
+
+    for vt_id, vt in visual_types.items():
+        row = _build_sample_row(vt_id, vt, concepts, illustrations, source_folder, dest_folder)
+        if row is None:
+            skipped_no_illustrations += 1
+            continue
+        rows.append(row)
+
+    logging.info(f"Planned samples: {len(rows)} | Visual types with no illustrations: {skipped_no_illustrations}")
+    missing_count = sum(1 for r in rows if r["missing_source_file"])
+    if missing_count:
+        logging.warning(f"{missing_count} sample(s) have no matching .png in source")
+
+    if args.dry_run:
+        logging.info("Dry run — no files copied, no XLS written")
+        for r in rows[:5]:
+            logging.info(f"  → {r['dest_path_flat']}")
+        if len(rows) > 5:
+            logging.info(f"  … and {len(rows) - 5} more")
+        return 0
+
+    logging.info(f"Wiping {dest_folder} …")
+    wipe_contents(dest_folder)
+    runtime_files.make_dirs(dest_folder / "all")
+
+    copied = _copy_samples(rows)
+
+    logging.info(f"Copied {copied} illustration(s) to flat + nested layouts")
+
+    runtime_files.make_dirs(xls_output.parent)
+    df = pd.DataFrame(rows)
+    df.to_excel(xls_output, index=False, engine="openpyxl")
+    logging.info(f"Wrote XLS: {xls_output} ({len(df)} rows)")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

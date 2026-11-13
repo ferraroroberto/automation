@@ -1,4 +1,4 @@
-"""Offline tests for PhotosWeb._click_checked / _reveal_box in google/photos_weekly_album.py
+"""Offline tests for PhotosWeb._click_checked / _reveal_box in tools/google/photos_weekly_album.py
 (no browser, no network)."""
 
 import unittest
@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from unittest import mock
 
-from google import photos_weekly_album as pwa
+from tools.google import photos_weekly_album as pwa
 
 
 class _FakeCheckbox:

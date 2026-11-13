@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "linkedin/check_ip"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/linkedin/check_ip"))
 
 import config as check_ip_config  # noqa: E402
 

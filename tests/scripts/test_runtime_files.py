@@ -1,4 +1,4 @@
-"""`system/_lib/runtime_files` writes caller-named paths and refuses any path inside the checkout."""
+"""`tools/system/_lib/runtime_files` writes caller-named paths and refuses any path inside the checkout."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ from unittest import mock
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT))
 
-from system._lib import runtime_files  # noqa: E402
+from tools.system._lib import runtime_files  # noqa: E402
 
 
 class OutsideRepoTests(unittest.TestCase):
     def test_refuses_a_path_inside_the_checkout(self) -> None:
         with self.assertRaises(ValueError):
-            runtime_files.outside_repo(REPO_ROOT / "audio" / "out.txt")
+            runtime_files.outside_repo(REPO_ROOT / "tools" / "audio" / "out.txt")
 
     def test_refuses_the_checkout_itself(self) -> None:
         with self.assertRaises(ValueError):

@@ -9,7 +9,7 @@ from unittest import mock
 import pandas as pd
 import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "linkedin/check_ip"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/linkedin/check_ip"))
 
 import imgur_client  # noqa: E402
 import search_client  # noqa: E402

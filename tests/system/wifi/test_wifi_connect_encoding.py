@@ -3,7 +3,7 @@
 import unittest
 from pathlib import Path
 
-WIFI_DIR = Path(__file__).resolve().parents[3] / "system" / "wifi"
+WIFI_DIR = Path(__file__).resolve().parents[3] / "tools" / "system" / "wifi"
 
 
 class SsidHexEncodingTests(unittest.TestCase):
