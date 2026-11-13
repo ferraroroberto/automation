@@ -2,7 +2,7 @@
 """Focused tests for foldersearcher_core.
 
 Run from the repo root:
-    & .\\.venv\\Scripts\\python.exe -m unittest discover -s system/foldersearcher -p "test_*.py"
+    & .\\.venv\\Scripts\\python.exe -m unittest discover -s tools/system/foldersearcher -p "test_*.py"
 """
 
 import json
@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "system/foldersearcher"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/system/foldersearcher"))
 
 import foldersearcher_core as core  # noqa: E402
 

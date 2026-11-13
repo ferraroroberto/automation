@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 os.environ.setdefault("LINKEDIN_EXTRACTOR_LOG_FILE", os.path.join(tempfile.gettempdir(), "linkedin_extractor_tests.log"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "linkedin/profiles_data_extractor/devtools"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tools/linkedin/profiles_data_extractor/devtools"))
 
 from linkedin_profiles_data_orchestrator_devtools import (  # noqa: E402
     LinkedInProfilesDataOrchestratorDevTools,

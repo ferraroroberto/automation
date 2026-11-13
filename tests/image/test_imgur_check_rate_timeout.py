@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_script():
-    spec = importlib.util.spec_from_file_location("imgur_check_rate", REPO_ROOT / "image/imgur_check_rate.py")
+    spec = importlib.util.spec_from_file_location("imgur_check_rate", REPO_ROOT / "tools/image/imgur_check_rate.py")
     module = importlib.util.module_from_spec(spec)
     with mock.patch("dotenv.load_dotenv"):
         spec.loader.exec_module(module)

@@ -1,4 +1,4 @@
-"""Offline tests for system/word_to_markdown.py (temp dirs, generated .docx only)."""
+"""Offline tests for tools/system/word_to_markdown.py (temp dirs, generated .docx only)."""
 
 import tempfile
 import unittest
@@ -7,7 +7,7 @@ from unittest import mock
 
 from docx import Document
 
-from system import word_to_markdown as w2m
+from tools.system import word_to_markdown as w2m
 
 
 class ConversionFailureTests(unittest.TestCase):

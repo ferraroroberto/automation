@@ -9,7 +9,7 @@ from unittest import mock
 
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "image"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "image"))
 
 import photos_archive  # noqa: E402
 

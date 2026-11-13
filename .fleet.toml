@@ -7,9 +7,8 @@ icon        = "🤖"
 description = "Python automation grab-bag."
 shape       = "pipeline-cli"
 depends_on  = ["fleet-config"]
-# One folder per tool domain; docs/layout.md says what each holds. Tests live under
-# tests/<domain>/, never beside the code.
-extra_roots = ["audio", "excel", "google", "html", "image", "linkedin", "notion", "parking", "smart_life", "system", "text", "video"]
+# One folder per tool domain under tools/, the multi-tool home of the shape; docs/layout.md says
+# what each holds. Tests live under tests/<domain>/, never beside the code.
 
 # [vendored] -- components copied byte-for-byte from project-scaffolding, with the
 # scaffold commit each came from. Re-vendor through /propagate-vendored, never by hand.
@@ -31,14 +30,14 @@ runtime_write_ratchet = { src = "scripts/runtime_write_ratchet.py", sha = "4a06c
 runtime_write_resolve = { src = "scripts/runtime_write_resolve.py", sha = "5505185c5f4b10eea5ab268e7b6676c6c54340c4", dest = "scripts/runtime_write_resolve.py" }
 instruction_frontmatter = { src = "scripts/instruction_frontmatter.py", sha = "e55de9619b9625c5499e1b9077350f9860e6037b", dest = "scripts/instruction_frontmatter.py" }
 instruction_repeats = { src = "scripts/instruction_repeats.py", sha = "e55de9619b9625c5499e1b9077350f9860e6037b", dest = "scripts/instruction_repeats.py" }
-pooled_http = { src = "src/pooled_http.py", sha = "ae8a450dcb10a62c4e18b4f10fccddeabe6d8404", dest = "system/_lib/pooled_http.py" }
+pooled_http = { src = "src/pooled_http.py", sha = "ae8a450dcb10a62c4e18b4f10fccddeabe6d8404", dest = "tools/system/_lib/pooled_http.py" }
 
 # [structure_ratchet] -- the scaffold's baseline-and-ratchet layout stage. The gate
 # (scripts/verify-before-ship.ps1) runs scripts/structure_ratchet.py, which fails when
 # a new file passes 1,000 lines, a new function 100 lines or a flat directory 40
 # modules, when a baselined offender grows past its size in
 # .structure-ratchet-baseline.json, and when the root folders do not match `shape`
-# plus `extra_roots`. Existing offenders are baselined at today's size, never
+# plus `tools/` (the multi-tool home). Existing offenders are baselined at today's size, never
 # excluded. Exit 3 (git unusable, an unparseable file, an unknown shape) fails the
 # gate. Procedure: project-scaffolding docs/structure-ratchet.md.
 [structure_ratchet]
@@ -94,7 +93,7 @@ baseline = ".static-ratchet-baseline.json"
 # the root README's size in bytes and the history markers (issue references, dated and
 # changelog headings) per file. The gate runs scripts/docs_ratchet.py, which fails when either
 # rises above .docs-ratchet-baseline.json. `include` widens the vendored default
-# (`README.md`, `docs/`) to every tool-domain folder in `extra_roots`, since a per-tool
+# (`README.md`, `docs/`) to `tools/`, since a per-tool
 # README carries the same present-tense rule the vendored default only checked at the
 # root. Existing debt is baselined, never excluded. Exit 3 (git unusable, a non-UTF-8
 # file, an unclosed fence or comment) fails the gate as NOT CONFIRMED. Procedure:
@@ -102,7 +101,7 @@ baseline = ".static-ratchet-baseline.json"
 [docs_ratchet]
 enabled  = true
 baseline = ".docs-ratchet-baseline.json"
-include  = ["README.md", "docs/", "audio/", "excel/", "google/", "html/", "image/", "linkedin/", "notion/", "parking/", "smart_life/", "system/", "text/", "video/"]
+include  = ["README.md", "docs/", "tools/"]
 
 # [comment_ratchet] -- the scaffold's baseline-and-ratchet stage over issue references
 # (#NNN) in product-code comments (.py, .js, .css, .ps1), counted per file. The gate runs
@@ -135,12 +134,12 @@ rules    = ["no-window", "no-drive-path", "subprocess-timeout", "state-literal",
 
 # A bare requests.<verb> opens a fresh connection per call; every outbound call goes through
 # pooled_http.pooled_request (one keep-alive session, one retry for idempotent methods). The
-# repo has no src/, so the vendored helper sits in system/_lib/, the shared-helper package. A call that
+# repo has no src/, so the vendored helper sits in tools/system/_lib/, the shared-helper package. A call that
 # must stay bare keeps a reasoned `# must-use-exempt: why` marker.
 [[conventions_ratchet.must_use]]
 call   = ["requests.get", "requests.post", "requests.put", "requests.patch", "requests.delete", "requests.head", "requests.request"]
-helper = ["system/_lib/pooled_http.py"]
-why    = "outbound HTTP goes through the pooled session in system/_lib/pooled_http.py"
+helper = ["tools/system/_lib/pooled_http.py"]
+why    = "outbound HTTP goes through the pooled session in tools/system/_lib/pooled_http.py"
 
 # [runtime_write_ratchet] -- scripts/runtime_write_ratchet.py fails when a tracked
 # Python file gains a write target (open for writing, Path.write_*, mkdir, a log
@@ -152,25 +151,24 @@ why    = "outbound HTTP goes through the pooled session in system/_lib/pooled_ht
 [runtime_write_ratchet]
 enabled  = true
 baseline = ".runtime-write-ratchet-baseline.json"
-# The tool folders are this repo's code (the extra_roots above), alongside scripts/.
-code_folders = ["scripts", "audio", "excel", "google", "html", "image", "linkedin",
-                "notion", "parking", "smart_life", "system", "text", "video"]
+# tools/ holds this repo's code, alongside scripts/.
+code_folders = ["scripts", "tools"]
 
 # [[state_machines]] -- the lifecycles this repo declares in one module each, so the
 # conventions ratchet's state rules stop reporting that module and keep reporting any
-# other module that re-spells them. Why and who reads them: docs/parking-outcome-state.md and system/mouse_mover.md.
+# other module that re-spells them. Why and who reads them: docs/parking-outcome-state.md and tools/system/mouse_mover.md.
 [[state_machines]]
 name   = "parking-day"
-module = "parking/booking.py"
+module = "tools/parking/booking.py"
 type   = "DayStatus"
 
 [[state_machines]]
 name   = "parking-run"
-module = "parking/booking.py"
+module = "tools/parking/booking.py"
 type   = "RunStatus"
 derive = "derive_run_status"
 
 [[state_machines]]
 name   = "mouse-mover"
-module = "system/mouse_mover.py"
+module = "tools/system/mouse_mover.py"
 type   = "MoverState"

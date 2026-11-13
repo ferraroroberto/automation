@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, Set
 from unittest import mock
 
-WIFI_DIR = Path(__file__).resolve().parents[3] / "system" / "wifi"
+WIFI_DIR = Path(__file__).resolve().parents[3] / "tools" / "system" / "wifi"
 sys.path.insert(0, str(WIFI_DIR))
 
 import network_scanner  # noqa: E402

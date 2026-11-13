@@ -6,24 +6,24 @@
 # parking poller: login browser profile + run state + logs/screenshots (its
 # .env is covered by .env above; screenshots can show real booking/account
 # details and this repo is public)
-parking/.browser-profile/
-parking/state/
-parking/logs/
-google/config.json
-google/config_gmail_drive.json
-google/config_weekly_photo.json
-google/photos_weekly_album.json
-google/client_secret.json
-google/credentials.json
-google/token*.json
-system/wifi/wifi_connect.xml
-system/wifi/wifi_export.json
-system/quickdeck/quickdeck.json
-linkedin/open_profiles/linkedin_open.json
-linkedin/genially_profiles_extractor/config.json
-smart_life/devices.json
-smart_life/snapshot.json
-smart_life/cloud.json
+tools/parking/.browser-profile/
+tools/parking/state/
+tools/parking/logs/
+tools/google/config.json
+tools/google/config_gmail_drive.json
+tools/google/config_weekly_photo.json
+tools/google/photos_weekly_album.json
+tools/google/client_secret.json
+tools/google/credentials.json
+tools/google/token*.json
+tools/system/wifi/wifi_connect.xml
+tools/system/wifi/wifi_export.json
+tools/system/quickdeck/quickdeck.json
+tools/linkedin/open_profiles/linkedin_open.json
+tools/linkedin/genially_profiles_extractor/config.json
+tools/smart_life/devices.json
+tools/smart_life/snapshot.json
+tools/smart_life/cloud.json
 tinytuya.json
 
 # application settings
@@ -33,7 +33,7 @@ text_expander_config.json
 *.log
 
 # local variables
-notion/articles_sync/notion_articles_sync_last_time.txt
+tools/notion/articles_sync/notion_articles_sync_last_time.txt
 
 # cache
 __pycache__
@@ -42,9 +42,9 @@ __pycache__
 *.code-workspace
 
 # temporary files
-system/foldersearcher/folder_structure.txt
-notion/build_newsletter.html
-system/textexpander/text_expander_config.json
+tools/system/foldersearcher/folder_structure.txt
+tools/notion/build_newsletter.html
+tools/system/textexpander/text_expander_config.json
 tmp*
 
 # TLS certificates (e.g. from tailscale cert — never commit private keys)
@@ -55,17 +55,17 @@ certificates/
 .claude/scheduled_tasks.lock
 
 # PyInstaller build output (reproducible from source + build_minimal.bat)
-image/pdf_to_jpg/dist/
+tools/image/pdf_to_jpg/dist/
 
 # machine-local configs holding absolute personal paths (tracked as .json.sample templates)
-image/illustrations_formatter_config.json
-image/Illustrations_check.json
-image/illustrations_subscribers.json
-image/photos_archive.json
-excel/accounting_stripe/csv_compare_config.json
-linkedin/check_ip/linkedin_search_image.json
-linkedin/profiles_data_extractor/common/linkedin_profiles_data.json
-notion/journal_automation.json
-notion/sample_illustrations.json
-system/foldersearcher/foldersearcher.json
-system/snap/config.json
+tools/image/illustrations_formatter_config.json
+tools/image/Illustrations_check.json
+tools/image/illustrations_subscribers.json
+tools/image/photos_archive.json
+tools/excel/accounting_stripe/csv_compare_config.json
+tools/linkedin/check_ip/linkedin_search_image.json
+tools/linkedin/profiles_data_extractor/common/linkedin_profiles_data.json
+tools/notion/journal_automation.json
+tools/notion/sample_illustrations.json
+tools/system/foldersearcher/foldersearcher.json
+tools/system/snap/config.json

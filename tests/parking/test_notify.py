@@ -4,8 +4,8 @@ import time
 
 import pytest
 
-from system._lib import notifier as notify
-from system._lib.notifier import FleetNotifier
+from tools.system._lib import notifier as notify
+from tools.system._lib.notifier import FleetNotifier
 
 BASE = {"NOTIFY_PYTHON": "py.exe", "NOTIFY_SCRIPT": "notify_send.py"}
 

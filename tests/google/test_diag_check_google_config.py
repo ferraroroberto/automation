@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from google import diag_check_google_config as diag
+from tools.google import diag_check_google_config as diag
 
 _GOOGLE_DIR = Path(diag.__file__).resolve().parent
 

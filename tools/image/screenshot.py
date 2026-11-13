@@ -1,0 +1,125 @@
+import logging
+import os
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+
+from mss import mss
+from PIL import Image
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
+from tools.system._lib import runtime_files  # noqa: E402
+
+log = logging.getLogger(__name__)
+
+def list_monitors() -> List[dict]:
+    """List all available monitors and their dimensions."""
+    with mss() as sct:
+        monitors = sct.monitors  # List of all monitors
+    return monitors
+
+def capture_specific_monitor(monitor_index: int, output_folder: Optional[str] = None) -> None:
+    """Capture a screenshot of a specific monitor by its index."""
+    # Resolve the output folder from env / home when not supplied explicitly.
+    if output_folder is None:
+        output_folder = os.environ.get(
+            "SCREENSHOT_OUTPUT_FOLDER", str(Path.home() / "Downloads" / "snaps")
+        )
+
+    # Create the output folder if it doesn't exist
+    if not os.path.exists(output_folder):
+        runtime_files.make_dirs(output_folder)
+
+    # Generate a filename with the current timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d, %H_%M_%S")
+    file_name = f"capture-{timestamp}.jpg"
+    file_path = os.path.join(output_folder, file_name)
+
+    # Capture the screenshot for the selected monitor
+    with mss() as sct:
+        monitors = sct.monitors
+        if monitor_index < 1 or monitor_index >= len(monitors):
+            raise ValueError("Invalid monitor index. Please choose a valid one.")
+
+        monitor = monitors[monitor_index]
+        screenshot = sct.grab(monitor)
+
+        # Save the screenshot as a high-quality JPEG
+        img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
+        img.save(file_path, "JPEG", quality=95)
+
+    log.info("Screenshot saved to %s", file_path)
+
+def get_bottom_left_monitor(monitors: List[dict]) -> dict:
+    """Find the monitor at the bottom-left position."""
+    # mss `top` grows downward, so the bottom row has the largest bottom edge.
+    return min(monitors[1:], key=lambda m: (-(m["top"] + m["height"]), m["left"]))
+
+def get_primary_monitor_index(monitors: List[dict]) -> int:
+    """Find the index of the primary monitor in ``mss().monitors``.
+
+    ``monitors[0]`` is the virtual bounding box covering every display, so the
+    physical displays start at index 1. Newer mss builds tag the primary display
+    with ``is_primary``; otherwise fall back to the display sitting at the origin
+    of the virtual screen (where Windows always places the primary one), and
+    finally to the first physical display.
+    """
+    for idx, monitor in enumerate(monitors[1:], start=1):
+        if monitor.get("is_primary"):
+            return idx
+    for idx, monitor in enumerate(monitors[1:], start=1):
+        if monitor["left"] == 0 and monitor["top"] == 0:
+            return idx
+    return 1
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    output_folder = os.environ.get("SCREENSHOT_OUTPUT_FOLDER", str(Path.home() / "Downloads" / "snaps"))
+    monitors = list_monitors()
+    monitor_index = None
+
+    # Check if parameters are provided
+    if len(sys.argv) > 1:
+        param = sys.argv[1].lower()
+        if param.isdigit():
+            monitor_index = int(param)
+        elif param == "bottom_left":
+            bottom_left_monitor = get_bottom_left_monitor(monitors)
+            monitor_index = monitors.index(bottom_left_monitor)
+        elif param == "primary":
+            monitor_index = get_primary_monitor_index(monitors)
+        else:
+            log.error("Invalid parameter. Use a monitor number, 'primary', or 'bottom_left'.")
+            sys.exit(1)
+    else:
+        log.info("Available monitors:")
+        for idx, monitor in enumerate(monitors[1:], start=1):
+            log.info("%d: %s", idx, monitor)
+        try:
+            monitor_index = int(input("Enter the monitor number to capture (1, 2, ...): "))
+        except ValueError:
+            log.error("Invalid input. Please enter a number.")
+            sys.exit(1)
+
+    # Validate and capture the monitor
+    try:
+        capture_specific_monitor(monitor_index, output_folder)
+    except ValueError as e:
+        log.error("%s", e)
+        log.info("Available monitors:")
+        for idx, monitor in enumerate(monitors[1:], start=1):
+            log.info("%d: %s", idx, monitor)
+        # Bounded retry loop: a mistyped (non-numeric) entry or an out-of-range
+        # monitor index would otherwise crash with an unhandled ValueError.
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                monitor_index = int(input("Enter the monitor number to capture (1, 2, ...): "))
+                capture_specific_monitor(monitor_index, output_folder)
+                break
+            except ValueError as retry_error:
+                log.error("%s", retry_error)
+                if attempt == max_retries - 1:
+                    log.error("Too many invalid attempts. Exiting.")
+                    sys.exit(1)

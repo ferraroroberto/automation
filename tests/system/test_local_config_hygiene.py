@@ -35,24 +35,24 @@ from no_window import NO_WINDOW  # noqa: E402
 # Paths that must never appear in `git ls-files`. Each is a machine-local file
 # whose tracked counterpart is a .sample/.example template.
 MUST_NOT_BE_TRACKED: List[str] = [
-    "google/config_gmail_drive.json",
-    "google/config_weekly_photo.json",
-    "google/photos_weekly_album.json",
-    "linkedin/open_profiles/linkedin_open.json",
-    "system/textexpander/text_expander_config.json",
-    "system/wifi/wifi_connect.xml",
-    "system/wifi/wifi_export.json",
-    "image/illustrations_formatter_config.json",
-    "image/Illustrations_check.json",
-    "image/illustrations_subscribers.json",
-    "image/photos_archive.json",
-    "excel/accounting_stripe/csv_compare_config.json",
-    "linkedin/check_ip/linkedin_search_image.json",
-    "linkedin/profiles_data_extractor/common/linkedin_profiles_data.json",
-    "notion/journal_automation.json",
-    "notion/sample_illustrations.json",
-    "system/foldersearcher/foldersearcher.json",
-    "system/snap/config.json",
+    "tools/google/config_gmail_drive.json",
+    "tools/google/config_weekly_photo.json",
+    "tools/google/photos_weekly_album.json",
+    "tools/linkedin/open_profiles/linkedin_open.json",
+    "tools/system/textexpander/text_expander_config.json",
+    "tools/system/wifi/wifi_connect.xml",
+    "tools/system/wifi/wifi_export.json",
+    "tools/image/illustrations_formatter_config.json",
+    "tools/image/Illustrations_check.json",
+    "tools/image/illustrations_subscribers.json",
+    "tools/image/photos_archive.json",
+    "tools/excel/accounting_stripe/csv_compare_config.json",
+    "tools/linkedin/check_ip/linkedin_search_image.json",
+    "tools/linkedin/profiles_data_extractor/common/linkedin_profiles_data.json",
+    "tools/notion/journal_automation.json",
+    "tools/notion/sample_illustrations.json",
+    "tools/system/foldersearcher/foldersearcher.json",
+    "tools/system/snap/config.json",
 ]
 
 
@@ -83,9 +83,9 @@ class LocalConfigHygieneTests(unittest.TestCase):
 
     def test_wifi_export_default_does_not_overwrite_tracked_config(self) -> None:
         """The exporter's default output must not be its own tracked config file."""
-        config_path = REPO_ROOT / "system" / "wifi" / "wifi_passwords.json"
+        config_path = REPO_ROOT / "tools" / "system" / "wifi" / "wifi_passwords.json"
         if not config_path.exists():
-            self.skipTest("system/wifi/wifi_passwords.json is absent")
+            self.skipTest("tools/system/wifi/wifi_passwords.json is absent")
 
         config = json.loads(config_path.read_text(encoding="utf-8"))
         default_output = config.get("default_output")
@@ -97,7 +97,7 @@ class LocalConfigHygieneTests(unittest.TestCase):
             "run would overwrite it with locally-generated content",
         )
         self.assertNotIn(
-            f"system/wifi/{default_output}",
+            f"tools/system/wifi/{default_output}",
             tracked_files(),
             f"default_output '{default_output}' is a tracked path; a default run would "
             "rewrite a tracked file",
@@ -106,7 +106,7 @@ class LocalConfigHygieneTests(unittest.TestCase):
     def test_wifi_export_fallback_default_does_not_overwrite_tracked_config(self) -> None:
         """load_config()'s in-code fallback (used when wifi_passwords.json can't be
         read) must not default to the tracked config file's own name either."""
-        wifi_dir = REPO_ROOT / "system" / "wifi"
+        wifi_dir = REPO_ROOT / "tools" / "system" / "wifi"
         source = (wifi_dir / "wifi_passwords.py").read_text(encoding="utf-8")
         match = re.search(
             r"#\s*Fallback default configuration\s*\n\s*return\s*\{\s*\n\s*\"default_output\"\s*:\s*\"([^\"]+)\"",
@@ -128,7 +128,7 @@ class LocalConfigHygieneTests(unittest.TestCase):
         """`.streamlit/config.toml` is tracked; a sidebar toggle that rewrote it
         dirtied the working tree with a per-machine preference. Theme switching
         is Streamlit's own settings menu, so no source may open that file."""
-        common = REPO_ROOT / "linkedin" / "profiles_data_extractor" / "common"
+        common = REPO_ROOT / "tools" / "linkedin" / "profiles_data_extractor" / "common"
         offenders = sorted(
             path.name for path in common.glob("*.py") if ".streamlit" in path.read_text(encoding="utf-8")
         )

@@ -1,4 +1,4 @@
-"""Offline tests for system/hwinfo_restart.py's Stream Deck plugin stop (fake processes only)."""
+"""Offline tests for tools/system/hwinfo_restart.py's Stream Deck plugin stop (fake processes only)."""
 
 import sys
 import unittest
@@ -7,7 +7,7 @@ from unittest import mock
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from system import hwinfo_restart as hr  # noqa: E402 -- needs the repo root on sys.path first
+from tools.system import hwinfo_restart as hr  # noqa: E402 -- needs the repo root on sys.path first
 
 PLUGIN_EXE = r"C:\Users\x\AppData\Roaming\Elgato\StreamDeck\Plugins\com.exension.hwinfo.sdPlugin\hwinfo-plugin.exe"
 PLUGIN_PARENT = r"C:\Users\x\AppData\Roaming\Elgato\StreamDeck\Plugins\com.exension.hwinfo.sdPlugin\hwinfo.exe"
@@ -52,7 +52,7 @@ class StopPluginTests(unittest.TestCase):
         self.assertFalse(world[0].terminated)
 
     def test_not_running_is_logged_and_is_not_an_error(self):
-        with self.assertLogs("system.hwinfo_restart", "INFO") as logs:
+        with self.assertLogs("tools.system.hwinfo_restart", "INFO") as logs:
             self.assertEqual(self._stop([]), set())
         self.assertIn("was not running", logs.output[0])
 
@@ -65,12 +65,12 @@ class RelaunchTests(unittest.TestCase):
     def test_a_new_plugin_process_is_a_relaunch(self):
         world = []
         world.append(_Proc(20, "hwinfo-plugin.exe", PLUGIN_EXE, world))
-        with self.assertLogs("system.hwinfo_restart", "INFO") as logs:
+        with self.assertLogs("tools.system.hwinfo_restart", "INFO") as logs:
             self.assertTrue(self._wait(world))
         self.assertIn("plugin relaunched", logs.output[0])
 
     def test_no_new_process_warns_that_the_relaunch_is_not_confirmed(self):
-        with self.assertLogs("system.hwinfo_restart", "WARNING") as logs:
+        with self.assertLogs("tools.system.hwinfo_restart", "WARNING") as logs:
             self.assertFalse(self._wait([]))
         self.assertIn("plugin relaunch not confirmed", logs.output[0])
 

@@ -11,7 +11,7 @@ loud: it mangles or empties the output, so the caller reports "not connected"
 
 Run from the repo root:
 
-    & .\.venv\Scripts\python.exe -m unittest discover -s system/wifi -p "test_*.py"
+    & .\.venv\Scripts\python.exe -m unittest discover -s tools/system/wifi -p "test_*.py"
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import sys
 import unittest
 from pathlib import Path
 
-WIFI_DIR = Path(__file__).resolve().parents[3] / "system" / "wifi"
+WIFI_DIR = Path(__file__).resolve().parents[3] / "tools" / "system" / "wifi"
 sys.path.insert(0, str(WIFI_DIR))
 
 import _netsh  # noqa: E402

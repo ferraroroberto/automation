@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "linkedin/open_profiles"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools/linkedin/open_profiles"))
 
 import linkedin_open  # noqa: E402
 

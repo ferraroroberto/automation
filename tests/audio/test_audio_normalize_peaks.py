@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "audio"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "audio"))
 
 import audio_normalize  # noqa: E402
 

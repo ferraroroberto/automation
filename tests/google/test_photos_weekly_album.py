@@ -1,4 +1,4 @@
-"""Offline tests for google/photos_weekly_album.py, its Gmail compose step and browser_stealth.py
+"""Offline tests for tools/google/photos_weekly_album.py, its Gmail compose step and browser_stealth.py
 (no browser, no network)."""
 
 import json
@@ -10,10 +10,10 @@ from pathlib import Path
 from unittest import mock
 
 import browser_stealth as bs
-from google import photos_weekly_album as pwa
-from google import photos_weekly_album_job as job
-from google import photos_weekly_counts as counts
-from google.gmail_web import GmailError, GmailWeb
+from tools.google import photos_weekly_album as pwa
+from tools.google import photos_weekly_album_job as job
+from tools.google import photos_weekly_counts as counts
+from tools.google.gmail_web import GmailError, GmailWeb
 
 SAMPLE = Path(pwa.__file__).with_name("photos_weekly_album.json.sample")
 

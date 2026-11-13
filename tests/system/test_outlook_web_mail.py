@@ -1,4 +1,4 @@
-"""Offline tests for system/outlook_web.py and system/outlook_web_mail.py (no browser, no network)."""
+"""Offline tests for tools/system/outlook_web.py and tools/system/outlook_web_mail.py (no browser, no network)."""
 
 import ast
 import re
@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from system import outlook_web as ow
-from system import outlook_web_mail as owm
+from tools.system import outlook_web as ow
+from tools.system import outlook_web_mail as owm
 
 
 def _make_parts(folder: Path, numbers, total, stem="copilot.zip.b64") -> None:

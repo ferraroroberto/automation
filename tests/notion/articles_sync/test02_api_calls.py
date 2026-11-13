@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "notion" / "articles_sync"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "notion" / "articles_sync"))
 
 from notion_articles_sync import NotionArticlesSync, RateLimiter  # noqa: E402
 

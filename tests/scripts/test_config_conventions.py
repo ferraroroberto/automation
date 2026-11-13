@@ -10,7 +10,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # The standalone PDF converter is the one tool `docs/layout.md` allows its own list.
-ALLOWED_REQUIREMENTS = {"requirements.txt", "image/pdf_to_jpg/requirements.txt"}
+ALLOWED_REQUIREMENTS = {"requirements.txt", "tools/image/pdf_to_jpg/requirements.txt"}
 SKIPPED_DIRS = {".git", ".venv", "node_modules", "__pycache__"}
 
 # `params['api_token']` / `params.get("api_token")`: the legacy params-file token read.
@@ -47,7 +47,7 @@ class SecretSourceTests(unittest.TestCase):
 
 
 class NotionSharedHelperTests(unittest.TestCase):
-    """The Notion tools share one token resolver and one header builder in `notion/utils.py`."""
+    """The Notion tools share one token resolver and one header builder in `tools/notion/utils.py`."""
 
     # A direct token read or a hand-built API-version header: the copies that had drifted apart.
     HAND_ROLLED = re.compile(r"""getenv\(\s*['"]NOTION_API_TOKEN['"]|['"]Notion-Version['"]""")
@@ -55,7 +55,7 @@ class NotionSharedHelperTests(unittest.TestCase):
     def test_tools_use_the_utils_token_resolver_and_header_builder(self) -> None:
         offenders = [
             p.relative_to(REPO_ROOT).as_posix()
-            for p in (REPO_ROOT / "notion").glob("*.py")
+            for p in (REPO_ROOT / "tools" / "notion").glob("*.py")
             if p.name != "utils.py" and self.HAND_ROLLED.search(p.read_text(encoding="utf-8", errors="replace"))
         ]
         self.assertEqual(

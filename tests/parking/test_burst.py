@@ -7,9 +7,9 @@ from zoneinfo import ZoneInfo
 import pytest
 from test_poller import FakeApi, FakeNotifier, cfg, env  # noqa: F401 (fixtures)
 
-from parking import burst, burst_worker
-from parking.booking import DayOutcome
-from parking.state import State, load_state
+from tools.parking import burst, burst_worker
+from tools.parking.booking import DayOutcome
+from tools.parking.state import State, load_state
 
 TZ = ZoneInfo("Europe/Madrid")
 TARGET = datetime(2026, 9, 24, 16, 0, tzinfo=TZ)  # a Thursday release (the 24th itself is a holiday)
@@ -270,7 +270,7 @@ def test_rehearsal_never_books_and_writes_no_state(cfg, env, tmp_path, monkeypat
 
 
 def test_rehearse_forces_dry_run_and_stays_out_of_the_chat(cfg, env, monkeypatch, tmp_path):
-    from system._lib.notifier import LogNotifier
+    from tools.system._lib.notifier import LogNotifier
 
     seen = {}
     monkeypatch.setattr(burst, "RUN_DIR", tmp_path)
