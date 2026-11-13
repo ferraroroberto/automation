@@ -44,6 +44,7 @@ Each of these is declared in `extra_roots` because the repo is a grab-bag of too
 | `system/copilot_remap/` | Copilot key remap with autostart scripts |
 | `system/foldersearcher/` | Folder index, CLI and tray search (retired; folder-explorer replaces it, task-os vendors the core) |
 | `system/quickdeck/` | Quick-action deck, its config GUI and actions |
+| `system/snap/` | Hotkey region screenshot saved as a timestamped JPEG (`snap_core.py` holds the testable logic, `snap_tool.py` the hotkey, overlay and tray) |
 | `system/textexpander/` | Text expander with tray, monitor and GUI |
 | `system/treesize/` | Folder size analyzer GUI |
 | `system/wifi/` | Wi-Fi network scanner, saved-profile connect and `.bat` generator |
