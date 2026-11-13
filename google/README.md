@@ -21,5 +21,5 @@ Offline diagnostic suite for `gmail_drive_automation.py` — makes no Google API
 Run it after changing `gmail_drive_automation.py`'s data-processing logic (row building, dedup, or spreadsheet-shape assumptions), or as a fast sanity check before scheduling a run, since it needs no network access or live credentials:
 
 ```bash
-python diag_gmail_drive.py
+..\.venv\Scripts\python.exe diag_gmail_drive.py
 ```

@@ -26,7 +26,7 @@ The system intelligently handles:
 
 ```bash
 # Run with default settings (previous week)
-python journal_automation.py
+..\.venv\Scripts\python.exe journal_automation.py
 
 # Or use the batch file
 journal_automation.bat
@@ -72,7 +72,7 @@ Before using this automation, you need:
 1. **Python 3.7 or higher**
 2. **Required packages**:
    ```bash
-   pip install requests python-dotenv
+   .\.venv\Scripts\python.exe -m pip install requests python-dotenv
    ```
 3. **Notion API token** in `.env` file
 4. **Notion integration** with access to your journal database
@@ -256,7 +256,7 @@ Each checkbox supports:
 
 **Solution**: Install required packages
 ```bash
-pip install requests python-dotenv
+.\.venv\Scripts\python.exe -m pip install requests python-dotenv
 ```
 
 ### "NOTION_API_TOKEN not found in environment variables"

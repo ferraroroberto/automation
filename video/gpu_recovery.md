@@ -59,8 +59,8 @@ Device enabled successfully.
 **From a terminal:**
 
 ```bash
-python gpu_recovery.py             # diagnose, then fix if disabled (needs admin to fix)
-python gpu_recovery.py --diagnose  # report only, make no changes
+..\.venv\Scripts\python.exe gpu_recovery.py             # diagnose, then fix if disabled (needs admin to fix)
+..\.venv\Scripts\python.exe gpu_recovery.py --diagnose  # report only, make no changes
 ```
 
 The GPU's device-instance ID is **discovered dynamically** — nothing is hardcoded, so the tool works on any machine/card.

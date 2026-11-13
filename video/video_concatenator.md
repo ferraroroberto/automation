@@ -18,7 +18,7 @@ Merge multiple videos into a single file using FFmpeg. Uses stream copy (no re-e
 
 **GUI (default):**
 ```bash
-python video/video_concatenator.py
+.\.venv\Scripts\python.exe video/video_concatenator.py
 ```
 Or: `python video/video_concatenator.py --gui`
 
@@ -26,26 +26,26 @@ Or: `python video/video_concatenator.py --gui`
 
 **CLI:**
 ```bash
-python video/video_concatenator.py -o output.mp4 video1.mp4 video2.mp4 video3.mp4
+.\.venv\Scripts\python.exe video/video_concatenator.py -o output.mp4 video1.mp4 video2.mp4 video3.mp4
 ```
 
 ## CLI Examples
 
 ### Basic concatenation
 ```bash
-python video_concatenator.py -o merged.mp4 part1.mp4 part2.mp4 part3.mp4
+.\.venv\Scripts\python.exe video/video_concatenator.py -o merged.mp4 part1.mp4 part2.mp4 part3.mp4
 ```
 *Merges the three files in order. Output: `merged.mp4`*
 
 ### Sort alphabetically
 ```bash
-python video_concatenator.py -o merged.mp4 clip_c.mp4 clip_a.mp4 clip_b.mp4 --sort
+.\.venv\Scripts\python.exe video/video_concatenator.py -o merged.mp4 clip_c.mp4 clip_a.mp4 clip_b.mp4 --sort
 ```
 *Concatenates in alphabetical order: clip_a, clip_b, clip_c*
 
 ### Interactive (file dialogs)
 ```bash
-python video_concatenator.py
+.\.venv\Scripts\python.exe video/video_concatenator.py
 ```
 *Opens GUI. No args = GUI mode.*
 

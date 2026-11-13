@@ -6,14 +6,14 @@ QuickDeck is a minimal always-on-top command launcher that behaves like a mini S
 ## 📋 Usage
 ### Installation
 ```bash
-pip install PySimpleGUI pyautogui pyperclip pillow
+.\.venv\Scripts\python.exe -m pip install PySimpleGUI pyautogui pyperclip pillow
 ```
 
 > **Note:** PySimpleGUI is no longer freely available on PyPI — it requires a paid license or registration. Use a separately-obtained PySimpleGUI installation, or migrate to the drop-in [FreeSimpleGUI](https://github.com/spyoungtech/FreeSimpleGUI) fork (`pip install FreeSimpleGUI` and change the import).
 
 ### Running
 ```bash
-python quickdeck.py [optional path to config]
+..\..\.venv\Scripts\python.exe quickdeck.py [optional path to config]
 ```
 
 If no config is provided, it will look for `quickdeck.json` in the current directory.

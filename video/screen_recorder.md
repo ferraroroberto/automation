@@ -20,7 +20,7 @@ A Tkinter GUI for recording the screen to MP4, with adjustable FPS, multi-monito
 
 **GUI (only mode — no CLI arguments):**
 ```bash
-python video/screen_recorder.py
+.\.venv\Scripts\python.exe video/screen_recorder.py
 ```
 
 **Double-click:** `screen_recorder.bat`

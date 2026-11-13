@@ -81,7 +81,7 @@ The system expects and produces Excel files with these standard columns:
 
 ### Required Python Packages
 ```bash
-pip install pandas pynput requests websocket-client streamlit openpyxl
+.\.venv\Scripts\python.exe -m pip install pandas pynput requests websocket-client streamlit openpyxl
 ```
 
 ### System Requirements

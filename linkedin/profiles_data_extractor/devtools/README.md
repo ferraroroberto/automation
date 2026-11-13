@@ -48,9 +48,9 @@ Uses Chrome's DevTools Protocol for reliable DOM access instead of keyboard simu
 
    **Command-Line Options:**
    ```bash
-   python linkedin_profiles_data_orchestrator_devtools.py --run              # Run full extraction
-   python linkedin_profiles_data_orchestrator_devtools.py --run --save-format # Save format and run
-   python linkedin_profiles_data_orchestrator_devtools.py --test               # Quick test
+   ..\..\..\.venv\Scripts\python.exe linkedin_profiles_data_orchestrator_devtools.py --run              # Run full extraction
+   ..\..\..\.venv\Scripts\python.exe linkedin_profiles_data_orchestrator_devtools.py --run --save-format # Save format and run
+   ..\..\..\.venv\Scripts\python.exe linkedin_profiles_data_orchestrator_devtools.py --test               # Quick test
    ```
 
    **OR** Run the standalone extractor:

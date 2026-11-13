@@ -23,11 +23,11 @@ A utility that continuously moves the mouse pointer in a rectangular pattern to 
 1. Ensure Python 3 is installed on your system
 2. Install the required dependencies:
    ```
-   pip install pyautogui pystray Pillow
+   .\.venv\Scripts\python.exe -m pip install pyautogui pystray Pillow
    ```
    Or install from the main project requirements:
    ```
-   pip install -r ../../requirements.txt
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 
 ## Usage
@@ -46,7 +46,7 @@ The program accepts the following command-line arguments:
 ### Example
 
 ```
-python mouse_mover.py --up 100 --right 200 --down 100 --left 200 --speed 0.005 --click
+..\.venv\Scripts\python.exe mouse_mover.py --up 100 --right 200 --down 100 --left 200 --speed 0.005 --click
 ```
 
 ## User Interface

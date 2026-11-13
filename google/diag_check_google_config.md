@@ -161,7 +161,7 @@ gcloud auth login
 Remove-Item token.json
 
 # Re-run authentication flow
-python your_auth_script.py
+..\.venv\Scripts\python.exe your_auth_script.py
 ```
 
 ### ❌ "API not enabled"

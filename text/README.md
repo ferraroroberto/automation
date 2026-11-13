@@ -12,13 +12,13 @@ The script picks a mode automatically based on how it's invoked and whether a di
 
 - **CLI file mode** — triggered whenever any command-line argument is present, regardless of platform/display:
   ```bash
-  python text/clean_sensitive_data.py <input_file> [output_file]
+  .\.venv\Scripts\python.exe text/clean_sensitive_data.py <input_file> [output_file]
   ```
   Reads `<input_file>` (UTF-8), cleans it, and either writes the result to `output_file` (if given) or prints it to stdout. A missing input file or any other read/write error is logged rather than raised.
 
 - **GUI mode** — used with no arguments when a display is available (always true on Windows, since `TKINTER_AVAILABLE` + `sys.platform == 'win32'` is enough to satisfy `has_display()`):
   ```bash
-  python text/clean_sensitive_data.py
+  .\.venv\Scripts\python.exe text/clean_sensitive_data.py
   ```
   Opens a Tkinter window with side-by-side input/output text panes, Paste/Clear buttons, a "Clean Text" button, a "Copy to Clipboard" button, and one checkbox per redaction category (File Paths, Email Addresses, IP Addresses, URLs, Secrets/Keys, Service Names, Numeric Sequences, GUIDs/UUIDs — all on by default). On startup it also auto-pastes clipboard contents into the input pane if the clipboard has text and the input is empty.
 
@@ -52,7 +52,7 @@ Each category can be toggled independently — the toggle state lives on the `Da
 Extracts all text from a PDF (page by page, via `pypdf.PdfReader`) and writes it to a `.txt` file with the same base name, next to the source PDF. Logs the input path, any extraction/save errors, and the final word count.
 
 ```bash
-python text/convert_pdf_to_txt.py [path/to/file.pdf]
+.\.venv\Scripts\python.exe text/convert_pdf_to_txt.py [path/to/file.pdf]
 ```
 
 - With a path argument: uses it directly. The script errors out (via `logger.error`, no exception raised) if the path doesn't exist or doesn't end in `.pdf`.

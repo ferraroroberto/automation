@@ -9,9 +9,9 @@ Opens a batch of LinkedIn profile/company activity pages from an Excel export, o
 ### Basic Usage
 
 ```bash
-python linkedin_open.py
-python linkedin_open.py --config custom_config.json
-python linkedin_open.py --verbose --chunk-size 5
+..\..\.venv\Scripts\python.exe linkedin_open.py
+..\..\.venv\Scripts\python.exe linkedin_open.py --config custom_config.json
+..\..\.venv\Scripts\python.exe linkedin_open.py --verbose --chunk-size 5
 ```
 
 Launching the script opens the "LinkedIn Profile Opener - Filter Options" window; there is no headless/CLI-only path — filter selection and processing both happen inside that dialog.

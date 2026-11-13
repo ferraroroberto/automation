@@ -23,7 +23,7 @@ A unified GUI application for downloading videos from YouTube, HLS/M3U8 streams,
 
 **From project root:**
 ```bash
-python video/video_download.py
+.\.venv\Scripts\python.exe video/video_download.py
 ```
 
 **Or double-click:** `video_download.bat`

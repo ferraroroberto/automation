@@ -221,16 +221,16 @@ python3 -m venv .venv
 ### **Illustration Formatting**
 ```bash
 # Format illustrations for Instagram or fixed dimensions
-python image/illustrations_formatter.py -s ./input -d ./output -r 3:4
+.\.venv\Scripts\python.exe image/illustrations_formatter.py -s ./input -d ./output -r 3:4
 
 # Use GUI interface
-python image/illustrations_formatter_gui.py
+.\.venv\Scripts\python.exe image/illustrations_formatter_gui.py
 ```
 
 ### **Screen Recording**
 ```bash
 # Start screen recording
-python video/screen_recorder.py
+.\.venv\Scripts\python.exe video/screen_recorder.py
 
 # Or use the batch file
 video/screen_recorder.bat
@@ -240,7 +240,7 @@ video/screen_recorder.bat
 ```bash
 # Build newsletter from Notion articles (writes notion/build_newsletter.html, opens browser,
 # then prompts for must-read 1/2/3 and copies the ordered title line to the clipboard)
-python notion/build_newsletter.py --newsletter 057 --config notion/build_newsletter.json
+.\.venv\Scripts\python.exe notion/build_newsletter.py --newsletter 057 --config notion/build_newsletter.json
 ```
 
 Details: [`notion/build_newsletter.md`](notion/build_newsletter.md).

@@ -11,7 +11,7 @@ The script authenticates against the Notion API, calls the search endpoint filte
 ### Basic Usage
 
 ```bash
-python notion_databases_query.py
+..\.venv\Scripts\python.exe notion_databases_query.py
 ```
 
 There are no command-line arguments — the script takes its inputs entirely from the params file described below and runs straight through, then exits.

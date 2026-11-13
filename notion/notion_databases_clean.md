@@ -11,7 +11,7 @@ For every database flagged `ind_clean = 1` in the master list, the script reads 
 ### Basic Usage
 
 ```bash
-python notion_databases_clean.py
+..\.venv\Scripts\python.exe notion_databases_clean.py
 ```
 
 There are no command-line arguments — everything comes from the params file described below plus the `excel_path` and `metadata_path` workbooks' own columns. Verbosity is controlled by the `verbose` key in the params file, not a flag.

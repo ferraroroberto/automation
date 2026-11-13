@@ -8,11 +8,11 @@ Extracts audio tracks from video files (`.mkv`, `.mp4`) using FFmpeg/FFprobe. Fo
 
 ```bash
 # Process every .mkv/.mp4 in a directory (default: current directory)
-python audio/audio_extractor_core.py "C:\Videos"
+.\.venv\Scripts\python.exe audio/audio_extractor_core.py "C:\Videos"
 
 # Open a file-picker dialog to choose specific videos instead
-python audio/audio_extractor_core.py --gui
-python audio/audio_extractor_core.py -g
+.\.venv\Scripts\python.exe audio/audio_extractor_core.py --gui
+.\.venv\Scripts\python.exe audio/audio_extractor_core.py -g
 ```
 
 Arguments:
@@ -26,7 +26,7 @@ Requires FFmpeg and FFprobe on `PATH`.
 Tkinter GUI front-end for the same extraction logic as `audio_extractor_core.py`: a "Select Video Files" button (filtered to `.mkv`/`.mp4`), an "Extract Audio" button, a live scrolling log panel fed from the `logging` module, and an indeterminate progress bar while extraction runs on a background thread. The "Extract unified audio (all tracks)" / "Extract individual tracks" checkboxes in the Options panel select which outputs are written; both are ticked by default, which reproduces the core script's behaviour (unified mix plus per-track files when a video has multiple audio tracks). Unticking both is refused with a warning.
 
 ```bash
-python audio/audio_extractor_gui.py
+.\.venv\Scripts\python.exe audio/audio_extractor_gui.py
 ```
 
 No CLI arguments — it's GUI-only. Double-click `audio_extractor_gui.bat` to launch it via the repo's `.venv` without opening a terminal manually. Requires FFmpeg and FFprobe on `PATH`.
@@ -36,7 +36,7 @@ No CLI arguments — it's GUI-only. Double-click `audio_extractor_gui.bat` to la
 Converts a single `.ogg` file to `.mp3` (192k bitrate) by running the FFmpeg binary bundled with `imageio-ffmpeg` directly (no `ffprobe` step), saving the output alongside the source with the same base name. It works without a separate FFmpeg or FFprobe install on `PATH`.
 
 ```bash
-python audio/convert_ogg_mp3.py
+.\.venv\Scripts\python.exe audio/convert_ogg_mp3.py
 ```
 
 No CLI arguments — opens a file-picker dialog filtered to `*.ogg`. Requires the `imageio-ffmpeg` Python package.
@@ -46,7 +46,7 @@ No CLI arguments — opens a file-picker dialog filtered to `*.ogg`. Requires th
 Collates a folder of `.md` transcript files into a single `.txt` file. Prompts for a directory, sorts the `.md` files by the first run of digits found in each filename (so `part2.md` sorts before `part10.md`), concatenates their contents in that order (dropping a file's last line if it contains both `[` and `]` — e.g. a trailing timestamp/reference marker), and prompts for a save location for the combined output.
 
 ```bash
-python audio/transcript_collate.py
+.\.venv\Scripts\python.exe audio/transcript_collate.py
 ```
 
 No CLI arguments — directory-picker in, save-as dialog out. No FFmpeg dependency; pure Python + Tkinter.
@@ -57,11 +57,11 @@ Applies two-pass EBU R128 loudness normalization (FFmpeg's `loudnorm` filter, `T
 
 ```bash
 # Interactive GUI mode: pick a file, choose a target LUFS, review results
-python audio/audio_normalize.py
+.\.venv\Scripts\python.exe audio/audio_normalize.py
 
 # Non-interactive test mode: run the analyze -> normalize -> analyze pipeline
 # on a specific file at a fixed -16.0 LUFS target, no dialogs
-python audio/audio_normalize.py --test "C:\Audio\clip.mp3"
+.\.venv\Scripts\python.exe audio/audio_normalize.py --test "C:\Audio\clip.mp3"
 ```
 
 Arguments:
@@ -74,7 +74,7 @@ Accepts `.mp3 .wav .flac .aac .ogg .m4a .wma .aiff` in the file picker. Requires
 Trims an audio file to a start/end time range, applies `loudnorm` normalization, and re-encodes to AAC. Prompts for a file, then for start and end times validated against `mm:ss` or `hh:mm:ss` (re-prompting on invalid input). Output is always `.m4a`, named `{name}_trim_{start}_{end}.m4a` with `:` replaced by `-` in the time labels.
 
 ```bash
-python audio/audio_trim.py
+.\.venv\Scripts\python.exe audio/audio_trim.py
 ```
 
 No CLI arguments — file picker, then two time-entry dialogs. Accepts `.mp3 .wav .flac .aac .ogg .m4a .wma .aiff` in the file picker. Requires FFmpeg on `PATH`.

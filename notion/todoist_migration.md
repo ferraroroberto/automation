@@ -11,7 +11,7 @@ The script walks a source folder recursively for `.csv` files (one file per Todo
 ### Basic Usage
 
 ```bash
-python todoist_migration.py
+..\.venv\Scripts\python.exe todoist_migration.py
 ```
 
 There are no command-line arguments. The script always prompts once at startup:

@@ -21,7 +21,7 @@ A GUI and CLI tool for trimming videos with FFmpeg. Supports GPU acceleration (N
 
 **GUI (default):**
 ```bash
-python video/video_trim.py
+.\.venv\Scripts\python.exe video/video_trim.py
 ```
 Or: `python video/video_trim.py --gui`
 
@@ -29,12 +29,12 @@ Or: `python video/video_trim.py --gui`
 
 **CLI (trim):**
 ```bash
-python video/video_trim.py -f "path/to/video.mp4" -s 1:30 -e 2:45
+.\.venv\Scripts\python.exe video/video_trim.py -f "path/to/video.mp4" -s 1:30 -e 2:45
 ```
 
 **CLI (cut middle section):**
 ```bash
-python video/video_trim.py -f "path/to/video.mp4" --cut -s 1:00 -e 1:02
+.\.venv\Scripts\python.exe video/video_trim.py -f "path/to/video.mp4" --cut -s 1:00 -e 1:02
 ```
 *Removes 1:00 to 1:02 (2 seconds) and joins the remaining parts.*
 
@@ -51,31 +51,31 @@ python video/video_trim.py -f "path/to/video.mp4" --cut -s 1:00 -e 1:02
 
 ### Basic trim
 ```bash
-python video_trim.py -f "C:\Videos\recording.mp4" -s 0:10 -e 2:30
+.\.venv\Scripts\python.exe video/video_trim.py -f "C:\Videos\recording.mp4" -s 0:10 -e 2:30
 ```
 *Trims from 10 seconds to 2 min 30 sec. Output: `recording_trim_0-10_2-30.mp4`*
 
 ### Precise 0.1s trim
 ```bash
-python video_trim.py -f video.mp4 -s 1:23.4 -e 3:45.8
+.\.venv\Scripts\python.exe video/video_trim.py -f video.mp4 -s 1:23.4 -e 3:45.8
 ```
 *Trims from 1:23.4 to 3:45.8.*
 
 ### Interactive (file dialogs)
 ```bash
-python video_trim.py
+.\.venv\Scripts\python.exe video/video_trim.py
 ```
 *Opens GUI. No args = GUI mode.*
 
 ### With only file specified
 ```bash
-python video_trim.py -f video.mp4
+.\.venv\Scripts\python.exe video/video_trim.py -f video.mp4
 ```
 *Prompts for start and end times via dialogs.*
 
 ### Force GUI from command line
 ```bash
-python video_trim.py --gui
+.\.venv\Scripts\python.exe video/video_trim.py --gui
 ```
 
 ## GUI Usage

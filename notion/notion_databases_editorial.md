@@ -13,7 +13,7 @@ The script reads the master database list, filters it to the rows flagged `ind_e
 ### Basic Usage
 
 ```bash
-python notion_databases_editorial.py
+..\.venv\Scripts\python.exe notion_databases_editorial.py
 ```
 
 There are no command-line arguments — everything comes from the params file described below and the `excel_path` workbook's own `ind_editorial`, `editorial_name`, and `output_path_clean` columns.

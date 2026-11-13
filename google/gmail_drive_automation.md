@@ -186,7 +186,7 @@ activated. `run_gmail_drive.bat` invokes `..\.venv\Scripts\python.exe` by path.
 & .\.venv\Scripts\python.exe google\gmail_drive_automation.py --config my_config.json
 
 # With debug logging
-python gmail_drive_automation.py --debug
+..\.venv\Scripts\python.exe gmail_drive_automation.py --debug
 ```
 
 ## 📊 Output
@@ -230,7 +230,7 @@ python gmail_drive_automation.py --debug
 ### Debug Mode
 Use the `--debug` flag for detailed logging:
 ```bash
-python gmail_drive_automation.py --debug
+..\.venv\Scripts\python.exe gmail_drive_automation.py --debug
 ```
 
 This will show:
