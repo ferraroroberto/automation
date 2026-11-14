@@ -61,6 +61,8 @@ Run from the repo root:
 
 `photos_weekly_album_job.py` is what the schedule runs, through `run_photos_weekly_album.bat` (same pattern as the other repo jobs: repo `.venv`, foreground, exit code passed through). It runs the album for the week that just ended, exactly as `python -m tools.google.photos_weekly_album` does with no flags, then sends one short Telegram message through the fleet notifier. It never passes `--send`: mail goes out only when the config says `"send": true`. It shares and drafts only when the config lists `email.to`, as above.
 
+**Dry run of the job itself.** `python -m tools.google.photos_weekly_album_job --dry-run` (or `run_photos_weekly_album.bat --dry-run`, which passes its arguments through) runs the same entry point as the schedule: config, week window, title, desktop check, then the album run in its report-only mode, which creates, shares and drafts nothing. It sends no notification, and the exit code and run-log record are the real ones (`outcome: dry-run`). The repo gate runs this path end to end with a fake Photos client and a fake notifier, and asserts that nothing is written inside the checkout, so a refactor or folder move that breaks the entry point fails the gate, not the Saturday run.
+
 **Needs an unlocked desktop.** Chrome opens a visible window, because Google Photos doesn't render the grid in a hidden one. Before starting Chrome the job checks that the desktop isn't locked and reports it if it is. If nobody is signed in at all, Windows never fires the task (app-launcher's tasks run only while the user is logged on), so nothing runs and no message comes; the Jobs tab shows the job as **not firing**.
 
 | Outcome | Exit | Message (chat) |
