@@ -52,7 +52,7 @@ logger = logging.getLogger("photos_weekly_album")
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_CONFIG = HERE / "photos_weekly_album.json"
-DEFAULT_LOG = HERE / "photos_weekly_album.log"
+LOG_NAME = "photos_weekly_album.log"
 DEFAULT_PROFILE = Path.home() / ".photos-weekly-album-profile"
 
 PHOTOS_URL = "https://photos.google.com/"
@@ -272,7 +272,7 @@ class Config:
             raise ValueError("config needs title_template and counters")
         return cls(title_template=raw["title_template"], counters=raw["counters"],
                    profile_dir=Path(raw.get("profile_dir") or DEFAULT_PROFILE).expanduser(),
-                   log_file=Path(raw.get("log_file") or DEFAULT_LOG).expanduser(),
+                   log_file=Path(raw.get("log_file") or runtime_files.runtime_data_dir() / LOG_NAME).expanduser(),
                    email=EmailConfig.load(raw.get("email")))
 
 
@@ -678,10 +678,16 @@ class PhotosWeb:
 
 # -- run ------------------------------------------------------------------------------------------
 
-def append_run_log(path: Path, record: dict) -> None:
-    runtime_files.make_dirs(path.parent)
-    with runtime_files.open_for_write(path, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+def append_run_log(path: Path, record: dict) -> bool:
+    """Append one record; False (logged) when the log is unwritable, so a log fault never replaces the run's own outcome."""
+    try:
+        runtime_files.make_dirs(path.parent)
+        with runtime_files.open_for_write(path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+    except (OSError, ValueError) as exc:
+        logger.error("❌ the run log could not be written (%s); the run's outcome is unchanged: %s", path, exc)
+        return False
+    return True
 
 
 def report(start: date, end: date, title: str, sel: Selection) -> None:

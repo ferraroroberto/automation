@@ -717,6 +717,44 @@ class RunRecordTests(unittest.TestCase):
                 self.assertEqual((code, record["failure"], logged["failure"]), (expected, kind, kind))
 
 
+class RunLogLocationTests(unittest.TestCase):
+    WEEK = RunRecordTests.WEEK
+
+    def _default_cfg(self, tmp: Path) -> "pwa.Config":
+        raw = json.loads(SAMPLE.read_text(encoding="utf-8"))
+        raw.update(profile_dir=str(tmp / "profile"), log_file="")
+        del raw["email"]
+        path = tmp / "config.json"
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        return pwa.Config.load(path)
+
+    def test_default_log_is_outside_the_repo_and_appends(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict("os.environ", {"AUTOMATION_RUNTIME_DIR": tmp}):
+            cfg = self._default_cfg(Path(tmp))
+            self.assertEqual(cfg.log_file, Path(tmp).resolve() / "photos_weekly_album.log")
+            self.assertTrue(pwa.append_run_log(cfg.log_file, {"outcome": "created"}))
+            self.assertEqual(json.loads(cfg.log_file.read_text(encoding="utf-8"))["outcome"], "created")
+
+    def test_default_log_without_override_is_not_under_the_checkout(self):
+        with mock.patch.dict("os.environ", {}, clear=False) as env:
+            env.pop("AUTOMATION_RUNTIME_DIR", None)
+            with tempfile.TemporaryDirectory() as tmp:
+                log = self._default_cfg(Path(tmp)).log_file
+        self.assertNotIn(pwa.runtime_files.REPO_ROOT, log.resolve().parents)
+
+    def test_unwritable_log_keeps_the_runs_own_exit_code(self):
+        repo_log = pwa.runtime_files.REPO_ROOT / "tools" / "google" / "photos_weekly_album.log"
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = self._default_cfg(Path(tmp))
+            cfg.log_file = repo_log
+            _FakeWeb.steps = {"find_album": ("https://photos.google.com/album/X", 12)}
+            with mock.patch.object(pwa, "PhotosWeb", _FakeWeb), self.assertLogs("photos_weekly_album") as logs:
+                code = pwa.run(cfg, *self.WEEK, "T", False)
+        self.assertEqual(code, 0)
+        self.assertTrue(any("run log could not be written" in line for line in logs.output))
+        self.assertFalse(repo_log.exists())
+
+
 class _Notifier:
     sent: list = []
 
