@@ -1,4 +1,4 @@
-"""Offline tests for the region-screenshot tool's naming, crop maths, hotkey parsing and config."""
+"""Offline tests for the region-screenshot tool's naming, crop and loupe maths, hotkey parsing and config."""
 
 import json
 import sys
@@ -10,17 +10,32 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "system" / "snap"))
 
 from snap_core import (  # noqa: E402
+    ARROW_KEYS,
+    LOUPE_CELLS,
+    LOUPE_CURSOR_GAP,
+    LOUPE_RADIUS,
+    MAX_PREFIX_LENGTH,
     MIN_SELECTION_SIDE,
     MOD_CONTROL,
     MOD_SHIFT,
+    NUDGE_STEP_FAST,
+    QUALITY_CHOICES,
     ConfigError,
     Rect,
     load_config,
+    loupe_label,
+    loupe_source_box,
+    monitor_for,
+    nudge_point,
     parse_config,
     parse_hotkey,
+    place_loupe,
     screen_to_image,
     selection_rect,
+    selection_size,
     unique_path,
+    update_config_file,
+    validate_prefix,
     window_geometry,
 )
 
@@ -47,6 +62,14 @@ class NamingTests(unittest.TestCase):
             first = unique_path(Path(folder), datetime(2026, 3, 7, 9, 5, 2, 100_000))
             second = unique_path(Path(folder), datetime(2026, 3, 7, 9, 5, 2, 600_000))
         self.assertNotEqual(first, second)
+
+
+    def test_prefix_replaces_snap_in_the_name(self):
+        moment = datetime(2026, 3, 7, 9, 5, 2, 42_000)
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(
+                unique_path(Path(folder), moment, "invoice").name, "invoice_2026-03-07_09-05-02-042.jpg"
+            )
 
 
 class CropMathsTests(unittest.TestCase):
@@ -89,6 +112,114 @@ class CropMathsTests(unittest.TestCase):
     def test_window_geometry_signs_negative_and_positive_origins(self):
         self.assertEqual(window_geometry(-1920, 0, 3840, 1080), "3840x1080-1920+0")
         self.assertEqual(window_geometry(0, -1080, 1920, 2160), "1920x2160+0-1080")
+
+
+class LoupeGeometryTests(unittest.TestCase):
+    SCREEN = Rect(0, 0, 1920, 1080)
+    BOX = (200, 222)
+
+    def test_source_box_is_a_square_centred_on_the_cursor_pixel(self):
+        box = loupe_source_box((500, 300))
+        self.assertEqual(
+            box, Rect(500 - LOUPE_RADIUS, 300 - LOUPE_RADIUS, 500 + LOUPE_RADIUS + 1, 300 + LOUPE_RADIUS + 1)
+        )
+        self.assertEqual(box.right - box.left, LOUPE_CELLS)
+        self.assertEqual(box.bottom - box.top, LOUPE_CELLS)
+
+    def test_source_box_may_reach_past_the_image_edge(self):
+        self.assertEqual(loupe_source_box((0, 0)).left, -LOUPE_RADIUS)
+
+    def test_box_sits_below_right_of_the_cursor_in_open_space(self):
+        self.assertEqual(
+            place_loupe((500, 300), self.BOX, self.SCREEN), (500 + LOUPE_CURSOR_GAP, 300 + LOUPE_CURSOR_GAP)
+        )
+
+    def test_box_flips_left_at_the_right_edge(self):
+        x, y = place_loupe((1900, 300), self.BOX, self.SCREEN)
+        self.assertEqual(x, 1900 - LOUPE_CURSOR_GAP - self.BOX[0])
+        self.assertEqual(y, 300 + LOUPE_CURSOR_GAP)
+
+    def test_box_flips_up_at_the_bottom_edge(self):
+        x, y = place_loupe((500, 1070), self.BOX, self.SCREEN)
+        self.assertEqual(x, 500 + LOUPE_CURSOR_GAP)
+        self.assertEqual(y, 1070 - LOUPE_CURSOR_GAP - self.BOX[1])
+
+    def test_box_flips_both_ways_in_the_bottom_right_corner_and_stays_on_screen(self):
+        x, y = place_loupe((1919, 1079), self.BOX, self.SCREEN)
+        self.assertLessEqual(x + self.BOX[0], self.SCREEN.right)
+        self.assertLessEqual(y + self.BOX[1], self.SCREEN.bottom)
+        self.assertLess(x + self.BOX[0], 1919)
+        self.assertLess(y + self.BOX[1], 1079)
+
+    def test_box_is_clamped_when_flipping_would_leave_the_left_or_top_edge(self):
+        narrow = Rect(0, 0, 260, 300)
+        x, y = place_loupe((250, 290), self.BOX, narrow)
+        self.assertGreaterEqual(x, 0)
+        self.assertGreaterEqual(y, 0)
+        self.assertLessEqual(x + self.BOX[0], narrow.right)
+        self.assertLessEqual(y + self.BOX[1], narrow.bottom)
+
+    def test_second_monitor_borders_use_that_monitors_bounds(self):
+        # Two 1920-wide monitors side by side in image space: a cursor near the seam flips off the left monitor's right edge.
+        left, right = Rect(0, 0, 1920, 1080), Rect(1920, 0, 3840, 1080)
+        monitors = [left, right]
+        cursor = (1900, 400)
+        self.assertEqual(monitor_for(cursor, monitors), left)
+        x, _ = place_loupe(cursor, self.BOX, monitor_for(cursor, monitors))
+        self.assertLessEqual(x + self.BOX[0], left.right)
+        cursor = (1930, 400)
+        self.assertEqual(monitor_for(cursor, monitors), right)
+        x, _ = place_loupe(cursor, self.BOX, monitor_for(cursor, monitors))
+        self.assertGreaterEqual(x, right.left)
+
+    def test_monitor_for_a_point_outside_every_monitor_is_the_nearest(self):
+        monitors = [Rect(0, 0, 1920, 1080), Rect(1920, 0, 3840, 1080)]
+        self.assertEqual(monitor_for((4000, 500), monitors), monitors[1])
+        self.assertEqual(monitor_for((-50, 500), monitors), monitors[0])
+
+    def test_dpi_scaled_screen_is_laid_out_in_physical_pixels(self):
+        # At 150% the capture and the cursor are both physical pixels (2880x1620), so the same maths applies unscaled.
+        screen = Rect(0, 0, 2880, 1620)
+        cursor = screen_to_image(2870, 1610, (0, 0))
+        self.assertEqual(
+            place_loupe(cursor, self.BOX, screen),
+            (2870 - LOUPE_CURSOR_GAP - self.BOX[0], 1610 - LOUPE_CURSOR_GAP - self.BOX[1]),
+        )
+
+    def test_label_shows_coordinates_and_the_drag_size_only_while_dragging(self):
+        self.assertEqual(loupe_label((120, -40), None), "120,-40")
+        self.assertEqual(loupe_label((120, 40), (300, 200)), "120,40 (300×200)")
+
+    def test_selection_size_follows_the_drag_and_clamps_to_the_image(self):
+        self.assertEqual(selection_size((100, 100), (40, 250), (1920, 1080)), (60, 150))
+        self.assertEqual(selection_size((10, 10), (5000, 5000), (1920, 1080)), (1910, 1070))
+        self.assertEqual(selection_size((10, 10), (10, 10), (1920, 1080)), (0, 0))
+
+
+class NudgeTests(unittest.TestCase):
+    BOUNDS = Rect(-1920, 0, 1920, 1080)
+
+    def test_arrows_move_one_pixel(self):
+        self.assertEqual(nudge_point((0, 500), "Left", False, self.BOUNDS), (-1, 500))
+        self.assertEqual(nudge_point((0, 500), "Right", False, self.BOUNDS), (1, 500))
+        self.assertEqual(nudge_point((0, 500), "Up", False, self.BOUNDS), (0, 499))
+        self.assertEqual(nudge_point((0, 500), "Down", False, self.BOUNDS), (0, 501))
+
+    def test_shift_moves_ten_pixels(self):
+        for key, expected in (("Left", (-10, 500)), ("Right", (10, 500)), ("Up", (0, 490)), ("Down", (0, 510))):
+            with self.subTest(key=key):
+                self.assertEqual(nudge_point((0, 500), key, True, self.BOUNDS), expected)
+        self.assertEqual(NUDGE_STEP_FAST, 10)
+
+    def test_the_cursor_stops_on_the_last_pixel_of_the_screen(self):
+        self.assertEqual(nudge_point((1919, 500), "Right", False, self.BOUNDS), (1919, 500))
+        self.assertEqual(nudge_point((1915, 1075), "Down", True, self.BOUNDS), (1915, 1079))
+        self.assertEqual(nudge_point((-1920, 3), "Up", True, self.BOUNDS), (-1920, 0))
+        self.assertEqual(nudge_point((-1915, 3), "Left", True, self.BOUNDS), (-1920, 3))
+
+    def test_every_bound_arrow_key_is_handled(self):
+        for key in ARROW_KEYS:
+            self.assertNotEqual(nudge_point((0, 500), key, False, self.BOUNDS), (0, 500))
 
 
 class HotkeyTests(unittest.TestCase):
@@ -156,9 +287,114 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ConfigError):
                 load_config(path)
 
+    def test_new_settings_default_and_read(self):
+        defaults = parse_config({})
+        self.assertEqual(defaults.file_prefix, "snap")
+        self.assertTrue(defaults.show_loupe)
+        config = parse_config({"file_prefix": " shot ", "show_loupe": False})
+        self.assertEqual(config.file_prefix, "shot")
+        self.assertFalse(config.show_loupe)
+
+    def test_invalid_new_settings_name_the_setting(self):
+        for raw, needle in (
+            ({"file_prefix": 5}, "file_prefix"),
+            ({"file_prefix": "a/b"}, "prefix"),
+            ({"show_loupe": "yes"}, "show_loupe"),
+        ):
+            with self.subTest(raw=raw):
+                with self.assertRaisesRegex(ConfigError, needle):
+                    parse_config(raw)
+
+    def test_every_tray_quality_choice_is_a_valid_quality(self):
+        for quality in QUALITY_CHOICES:
+            self.assertEqual(parse_config({"jpeg_quality": quality}).jpeg_quality, quality)
+
+    def test_update_writes_one_key_and_keeps_the_rest_as_written(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "config.json"
+            path.write_text(json.dumps({"folder": "%USERPROFILE%/shots", "jpeg_quality": 60}), encoding="utf-8")
+            updated = update_config_file(path, "file_prefix", "invoice")
+            self.assertEqual(updated.file_prefix, "invoice")
+            self.assertEqual(updated.jpeg_quality, 60)
+            self.assertEqual(
+                json.loads(path.read_text(encoding="utf-8")),
+                {"folder": "%USERPROFILE%/shots", "jpeg_quality": 60, "file_prefix": "invoice"},
+            )
+            self.assertEqual(load_config(path), updated)
+            self.assertFalse(Path(str(path) + ".tmp").exists())
+
+    def test_each_setting_round_trips_through_the_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "config.json"
+            for key, value in (
+                ("copy_to_clipboard", False),
+                ("jpeg_quality", 70),
+                ("file_prefix", "report"),
+                ("show_loupe", False),
+                ("folder", str(Path(folder) / "out")),
+            ):
+                with self.subTest(key=key):
+                    saved = update_config_file(path, key, value)
+                    self.assertEqual(load_config(path), saved)
+            final = load_config(path)
+            self.assertFalse(final.copy_to_clipboard)
+            self.assertEqual(final.jpeg_quality, 70)
+            self.assertEqual(final.file_prefix, "report")
+            self.assertFalse(final.show_loupe)
+            self.assertEqual(final.folder, Path(folder) / "out")
+
+    def test_update_creates_a_missing_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "config.json"
+            update_config_file(path, "jpeg_quality", 95)
+            self.assertEqual(load_config(path).jpeg_quality, 95)
+
+    def test_an_invalid_update_leaves_the_file_untouched(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "config.json"
+            path.write_text(json.dumps({"jpeg_quality": 60}), encoding="utf-8")
+            before = path.read_text(encoding="utf-8")
+            with self.assertRaises(ConfigError):
+                update_config_file(path, "file_prefix", "bad:name")
+            self.assertEqual(path.read_text(encoding="utf-8"), before)
+
+    def test_update_refuses_a_corrupt_file_instead_of_overwriting_it(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "config.json"
+            path.write_text("{not json", encoding="utf-8")
+            with self.assertRaises(ConfigError):
+                update_config_file(path, "jpeg_quality", 80)
+            self.assertEqual(path.read_text(encoding="utf-8"), "{not json")
+
     def test_sample_config_is_valid(self):
         sample = Path(__file__).resolve().parents[3] / "tools" / "system" / "snap" / "config.sample.json"
         self.assertEqual(load_config(sample).hotkey, "ctrl+shift+a")
+        self.assertEqual(load_config(sample).file_prefix, "snap")
+
+
+class PrefixTests(unittest.TestCase):
+    def test_plain_prefixes_are_accepted_and_stripped(self):
+        self.assertEqual(validate_prefix("snap"), "snap")
+        self.assertEqual(validate_prefix("  my shot-2 "), "my shot-2")
+        self.assertEqual(validate_prefix("a" * MAX_PREFIX_LENGTH), "a" * MAX_PREFIX_LENGTH)
+
+    def test_every_windows_filename_metacharacter_is_refused(self):
+        for char in '<>:"/\\|?*':
+            with self.subTest(char=char):
+                with self.assertRaisesRegex(ConfigError, "cannot contain"):
+                    validate_prefix(f"a{char}b")
+
+    def test_control_characters_are_refused(self):
+        with self.assertRaises(ConfigError):
+            validate_prefix("a\tb")
+
+    def test_empty_blank_and_too_long_are_refused(self):
+        for text in ("", "   "):
+            with self.subTest(text=text):
+                with self.assertRaisesRegex(ConfigError, "empty"):
+                    validate_prefix(text)
+        with self.assertRaisesRegex(ConfigError, "limited"):
+            validate_prefix("a" * (MAX_PREFIX_LENGTH + 1))
 
 
 if __name__ == "__main__":
