@@ -16,5 +16,5 @@
 /scripts/structure_band.py
 /scripts/structure_layout.py
 /scripts/structure_ratchet.py
-/system/_lib/pooled_http.py
+/tools/system/_lib/pooled_http.py
 # END vendored-copies
