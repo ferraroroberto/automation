@@ -39,7 +39,7 @@ Each of these sits under the preset's `tools/` root because the repo is a grab-b
 | `tools/notion/articles_sync/` | Incremental articles database sync |
 | `tools/parking/` | Parking reservation poller: a deterministic poller that books free slots (a package; its `config.json` and `.env` live inside it) |
 | `tools/smart_life/` | Smart Life / IoT device automation |
-| `tools/system/` | Windows utilities: Outlook web mail, Word→Markdown, venv manager, mouse mover, markdown preview |
+| `tools/system/` | Windows utilities: Outlook web mail, Word→Markdown, venv manager, mouse mover |
 | `tools/system/_lib/` | Helpers shared across the tool domains: console decoding, single-instance lock, `pooled_http.py` (the vendored keep-alive `requests` session; every outbound HTTP call goes through its `pooled_request`) and `runtime_files.py` (writers for operator-named paths that raise when a path is inside the checkout, plus `runtime_data_dir()`, the machine-local folder for logs and scratch output) and `notifier.py` (`FleetNotifier`, the Telegram sender through the fleet `notify_send.py`, used by `tools/parking/` and the Photos weekly job) |
 | `tools/system/apple/` | vCard unification and conversion for Apple Contacts |
 | `tools/system/copilot_remap/` | Copilot key remap with autostart scripts |
