@@ -99,11 +99,9 @@ SCAN_JS = r"""() => {
   return {headers, tiles, visible: document.visibilityState === 'visible'};
 }"""
 
-# The grid scrolls inside its largest c-wiz, not the window (the album list may use either).
-SCROLL_POS_JS = r"""() => {
-  const sc = [...document.querySelectorAll('c-wiz')].sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-  return Math.max(sc ? sc.scrollTop : 0, window.scrollY);
-}"""
+# How far the page has scrolled, summed over every scroller: the library grid scrolls inside a c-wiz,
+# the screenshots collection inside a plain div and the album list may use the window.
+SCROLL_POS_JS = r"""() => [...document.querySelectorAll('*')].reduce((sum, e) => sum + e.scrollTop, window.scrollY)"""
 
 COUNTER_JS = r"""() => {
   for (const e of document.querySelectorAll('div, span')) {
@@ -332,6 +330,18 @@ class PhotosWeb:
         self.page.wait_for_timeout(700)
         return self.page.evaluate(SCROLL_POS_JS) > before
 
+    def _advance(self, scan: dict, start: date, what: str) -> bool:
+        """Scroll a sweep on from ``scan``; False once it has reached a tile from before ``start`` or the end."""
+        dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
+        if dates and min(dates) < start:
+            logger.info("ℹ️ %s: reached a tile from before %s", what, start)
+            return False
+        if not self._wheel():
+            logger.info("ℹ️ %s: the grid would not scroll further (oldest tile %s)",
+                        what, min(dates) if dates else "none")
+            return False
+        return True
+
     def _counter(self) -> int:
         return int(self.page.evaluate(COUNTER_JS))
 
@@ -390,12 +400,11 @@ class PhotosWeb:
         found: dict[str, str] = {}
         while True:
             scan = self._scan()
-            dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
             for tile in scan["tiles"]:
                 taken = label_date(tile["label"])
                 if taken and start <= taken <= end:
                     found[tile["id"]] = tile["label"]
-            if (dates and min(dates) < start) or not self._wheel():
+            if not self._advance(scan, start, "screenshots sweep"):
                 return found
 
     # -- selection ----------------------------------------------------------------------------
@@ -472,8 +481,7 @@ class PhotosWeb:
                 per_day[day] = self._settled_counter(before) - before
                 logger.info("ℹ️ %s %s: %d items", day.strftime("%a"), day, per_day[day])
                 continue
-            dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
-            if (dates and min(dates) < start) or not self._wheel():
+            if not self._advance(scan, start, "library sweep"):
                 break
         return {day: per_day.get(day, 0) for day in days_of(start, end)}
 
@@ -524,14 +532,21 @@ class PhotosWeb:
                     unticked[tile["id"]] = taken
                 dropped[tile["id"]] = tile["label"]
                 dropped_day[tile["id"]] = taken
-            dates = [d for d in (label_date(t["label"]) for t in scan["tiles"]) if d]
-            if (dates and min(dates) < start) or not self._wheel():
+            if not self._advance(scan, start, "tile sweep"):
                 break
         return Sweep(tiles_per_day=dict(Counter(week.values())), ticked_per_day=dict(Counter(ticked.values())),
                      screenshots_per_day=dict(Counter(dropped_day.values())),
                      unticked_per_day=dict(Counter(unticked.values())), unticked=len(unticked),
                      seen_screenshots=len(dropped),
                      missing_screenshots=sum((wanted - Counter(dropped.values())).values()))
+
+    def drop_selection(self) -> None:
+        """Clear whatever a failed step left selected, logging rather than raising so its own error stands."""
+        try:
+            self.clear_selection()
+            logger.info("ℹ️ the selection was cleared after the failure")
+        except Exception as exc:  # a dead page or an unclearable selection must not replace the real error
+            logger.warning("⚠️ the selection could not be cleared after the failure: %s", exc)
 
     def clear_selection(self) -> None:
         self.page.keyboard.press("Escape")
@@ -762,7 +777,11 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool, send: bo
             if existing:
                 logger.info("ℹ️ an album with this title already exists (%s items): %s; a real run "
                             "would refuse to create another", existing[1], existing[0])
-            sel = web.collect(start, end)
+            try:
+                sel = web.collect(start, end)
+            except Exception:
+                web.drop_selection()
+                raise
             record.update(per_day={d.isoformat(): n for d, n in sel.per_day.items()},
                           tiles_per_day={d.isoformat(): n for d, n in sel.tiles_per_day.items()},
                           ticked_per_day={d.isoformat(): n for d, n in sel.ticked_per_day.items()},
