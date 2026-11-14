@@ -820,6 +820,9 @@ class ExecuteTests(unittest.TestCase):
         calls = []
 
         def fake_run(cfg, start, end, title, dry_run, send=False, record=None):
+            if dry_run:  # the job's preflight: clean, so the real pass these tests describe follows
+                record.update(outcome="dry-run")
+                return 0
             calls.append({"dates": (start, end), "dry_run": dry_run, "send": send})
             record.update(run_record or {"outcome": "created", "url": "U", "mail": None})
             return run_code

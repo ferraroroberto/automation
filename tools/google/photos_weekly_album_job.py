@@ -4,14 +4,16 @@
     python -m tools.google.photos_weekly_album_job --dry-run  # the same entry point, creates nothing, sends no message
 
 Runs ``tools.google.photos_weekly_album`` for the week that just ended (album, then the share link and Gmail
-draft when the config lists recipients) and sends one short Telegram message through the fleet
+draft when the config lists recipients), but only after a preflight: the same run in its report-only mode,
+whose counts must agree, else the job stops before selecting anything. It sends one short Telegram message through the fleet
 notifier: done, no-op (the album was already there), or a failure that says what to fix. It never
 passes ``--send``; mail goes out only if the config says ``"send": true``. With ``--dry-run`` the album run
 only counts (nothing is created, shared or drafted) and no notification is sent. Setup, outcomes and the job
 entry: ``tools/google/photos_weekly_album.md``.
 
 Exit codes: 0 done / no-op / nothing to album, 1 error or count mismatch, 2 config error,
-3 profile signed out, 4 desktop locked or Chrome window hidden, 5 a Google page didn't respond.
+3 profile signed out, 4 desktop locked or Chrome window hidden, 5 a Google page didn't respond,
+6 the preflight dry run found a count problem (nothing was created).
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DESKTOP_SWITCHDESKTOP = 0x0100
 
 # exit code per failure kind (see the module docstring)
-EXIT = {"config": 2, "desktop-locked": 4, **album.FAILURE_EXIT, "count-mismatch": 1}
+EXIT = {"config": 2, "desktop-locked": 4, **album.FAILURE_EXIT, "count-mismatch": 1, "preflight-failed": 6}
 DRAFT_TEXT = {None: "not shared (no recipients configured)", "drafted": "saved, not sent",
               "draft-exists": "already there, not sent", "sent": "sent", "already-sent": "already sent earlier"}
 FAILURE_TEXT = {
@@ -114,6 +116,30 @@ def notify(env: dict, outcome: Outcome) -> bool:
     return FleetNotifier({**env, "NOTIFY_CATEGORY": category}).send(outcome.text)
 
 
+def preflight(run: Callable[..., int], cfg: album.Config, start: date, end: date, title: str) -> Optional[Outcome]:
+    """The real run's own dry run: None when it ends clean, else the outcome that stops the job.
+
+    A dry run counts the week and clears the selection, so a mismatch is found before anything is
+    created. Anything short of exit 0 with outcome ``dry-run`` stops the real pass; a count problem is
+    ``preflight-failed``, while a signed-out profile, hidden window or unresponsive page keeps its own
+    kind (the same condition would stop the real pass the same way).
+    """
+    pre: dict = {"title": title, "week_start": start, "week_end": end, "preflight": True}
+    code = run(cfg, start, end, title, True, send=False, record=pre)
+    if code == 0 and pre.get("outcome") == "dry-run":
+        logger.info("✅ preflight clean: %s selected, per day %s, tiles per day %s", pre.get("selected"),
+                    pre.get("per_day"), pre.get("tiles_per_day"))
+        return None
+    if code not in (0, 1):
+        logger.error("❌ preflight stopped the run (exit %s): nothing was created", code)
+        return describe(code, pre)
+    detail = str(pre.get("error") or f"the dry run ended as '{pre.get('outcome')}'")[:300]
+    logger.error("❌ preflight stopped the run: %s", detail)
+    return Outcome("preflight-failed", f"❌ Weekly album preflight failed: {detail}\n"
+                                       "Nothing was created, shared or sent, and the selection was cleared. "
+                                       "Check the library by hand.", EXIT["preflight-failed"])
+
+
 def execute(config_path: Path, today: date, env: dict, locked: Optional[Callable[[], Optional[bool]]] = None,
             run: Optional[Callable[..., int]] = None, dry_run: bool = False) -> int:
     """Config, desktop check, the album run, one notification (none when ``dry_run``). Returns the exit code."""
@@ -131,6 +157,7 @@ def execute(config_path: Path, today: date, env: dict, locked: Optional[Callable
             notify(env, outcome)
         return outcome.exit_code
     record: dict = {"title": title, "week_start": start, "week_end": end}
+    stopped: Optional[Outcome] = None
     if locked():
         record.update(outcome="desktop-locked", failure="desktop-locked", dry_run=dry_run,
                       at=datetime.now().isoformat(timespec="seconds"))
@@ -138,9 +165,14 @@ def execute(config_path: Path, today: date, env: dict, locked: Optional[Callable
         logger.error("❌ the desktop is locked; Chrome would not render Google Photos. Nothing was started.")
         code = EXIT["desktop-locked"]
     else:
-        # sending follows the config alone: this job never passes --send
-        code = run(cfg, start, end, title, dry_run, send=bool(cfg.email and cfg.email.send), record=record)
-    outcome = describe(code, record)
+        send = bool(cfg.email and cfg.email.send)  # sending follows the config alone: this job never passes --send
+        if not dry_run:
+            stopped = preflight(run, cfg, start, end, title)
+        if stopped:
+            code = stopped.exit_code
+        else:
+            code = run(cfg, start, end, title, dry_run, send=send, record=record)
+    outcome = stopped or describe(code, record)
     logger.info("ℹ️ outcome: %s", outcome.kind)
     if dry_run:
         logger.info("ℹ️ dry run: no notification sent")
