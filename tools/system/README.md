@@ -78,7 +78,6 @@ Hotkey region screenshot: press Ctrl+Shift+A (configurable), drag a rectangle ov
 These `tools/system/` tools have their own dedicated doc file — see there instead of here:
 
 - [`base64_encode_decode.md`](base64_encode_decode.md)
-- [`markdown_preview.md`](markdown_preview.md)
 - [`mouse_mover.md`](mouse_mover.md)
 - [`outlook_web_mail.md`](outlook_web_mail.md)
 - [`venv_manager.md`](venv_manager.md)
