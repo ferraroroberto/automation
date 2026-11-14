@@ -27,5 +27,5 @@ if not exist "%PYTHON%" (
     exit /b 1
 )
 
-"%PYTHON%" -m tools.google.photos_weekly_album_job
+"%PYTHON%" -m tools.google.photos_weekly_album_job %*
 exit /b %ERRORLEVEL%

@@ -1,11 +1,13 @@
 """Saturday-morning run of the weekly Photos album, for an app-launcher job (Playwright, no LLM).
 
     python -m tools.google.photos_weekly_album_job            # run from the repo root; tools/google/run_photos_weekly_album.bat does
+    python -m tools.google.photos_weekly_album_job --dry-run  # the same entry point, creates nothing, sends no message
 
 Runs ``tools.google.photos_weekly_album`` for the week that just ended (album, then the share link and Gmail
 draft when the config lists recipients) and sends one short Telegram message through the fleet
 notifier: done, no-op (the album was already there), or a failure that says what to fix. It never
-passes ``--send``; mail goes out only if the config says ``"send": true``. Setup, outcomes and the job
+passes ``--send``; mail goes out only if the config says ``"send": true``. With ``--dry-run`` the album run
+only counts (nothing is created, shared or drafted) and no notification is sent. Setup, outcomes and the job
 entry: ``tools/google/photos_weekly_album.md``.
 
 Exit codes: 0 done / no-op / nothing to album, 1 error or count mismatch, 2 config error,
@@ -112,9 +114,11 @@ def notify(env: dict, outcome: Outcome) -> bool:
     return FleetNotifier({**env, "NOTIFY_CATEGORY": category}).send(outcome.text)
 
 
-def execute(config_path: Path, today: date, env: dict, locked: Callable[[], Optional[bool]] = desktop_locked,
-            run: Callable[..., int] = album.run) -> int:
-    """Config, desktop check, the album run, one notification. Returns the exit code."""
+def execute(config_path: Path, today: date, env: dict, locked: Optional[Callable[[], Optional[bool]]] = None,
+            run: Optional[Callable[..., int]] = None, dry_run: bool = False) -> int:
+    """Config, desktop check, the album run, one notification (none when ``dry_run``). Returns the exit code."""
+    locked = locked or desktop_locked  # resolved per call so a test can swap the module's own check
+    run = run or album.run
     try:
         cfg = album.Config.load(config_path)
         start, end = album.week_range(today)
@@ -123,21 +127,24 @@ def execute(config_path: Path, today: date, env: dict, locked: Callable[[], Opti
         logger.error("❌ %s", exc)
         outcome = Outcome("config", f"❌ Weekly album failed: config problem: {str(exc)[:200]}\n"
                                     "Fix tools/google/photos_weekly_album.json.", EXIT["config"])
-        notify(env, outcome)
+        if not dry_run:
+            notify(env, outcome)
         return outcome.exit_code
     record: dict = {"title": title, "week_start": start, "week_end": end}
     if locked():
-        record.update(outcome="desktop-locked", failure="desktop-locked", dry_run=False,
+        record.update(outcome="desktop-locked", failure="desktop-locked", dry_run=dry_run,
                       at=datetime.now().isoformat(timespec="seconds"))
         album.append_run_log(cfg.log_file, record)
         logger.error("❌ the desktop is locked; Chrome would not render Google Photos. Nothing was started.")
         code = EXIT["desktop-locked"]
     else:
         # sending follows the config alone: this job never passes --send
-        code = run(cfg, start, end, title, False, send=bool(cfg.email and cfg.email.send), record=record)
+        code = run(cfg, start, end, title, dry_run, send=bool(cfg.email and cfg.email.send), record=record)
     outcome = describe(code, record)
     logger.info("ℹ️ outcome: %s", outcome.kind)
-    if not notify(env, outcome):
+    if dry_run:
+        logger.info("ℹ️ dry run: no notification sent")
+    elif not notify(env, outcome):
         logger.warning("⚠️ the notification was not delivered (NOTIFY_PYTHON / NOTIFY_SCRIPT in .env?)")
     return outcome.exit_code
 
@@ -146,6 +153,8 @@ def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(description="Run the weekly Photos album and notify the outcome.")
     parser.add_argument("--config", type=Path,
                         default=Path(os.environ.get("PHOTOS_ALBUM_CONFIG", album.DEFAULT_CONFIG)))
+    parser.add_argument("--dry-run", action="store_true",
+                        help="the real entry point, but create, share and send nothing, and send no message")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if hasattr(sys.stdout, "reconfigure"):
@@ -153,9 +162,11 @@ def main(argv: Optional[list] = None) -> int:
         sys.stderr.reconfigure(encoding="utf-8")
     env = {**dotenv_values(REPO_ROOT / ".env"), **{k: v for k, v in os.environ.items() if k.startswith("NOTIFY_")}}
     try:
-        return execute(args.config, date.today(), env)
+        return execute(args.config, date.today(), env, dry_run=args.dry_run)
     except Exception as exc:  # last resort: a scheduled run must not end without a word
         logger.exception("❌ unexpected error")
+        if args.dry_run:
+            return 1
         notify(env, Outcome("error", f"❌ Weekly album failed: unexpected error: {str(exc)[:200]}\n"
                                      "See the run log; re-running is safe.", 1))
         return 1
