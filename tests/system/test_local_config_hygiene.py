@@ -52,7 +52,6 @@ MUST_NOT_BE_TRACKED: List[str] = [
     "tools/notion/journal_automation.json",
     "tools/notion/sample_illustrations.json",
     "tools/system/foldersearcher/foldersearcher.json",
-    "tools/system/snap/config.json",
 ]
 
 

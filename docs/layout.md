@@ -45,7 +45,6 @@ Each of these sits under the preset's `tools/` root because the repo is a grab-b
 | `tools/system/copilot_remap/` | Copilot key remap with autostart scripts |
 | `tools/system/foldersearcher/` | Folder index, CLI and tray search (retired; folder-explorer replaces it, task-os vendors the core) |
 | `tools/system/quickdeck/` | Quick-action deck, its config GUI and actions |
-| `tools/system/snap/` | Hotkey region screenshot saved as a timestamped JPEG (`snap_core.py` holds the testable logic, `snap_tool.py` the hotkey, overlay and tray) |
 | `tools/system/textexpander/` | Text expander with tray, monitor and GUI |
 | `tools/system/treesize/` | Folder size analyzer GUI |
 | `tools/system/wifi/` | Wi-Fi network scanner, saved-profile connect and `.bat` generator |
