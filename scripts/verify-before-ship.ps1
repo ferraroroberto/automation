@@ -200,10 +200,6 @@ try {
     & $python -m unittest discover -s tests/system/quickdeck -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "quickdeck unittest suite failed." }
 
-    Write-Host "==> unittest (tests/system/snap)..." -ForegroundColor Cyan
-    & $python -m unittest discover -s tests/system/snap -p "test_*.py"
-    if ($LASTEXITCODE -ne 0) { Fail "snap unittest suite failed." }
-
     Write-Host "==> unittest (tests/image)..." -ForegroundColor Cyan
     & $python -m unittest discover -s tests/image -p "test_*.py"
     if ($LASTEXITCODE -ne 0) { Fail "image unittest suite failed." }

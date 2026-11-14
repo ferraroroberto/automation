@@ -50,7 +50,7 @@ pymediainfo>=6.0.0
 opencv-python>=4.8.0
 
 # Screen capture and recording
-# Source: tools/video/screen_recorder.py, tools/image/screenshot.py, tools/system/snap/snap_tool.py
+# Source: tools/video/screen_recorder.py, tools/image/screenshot.py
 mss>=10.2.0
 
 # Mouse and keyboard automation

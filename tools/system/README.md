@@ -69,10 +69,6 @@ Restarts HWiNFO64 (a system monitoring app that stops reporting after a continuo
 - **Launcher:** `hwinfo_restart.bat` calls `python hwinfo_restart.py` — no args needed.
 - **Requirements:** `psutil`. Windows only.
 
-## 📸 snap/
-
-Hotkey region screenshot: press Ctrl+Shift+A (configurable), drag a rectangle over the frozen screen, and the selection is saved as a timestamped JPEG and copied to the clipboard. Resident in the tray, started with `snap/snap.bat`. Config, hotkey rules and the start-at-login command are in [`snap/README.md`](snap/README.md).
-
 ## Already documented
 
 These `tools/system/` tools have their own dedicated doc file — see there instead of here:
