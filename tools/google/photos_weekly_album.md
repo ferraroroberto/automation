@@ -10,7 +10,7 @@ Why a browser: since 31 March 2025 the Photos Library API only sees items the ca
    - `title_template`: the album title, with a `{name}` placeholder for each counter.
    - `counters`: for each placeholder, its `value` for the week starting on `week_start`, which must be a Saturday. Each counter goes up by one per Saturday-to-Friday week.
    - `profile_dir` (optional): the dedicated Chrome profile. Default `~/.photos-weekly-album-profile`, outside the repo.
-   - `log_file` (optional): the run log. Default `tools/google/photos_weekly_album.log` (gitignored by `*.log`).
+   - `log_file` (optional): the run log. Default `photos_weekly_album.log` in the machine-local runtime folder (`%LOCALAPPDATA%\automation`, or `AUTOMATION_RUNTIME_DIR`), outside the checkout. A path inside the repo is refused; an unwritable log is reported and does not change the run's exit code.
    - `email` (optional): with no `email.to`, the run stops after the album, without sharing it or drafting anything.
      - `to`: a list of plain addresses, e.g. `["first.person@example.com", "second.person@example.com"]`. No display names, and no address twice.
      - `subject`: the subject template. It must use `{title}`, `{week_start}` or `{week_end}`, because each week's message is found again by its exact subject.
