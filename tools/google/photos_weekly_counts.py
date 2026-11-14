@@ -11,11 +11,13 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Callable, Optional
 
-LABEL_RE = re.compile(r"^(Photo|Video)\b.* - ([A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M)$")
+# A burst stack's label starts "Burst photo" and ends " - N photos in sequence" after its date.
+LABEL_RE = re.compile(r"^(Photo|Video|Burst photo)\b.* - ([A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M)"
+                      r"(?: - \d+ photos in sequence)?$")
 
 
 def label_datetime(label: str) -> Optional[datetime]:
-    """Date taken from a tile label like ``Photo - Landscape - Oct 3, 2026, 8:23:55 AM``."""
+    """Date taken from a tile label like ``Photo - Landscape - Oct 3, 2026, 8:23:55 AM`` (or a burst stack's)."""
     match = LABEL_RE.match(" ".join(label.split()))  # also folds the narrow no-break space before AM/PM
     return datetime.strptime(match.group(2), "%b %d, %Y, %I:%M:%S %p") if match else None
 

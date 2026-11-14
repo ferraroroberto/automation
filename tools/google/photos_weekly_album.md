@@ -101,10 +101,10 @@ Leave `alert_on_failure` off: the job already sends its own, more specific messa
 | What | Selector |
 |---|---|
 | Day select-all | `[role=checkbox][aria-label^="Select all photos from "]`, state in `aria-checked` |
-| Item tile | `a[href*="/photo/"]`, `aria-label` like `Photo - Landscape - Oct 3, 2026, 8:23:55 AM` |
+| Item tile | `a[href*="/photo/"]`, `aria-label` like `Photo - Landscape - Oct 3, 2026, 8:23:55 AM`; a burst stack's reads `Burst photo - ... - 3 photos in sequence` and counts as one item |
 | Item checkbox | the `[role=checkbox]` under the tile with the same `aria-label` |
 | Selection count | text `N selected` |
-| Scroll container | the `c-wiz` with the largest `scrollHeight` (the window doesn't scroll) |
+| Scroll container | the library grid: the `c-wiz` with the largest `scrollHeight`; the screenshots collection: a plain `div`. A wheel step counts as moved when any element's `scrollTop` grew. |
 | Album list | `/albums`, card link `a[href*="/album/"]`, or `a[href*="/share/"]` once the album is shared by link, first line the title, then `N items` |
 | Album share | button `Share` → dialog heading `Invite to album` → button `Create link` (no link yet) or `Copy link` (link exists); `Create link` → dialog heading `Create link to share` → button `Create link` → the link in an input next to button `Copy` |
 | Gmail compose | button `Compose` → dialog with combobox `To recipients`, `input[name=subjectbox]`, textbox `Message Body`, buttons `Save & close`, `Send ...`, `Discard draft ...` |
@@ -122,7 +122,7 @@ Day-header labels are relative ("Today", "Wednesday", "Sat, Oct 3"), so each hea
 | `Locator.click: Timeout ... element is not visible` | A day's select-all checkbox has no size until the pointer is over its header row. The script hovers the row first when the checkbox isn't shown. If this comes back, Google changed what reveals the checkbox. Nothing has been created at that point. |
 | `<step>: the checkbox could not be scrolled into view and revealed after a rescan` | Photos virtualises the grid, so a tile the scan reported can be off-screen or re-rendered by the time it is clicked. The script scrolls the checkbox into view, re-marks the page and retries once, each within 5 s; this error means the tile was still gone (for a day header it is logged as `header checkbox unavailable` and the day falls back to its tiles instead). Nothing has been created at that point. Re-run with the window in front. |
 | `checkbox did not change after two clicks` | A click was dropped (seen once after a fresh navigation in testing) or the page changed. Re-run. Nothing has been created at that point. |
-| `saw N selectable tiles in the week but M were selected (differs on <day>: selected A, tiles B)` | The two counts disagree; the message names the days where they do. Either the sweep didn't render every tile (a screenshot might stay in) or a day header's count was read before it finished climbing. Nothing is created. Re-run with the window in front, and compare the named day's counts in the log. |
+| `saw N selectable tiles in the week but M were selected (differs on <day>: selected A, tiles B)` | The two counts disagree; the message names the days where they do. Either the sweep didn't render every tile (a screenshot might stay in) or a day header's count was read before it finished climbing. Nothing is created and the selection is cleared. Each sweep logs why it stopped (`reached a tile from before <day>` or `the grid would not scroll further`); a stop well short of the week's first day means the scroll measure no longer finds the page's scroller, and a day short by a tile or two can be a tile type whose label the script does not date. Re-run with the window in front, and compare the named day's counts in the log. |
 | `selection counter reads ...` | An untick or a day click didn't land. Nothing is created. Re-run. |
 | `share a timestamp label` | Two items from the same second with the same type and orientation can't be told apart, so the run aborts. Create that week's album by hand. |
 | `screenshots not in the timeline` (info) | An item in the collection doesn't appear in the timeline (for example it's archived), so it was never selected. |
