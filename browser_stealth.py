@@ -65,6 +65,7 @@ def launch_persistent(playwright, user_data_dir: str, headless: bool,
     kwargs = stealth_launch_kwargs(user_data_dir, headless, disabled_features)
     for attempt in range(len(delays) + 1):
         try:
+            # browser-per-iteration-exempt: retry that waits out a busy profile; at most one launch ever succeeds
             context = playwright.chromium.launch_persistent_context(**kwargs)
         except Exception as exc:
             if not is_profile_busy(exc):
