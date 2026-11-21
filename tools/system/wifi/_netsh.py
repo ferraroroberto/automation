@@ -53,6 +53,7 @@ __all__ = [
     "NetshResult",
     "current_ssid",
     "decode_console_bytes",
+    "parse_interface_name",
     "parse_ssid",
     "run_netsh",
 ]
@@ -126,6 +127,20 @@ def parse_ssid(output: str) -> Optional[str]:
             ssid = value.strip()
             if ssid:
                 return ssid
+    return None
+
+
+def parse_interface_name(output: str) -> Optional[str]:
+    """Pull the first Wi-Fi interface name out of `netsh wlan show interfaces` output.
+
+    Returns None when the output holds no `Name : <x>` line, i.e. no wireless
+    interface is listed. Only the first colon splits the line, so an adapter
+    name that itself contains a colon survives intact.
+    """
+    for line in output.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip() == "Name" and value.strip():
+            return value.strip()
     return None
 
 

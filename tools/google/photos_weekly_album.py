@@ -73,6 +73,21 @@ SCREENSHOTS_LINK = "Screenshots & recordings"
 COUNTER_POLL_MS = 400  # pause between reads while a select-all's "N selected" counter climbs
 SWEEP_MAX_PASSES = 4  # the first pass plus up to three repeats; a repeat that adds no tile ends the sweep early
 REVEAL_TIMEOUT_MS = 5_000  # a scroll/hover on a tile that is gone fails fast, not at the 30 s default
+# Settle waits below are stated guesses (not measurements) unless the comment says otherwise: Photos exposes no
+# "finished rendering" signal to wait on, so each is a fixed pause sized generously for a slow evening on the job's host.
+NAV_SETTLE_MS = 2_500  # guess: grid and counters paint a beat after domcontentloaded
+WINDOW_RETRY_MS = 2_000  # guess: a freshly raised window needs this long before the grid scan sees tiles
+SIGN_IN_POLL_MS = 2_000  # pause between sign-in checks while the owner finishes the login in the window
+WHEEL_STEP_PX = 650  # guess: a bit under the grid's visible height, so consecutive steps overlap by a row
+WHEEL_SETTLE_MS = 700  # guess: lazy-loaded tiles need this long to appear after a wheel step
+RERENDER_SETTLE_MS = 500  # guess: a scroll or failed click can re-render the grid; this lets the DOM settle before a rescan
+SCROLL_TOP_SETTLE_MS = 1_000  # guess: the jump back to the top re-renders the first day sections
+ESCAPE_SETTLE_MS = 800  # guess: Escape drops the selection bar with a short animation before the counter is re-read
+TITLE_SETTLE_MS = 500  # guess: the typed album title must register before Done/Save is enabled
+ALBUM_OPEN_SETTLE_MS = 3_000  # guess: the new album's page keeps loading after its URL changes
+DIALOG_POLL_MS = 500  # pause between reads of the share dialog while it fills in
+CLIPBOARD_SETTLE_MS = 1_500  # guess: Copy link writes the clipboard asynchronously
+ALBUM_COUNT_RETRY_MS = 5_000  # the album card's count lags the creation by a few seconds
 
 SATURDAY = 5  # date.weekday()
 COUNT_RE = re.compile(r"^(\d+) items?\b")
@@ -245,13 +260,13 @@ class PhotosWeb:
     def _open(self, url: str) -> None:
         self.page.goto(url, wait_until="domcontentloaded")
         self.page.bring_to_front()
-        self.page.wait_for_timeout(2_500)
+        self.page.wait_for_timeout(NAV_SETTLE_MS)
 
     def _scan(self) -> dict:
         scan = self.page.evaluate(SCAN_JS)
         if not scan["visible"]:
             self.page.bring_to_front()
-            self.page.wait_for_timeout(2_000)
+            self.page.wait_for_timeout(WINDOW_RETRY_MS)
             scan = self.page.evaluate(SCAN_JS)
             if not scan["visible"]:
                 raise WindowHidden("the Chrome window is hidden or minimised; Google Photos only renders "
@@ -262,8 +277,8 @@ class PhotosWeb:
         """Scroll the grid one step with the real mouse wheel; False at the end of the list."""
         before = self.page.evaluate(SCROLL_POS_JS)
         self.page.mouse.move(640, 520)
-        self.page.mouse.wheel(0, 650)
-        self.page.wait_for_timeout(700)
+        self.page.mouse.wheel(0, WHEEL_STEP_PX)
+        self.page.wait_for_timeout(WHEEL_SETTLE_MS)
         return self.page.evaluate(SCROLL_POS_JS) > before
 
     def _advance(self, scan: dict, start: date, what: str) -> bool:
@@ -298,7 +313,7 @@ class PhotosWeb:
         while time.monotonic() < deadline:
             if self._signed_in():
                 return True
-            self.page.wait_for_timeout(2_000)
+            self.page.wait_for_timeout(SIGN_IN_POLL_MS)
         return False
 
     def require_signed_in(self) -> None:
@@ -367,7 +382,7 @@ class PhotosWeb:
                 logger.info("ℹ️ %s: checkbox not reachable (%s); rescanning and retrying", what,
                             type(exc).__name__)
                 self.page.evaluate(SCAN_JS)  # the scroll may have re-rendered the marked element
-                self.page.wait_for_timeout(500)
+                self.page.wait_for_timeout(RERENDER_SETTLE_MS)
         raise AssertionError("unreachable")  # pragma: no cover
 
     def _click_checked(self, selector: str, reveal: str, want: bool, what: str) -> None:
@@ -402,7 +417,7 @@ class PhotosWeb:
                 day = label_date(target["label"])
                 before = self._counter()
                 self.page.evaluate(HEAD_NEAR_TOP_JS, target["key"])
-                self.page.wait_for_timeout(500)
+                self.page.wait_for_timeout(RERENDER_SETTLE_MS)
                 self.page.evaluate(SCAN_JS)  # re-mark: the scroll may have re-rendered the header
                 head = f'[data-pwa-head="{target["key"]}"]'
                 try:
@@ -442,7 +457,7 @@ class PhotosWeb:
         state = SweepState()
         for number in range(1, SWEEP_MAX_PASSES + 1):
             self.page.evaluate(SCROLL_TOP_JS, 0)
-            self.page.wait_for_timeout(1_000)
+            self.page.wait_for_timeout(SCROLL_TOP_SETTLE_MS)
             late = self._sweep_pass(start, end, wanted, state)
             if number == 1:
                 continue
@@ -525,7 +540,7 @@ class PhotosWeb:
 
     def clear_selection(self) -> None:
         self.page.keyboard.press("Escape")
-        self.page.wait_for_timeout(800)
+        self.page.wait_for_timeout(ESCAPE_SETTLE_MS)
         if self._counter():
             raise FlowError("could not clear the selection")
 
@@ -541,10 +556,10 @@ class PhotosWeb:
         name.wait_for(state="visible", timeout=30_000)
         name.click()
         name.press_sequentially(title, delay=60)
-        self.page.wait_for_timeout(500)
+        self.page.wait_for_timeout(TITLE_SETTLE_MS)
         self.page.get_by_role("button", name=re.compile(r"^(Done|Save)$", re.I)).first.click()
         self.page.wait_for_url(re.compile(r"/album/"), timeout=30_000)
-        self.page.wait_for_timeout(3_000)
+        self.page.wait_for_timeout(ALBUM_OPEN_SETTLE_MS)
         return self.page.url
 
     def _open_album(self, album_url: str) -> None:
@@ -562,7 +577,7 @@ class PhotosWeb:
             dialogs = self.page.evaluate(SHARE_DIALOGS_JS)
             if done(dialogs):
                 break
-            self.page.wait_for_timeout(500)
+            self.page.wait_for_timeout(DIALOG_POLL_MS)
         return dialogs
 
     def _click_share_button(self, dialogs: list[dict], label: str, heading: Optional[str] = None) -> bool:
@@ -618,7 +633,7 @@ class PhotosWeb:
             link = read(dialogs)
             if not link and self._click_share_button(dialogs, COPY_LINK):
                 tried.append("clipboard")
-                self.page.wait_for_timeout(1_500)
+                self.page.wait_for_timeout(CLIPBOARD_SETTLE_MS)
                 clipboard = self.page.evaluate("() => navigator.clipboard.readText().catch(() => '')")
                 link = find_share_link([clipboard])
         finally:
@@ -784,7 +799,7 @@ def run(cfg: Config, start: date, end: date, title: str, dry_run: bool, send: bo
                 count = found[1] if found else None
                 if count == sel.selected:
                     break
-                web.page.wait_for_timeout(5_000)
+                web.page.wait_for_timeout(ALBUM_COUNT_RETRY_MS)
             record.update(url=url, album_count=count)
             if count != sel.selected:
                 record["outcome"] = "count-mismatch"
