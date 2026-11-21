@@ -16,6 +16,13 @@ logger = logging.getLogger("gmail_web")
 
 GMAIL_URL = "https://mail.google.com/mail/u/0/"
 NO_MATCH = "No messages matched your search"
+# Settle waits are stated guesses (not measurements): Gmail exposes no "finished rendering" signal to wait on.
+NAV_SETTLE_MS = 3_000  # guess: the inbox shell paints its list after domcontentloaded
+SEARCH_RETRY_MS = 3_000  # guess: a just-sent message needs this long to reach the search index before a retry
+ROW_POLL_MS = 500  # pause between checks for the first result row or the empty-search notice
+BODY_SETTLE_MS = 1_500  # guess: typed text must register before Save & close, or the draft saves truncated
+DRAFT_SAVED_SETTLE_MS = 2_000  # guess: the saved draft needs this long to appear in the Drafts list
+SENT_SETTLE_MS = 3_000  # guess: the sent copy needs this long to appear in Sent
 EMAIL_RE = re.compile(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+")
 
 # Recipient chips in a compose window carry the address in one of these attributes.
@@ -45,7 +52,7 @@ class GmailWeb:
     def _go(self, fragment: str = "#inbox") -> None:
         self.page.goto(GMAIL_URL + fragment, wait_until="domcontentloaded")
         self.page.bring_to_front()
-        self.page.wait_for_timeout(3_000)
+        self.page.wait_for_timeout(NAV_SETTLE_MS)
 
     def require_signed_in(self) -> None:
         self._go()
@@ -64,14 +71,14 @@ class GmailWeb:
         query = f'in:{folder} subject:"{subject}"'
         for attempt in range(3 if expect else 1):
             if attempt:
-                self.page.wait_for_timeout(3_000)
+                self.page.wait_for_timeout(SEARCH_RETRY_MS)
             self._go("#search/" + quote(query, safe=""))
             rows = self.page.locator("[role=main] tr.zA:visible")
             empty = self.page.locator("[role=main]:visible", has_text=NO_MATCH)
             for _ in range(20):
                 if rows.count() or empty.count():
                     break
-                self.page.wait_for_timeout(500)
+                self.page.wait_for_timeout(ROW_POLL_MS)
             else:
                 raise GmailError(f"the {folder} search neither listed messages nor said none matched")
             found = [norm(t) for t in self.page.locator("[role=main] tr.zA:visible span.bog").all_inner_texts()]
@@ -133,10 +140,10 @@ class GmailWeb:
                 self.page.keyboard.press("Enter")
             if line:
                 self.page.keyboard.insert_text(line)
-        self.page.wait_for_timeout(1_500)
+        self.page.wait_for_timeout(BODY_SETTLE_MS)
         dialog.get_by_role("button", name="Save & close").click()
         dialog.wait_for(state="detached", timeout=20_000)
-        self.page.wait_for_timeout(2_000)
+        self.page.wait_for_timeout(DRAFT_SAVED_SETTLE_MS)
 
     def send_draft(self, subject: str, to: Iterable[str], must_contain: str) -> None:
         """Open the one draft titled ``subject``; send it only if it carries ``must_contain`` and ``to``."""
@@ -151,4 +158,4 @@ class GmailWeb:
             raise GmailError("the draft's recipients differ from the configured list; not sent")
         dialog.get_by_role("button", name=re.compile(r"^Send\b")).first.click()
         dialog.wait_for(state="detached", timeout=30_000)
-        self.page.wait_for_timeout(3_000)
+        self.page.wait_for_timeout(SENT_SETTLE_MS)

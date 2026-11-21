@@ -6,7 +6,7 @@ from pathlib import Path
 
 # _netsh.py is a sibling; make it importable when this file is run as a script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _netsh import parse_ssid, run_netsh  # noqa: E402
+from _netsh import parse_interface_name, parse_ssid, run_netsh  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -48,14 +48,12 @@ def connect_to_wifi() -> None:
 
         # Parse the output to find the current SSID and interface name
         current_ssid = parse_ssid(output)
-        interface_name = None
-        for line in output.splitlines():
-            if "Name" in line and "wifi integrado" in line:
-                interface_name = line.split(":")[1].strip()
+        interface_name = parse_interface_name(output)
 
         # Make sure we have an interface name, if not, throw an error
         if not interface_name:
-            log.error("Error: No interface name detected. Make sure you have a Wi-Fi adapter connected.")
+            log.error("Error: no `Name : <interface>` line in the netsh output above. "
+                      "Make sure a Wi-Fi adapter is present and enabled.")
             return
 
         if current_ssid:
