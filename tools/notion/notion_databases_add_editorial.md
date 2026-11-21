@@ -24,13 +24,13 @@ If your properties differ, update `get_existing_dates` / `add_date_record` in th
 From the `notion` folder:
 
 ```bat
-..\.venv\Scripts\python notion_databases_add_editorial.py
+..\..\.venv\Scripts\python notion_databases_add_editorial.py
 ```
 
 With **debug logging** (includes per-day “skip existing” lines and tracebacks on fatal errors):
 
 ```bat
-..\.venv\Scripts\python notion_databases_add_editorial.py --debug
+..\..\.venv\Scripts\python notion_databases_add_editorial.py --debug
 ```
 
 Or double-click / run **`notion_databases_add_editorial.bat`** (same layout as `normalize_url.bat`: activates `.venv`, `cd` to this folder, runs the script).

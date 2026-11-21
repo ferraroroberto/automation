@@ -28,12 +28,12 @@ A self-contained Python application that converts PDF files to JPG images. Can b
 
 1. Install required packages:
 ```bash
-..\..\.venv\Scripts\python.exe -m pip install -r requirements.txt
+..\..\..\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
 2. Run the application:
 ```bash
-..\..\.venv\Scripts\python.exe pdf_to_images_converter.py
+..\..\..\.venv\Scripts\python.exe pdf_to_images_converter.py
 ```
 
 ### Option 2: Build Executable (Recommended)
@@ -103,7 +103,7 @@ The `build_minimal.bat` script:
 ## File Structure
 
 ```
-pdf_to_jpg/
+tools/image/pdf_to_jpg/
 ├── pdf_to_images_converter.py    # Main application
 ├── requirements.txt              # Python dependencies
 ├── build_minimal.bat            # Build script for executable
@@ -183,7 +183,7 @@ pdf_to_jpg/
 
 ## License
 
-This application is part of the [automation](../../README.md) project and is covered by its MIT license.
+This application is part of the [automation](../../../README.md) project and is covered by its MIT license.
 
 ## Support
 

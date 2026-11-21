@@ -63,27 +63,27 @@ sudo ./.venv/bin/python tools/system/wifi/network_scanner.py
 
 ### Basic Scan (Default: 192.168.0.0/24)
 ```bash
-..\..\.venv\Scripts\python.exe network_scanner.py
+..\..\..\.venv\Scripts\python.exe network_scanner.py
 ```
 
 ### Custom Subnet
 ```bash
-..\..\.venv\Scripts\python.exe network_scanner.py --subnet 192.168.1.0/24
+..\..\..\.venv\Scripts\python.exe network_scanner.py --subnet 192.168.1.0/24
 ```
 
 ### Custom Output File
 ```bash
-..\..\.venv\Scripts\python.exe network_scanner.py --output my_network_scan.json
+..\..\..\.venv\Scripts\python.exe network_scanner.py --output my_network_scan.json
 ```
 
 ### Debug Mode
 ```bash
-..\..\.venv\Scripts\python.exe network_scanner.py --debug
+..\..\..\.venv\Scripts\python.exe network_scanner.py --debug
 ```
 
 ### Combined Options
 ```bash
-..\..\.venv\Scripts\python.exe network_scanner.py --subnet 192.168.10.0/24 --output office_scan.json --timeout 3
+..\..\..\.venv\Scripts\python.exe network_scanner.py --subnet 192.168.10.0/24 --output office_scan.json --timeout 3
 ```
 
 ## 📄 Output Format

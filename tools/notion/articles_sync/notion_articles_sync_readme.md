@@ -58,22 +58,22 @@ The `notion_articles_sync.json` file now uses environment variable placeholders.
 ### Basic Usage
 ```bash
 # Run continuous sync
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json
 
 # Run once and exit
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --once
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --once
 
 # Force a full comparison (detect deletions) for this run
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --full-sync --once
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --full-sync --once
 
 # Reset sync time to force a full sync on next run
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --reset-sync-time
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --reset-sync-time
 
 # Show current sync status
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --status
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --status
 
 # Enable verbose logging and write a log file next to the config
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --debug
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --debug
 ```
 
 ### Command Line Options
@@ -252,7 +252,7 @@ When `--debug` is enabled:
 
 #### Enable Debug Mode
 ```bash
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --debug
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --debug
 ```
 
 #### Check Log Files
@@ -262,7 +262,7 @@ When `--debug` is enabled:
 
 #### Verify Configuration
 ```bash
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --status
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --config notion_articles_sync.json --status
 ```
 
 #### Test Connections
@@ -298,25 +298,25 @@ All tuning knobs live in `notion_articles_sync.json` (only `NOTION_API_TOKEN` is
 ### Full Sync Mode
 Force a complete database comparison:
 ```bash
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --full-sync --once
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --full-sync --once
 ```
 
 ### Incremental Sync
 Default mode that only processes changes since last sync:
 ```bash
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --once
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --once
 ```
 
 ### Sync Time Management
 ```bash
 # Check current sync status
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --status
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --status
 
 # Reset sync time for full sync
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --reset-sync-time
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --reset-sync-time
 
 # Force full sync on next run
-..\..\.venv\Scripts\python.exe notion_articles_sync.py --full-sync --once
+..\..\..\.venv\Scripts\python.exe notion_articles_sync.py --full-sync --once
 ```
 
 ## 📋 Support & Maintenance

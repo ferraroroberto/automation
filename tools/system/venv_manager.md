@@ -23,7 +23,7 @@ The `venv_manager.py` script helps you manage your Python environments, both glo
 Run the script from the command line:
 
 ```
-..\.venv\Scripts\python.exe venv_manager.py
+..\..\.venv\Scripts\python.exe venv_manager.py
 ```
 
 ### Environment Detection

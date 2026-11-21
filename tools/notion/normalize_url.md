@@ -10,13 +10,13 @@ Automatically cleans URLs in a Notion database by removing unnecessary query par
 
 ```bash
 # Normalize URLs from the last 14 days
-..\.venv\Scripts\python.exe normalize_url.py --days 14 --config normalize_url.json
+..\..\.venv\Scripts\python.exe normalize_url.py --days 14 --config normalize_url.json
 
 # Preview changes without updating (dry run) with validation check
-..\.venv\Scripts\python.exe normalize_url.py --days 7 --dry-run --testing
+..\..\.venv\Scripts\python.exe normalize_url.py --days 7 --dry-run --testing
 
 # Test normalization on a specific string
-..\.venv\Scripts\python.exe normalize_url.py --test "https://example.com?utm_source=test"
+..\..\.venv\Scripts\python.exe normalize_url.py --test "https://example.com?utm_source=test"
 ```
 
 ### Command Line Arguments

@@ -155,7 +155,7 @@ Create a `config.json` file based on the `config_gmail_drive.json.sample`:
 
 This tool runs from the repo root's `.venv` (created once at the repo root with
 `python -m venv .venv`) — never a fresh venv inside `tools/google/`, and never
-activated. `run_gmail_drive.bat` invokes `..\.venv\Scripts\python.exe` by path.
+activated. `run_gmail_drive.bat` invokes `..\..\.venv\Scripts\python.exe` by path.
 
 ### Step 2: Install Dependencies
 
@@ -186,7 +186,7 @@ activated. `run_gmail_drive.bat` invokes `..\.venv\Scripts\python.exe` by path.
 & .\.venv\Scripts\python.exe tools\google\gmail_drive_automation.py --config my_config.json
 
 # With debug logging
-..\.venv\Scripts\python.exe gmail_drive_automation.py --debug
+..\..\.venv\Scripts\python.exe gmail_drive_automation.py --debug
 ```
 
 ## 📊 Output
@@ -230,7 +230,7 @@ activated. `run_gmail_drive.bat` invokes `..\.venv\Scripts\python.exe` by path.
 ### Debug Mode
 Use the `--debug` flag for detailed logging:
 ```bash
-..\.venv\Scripts\python.exe gmail_drive_automation.py --debug
+..\..\.venv\Scripts\python.exe gmail_drive_automation.py --debug
 ```
 
 This will show:
