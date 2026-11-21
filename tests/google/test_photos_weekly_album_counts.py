@@ -174,6 +174,56 @@ class LazyDayTests(unittest.TestCase):
         self.assertLess(sel.per_day[start], 300)  # the header alone fell short, as on the live library
 
 
+class _LateTileTimeline(_LazyTimeline):
+    """A timeline whose tile ``late_id`` is not exposed to the sweep until pass ``from_pass``.
+
+    The day header's select-all still takes it, as on the live library, so the header count
+    is one ahead of what the first pass sees.
+    """
+
+    def __init__(self, days, late_id, from_pass):
+        super().__init__(days)
+        self.late_id, self.from_pass, self.passes = late_id, from_pass, 0
+
+    def _scan(self):
+        scan = super()._scan()
+        if self.passes < self.from_pass:
+            scan["tiles"] = [t for t in scan["tiles"] if t["id"] != self.late_id]
+        return scan
+
+    def evaluate(self, js, arg=None):
+        if js == pwa.SCROLL_TOP_JS:
+            self.passes += 1  # drop_excluded starts every pass from the top
+        return super().evaluate(js, arg)
+
+
+class SweepConvergenceTests(unittest.TestCase):
+    START, END = date(2026, 11, 7), date(2026, 11, 13)
+    DAYS = [(date(2026, 11, 13), 12), (date(2026, 11, 12), 40), (date(2026, 11, 6), 10)]
+    LATE = "t1112-20"
+
+    def test_a_tile_exposed_only_on_the_second_pass_is_counted(self):
+        web = _LateTileTimeline(self.DAYS, self.LATE, from_pass=2)
+        with self.assertLogs("photos_weekly_album", "INFO") as logs:
+            sel = web.collect(self.START, self.END)
+        self.assertEqual((sel.tiles_per_day[date(2026, 11, 12)], sel.selected), (40, 52))
+        self.assertTrue(any("missed (kinds: Photo 1)" in line for line in logs.output))
+        self.assertTrue(any("tile sweep kinds: Photo 52; dated outside the week: before" in line
+                            for line in logs.output))
+
+    def test_the_sweep_stops_once_a_pass_adds_nothing(self):
+        web = _LateTileTimeline(self.DAYS, self.LATE, from_pass=2)
+        web.collect(self.START, self.END)
+        self.assertEqual(web.passes, 3)  # pass 1 misses it, pass 2 finds it, pass 3 confirms
+
+    def test_a_tile_that_never_appears_still_stops_the_run(self):
+        web = _LateTileTimeline(self.DAYS, self.LATE, from_pass=99)
+        with self.assertRaises(pwa.FlowError) as ctx:
+            web.collect(self.START, self.END)
+        self.assertIn("2026-11-12: selected 40, tiles 39", str(ctx.exception))
+        self.assertEqual(web.passes, 2)  # a repeat that finds nothing new ends the sweep
+
+
 class ScreenshotGapTests(unittest.TestCase):
     """Screenshots the day's select-all never ticked are swept but rightly left out of the album."""
 

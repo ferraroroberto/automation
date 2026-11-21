@@ -39,10 +39,22 @@ from tools.google.gmail_web import EMAIL_RE, GmailNotSignedIn, GmailWeb
 from tools.google.photos_weekly_counts import (
     Selection,
     Sweep,
+    SweepState,
     count_mismatches,
     days_of,
     label_date,
+    label_kind,
+    label_shape,
     settled_value,
+)
+from tools.google.photos_weekly_js import (
+    ALBUM_CARDS_JS,
+    COUNTER_JS,
+    HEAD_NEAR_TOP_JS,
+    SCAN_JS,
+    SCROLL_POS_JS,
+    SCROLL_TOP_JS,
+    SHARE_DIALOGS_JS,
 )
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))  # repo root, so the shared helper imports when run as a script
@@ -59,6 +71,7 @@ PHOTOS_URL = "https://photos.google.com/"
 ALBUMS_URL = "https://photos.google.com/albums"
 SCREENSHOTS_LINK = "Screenshots & recordings"
 COUNTER_POLL_MS = 400  # pause between reads while a select-all's "N selected" counter climbs
+SWEEP_MAX_PASSES = 4  # the first pass plus up to three repeats; a repeat that adds no tile ends the sweep early
 REVEAL_TIMEOUT_MS = 5_000  # a scroll/hover on a tile that is gone fails fast, not at the 30 s default
 
 SATURDAY = 5  # date.weekday()
@@ -70,83 +83,6 @@ SHARE_LINK_RE = re.compile(r"https://(?:photos\.app\.goo\.gl/[A-Za-z0-9]+"
 EMAIL_FIELDS = ("title", "link", "week_start", "week_end")
 WEEK_FIELDS = ("title", "week_start", "week_end")  # at least one keeps each week's subject distinct
 
-# Scan the rendered part of a day-grouped grid (library timeline, collection or album). Day
-# headers are dated by the first tile after them (their own text is relative: "Today",
-# "Wednesday"). Elements get data-pwa-* marks so Playwright can click them with real input.
-SCAN_JS = r"""() => {
-  const HEAD = '[role=checkbox][aria-label^="Select all photos from "]';
-  document.querySelectorAll('[data-pwa-head]').forEach(e => e.removeAttribute('data-pwa-head'));
-  const nodes = [...document.querySelectorAll(HEAD + ', a[href*="/photo/"]')];
-  const headers = [], tiles = [];
-  let pending = [];
-  for (const n of nodes) {
-    if (n.tagName !== 'A') { pending.push(n); continue; }
-    const label = n.getAttribute('aria-label') || '';
-    const id = (n.getAttribute('href').split('/photo/')[1] || '').split(/[?#/]/)[0];
-    for (const h of pending) {
-      h.setAttribute('data-pwa-head', id);
-      headers.push({key: id, label, checked: h.getAttribute('aria-checked') === 'true'});
-    }
-    pending = [];
-    let box = null;
-    for (let p = n.parentElement, i = 0; p && i < 5 && !box; p = p.parentElement, i++) {
-      box = p.querySelector('[role=checkbox]:not(' + HEAD + ')');
-    }
-    if (box && box.getAttribute('aria-label') !== label) box = null;
-    if (box) box.setAttribute('data-pwa-tile', id);
-    tiles.push({id, label, checked: box ? box.getAttribute('aria-checked') === 'true' : null, box: !!box});
-  }
-  return {headers, tiles, visible: document.visibilityState === 'visible'};
-}"""
-
-# How far the page has scrolled, summed over every scroller: the library grid scrolls inside a c-wiz,
-# the screenshots collection inside a plain div and the album list may use the window.
-SCROLL_POS_JS = r"""() => [...document.querySelectorAll('*')].reduce((sum, e) => sum + e.scrollTop, window.scrollY)"""
-
-COUNTER_JS = r"""() => {
-  for (const e of document.querySelectorAll('div, span')) {
-    if (e.childElementCount) continue;
-    const m = (e.textContent || '').trim().match(/^(\d+) selected$/);
-    if (m && e.offsetParent !== null) return Number(m[1]);
-  }
-  return 0;
-}"""
-
-SCROLL_TOP_JS = r"""(px) => {
-  const sc = [...document.querySelectorAll('c-wiz')].sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-  if (sc) sc.scrollTop = px;
-}"""
-
-HEAD_NEAR_TOP_JS = r"""(key) => {
-  const el = document.querySelector(`[data-pwa-head="${key}"]`);
-  const sc = [...document.querySelectorAll('c-wiz')].sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-  if (!el || !sc) return false;
-  el.scrollIntoView({block: 'start'});
-  sc.scrollTop = Math.max(0, sc.scrollTop - 150);
-  return true;
-}"""
-
-# A link-shared album's card links to /share/<id>?key=... instead of /album/<id>. Albums others
-# shared with the account are /share/ cards too; a title match there refuses creation (fails safe).
-ALBUM_CARDS_JS = r"""() => [...document.querySelectorAll('a[href*="/album/"], a[href*="/share/"]')].map(a => ({
-  href: a.href, lines: (a.innerText || '').split('\n').map(s => s.trim()).filter(Boolean)}))"""
-
-# The visible dialogs, in DOM order (the Share dialog, then the "Create link to share" confirmation
-# stacked over it). Buttons are marked data-pwa-share="<dialog>:<label>" for a real click. ``texts``
-# is everywhere a link can show: the text, the inputs and the markup (an existing link is only in
-# the markup).
-SHARE_DIALOGS_JS = r"""() => {
-  const shown = e => !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length);
-  document.querySelectorAll('[data-pwa-share]').forEach(e => e.removeAttribute('data-pwa-share'));
-  return [...document.querySelectorAll('[role=dialog]')].filter(shown).map((d, i) => ({
-    heading: (d.innerText || '').trim().split('\n')[0],
-    buttons: [...d.querySelectorAll('button, [role=button]')].filter(shown).map(b => {
-      const label = (b.innerText || '').trim() || b.getAttribute('aria-label') || '';
-      b.setAttribute('data-pwa-share', i + ':' + label);
-      return label;
-    }),
-    texts: [d.innerText || '', ...[...d.querySelectorAll('input')].map(x => x.value), d.innerHTML]}));
-}"""
 CREATE_LINK, COPY_LINK = "Create link", "Copy link"
 CONFIRM_HEADING = "Create link to share"
 SHARED_URL_RE = re.compile(r"/share/[^?]+\?key=")
@@ -497,31 +433,66 @@ class PhotosWeb:
         The collection and the timeline use different tile ids, so tiles are matched by label:
         type, orientation and the second the item was taken. More timeline tiles with a label
         than excluded items carrying it can't be told apart, so that aborts.
+
+        Photos renders tiles late and a single scroll pass can step over one, so the pass repeats
+        from the top until one finds no tile the earlier passes had not seen (at most
+        ``SWEEP_MAX_PASSES``). The caller's count check still decides whether the sweep is whole.
         """
         wanted = Counter(excluded.values())
-        self.page.evaluate(SCROLL_TOP_JS, 0)
-        self.page.wait_for_timeout(1_000)
-        week: dict[str, date] = {}
-        ticked: dict[str, date] = {}
-        dropped: dict[str, str] = {}
-        dropped_day: dict[str, date] = {}
-        unticked: dict[str, date] = {}
+        state = SweepState()
+        for number in range(1, SWEEP_MAX_PASSES + 1):
+            self.page.evaluate(SCROLL_TOP_JS, 0)
+            self.page.wait_for_timeout(1_000)
+            late = self._sweep_pass(start, end, wanted, state)
+            if number == 1:
+                continue
+            if not late:
+                break
+            logger.info("ℹ️ tile sweep pass %d found %d tile(s) the earlier passes missed (kinds: %s)",
+                        number, len(late), ", ".join(f"{kind} {n}" for kind, n in sorted(Counter(map(label_kind, late)).items())))
+        else:
+            logger.warning("⚠️ tile sweep still found new tiles on pass %d; the count check decides", SWEEP_MAX_PASSES)
+        logger.info("ℹ️ tile sweep kinds: %s; dated outside the week: %s",
+                    ", ".join(f"{kind} {n}" for kind, n in sorted(Counter(state.kinds.values()).items())) or "none",
+                    ", ".join(f"{side} {n}" for side, n in sorted(Counter(state.outside.values()).items())) or "none")
+        for what, labels in (("tiles whose label has no date", state.undated.values()),
+                             ("checkboxes with no tile link", state.orphans)):
+            if labels:
+                logger.info("ℹ️ tile sweep saw %d %s (shapes: %s)", len(labels), what,
+                            ", ".join(f"{shape} x{n}" for shape, n in sorted(Counter(map(label_shape, labels)).items())))
+        return Sweep(tiles_per_day=dict(Counter(state.week.values())), ticked_per_day=dict(Counter(state.ticked.values())),
+                     screenshots_per_day=dict(Counter(state.dropped_day.values())),
+                     unticked_per_day=dict(Counter(state.unticked.values())), unticked=len(state.unticked),
+                     seen_screenshots=len(state.dropped),
+                     missing_screenshots=sum((wanted - Counter(state.dropped.values())).values()))
+
+    def _sweep_pass(self, start: date, end: date, wanted: Counter, state: SweepState) -> list[str]:
+        """One scroll pass over the week's tiles from the top; the labels of the tiles it saw first."""
+        new: list[str] = []
         while True:
             scan = self._scan()
+            state.orphans.update(scan.get("orphans", ()))
             for tile in scan["tiles"]:
                 taken = label_date(tile["label"])
+                if not taken:
+                    state.undated[tile["id"]] = tile["label"]
+                if taken and not start <= taken <= end:
+                    state.outside[tile["id"]] = "before" if taken < start else "after"
                 if not taken or not start <= taken <= end:
                     continue
-                week[tile["id"]] = taken
-                if tile["id"] in dropped or tile["id"] in ticked:
+                state.kinds[tile["id"]] = label_kind(tile["label"])
+                if tile["id"] not in state.week:
+                    new.append(tile["label"])
+                state.week[tile["id"]] = taken
+                if tile["id"] in state.dropped or tile["id"] in state.ticked:
                     continue
                 if tile["label"] not in wanted:
                     if tile["checked"] is False:
                         self._click_checked(f'[data-pwa-tile="{tile["id"]}"]', f'a[href*="/photo/{tile["id"]}"]',
                                             True, "tile its day header missed")
-                        ticked[tile["id"]] = taken
+                        state.ticked[tile["id"]] = taken
                     continue
-                if Counter(dropped.values())[tile["label"]] >= wanted[tile["label"]]:
+                if Counter(state.dropped.values())[tile["label"]] >= wanted[tile["label"]]:
                     raise FlowError("more items in the week share a timestamp label than there are "
                                     "screenshots with it; can't tell them apart - remove them by hand")
                 if not tile["box"]:
@@ -529,16 +500,11 @@ class PhotosWeb:
                 if tile["checked"]:
                     self._click_checked(f'[data-pwa-tile="{tile["id"]}"]', f'a[href*="/photo/{tile["id"]}"]',
                                         False, "screenshot tile")
-                    unticked[tile["id"]] = taken
-                dropped[tile["id"]] = tile["label"]
-                dropped_day[tile["id"]] = taken
+                    state.unticked[tile["id"]] = taken
+                state.dropped[tile["id"]] = tile["label"]
+                state.dropped_day[tile["id"]] = taken
             if not self._advance(scan, start, "tile sweep"):
-                break
-        return Sweep(tiles_per_day=dict(Counter(week.values())), ticked_per_day=dict(Counter(ticked.values())),
-                     screenshots_per_day=dict(Counter(dropped_day.values())),
-                     unticked_per_day=dict(Counter(unticked.values())), unticked=len(unticked),
-                     seen_screenshots=len(dropped),
-                     missing_screenshots=sum((wanted - Counter(dropped.values())).values()))
+                return new
 
     def drop_selection(self) -> None:
         """Clear whatever a failed step left selected, logging rather than raising so its own error stands."""
