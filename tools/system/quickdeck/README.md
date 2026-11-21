@@ -13,7 +13,7 @@ QuickDeck is a minimal always-on-top command launcher that behaves like a mini S
 
 ### Running
 ```bash
-..\..\.venv\Scripts\python.exe quickdeck.py [optional path to config]
+..\..\..\.venv\Scripts\python.exe quickdeck.py [optional path to config]
 ```
 
 If no config is provided, it will look for `quickdeck.json` in the current directory.

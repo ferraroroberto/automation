@@ -35,13 +35,13 @@ Run it through the repo `.venv` from this folder:
 **Windows PowerShell:**
 ```powershell
 cd tools\system\apple
-..\..\.venv\Scripts\python.exe convert_to_apple.py
+..\..\..\.venv\Scripts\python.exe convert_to_apple.py
 ```
 
 **Unix/Linux/macOS:**
 ```bash
 cd tools/system/apple
-../../.venv/bin/python convert_to_apple.py
+../../../.venv/bin/python convert_to_apple.py
 ```
 
 ## 📖 How to Use
@@ -94,10 +94,10 @@ Input and output `.vcf` files are not kept in the repo — you point the app at 
 cd tools\system\apple
 
 # Pick the input file with a dialog; outputs land next to it
-..\..\.venv\Scripts\python.exe unify_vcards.py
+..\..\..\.venv\Scripts\python.exe unify_vcards.py
 
 # Or pass paths explicitly: input [output] [report]
-..\..\.venv\Scripts\python.exe unify_vcards.py contacts.vcf contacts_unified.vcf report.md
+..\..\..\.venv\Scripts\python.exe unify_vcards.py contacts.vcf contacts_unified.vcf report.md
 ```
 
 With no arguments it opens a file dialog. Output paths default to `<input>_unified.vcf` and `<input>_unification_report.md` in the input's folder. `Ctrl+C` exits cleanly without writing.

@@ -38,7 +38,7 @@ From the repo root (with `.venv` activated):
 Or from `tools/notion/`:
 
 ```bash
-..\.venv\Scripts\python.exe build_newsletter.py --newsletter 057
+..\..\.venv\Scripts\python.exe build_newsletter.py --newsletter 057
 ```
 
 **Batch file**: `tools/notion/build_newsletter.bat` — prompts for the number, then runs the script.

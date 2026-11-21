@@ -26,7 +26,7 @@ The system intelligently handles:
 
 ```bash
 # Run with default settings (previous week)
-..\.venv\Scripts\python.exe journal_automation.py
+..\..\.venv\Scripts\python.exe journal_automation.py
 
 # Or use the batch file
 journal_automation.bat

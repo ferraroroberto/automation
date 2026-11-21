@@ -46,7 +46,7 @@ The program accepts the following command-line arguments:
 ### Example
 
 ```
-..\.venv\Scripts\python.exe mouse_mover.py --up 100 --right 200 --down 100 --left 200 --speed 0.005 --click
+..\..\.venv\Scripts\python.exe mouse_mover.py --up 100 --right 200 --down 100 --left 200 --speed 0.005 --click
 ```
 
 ## User Interface

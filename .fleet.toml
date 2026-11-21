@@ -67,6 +67,7 @@ repeated_text_words = 12
 [doc_refs_ratchet]
 enabled  = true
 trees    = true
+include  = ["README.md", "CLAUDE.md", "docs/", "tools/"]
 baseline = ".doc-refs-ratchet-baseline.json"
 
 # [dead_code_ratchet] -- the scaffold's baseline-and-ratchet stage over unreferenced

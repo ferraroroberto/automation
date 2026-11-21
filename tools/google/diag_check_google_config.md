@@ -86,8 +86,8 @@ gcloud config list
 
 ### Basic Run
 ```powershell
-cd automation/google
-..\.venv\Scripts\python.exe diag_check_google_config.py
+cd tools/google
+..\..\.venv\Scripts\python.exe diag_check_google_config.py
 ```
 
 ### What to Expect
@@ -161,7 +161,7 @@ gcloud auth login
 Remove-Item token.json
 
 # Re-run authentication flow
-..\.venv\Scripts\python.exe your_auth_script.py
+..\..\.venv\Scripts\python.exe your_auth_script.py
 ```
 
 ### ❌ "API not enabled"
@@ -235,7 +235,7 @@ gcloud components install COMPONENT_NAME
 ## File Structure
 
 ```
-automation/google/
+tools/google/
 ├── diag_check_google_config.py # Main diagnostic script
 ├── diag_check_google_config.md # This documentation
 ├── credentials.json            # OAuth2 credentials (required)

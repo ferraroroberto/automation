@@ -15,8 +15,8 @@ A comprehensive Python script that organizes photos and videos from a source fol
 
 ### Interactive Mode (Default)
 ```powershell
-cd E:\automation\automation\image
-..\.venv\Scripts\python.exe photos_archive.py
+cd tools\image
+..\..\.venv\Scripts\python.exe photos_archive.py
 ```
 
 ### Automated Mode
