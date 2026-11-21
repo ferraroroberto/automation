@@ -75,6 +75,40 @@ class SweepState:
     outside: dict[str, str] = field(default_factory=dict)  # dated tile id -> "before" / "after" the week
     undated: dict[str, str] = field(default_factory=dict)  # tile id -> label the sweep could not date
     orphans: set[str] = field(default_factory=set)  # labels of item checkboxes with no tile link
+    head_day: dict[str, Optional[date]] = field(default_factory=dict)  # tile id -> date of the header it sits under
+    misdated: dict[str, str] = field(default_factory=dict)  # week tile id -> its label is "earlier" / "later" than its header
+    across_edge: set[str] = field(default_factory=set)  # of those, the ones whose label lies outside the week
+
+    def place(self, scan: dict, start: date, end: date) -> list[tuple[dict, Optional[date]]]:
+        """Each tile of ``scan`` with the day it counts under: its day header's, else its label's.
+
+        A day header's select-all takes every tile under it, whatever date the tile's label reads
+        (an item taken near midnight can read the neighbouring day), so a week header's tiles count
+        on that header's day, dated the way ``select_week`` dates the header: by its first tile. A
+        tile under a header outside the week is selected by no week header and is ticked by hand,
+        so it counts on its label's day. A scan that has scrolled past a header leaves its tiles
+        with no ``head``; they keep the header they were first seen under, else take the one of
+        the tile before them in the scan.
+        """
+        heads = {h["key"]: label_date(h["label"]) for h in scan.get("headers", ())}
+        placed: list[tuple[dict, Optional[date]]] = []
+        current: Optional[date] = None
+        for tile in scan["tiles"]:
+            if tile.get("head") is not None:
+                self.head_day[tile["id"]] = heads.get(tile["head"])
+            elif tile["id"] not in self.head_day and current is not None:
+                self.head_day[tile["id"]] = current
+            current = self.head_day.get(tile["id"])
+            taken = label_date(tile["label"])
+            if current is None or not start <= current <= end:
+                placed.append((tile, taken))
+                continue
+            if taken and taken != current:
+                self.misdated[tile["id"]] = "earlier" if taken < current else "later"
+                if not start <= taken <= end:
+                    self.across_edge.add(tile["id"])
+            placed.append((tile, current))
+        return placed
 
 
 @dataclass

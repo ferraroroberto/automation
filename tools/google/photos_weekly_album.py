@@ -460,6 +460,12 @@ class PhotosWeb:
             if labels:
                 logger.info("ℹ️ tile sweep saw %d %s (shapes: %s)", len(labels), what,
                             ", ".join(f"{shape} x{n}" for shape, n in sorted(Counter(map(label_shape, labels)).items())))
+        if state.misdated:
+            logger.info("ℹ️ tile sweep counted %d tile(s) whose label date differs from the day header they sit "
+                        "under (%s; across the week edge %d); each counts on its header's day",
+                        len(state.misdated), ", ".join(f"label {side} {n}" for side, n in
+                                                       sorted(Counter(state.misdated.values()).items())),
+                        len(state.across_edge))
         return Sweep(tiles_per_day=dict(Counter(state.week.values())), ticked_per_day=dict(Counter(state.ticked.values())),
                      screenshots_per_day=dict(Counter(state.dropped_day.values())),
                      unticked_per_day=dict(Counter(state.unticked.values())), unticked=len(state.unticked),
@@ -467,30 +473,33 @@ class PhotosWeb:
                      missing_screenshots=sum((wanted - Counter(state.dropped.values())).values()))
 
     def _sweep_pass(self, start: date, end: date, wanted: Counter, state: SweepState) -> list[str]:
-        """One scroll pass over the week's tiles from the top; the labels of the tiles it saw first."""
+        """One scroll pass over the week's tiles from the top; the labels of the tiles it saw first.
+
+        Each tile counts on the day ``SweepState.place`` gives it, the day of the header it sits
+        under, so it lands on the same day as the header select-all that took it.
+        """
         new: list[str] = []
         while True:
             scan = self._scan()
             state.orphans.update(scan.get("orphans", ()))
-            for tile in scan["tiles"]:
-                taken = label_date(tile["label"])
-                if not taken:
+            for tile, day in state.place(scan, start, end):
+                if not label_date(tile["label"]):
                     state.undated[tile["id"]] = tile["label"]
-                if taken and not start <= taken <= end:
-                    state.outside[tile["id"]] = "before" if taken < start else "after"
-                if not taken or not start <= taken <= end:
+                if day and not start <= day <= end:
+                    state.outside[tile["id"]] = "before" if day < start else "after"
+                if not day or not start <= day <= end:
                     continue
                 state.kinds[tile["id"]] = label_kind(tile["label"])
                 if tile["id"] not in state.week:
                     new.append(tile["label"])
-                state.week[tile["id"]] = taken
+                state.week[tile["id"]] = day
                 if tile["id"] in state.dropped or tile["id"] in state.ticked:
                     continue
                 if tile["label"] not in wanted:
                     if tile["checked"] is False:
                         self._click_checked(f'[data-pwa-tile="{tile["id"]}"]', f'a[href*="/photo/{tile["id"]}"]',
                                             True, "tile its day header missed")
-                        state.ticked[tile["id"]] = taken
+                        state.ticked[tile["id"]] = day
                     continue
                 if Counter(state.dropped.values())[tile["label"]] >= wanted[tile["label"]]:
                     raise FlowError("more items in the week share a timestamp label than there are "
@@ -500,9 +509,9 @@ class PhotosWeb:
                 if tile["checked"]:
                     self._click_checked(f'[data-pwa-tile="{tile["id"]}"]', f'a[href*="/photo/{tile["id"]}"]',
                                         False, "screenshot tile")
-                    state.unticked[tile["id"]] = taken
+                    state.unticked[tile["id"]] = day
                 state.dropped[tile["id"]] = tile["label"]
-                state.dropped_day[tile["id"]] = taken
+                state.dropped_day[tile["id"]] = day
             if not self._advance(scan, start, "tile sweep"):
                 return new
 

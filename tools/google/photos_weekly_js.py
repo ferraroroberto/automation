@@ -5,13 +5,14 @@ Split from ``photos_weekly_album`` so the browser flow stays small; nothing here
 
 # Scan the rendered part of a day-grouped grid (library timeline, collection or album). Day
 # headers are dated by the first tile after them (their own text is relative: "Today",
-# "Wednesday"). Elements get data-pwa-* marks so Playwright can click them with real input.
+# "Wednesday"). Each tile carries ``head``, the key of the header it sits under when that header is
+# rendered in this scan, else null. Elements get data-pwa-* marks so Playwright can click them with real input.
 SCAN_JS = r"""() => {
   const HEAD = '[role=checkbox][aria-label^="Select all photos from "]';
   document.querySelectorAll('[data-pwa-head]').forEach(e => e.removeAttribute('data-pwa-head'));
   const nodes = [...document.querySelectorAll(HEAD + ', a[href*="/photo/"]')];
   const headers = [], tiles = [], matched = new Set();
-  let pending = [];
+  let pending = [], head = null;
   for (const n of nodes) {
     if (n.tagName !== 'A') { pending.push(n); continue; }
     const label = n.getAttribute('aria-label') || '';
@@ -20,6 +21,7 @@ SCAN_JS = r"""() => {
       h.setAttribute('data-pwa-head', id);
       headers.push({key: id, label, checked: h.getAttribute('aria-checked') === 'true'});
     }
+    if (pending.length) head = id;
     pending = [];
     let box = null;
     for (let p = n.parentElement, i = 0; p && i < 5 && !box; p = p.parentElement, i++) {
@@ -27,7 +29,7 @@ SCAN_JS = r"""() => {
     }
     if (box && box.getAttribute('aria-label') !== label) box = null;
     if (box) { box.setAttribute('data-pwa-tile', id); matched.add(box); }
-    tiles.push({id, label, checked: box ? box.getAttribute('aria-checked') === 'true' : null, box: !!box});
+    tiles.push({id, label, head, checked: box ? box.getAttribute('aria-checked') === 'true' : null, box: !!box});
   }
   // Item checkboxes with no tile link beside them: an item the day header counts that tiles never show.
   const orphans = [...document.querySelectorAll('[role=checkbox]:not(' + HEAD + ')')]

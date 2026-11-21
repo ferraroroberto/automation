@@ -36,6 +36,62 @@ class TileSweepTests(unittest.TestCase):
         self.assertEqual(sweep.tiles_per_day, {date(2026, 11, 7): 2})
 
 
+def _tile(tile_id, label, head=None):
+    return {"id": tile_id, "label": label, "checked": True, "box": True, "head": head}
+
+
+class DayHeaderTests(unittest.TestCase):
+    """A tile counts under the day header it sits under, not under its label's date."""
+
+    def _sweep(self, scans):
+        web = pwa.PhotosWeb(Path("unused"))
+        web.page = _GridPage()
+        with mock.patch.object(web, "_scan", side_effect=scans * pwa.SWEEP_MAX_PASSES), \
+                mock.patch.object(web, "_advance", side_effect=([True] * (len(scans) - 1) + [False]) * pwa.SWEEP_MAX_PASSES), \
+                self.assertLogs("photos_weekly_album", "INFO") as logs:
+            sweep = web.drop_excluded(START, END, {})
+        return sweep, "\n".join(logs.output)
+
+    def test_a_tile_dated_the_day_before_the_week_counts_under_the_first_day_header(self):
+        """The first day's header selects an item taken near midnight whose label reads the day before."""
+        scans = [{"headers": [{"key": "a", "label": "Photo - Landscape - Nov 7, 2026, 10:09:12 PM"}],
+                  "tiles": [_tile("a", "Photo - Landscape - Nov 7, 2026, 10:09:12 PM", "a"),
+                            _tile("b", "Photo - Landscape - Nov 6, 2026, 11:58:00 PM", "a")]},
+                 # the next scan has scrolled past the header: "b" carries the header it was seen under
+                 {"headers": [{"key": "c", "label": "Photo - Portrait - Nov 6, 2026, 8:00:00 PM"}],
+                  "tiles": [_tile("b", "Photo - Landscape - Nov 6, 2026, 11:58:00 PM"),
+                            _tile("c", "Photo - Portrait - Nov 6, 2026, 8:00:00 PM", "c")]}]
+        sweep, log = self._sweep(scans)
+        self.assertEqual(sweep.tiles_per_day, {date(2026, 11, 7): 2})
+        self.assertIn("1 tile(s) whose label date differs from the day header they sit under "
+                      "(label earlier 1; across the week edge 1)", log)
+
+    def test_a_tile_carries_the_header_of_the_tile_before_it_in_the_scan(self):
+        scans = [{"headers": [{"key": "a", "label": "Photo - Landscape - Nov 13, 2026, 12:30:00 AM"}],
+                  "tiles": [_tile("a", "Photo - Landscape - Nov 13, 2026, 12:30:00 AM", "a")]},
+                 {"headers": [],
+                  "tiles": [_tile("a", "Photo - Landscape - Nov 13, 2026, 12:30:00 AM"),
+                            _tile("z", "Photo - Landscape - Nov 14, 2026, 12:05:00 AM")]}]
+        sweep, _ = self._sweep(scans)
+        self.assertEqual(sweep.tiles_per_day, {date(2026, 11, 13): 2})
+
+    def test_a_week_tile_under_a_header_outside_the_week_still_counts_by_its_label(self):
+        """No week header selects it, so it is ticked by hand and counted on its label's day, as before."""
+        scans = [{"headers": [{"key": "a", "label": "Photo - Landscape - Nov 14, 2026, 12:30:00 AM"}],
+                  "tiles": [_tile("a", "Photo - Landscape - Nov 14, 2026, 12:30:00 AM", "a"),
+                            _tile("b", "Photo - Landscape - Nov 13, 2026, 11:50:00 PM", "a")]}]
+        sweep, _ = self._sweep(scans)
+        self.assertEqual(sweep.tiles_per_day, {date(2026, 11, 13): 1})
+
+    def test_tiles_whose_label_matches_their_header_log_no_disagreement(self):
+        scans = [{"headers": [{"key": "a", "label": "Photo - Landscape - Nov 8, 2026, 9:00:00 AM"}],
+                  "tiles": [_tile("a", "Photo - Landscape - Nov 8, 2026, 9:00:00 AM", "a"),
+                            _tile("b", "Video - Landscape - Nov 8, 2026, 8:00:00 AM", "a")]}]
+        sweep, log = self._sweep(scans)
+        self.assertEqual(sweep.tiles_per_day, {date(2026, 11, 8): 2})
+        self.assertNotIn("differs from the day header", log)
+
+
 class SweepCapTests(unittest.TestCase):
     def test_a_sweep_that_keeps_finding_tiles_is_capped(self):
         scans = iter(range(1000))
