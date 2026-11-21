@@ -36,6 +36,23 @@ class TileSweepTests(unittest.TestCase):
         self.assertEqual(sweep.tiles_per_day, {date(2026, 11, 7): 2})
 
 
+class SweepCapTests(unittest.TestCase):
+    def test_a_sweep_that_keeps_finding_tiles_is_capped(self):
+        scans = iter(range(1000))
+
+        def scan():
+            n = next(scans)
+            return {"tiles": [{"id": f"x{n}", "label": "Photo - Landscape - Nov 7, 2026, 10:09:12 PM",
+                               "checked": True, "box": True}]}
+
+        web = pwa.PhotosWeb(Path("unused"))
+        web.page = _GridPage()
+        with mock.patch.object(web, "_scan", side_effect=scan), \
+                mock.patch.object(web, "_advance", side_effect=[True, False] * pwa.SWEEP_MAX_PASSES), \
+                self.assertLogs("photos_weekly_album", "WARNING"):
+            web.drop_excluded(START, END, {})
+
+
 class _FailingWeb:
     """A browser session whose collect fails after the day headers selected items."""
 

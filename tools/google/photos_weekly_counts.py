@@ -27,6 +27,17 @@ def label_date(label: str) -> Optional[date]:
     return taken.date() if taken else None
 
 
+def label_kind(label: str) -> str:
+    """``Photo``, ``Video``, ``Burst photo``, or ``other`` for a label the sweep cannot date: a kind, never the item."""
+    match = LABEL_RE.match(" ".join(label.split()))
+    return match.group(1) if match else "other"
+
+
+def label_shape(label: str) -> str:
+    """A label with its digits blanked (``Photo - Landscape - Nov #, #, #:#:# PM``): the form of an item, never which one."""
+    return re.sub(r"\d+", "#", " ".join(label.split()))
+
+
 def days_of(start: date, end: date) -> list[date]:
     return [start + timedelta(days=n) for n in range((end - start).days + 1)]
 
@@ -49,6 +60,21 @@ class Sweep:
     unticked: int = 0
     seen_screenshots: int = 0
     missing_screenshots: int = 0  # excluded items the timeline never showed
+
+
+@dataclass
+class SweepState:
+    """What the tile sweep has seen and done so far, kept across its passes (tile id -> value)."""
+
+    week: dict[str, date] = field(default_factory=dict)  # every dated tile of the week
+    ticked: dict[str, date] = field(default_factory=dict)  # left unticked by the header, ticked by hand
+    dropped: dict[str, str] = field(default_factory=dict)  # excluded tiles, by label
+    dropped_day: dict[str, date] = field(default_factory=dict)
+    unticked: dict[str, date] = field(default_factory=dict)  # excluded tiles a header had selected
+    kinds: dict[str, str] = field(default_factory=dict)  # week tile id -> Photo / Video / Burst photo
+    outside: dict[str, str] = field(default_factory=dict)  # dated tile id -> "before" / "after" the week
+    undated: dict[str, str] = field(default_factory=dict)  # tile id -> label the sweep could not date
+    orphans: set[str] = field(default_factory=set)  # labels of item checkboxes with no tile link
 
 
 @dataclass
