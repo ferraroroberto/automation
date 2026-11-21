@@ -112,10 +112,12 @@ class _LazyTimeline(pwa.PhotosWeb):
         first = {}
         for tid, day in self.tiles:
             first.setdefault(day, tid)
+        shown_heads = {first[day] for tid, day in shown if first[day] == tid}
         return {"visible": True,
                 "headers": [{"key": tid, "label": self._label(day, tid), "checked": False}
                             for tid, day in shown if first[day] == tid],
-                "tiles": [{"id": tid, "label": self._label(day, tid), "checked": tid in self.selected, "box": True}
+                "tiles": [{"id": tid, "label": self._label(day, tid), "checked": tid in self.selected, "box": True,
+                           "head": first[day] if first[day] in shown_heads else None}
                           for tid, day in shown]}
 
     def _open(self, url):
@@ -222,6 +224,40 @@ class SweepConvergenceTests(unittest.TestCase):
             web.collect(self.START, self.END)
         self.assertIn("2026-11-12: selected 40, tiles 39", str(ctx.exception))
         self.assertEqual(web.passes, 2)  # a repeat that finds nothing new ends the sweep
+
+
+class _MisdatedTimeline(_LazyTimeline):
+    """A timeline whose tile ``odd_id`` sits under its own day's header but whose label reads ``label_day``,
+    as an item taken near midnight can."""
+
+    def __init__(self, days, odd_id, label_day):
+        super().__init__(days)
+        self.odd_id, self.label_day = odd_id, label_day
+
+    def _scan(self):
+        scan = super()._scan()
+        for tile in scan["tiles"]:
+            if tile["id"] == self.odd_id:
+                tile["label"] = self._label(self.label_day, self.odd_id)
+        return scan
+
+
+class DayHeaderDateTests(unittest.TestCase):
+    START, END = date(2026, 11, 7), date(2026, 11, 13)
+    DAYS = [(date(2026, 11, 8), 12), (date(2026, 11, 7), 11), (date(2026, 11, 6), 10)]
+
+    def test_a_first_day_tile_whose_label_reads_the_day_before_passes_the_preflight(self):
+        web = _MisdatedTimeline(self.DAYS, "t1107-10", date(2026, 11, 6))
+        with self.assertLogs("photos_weekly_album", "INFO") as logs:
+            sel = web.collect(self.START, self.END)
+        self.assertEqual((sel.tiles_per_day[self.START], sel.per_day[self.START], sel.selected), (11, 11, 23))
+        self.assertTrue(any("1 tile(s) whose label date differs from the day header" in line
+                            and "across the week edge 1" in line for line in logs.output))
+
+    def test_a_mid_week_tile_whose_label_reads_the_next_day_counts_on_its_header_day(self):
+        web = _MisdatedTimeline(self.DAYS, "t1107-1", date(2026, 11, 8))
+        sel = web.collect(self.START, self.END)
+        self.assertEqual(sel.selected_per_day, {date(2026, 11, 8): 12, self.START: 11})
 
 
 class ScreenshotGapTests(unittest.TestCase):
