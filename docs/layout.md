@@ -9,7 +9,7 @@ A multi-tool `pipeline-cli` repo: each folder under `tools/` is a tool domain ho
 | `browser_stealth.py` | Shared Playwright launch kwargs and init script every browser-driving tool imports |
 | `no_window.py` | Shared `NO_WINDOW` subprocess flag for Windows spawns |
 | `requirements.txt` | The one dependency list for every tool |
-| `scripts/` | `verify-before-ship.ps1` (the gate) and the vendored `structure_ratchet.py`, `instruction_ratchet.py`, `doc_refs_ratchet.py`, `dead_code_ratchet.py`, `static_ratchet.py`, `docs_ratchet.py`, `comment_ratchet.py`, `conventions_ratchet.py` and its sibling `conventions_readers.py` |
+| `scripts/` | `verify-before-ship.ps1` (the gate) and the vendored `structure_ratchet.py`, `instruction_ratchet.py`, `doc_refs_ratchet.py`, `dead_code_ratchet.py`, `static_ratchet.py`, `docs_ratchet.py`, `comment_ratchet.py`, `conventions_ratchet.py` and its sibling `conventions_readers.py`, `request_budget_ratchet.py` and its sibling `request_budget_scan.py` |
 | `docs/` | Durable reference: this file, `architecture.mmd`, `parking-outcome-state.md` and `git-author-email.md` (the git author-email policy and history-rewrite recipes) |
 | `tests/` | Every test, under `tests/<domain>/` (see below) |
 | `tools/` | One folder per tool domain, the multi-tool home of the `pipeline-cli` shape (see below) |

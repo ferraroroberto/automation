@@ -24,6 +24,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe scripts\docs_ratchet.py
 & .\.venv\Scripts\python.exe scripts\comment_ratchet.py
 & .\.venv\Scripts\python.exe scripts\conventions_ratchet.py
+& .\.venv\Scripts\python.exe scripts\request_budget_ratchet.py
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/scripts -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system/foldersearcher -p "test_*.py"
 & .\.venv\Scripts\python.exe -m unittest discover -s tests/system -p "test_*.py"
@@ -46,7 +47,7 @@ One canonical entry point runs the whole sequence: `powershell -File scripts\ver
 & .\.venv\Scripts\python.exe -m pytest -q tests/parking
 ```
 
-All twenty-nine must exit 0 / report `OK`. The gate's last stdout line is `GATE-RESULT: PASS` or `GATE-RESULT: FAIL`, also after an early terminating error, so a caller that must pipe it asserts on that line; a run without one is not a pass.
+All thirty must exit 0 / report `OK`. The gate's last stdout line is `GATE-RESULT: PASS` or `GATE-RESULT: FAIL`, also after an early terminating error, so a caller that must pipe it asserts on that line; a run without one is not a pass.
 
 Conditional: after changing `tools/google/gmail_drive_automation.py`, also run its offline diagnostics (they import the module and call its `build_sheet_row()` and `filter_new_emails()`) — `cd tools\google && ..\..\.venv\Scripts\python.exe diag_gmail_drive.py`. Must run from inside `tools/google/`; its sample-config lookup is CWD-relative and resolves wrong from the repo root.
 
@@ -54,7 +55,7 @@ Conditional: after changing `tools/google/gmail_drive_automation.py`, also run i
 
 [`docs/layout.md`](docs/layout.md) lists every top-level folder and subpackage and says where new code and tests go. Tests live under `tests/<domain>/`, mirroring the tool path, never beside the code.
 
-Eight ratchets gate the verification run, in the order listed above. Each `scripts/<name>_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored <name>_ratchet`, never edit) and fails when a measure rises above its entry in `.<name>-ratchet-baseline.json`. Every baseline is empty, so a new hit fails by name: fix it rather than raising the baseline. Shrink one with `--update-baseline`; only `--allow-additions` adds, and it shows in review. Exit 3 (could not measure) is NOT CONFIRMED and fails the gate. Config is the `[<name>_ratchet]` table in `.fleet.toml`.
+Nine ratchets gate the verification run, in the order listed above. Each `scripts/<name>_ratchet.py` is vendored byte-for-byte from project-scaffolding (re-vendor with `/propagate-vendored <name>_ratchet`, never edit) and fails when a measure rises above its entry in `.<name>-ratchet-baseline.json`. Every baseline is empty except the request budget one, which records the loops that existed when it was adopted. A new hit fails by name: fix it rather than raising the baseline. Shrink one with `--update-baseline`; only `--allow-additions` adds, and it shows in review. Exit 3 (could not measure) is NOT CONFIRMED and fails the gate. Config is the `[<name>_ratchet]` table in `.fleet.toml`.
 
 - **Structure:** fails when a file passes 1,000 lines, a function 100 lines or a flat directory 40 modules and is new or above its baseline entry, or when the root folders do not match `shape = "pipeline-cli"` plus the `tools/` root. A file near 1,000 lines is split by stage into a module beside it (`tools/notion/articles_sync/` keeps its change detection and property mapping that way), never recorded. A new tool folder is declared in `extra_roots` and gets a line in `docs/layout.md`.
 - **Instruction:** lints this file and `AGENTS.md` with the weekly prompt audit's deterministic rules; fails when a rule's hit count rises or this file passes its 200-line cap. Reword the line.
@@ -64,6 +65,7 @@ Eight ratchets gate the verification run, in the order listed above. Each `scrip
 - **Docs:** fails when the root `README.md` passes 40 KiB or grows past its entry, or when any Markdown file under the root, `docs/` or a tool domain carries more history markers than recorded: an issue reference such as `#123`, a dated heading or a changelog heading (`[docs_ratchet].include` in `.fleet.toml` widens the vendored default from `README.md`/`docs/` to every `extra_roots` folder, since per-tool READMEs carry the same present-tense rule). State the present-tense why in words, and move detail into `docs/<topic>.md`.
 - **Comment:** counts issue references in the comments of product code (`.py`, `.js`, `.css`, `.ps1`; tests and vendored scripts are left out). A comment states the present-tense why; the history lives in the issue and `git log`.
 - **Conventions:** three `ast` rules, `no-window` (a `subprocess` spawn passes `creationflags=`, which here means `no_window.NO_WINDOW`), `no-drive-path` (no hardcoded drive-letter path in a string) and `subprocess-timeout` (a blocking `subprocess.run`/`call`/`check_*` passes `timeout=`, sized to the call, with the `TimeoutExpired` path reporting its own error; the exempt marker fits only a foreground runner that serves until stopped). A legitimate exception keeps a reasoned `# <rule>-exempt: <why>` marker on the call. The other rules stay off: no `app/` or `src/` folder (`logging-not-print`), no constant-time compare helper (`secret-compare`), no git wrapper (`git-wrapper`).
+- **Request budget:** counts polling and background-loop waste per file and rule: a fixed-rate browser poll, a poll interval under 2 s, an unwatched server loop (a `while` that sleeps under 5 s, sleeps an unfixed interval or spawns a program each pass), a directory scan in a request handler, `asyncio.to_thread` / `run_in_executor(None, ...)` on the default pool, and a web app without the timing middleware. This repo serves no HTTP, so only `unwatched-loop` has hits: the baseline records them and burning them down is separate work. A loop that must run while nobody is viewing is declared in `.fleet.toml` under `[[request_budget.loops]]` with its reason, or carries a reasoned `# request-budget-exempt: <why>` marker. `scan-per-request` is off (no `handler_dirs`: there are no request handlers).
 
 ## Internal architecture
 

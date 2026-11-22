@@ -1,7 +1,7 @@
 # Pre-ship verification gate.
 #
 # Runs the pipeline documented in CLAUDE.md's "Verification" section as one
-# pass/fail: byte-compile, the structure, instruction, doc refs, dead code, static, docs, comment, conventions and runtime write ratchets, then the unittest suites inside the runtime write probe (--snapshot before, --probe after: any untracked or ignored file they leave under a code folder fails).
+# pass/fail: byte-compile, the structure, instruction, doc refs, dead code, static, docs, comment, conventions, request budget and runtime write ratchets, then the unittest suites inside the runtime write probe (--snapshot before, --probe after: any untracked or ignored file they leave under a code folder fails).
 #
 # Usage:
 #   C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -File scripts/verify-before-ship.ps1
@@ -124,6 +124,14 @@ try {
     & $python "scripts/conventions_ratchet.py"
     if ($LASTEXITCODE -eq 3) { Fail "conventions ratchet NOT CONFIRMED (exit 3) -- it could not read or parse the tracked Python." }
     if ($LASTEXITCODE -ne 0) { Fail "conventions ratchet failed (see findings above)." }
+
+    # Opt-in via .fleet.toml [request_budget_ratchet]. Exit 1 is a file whose count for a request-budget
+    # rule (fixed-rate poll, poll floor, unwatched loop, default pool, ...) rose above its baseline; exit 3 is
+    # "not confirmed" (git unusable, unreadable file, unparseable source). Both fail: 3 is never a pass.
+    Write-Host "==> request budget ratchet..." -ForegroundColor Cyan
+    & $python "scripts/request_budget_ratchet.py"
+    if ($LASTEXITCODE -eq 3) { Fail "request budget ratchet NOT CONFIRMED (exit 3) -- it could not read the source files or the tree." }
+    if ($LASTEXITCODE -ne 0) { Fail "request budget ratchet failed (see findings above)." }
 
     # Opt-in via .fleet.toml [runtime_write_ratchet]. Exit 1 is a file whose count of write targets
     # resolving under a code folder rose above its baseline; exit 3 is "not confirmed" (a new target
