@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "entries": [
+    {"key": "tools/linkedin/profiles_data_extractor/devtools/linkedin_profile_search_checker_devtools.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/linkedin/profiles_data_extractor/devtools/linkedin_profiles_data_orchestrator_devtools.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/notion/articles_sync/notion_articles_sync.py", "counts": {"unwatched-loop": 2}},
+    {"key": "tools/parking/burst.py", "counts": {"unwatched-loop": 2}},
+    {"key": "tools/parking/burst_worker.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/parking/login.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/system/_lib/notifier.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/system/copilot_remap/copilot_remap.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/system/hwinfo_restart.py", "counts": {"unwatched-loop": 3}},
+    {"key": "tools/system/keycaster.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/system/mouse_mover.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/system/textexpander/main.py", "counts": {"unwatched-loop": 1}},
+    {"key": "tools/video/screen_recorder.py", "counts": {"unwatched-loop": 1}}
+  ]
+}

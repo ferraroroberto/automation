@@ -30,6 +30,8 @@ runtime_write_ratchet = { src = "scripts/runtime_write_ratchet.py", sha = "4a06c
 runtime_write_resolve = { src = "scripts/runtime_write_resolve.py", sha = "ce64203b017ba636c82737ee7f768c9ef6f422cd", dest = "scripts/runtime_write_resolve.py" }
 instruction_frontmatter = { src = "scripts/instruction_frontmatter.py", sha = "e55de9619b9625c5499e1b9077350f9860e6037b", dest = "scripts/instruction_frontmatter.py" }
 instruction_repeats = { src = "scripts/instruction_repeats.py", sha = "e55de9619b9625c5499e1b9077350f9860e6037b", dest = "scripts/instruction_repeats.py" }
+request_budget_ratchet = { src = "scripts/request_budget_ratchet.py", sha = "564864cb95a8b416c16d1a1e1e9f31b9d5b2ec8e", dest = "scripts/request_budget_ratchet.py" }
+request_budget_scan = { src = "scripts/request_budget_scan.py", sha = "564864cb95a8b416c16d1a1e1e9f31b9d5b2ec8e", dest = "scripts/request_budget_scan.py" }
 pooled_http = { src = "src/pooled_http.py", sha = "ae8a450dcb10a62c4e18b4f10fccddeabe6d8404", dest = "tools/system/_lib/pooled_http.py" }
 
 # [structure_ratchet] -- the scaffold's baseline-and-ratchet layout stage. The gate
@@ -142,6 +144,20 @@ rules    = ["no-window", "no-drive-path", "subprocess-timeout", "browser-per-ite
 call   = ["requests.get", "requests.post", "requests.put", "requests.patch", "requests.delete", "requests.head", "requests.request"]
 helper = ["tools/system/_lib/pooled_http.py"]
 why    = "outbound HTTP goes through the pooled session in tools/system/_lib/pooled_http.py"
+
+# [request_budget_ratchet] -- the scaffold's baseline-and-ratchet stage over polling and background-loop
+# waste: fixed-rate browser polls, sub-2-second poll intervals, unwatched server loops, per-request
+# directory scans, default-pool use and a web app without the timing middleware. The gate runs
+# scripts/request_budget_ratchet.py, which fails when a file's count for a rule rises above
+# .request-budget-ratchet-baseline.json. This repo serves no HTTP and ships no browser code;
+# `server_paths` covers the Python tools and scripts, where an unwatched loop would show up.
+# `handler_dirs` is left out, so the per-request scan rule is off (no request handlers exist). Exit 3 (git
+# unusable, an unreadable file, source that does not parse) fails the gate as NOT CONFIRMED. Procedure:
+# project-scaffolding docs/request-budget-ratchet.md.
+[request_budget_ratchet]
+enabled      = true
+baseline     = ".request-budget-ratchet-baseline.json"
+server_paths = ["tools/**", "scripts/**"]
 
 # [runtime_write_ratchet] -- scripts/runtime_write_ratchet.py fails when a tracked
 # Python file gains a write target (open for writing, Path.write_*, mkdir, a log
