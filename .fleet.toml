@@ -159,6 +159,111 @@ enabled      = true
 baseline     = ".request-budget-ratchet-baseline.json"
 server_paths = ["tools/**", "scripts/**"]
 
+# Every unwatched loop in the desktop tools, declared with its cadence and reason. None serves a
+# page: each is a tool's own wait (tray, hook pump, timed booking, bounded retry), so a
+# viewer-gated poll does not apply to it.
+[[request_budget.loops]]
+path       = "tools/linkedin/profiles_data_extractor/devtools/linkedin_profile_search_checker_devtools.py"
+function   = "LinkedInProfileSearchCheckerDevTools.check_search_tabs_devtools"
+interval_s = 0.5
+why        = "walks the open search tabs of a browser session the user drives, so each page needs a short pause to settle; bounded by max_tabs"
+
+[[request_budget.loops]]
+path       = "tools/linkedin/profiles_data_extractor/devtools/linkedin_profiles_data_orchestrator_devtools.py"
+function   = "LinkedInProfilesDataOrchestratorDevTools.wait_for_file_access"
+interval_s = 1
+why        = "retries a local file lock (a spreadsheet open in Excel) a bounded number of times; no network is involved"
+
+[[request_budget.loops]]
+path       = "tools/notion/articles_sync/notion_articles_sync.py"
+function   = "RateLimiter.acquire"
+interval_s = 0.01
+why        = "token bucket that paces Notion calls to the API rate limit; it sleeps at most 10 ms and returns when a token frees or the timeout passes"
+
+[[request_budget.loops]]
+path       = "tools/notion/articles_sync/notion_articles_sync.py"
+function   = "NotionArticlesSync.run_continuous"
+interval_s = 300
+why        = "the sync's continuous mode exists to poll Notion on the configured polling_interval_seconds (default 300 s) until the user stops it"
+
+[[request_budget.loops]]
+path       = "tools/parking/burst.py"
+function   = "sleep_until_precise"
+interval_s = 0.02
+why        = "busy-polls the last fraction of a second before the booking window opens, so the request lands on the second; it ends at the target time"
+
+[[request_budget.loops]]
+path       = "tools/parking/burst.py"
+function   = "follow_workers"
+interval_s = 0.25
+why        = "reads the local result files of the burst workers until each reports done or the deadline passes; no network is involved"
+
+[[request_budget.loops]]
+path       = "tools/parking/burst_worker.py"
+function   = "work_day"
+interval_s = 1.5
+why        = "the booking burst scans again at the configured poll_interval_seconds (default 1.5 s) until it books or the deadline passes"
+
+[[request_budget.loops]]
+path       = "tools/parking/login.py"
+function   = "grab_token"
+interval_s = 2
+why        = "waits for the user to finish signing in inside the browser window and reads the session token each pass; bounded by wait_seconds"
+
+[[request_budget.loops]]
+path       = "tools/system/_lib/notifier.py"
+function   = "FleetNotifier._ping_worker"
+interval_s = 3.2
+why        = "daemon thread that spaces outgoing pings by PING_MIN_INTERVAL_SECONDS so the messaging service's rate limit is respected; it blocks on its queue between pings"
+
+[[request_budget.loops]]
+path       = "tools/system/copilot_remap/copilot_remap.py"
+function   = "detect"
+interval_s = 0.005
+why        = "pumps the low-level keyboard hook's messages during the 60 s detection run; the hook only fires while its thread is pumped"
+
+[[request_budget.loops]]
+path       = "tools/system/hwinfo_restart.py"
+function   = "stop_running"
+interval_s = 0.5
+why        = "waits up to 5 s for the HWiNFO process to exit after a graceful stop, before killing it"
+
+[[request_budget.loops]]
+path       = "tools/system/hwinfo_restart.py"
+function   = "stop_plugin"
+interval_s = 0.5
+why        = "waits up to 5 s for the Stream Deck plugin process to exit after a graceful stop, before killing it"
+
+[[request_budget.loops]]
+path       = "tools/system/hwinfo_restart.py"
+function   = "wait_plugin_relaunch"
+interval_s = 1
+why        = "Stream Deck relaunches the plugin on its own (about 15 s); the loop checks once a second and gives up after the timeout"
+
+[[request_budget.loops]]
+path       = "tools/system/keycaster.py"
+function   = "main"
+interval_s = 0.2
+why        = "the tray tool's own event loop: it reads the window and the key hook while the overlay runs, and ends when the user exits"
+
+[[request_budget.loops]]
+path       = "tools/system/mouse_mover.py"
+function   = "MouseMover.run"
+interval_s = 0.1
+why        = "the tool's purpose is to keep moving the mouse and holding the machine awake on a fixed cadence until the user stops it"
+
+[[request_budget.loops]]
+path       = "tools/system/textexpander/main.py"
+function   = "TextExpanderApp.start"
+interval_s = 1
+why        = "keeps the main thread alive for the tray icon and the keyboard hook; it blocks on the shutdown event and wakes at once when it is set"
+
+[[request_budget.loops]]
+path       = "tools/video/screen_recorder.py"
+function   = "ScreenRecorderGUI._record"
+interval_s = 0.1
+why        = "grabs one frame per 1/fps seconds while the recording runs; the pace is the frame rate, and the loop ends when the user stops recording"
+
 # [runtime_write_ratchet] -- scripts/runtime_write_ratchet.py fails when a tracked
 # Python file gains a write target (open for writing, Path.write_*, mkdir, a log
 # FileHandler, sqlite3.connect, a copy destination) whose path resolves under a code
