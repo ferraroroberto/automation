@@ -13,24 +13,24 @@ depends_on  = ["fleet-config"]
 # [vendored] -- components copied byte-for-byte from project-scaffolding, with the
 # scaffold commit each came from. Re-vendor through /propagate-vendored, never by hand.
 [vendored]
-structure_ratchet = { src = "scripts/structure_ratchet.py", sha = "4a06ca84fc9c5005d4be7fa505c9d0e7c0472dba", dest = "scripts/structure_ratchet.py" }
+structure_ratchet = { src = "scripts/structure_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/structure_ratchet.py" }
 structure_layout = { src = "scripts/structure_layout.py", sha = "a04abc7b3af872cbac974401dd0945587eac6cef", dest = "scripts/structure_layout.py" }
 structure_band = { src = "scripts/structure_band.py", sha = "3b708fd3c54ab7b93b08d489406c405762c83c41", dest = "scripts/structure_band.py" }
 box_lock_gate = { src = "scripts/box_lock_gate.ps1", sha = "de5b351ecbc58f0908bc1cbdcdf76fd41f36005d", dest = "scripts/box_lock_gate.ps1" }
-instruction_ratchet = { src = "scripts/instruction_ratchet.py", sha = "a04abc7b3af872cbac974401dd0945587eac6cef", dest = "scripts/instruction_ratchet.py" }
-doc_refs_ratchet = { src = "scripts/doc_refs_ratchet.py", sha = "a68f6e49393f0ef0b94ab3c79f4338a50d89fa49", dest = "scripts/doc_refs_ratchet.py" }
-dead_code_ratchet = { src = "scripts/dead_code_ratchet.py", sha = "4d0b0ff30e23eb95c73c4b0b1517ec6a43d3a836", dest = "scripts/dead_code_ratchet.py" }
-static_ratchet = { src = "scripts/static_ratchet.py", sha = "fe8cc1bdbd038ed65947186248df13072eceb25a", dest = "scripts/static_ratchet.py" }
-docs_ratchet = { src = "scripts/docs_ratchet.py", sha = "9e6be351ac1e711c9c82fb8987e2405b0a1c28fe", dest = "scripts/docs_ratchet.py" }
-comment_ratchet = { src = "scripts/comment_ratchet.py", sha = "1ed07ddb5002d4513adf0ce45f1bfaf68f3acc32", dest = "scripts/comment_ratchet.py" }
-conventions_ratchet = { src = "scripts/conventions_ratchet.py", sha = "9f5d6b727d457616ce80e18db9f5a048ab53c3be", dest = "scripts/conventions_ratchet.py" }
+instruction_ratchet = { src = "scripts/instruction_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/instruction_ratchet.py" }
+doc_refs_ratchet = { src = "scripts/doc_refs_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/doc_refs_ratchet.py" }
+dead_code_ratchet = { src = "scripts/dead_code_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/dead_code_ratchet.py" }
+static_ratchet = { src = "scripts/static_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/static_ratchet.py" }
+docs_ratchet = { src = "scripts/docs_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/docs_ratchet.py" }
+comment_ratchet = { src = "scripts/comment_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/comment_ratchet.py" }
+conventions_ratchet = { src = "scripts/conventions_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/conventions_ratchet.py" }
 conventions_readers = { src = "scripts/conventions_readers.py", sha = "9f5d6b727d457616ce80e18db9f5a048ab53c3be", dest = "scripts/conventions_readers.py" }
 conventions_state = { src = "scripts/conventions_state.py", sha = "4d0b0ff30e23eb95c73c4b0b1517ec6a43d3a836", dest = "scripts/conventions_state.py" }
-runtime_write_ratchet = { src = "scripts/runtime_write_ratchet.py", sha = "4a06ca84fc9c5005d4be7fa505c9d0e7c0472dba", dest = "scripts/runtime_write_ratchet.py" }
+runtime_write_ratchet = { src = "scripts/runtime_write_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/runtime_write_ratchet.py" }
 runtime_write_resolve = { src = "scripts/runtime_write_resolve.py", sha = "ce64203b017ba636c82737ee7f768c9ef6f422cd", dest = "scripts/runtime_write_resolve.py" }
 instruction_frontmatter = { src = "scripts/instruction_frontmatter.py", sha = "e55de9619b9625c5499e1b9077350f9860e6037b", dest = "scripts/instruction_frontmatter.py" }
 instruction_repeats = { src = "scripts/instruction_repeats.py", sha = "e55de9619b9625c5499e1b9077350f9860e6037b", dest = "scripts/instruction_repeats.py" }
-request_budget_ratchet = { src = "scripts/request_budget_ratchet.py", sha = "564864cb95a8b416c16d1a1e1e9f31b9d5b2ec8e", dest = "scripts/request_budget_ratchet.py" }
+request_budget_ratchet = { src = "scripts/request_budget_ratchet.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/request_budget_ratchet.py" }
 request_budget_scan = { src = "scripts/request_budget_scan.py", sha = "5ba99b0a04b1b5d7b3689f8f7a59bd3fe625a9bc", dest = "scripts/request_budget_scan.py" }
 pooled_http = { src = "src/pooled_http.py", sha = "ae8a450dcb10a62c4e18b4f10fccddeabe6d8404", dest = "tools/system/_lib/pooled_http.py" }
 
@@ -42,9 +42,11 @@ pooled_http = { src = "src/pooled_http.py", sha = "ae8a450dcb10a62c4e18b4f10fccd
 # plus `tools/` (the multi-tool home). Existing offenders are baselined at today's size, never
 # excluded. Exit 3 (git unusable, an unparseable file, an unknown shape) fails the
 # gate. Procedure: project-scaffolding docs/structure-ratchet.md.
+ratchet_baseline = { src = "scripts/ratchet_baseline.py", sha = "48db2132dab2dfc38b6154948ca17fd1f4b9232f", dest = "scripts/ratchet_baseline.py" }
+
 [structure_ratchet]
 enabled  = true
-baseline = ".structure-ratchet-baseline.json"
+baseline = ".ratchets/structure.json"
 
 # [instruction_ratchet] -- the scaffold's baseline-and-ratchet stage over the
 # instruction files (CLAUDE.md, AGENTS.md; this repo keeps no skills or rules files).
@@ -54,7 +56,7 @@ baseline = ".structure-ratchet-baseline.json"
 # fails the gate as NOT CONFIRMED. Procedure: project-scaffolding docs/instruction-ratchet.md.
 [instruction_ratchet]
 enabled  = true
-baseline = ".instruction-ratchet-baseline.json"
+baseline = ".ratchets/instruction.json"
 ci_expectations = true
 agents_pointer = true
 repeated_text_words = 12
@@ -70,7 +72,7 @@ repeated_text_words = 12
 enabled  = true
 trees    = true
 include  = ["README.md", "CLAUDE.md", "docs/", "tools/"]
-baseline = ".doc-refs-ratchet-baseline.json"
+baseline = ".ratchets/doc-refs.json"
 
 # [dead_code_ratchet] -- the scaffold's baseline-and-ratchet stage over unreferenced
 # Python definitions. The gate runs scripts/dead_code_ratchet.py, which fails when a new
@@ -80,7 +82,7 @@ baseline = ".doc-refs-ratchet-baseline.json"
 # docs/dead-code-ratchet.md.
 [dead_code_ratchet]
 enabled  = true
-baseline = ".dead-code-ratchet-baseline.json"
+baseline = ".ratchets/dead-code.json"
 
 # [static_ratchet] -- the scaffold's baseline-and-ratchet stage over duplicated blocks
 # (jscpd, via npx), unused imports and variables, and a curated set of ruff bug and
@@ -91,7 +93,7 @@ baseline = ".dead-code-ratchet-baseline.json"
 # project-scaffolding docs/static-ratchet.md.
 [static_ratchet]
 enabled  = true
-baseline = ".static-ratchet-baseline.json"
+baseline = ".ratchets/static.json"
 
 # [docs_ratchet] -- the scaffold's baseline-and-ratchet stage over Markdown docs:
 # the root README's size in bytes and the history markers (issue references, dated and
@@ -104,7 +106,7 @@ baseline = ".static-ratchet-baseline.json"
 # project-scaffolding docs/docs-ratchet.md.
 [docs_ratchet]
 enabled  = true
-baseline = ".docs-ratchet-baseline.json"
+baseline = ".ratchets/docs.json"
 include  = ["README.md", "docs/", "tools/"]
 
 # [comment_ratchet] -- the scaffold's baseline-and-ratchet stage over issue references
@@ -116,7 +118,7 @@ include  = ["README.md", "docs/", "tools/"]
 # docs/comment-ratchet.md.
 [comment_ratchet]
 enabled  = true
-baseline = ".comment-ratchet-baseline.json"
+baseline = ".ratchets/comment.json"
 docstrings = true
 history_phrases = true
 
@@ -133,7 +135,7 @@ history_phrases = true
 # project-scaffolding docs/conventions-ratchet.md.
 [conventions_ratchet]
 enabled  = true
-baseline = ".conventions-ratchet-baseline.json"
+baseline = ".ratchets/conventions.json"
 rules    = ["no-window", "no-drive-path", "subprocess-timeout", "browser-per-iteration", "state-literal", "state-set-repeat", "state-write", "path-sep"]
 
 # A bare requests.<verb> opens a fresh connection per call; every outbound call goes through
@@ -156,7 +158,7 @@ why    = "outbound HTTP goes through the pooled session in tools/system/_lib/poo
 # project-scaffolding docs/request-budget-ratchet.md.
 [request_budget_ratchet]
 enabled      = true
-baseline     = ".request-budget-ratchet-baseline.json"
+baseline     = ".ratchets/request-budget.json"
 server_paths = ["tools/**", "scripts/**"]
 
 # Every unwatched loop in the desktop tools, declared with its cadence and reason. None serves a
@@ -273,7 +275,7 @@ why        = "grabs one frame per 1/fps seconds while the recording runs; the pa
 # run left under a code folder. Mechanism: project-scaffolding docs/runtime-write-ratchet.md.
 [runtime_write_ratchet]
 enabled  = true
-baseline = ".runtime-write-ratchet-baseline.json"
+baseline = ".ratchets/runtime-write.json"
 # tools/ holds this repo's code, alongside scripts/.
 code_folders = ["scripts", "tools"]
 
