@@ -27,6 +27,7 @@ def rename_files_in_directory(directory: str) -> None:
                 old_name = os.path.join(root, file)
 
                 # Strip any trailing whitespace from the filename part before the extension
+                # path-sep-exempt: file name from this same directory listing, never a backslash path
                 new_name = os.path.join(root, match.group(1).rstrip() + match.group(3))
 
                 # Check if the new file name already exists
